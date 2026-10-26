@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -200,12 +202,16 @@ fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Mod
             return@Column
         }
         val max = bars.maxOf { it.second }.coerceAtLeast(1)
+        var shown by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { shown = true }
         Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
-            for ((label, count) in bars) {
+            bars.forEachIndexed { index, (label, count) ->
+                val target = if (shown) (count.toFloat() / max).coerceAtLeast(0.02f) else 0.02f
+                val grow by animateFloatAsState(target, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "bar")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                     Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelSmall)
                     Box(
-                        Modifier.fillMaxWidth().fillMaxHeight(fraction = (count.toFloat() / max).coerceAtLeast(0.02f) * 0.8f)
+                        Modifier.fillMaxWidth().fillMaxHeight(fraction = grow * 0.8f)
                             .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                             .background(if (count > 0) color else MaterialTheme.colorScheme.outlineVariant),
                     )

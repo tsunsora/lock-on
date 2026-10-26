@@ -30,7 +30,12 @@ import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.rules.SampleHand
 import app.lockon.ui.components.CardDetailDialog
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import app.lockon.ui.components.CardFace
+import app.lockon.ui.components.Motion
+import app.lockon.ui.components.dealIn
+import app.lockon.ui.components.motion
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.HudHeader
 import app.lockon.ui.theme.TabularNumbers
@@ -48,6 +53,8 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     val mainKey = deck.entries.filter { it.section == DeckSection.MAIN }
     var game by remember(mainKey) { mutableStateOf(SampleHand.deal(deck)) }
     var revealShields by remember(mainKey) { mutableStateOf(false) }
+    // A new deal (new game or redraw) re-deals every card; a draw only animates the new one.
+    var dealId by remember(mainKey) { mutableStateOf(0) }
     var detail by remember { mutableStateOf<Card?>(null) }
 
     val handCards = game.hand.map { cards[it] }
@@ -71,7 +78,10 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
             color = if (earlyUnits == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            handCards.forEach { card -> CardFace(card, Modifier.width(132.dp).clickable(enabled = card != null) { detail = card }) }
+            handCards.forEachIndexed { i, card ->
+                val stagger = if (i < SampleHand.HAND_SIZE) i else 0
+                CardFace(card, Modifier.width(132.dp).dealIn("$dealId-$i", stagger).clickable(enabled = card != null) { detail = card })
+            }
         }
         if (game.shieldsPlaced) {
             HudHeader("Shields", readout = "${game.shields.size}") {
@@ -82,9 +92,8 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
                 Text("Burst cards in shields: $bursts", style = MaterialTheme.typography.bodySmall.merge(TabularNumbers))
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                game.shields.forEach { number ->
-                    val card = cards[number]
-                    CardFace(card, Modifier.width(100.dp), faceDown = !revealShields)
+                game.shields.forEachIndexed { i, number ->
+                    FlippingShield(cards[number], revealed = revealShields, index = i, modifier = Modifier.width(100.dp).dealIn("$dealId-shield-$i", i))
                 }
             }
         }
@@ -94,12 +103,31 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!game.shieldsPlaced) {
             Button(onClick = { game = game.keep() }) { Text("Keep") }
-            OutlinedButton(onClick = { game = game.redraw() }, enabled = game.canRedraw) { Text("Redraw") }
+            OutlinedButton(onClick = { game = game.redraw(); dealId++ }, enabled = game.canRedraw) { Text("Redraw") }
         } else {
             Button(onClick = { game = game.draw() }, enabled = game.canDraw) { Text("Draw") }
         }
-        TextButton(onClick = { game = SampleHand.deal(deck); revealShields = false }) { Text("New game") }
+        TextButton(onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }) { Text("New game") }
     }
     }
     detail?.let { CardDetailDialog(it, emptyList(), onDismiss = { detail = null }) }
+}
+
+/** A shield that turns over when revealed, one after another (UX rule V5: motion shows what changed). */
+@Composable
+private fun FlippingShield(card: Card?, revealed: Boolean, index: Int, modifier: Modifier = Modifier) {
+    val angle by animateFloatAsState(
+        targetValue = if (revealed) 180f else 0f,
+        animationSpec = motion(Motion.LONG, delayMillis = index * Motion.STAGGER),
+        label = "shield-flip",
+    )
+    val showingFace = angle > 90f
+    CardFace(
+        card,
+        modifier.graphicsLayer {
+            rotationY = angle
+            cameraDistance = 12f * density
+        }.graphicsLayer { if (showingFace) rotationY = 180f },
+        faceDown = !showingFace,
+    )
 }

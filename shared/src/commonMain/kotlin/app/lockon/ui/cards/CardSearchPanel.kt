@@ -178,7 +178,7 @@ fun CardSearchPanel(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(results, key = { it.cardNumber }) { card ->
-                    CardFace(card, Modifier.clickable { onCardClick(card) }) {
+                    CardFace(card, Modifier.animateItem().clickable { onCardClick(card) }) {
                         Spacer(Modifier.padding(top = 2.dp))
                         trailing(card)
                     }
@@ -186,7 +186,7 @@ fun CardSearchPanel(
             }
             else -> LazyColumn(Modifier.fillMaxWidth()) {
                 items(results, key = { it.cardNumber }) { card ->
-                    CardRow(card, onClick = { onCardClick(card) }, trailing = { trailing(card) })
+                    CardRow(card, Modifier.animateItem(), onClick = { onCardClick(card) }, trailing = { trailing(card) })
                 }
             }
         }

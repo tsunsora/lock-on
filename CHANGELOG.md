@@ -25,6 +25,12 @@ First release for Android and Windows.
 - Edits made on two devices before they sync are kept side by side for you to choose from. Deletions never come back.
 
 **Look and feel**
+- Motion throughout:
+  - slide and fade-through screen transitions, gliding lists and rolling counts
+  - deck gauges, and the **Lock On** moment with a haptic when a deck becomes legal
+  - dealt test hands, flipping shields, growing charts, and a reticle spinner while syncing
+  - all of it respects the system's "Remove animations" setting
+- Rajdhani display type for headings and numbers, and a branded launch screen.
 - Material 3, with a mobile-suit color scheme in dark and light themes, the Lock On V-fin mark, and armor-plate panels.
 - Phones navigate from a bottom bar; the desktop has a top bar with multi-pane editing.
 

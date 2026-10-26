@@ -100,8 +100,8 @@ class ScreenshotTest {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
         ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, imageCacheDir = File("build/artwork-cache").absolutePath, dark = dark) }.use { scene ->
             var image = scene.render()
-            // Let Room flows and effects settle between frames.
-            repeat(15) { Thread.sleep(60); image = scene.render() }
+            // Let Room flows settle, and advance the frame clock so animations reach their end state.
+            repeat(15) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
     }
@@ -131,7 +131,7 @@ class ScreenshotTest {
             }
         }.use { scene ->
             var image = scene.render()
-            repeat(10) { Thread.sleep(60); image = scene.render() }
+            repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "phone-catalog.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
         assertTrue(File(out, "phone-cards.png").length() > 0)
@@ -187,7 +187,7 @@ class ScreenshotTest {
             }
         }.use { scene ->
             var image = scene.render()
-            repeat(20) { Thread.sleep(80); image = scene.render() }
+            repeat(20) { frame -> Thread.sleep(80); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "phone-card-detail-artwork.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
         container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())

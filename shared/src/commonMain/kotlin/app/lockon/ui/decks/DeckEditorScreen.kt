@@ -61,7 +61,13 @@ import app.lockon.ui.cards.CardSearchPanel
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import app.lockon.ui.components.Badge
+import app.lockon.ui.components.DeckGauge
+import app.lockon.ui.components.LockIndicator
+import app.lockon.ui.components.RollingNumber
 import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.HudHeader
@@ -113,6 +119,12 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
     if (deck == null) return
     val legality = remember(deck, cards, ruleset) { DeckValidator.validate(deck, cards, ruleset) }
+    val haptics = LocalHapticFeedback.current
+    var wasLegal by remember(deckId) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(legality.isLegal) {
+        if (wasLegal == false && legality.isLegal) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+        wasLegal = legality.isLegal
+    }
 
     var detail by remember { mutableStateOf<GameCard?>(null) }
     var renaming by remember { mutableStateOf(false) }
@@ -143,13 +155,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     ColorPips(deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet())
                     if (legality.isLegal) Badge("Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
                     else Badge("Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
-                    Text(
-                        "Main ${deck.count(DeckSection.MAIN)}/${ruleset.mainDeckSize} · Resource ${deck.count(DeckSection.RESOURCE)}/${ruleset.resourceDeckSize}",
-                        style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = c.onSurfaceVariant,
-                        maxLines = 1, modifier = Modifier.align(Alignment.CenterVertically),
-                    )
+                    DeckGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize)
+                    DeckGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize)
                 }
             }
+            LockIndicator(locked = legality.isLegal)
             TextButton(onClick = { exporting = true }) { Text("Export") }
         }
         if (summary?.hasConflict == true) {
@@ -335,7 +345,7 @@ private fun DeckList(
             items(entries, key = { "${it.section}-${it.cardNumber}" }) { entry ->
                 val card = cards[entry.cardNumber]
                 Row(
-                    Modifier.fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
+                    Modifier.animateItem().fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -372,7 +382,7 @@ private fun DeckList(
         items(considering, key = { "considering-${it.cardNumber}" }) { entry ->
             val card = cards[entry.cardNumber]
             Row(
-                Modifier.fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
+                Modifier.animateItem().fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -419,17 +429,20 @@ private fun FitTags(card: GameCard, quantity: Int, considering: Int, deckColors:
 
 @Composable
 fun QuantityStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
+    val haptics = LocalHapticFeedback.current
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onMinus, enabled = quantity > 0) {
+        IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }, enabled = quantity > 0) {
             Text("−", style = MaterialTheme.typography.titleLarge)
         }
-        Text(
-            "$quantity",
-            style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
-            fontWeight = if (quantity > 0) FontWeight.Bold else FontWeight.Normal,
-            color = if (quantity > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.widthIn(min = 20.dp),
-        )
-        IconButton(onClick = onPlus) { Icon(Icons.Default.Add, contentDescription = "Add one") }
+        Box(Modifier.widthIn(min = 20.dp), contentAlignment = Alignment.Center) {
+            RollingNumber(
+                quantity,
+                style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
+                color = if (quantity > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }) {
+            Icon(Icons.Default.Add, contentDescription = "Add one")
+        }
     }
 }

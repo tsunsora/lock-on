@@ -22,7 +22,10 @@ import androidx.compose.ui.graphics.Color
 import app.lockon.AppContainer
 import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
+import android.provider.Settings
 import app.lockon.ui.LockOnApp
+import app.lockon.ui.components.LaunchScreen
+import app.lockon.ui.theme.LockOnTheme
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.CompletableDeferred
@@ -74,10 +77,14 @@ class MainActivity : ComponentActivity() {
             val c = container
             val s = sync
             if (c == null || s == null) {
-                Box(Modifier.fillMaxSize().background(Color(0xFF0B1220)))
+                LockOnTheme(dark = true) { LaunchScreen(Modifier.fillMaxSize()) }
             } else {
                 BackHandler(enabled = state.canGoBack) { state.goBack() }
-                LockOnApp(c, state, s, files, imageCacheDir = cacheDir.resolve("artwork").absolutePath)
+                LockOnApp(
+                    c, state, s, files,
+                    imageCacheDir = cacheDir.resolve("artwork").absolutePath,
+                    reduceMotion = remember { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f },
+                )
             }
         }
     }

@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.height
 import app.lockon.model.CardColor
 import app.lockon.model.Ruleset
 import app.lockon.ui.components.ColorPips
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import app.lockon.ui.components.panelLines
+import app.lockon.ui.components.pressScale
 import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.cardColor
 import androidx.compose.foundation.horizontalScroll
@@ -142,6 +145,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         }
                         val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
                         DeckRow(
+                            Modifier.animateItem(),
                             deck, legal, colors, ruleset,
                             onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                             onRename = { dialog = LibraryDialog.Rename(deck) },
@@ -203,6 +207,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
 
 @Composable
 private fun DeckRow(
+    modifier: Modifier,
     deck: DeckSummary,
     legal: Boolean,
     colors: Set<CardColor>,
@@ -215,9 +220,12 @@ private fun DeckRow(
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
+    val press = remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).panelLines(scheme.outlineVariant),
+        modifier = modifier.fillMaxWidth().pressScale(press)
+            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen)
+            .panelLines(scheme.outlineVariant),
         colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainer),
     ) {
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {

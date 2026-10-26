@@ -21,6 +21,8 @@ The built-in catalog holds **20 fictional sample cards** (`SMP-001`…`SMP-020`)
 
 ## UX
 
+Motion is part of the design: screen transitions, gliding lists, rolling counts, deck gauges, the **Lock On** moment when a deck becomes legal, dealt test hands and flipping shields, with haptics on phones. All of it follows the system's "Remove animations" setting. `./gradlew :desktopApp:test` followed by `python scripts/frames_to_gif.py` renders GIF previews to `desktopApp/build/screenshots/`.
+
 - [docs/UX_MAP.md](docs/UX_MAP.md): every screen, what it shows, and how they connect.
 - [docs/UX_RULES.md](docs/UX_RULES.md): the rules every screen follows, with the research behind them. Inspiration came from Stella Sora and Aniimo, and from comparing other Gundam Card Game builders (ExBurst, GNDM TCG Dex, TCG Stacked).
 
@@ -130,6 +132,10 @@ Still to do by hand:
 - Allow the Windows Defender Firewall prompt on first launch, using **Private networks**. Then test with the firewall blocking Lock On to see the error message.
 - Turn off Wi-Fi in the middle of a sync, then sync again.
 - Change the desktop's IP address (another network), then re-scan the QR code. Re-pairing keeps the sync progress.
+
+## Third-party assets
+
+- Rajdhani font by the Indian Type Foundry, under the SIL Open Font License 1.1 ([licenses/Rajdhani-OFL.txt](licenses/Rajdhani-OFL.txt)).
 
 ## Next milestones
 

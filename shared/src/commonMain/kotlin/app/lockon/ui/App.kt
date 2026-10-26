@@ -67,7 +67,17 @@ import app.lockon.platform.FileBridge
 import app.lockon.sync.SyncController
 import app.lockon.ui.cards.CardBrowserScreen
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import app.lockon.ui.components.ArtworkSource
+import app.lockon.ui.components.LocalReduceMotion
+import app.lockon.ui.components.Motion
 import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.components.artworkImageLoader
@@ -95,7 +105,10 @@ fun LockOnApp(
     /** Folder for cached card images; images never sync and can be deleted at any time. */
     imageCacheDir: String,
     dark: Boolean? = null,
+    /** From the system's "remove animations" setting; turns motion into instant changes. */
+    reduceMotion: Boolean = false,
 ) {
+    CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
     ArtworkProvider(container, imageCacheDir) {
     LockOnTheme(dark ?: isSystemInDarkTheme()) {
         val snackbars = remember { SnackbarHostState() }
@@ -167,16 +180,39 @@ fun LockOnApp(
             ) { padding ->
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                        Box(Modifier.fillMaxSize()) {
-                            when (val screen = state.current) {
-                                is Screen.DeckEditor -> DeckEditorScreen(container, state, files, screen.deckId, wide, screen.startTab)
-                                is Screen.Conflict -> ConflictScreen(container, state, screen.deckId, wide)
-                                null -> Column(Modifier.fillMaxSize()) {
+                        // Going deeper slides forward, coming back slides back, and switching tabs
+                        // fades through, so motion always says where you went (UX rule V5).
+                        val reduce = LocalReduceMotion.current
+                        AnimatedContent(
+                            targetState = state.current ?: state.tab,
+                            modifier = Modifier.fillMaxSize(),
+                            transitionSpec = {
+                                val from = depthOf(initialState)
+                                val to = depthOf(targetState)
+                                when {
+                                    reduce -> fadeIn(tween(90)) togetherWith fadeOut(tween(90))
+                                    to != from -> {
+                                        val dir = if (to > from) 1 else -1
+                                        (slideInHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) { dir * it / 6 } +
+                                            fadeIn(tween(Motion.MEDIUM))) togetherWith
+                                            (slideOutHorizontally(tween(Motion.MEDIUM, easing = Motion.emphasizedAccelerate)) { -dir * it / 10 } +
+                                                fadeOut(tween(Motion.SHORT)))
+                                    }
+                                    else -> (fadeIn(tween(Motion.MEDIUM, delayMillis = 60)) + scaleIn(tween(Motion.MEDIUM, delayMillis = 60), initialScale = 0.97f)) togetherWith
+                                        fadeOut(tween(Motion.SHORT / 2))
+                                }
+                            },
+                            label = "navigation",
+                        ) { destination ->
+                            when (destination) {
+                                is Screen.DeckEditor -> DeckEditorScreen(container, state, files, destination.deckId, wide, destination.startTab)
+                                is Screen.Conflict -> ConflictScreen(container, state, destination.deckId, wide)
+                                is Tab -> Column(Modifier.fillMaxSize()) {
                                     if (!wide) {
-                                        Text(state.tab.label, style = MaterialTheme.typography.headlineSmall,
+                                        Text(destination.label, style = MaterialTheme.typography.headlineSmall,
                                             modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp))
                                     }
-                                    when (state.tab) {
+                                    when (destination) {
                                         Tab.DECKS -> DeckLibraryScreen(container, state, files)
                                         Tab.CARDS -> CardBrowserScreen(container, state, files)
                                         Tab.SYNC -> SyncScreen(sync, container.identity.deviceName)
@@ -190,6 +226,14 @@ fun LockOnApp(
         }
     }
 }
+}
+}
+
+/** How deep a destination sits: tabs, then a deck, then a conflict comparison. */
+private fun depthOf(destination: Any): Int = when (destination) {
+    is Screen.Conflict -> 2
+    is Screen.DeckEditor -> 1
+    else -> 0
 }
 
 /** Sets up the image loader and tells every card view where its artwork is. */

@@ -5,6 +5,14 @@ import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import app.lockon.resources.Res
+import app.lockon.resources.rajdhani_bold
+import app.lockon.resources.rajdhani_semibold
+import org.jetbrains.compose.resources.Font
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -105,9 +113,33 @@ private val MaterialShapes = Shapes(
 /** Counts use tabular figures so totals don't jitter while editing (UX rule I1). */
 val TabularNumbers = TextStyle(fontFeatureSettings = "tnum")
 
+/**
+ * Rajdhani (SIL OFL, licenses/Rajdhani-OFL.txt) gives headings, labels and numbers a cockpit-display
+ * feel. Body text stays the platform font for long-form readability. Rajdhani runs small, so its
+ * sizes are nudged up.
+ */
+@Composable
+private fun lockOnTypography(): Typography {
+    val hud = FontFamily(Font(Res.font.rajdhani_semibold, FontWeight.SemiBold), Font(Res.font.rajdhani_bold, FontWeight.Bold))
+    val base = Typography()
+    fun TextStyle.hud(weight: FontWeight, grow: Int) =
+        copy(fontFamily = hud, fontWeight = weight, fontSize = (fontSize.value + grow).sp, letterSpacing = 0.3.sp)
+    return base.copy(
+        displaySmall = base.displaySmall.hud(FontWeight.Bold, 2),
+        headlineLarge = base.headlineLarge.hud(FontWeight.Bold, 2),
+        headlineMedium = base.headlineMedium.hud(FontWeight.Bold, 2),
+        headlineSmall = base.headlineSmall.hud(FontWeight.Bold, 2),
+        titleLarge = base.titleLarge.hud(FontWeight.Bold, 2),
+        titleMedium = base.titleMedium.hud(FontWeight.Bold, 2),
+        titleSmall = base.titleSmall.hud(FontWeight.SemiBold, 2),
+        labelLarge = base.labelLarge.hud(FontWeight.SemiBold, 2),
+        labelMedium = base.labelMedium.hud(FontWeight.SemiBold, 1),
+    )
+}
+
 @Composable
 fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, shapes = MaterialShapes, content = content)
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, shapes = MaterialShapes, typography = lockOnTypography(), content = content)
 }
 
 /** Accent for a card color, readable on both themes as a badge background with [onCardColor] text. */

@@ -37,6 +37,7 @@ import app.lockon.platform.FileBridge
 import app.lockon.platform.formatTimestamp
 import app.lockon.ui.AppState
 import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.ReticleSpinner
 import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.launch
 
@@ -124,7 +125,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         OutlinedButton(onClick = {
                             attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
                         }, enabled = !busy) { Text("Import file") }
-                        if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        if (busy) ReticleSpinner(size = 20.dp)
                     }
                     if (info?.origin != CatalogOrigin.BUNDLED) {
                         TextButton(onClick = {

@@ -43,6 +43,7 @@ Lock On is a Material 3 app first. Components, behaviour, type scale, motion and
   - Buttons, chips, text fields, menus, dialogs, the bottom navigation bar and the FAB use stock Material 3 shapes and behaviour.
   - Large surfaces (cards, panels and card faces) use Material's shape theming to cut two opposite corners, like armour plates. Nothing small gets cut corners.
 - **V2. HUD section headers.** Section headers are small uppercase labels with a short accent bar to their left, plus a right-aligned readout when the section has a count, such as `UNITS ··· 24`.
+- **V2a. Display type.** Headings, titles, labels and numbers use Rajdhani (SIL Open Font License), a cockpit-display face. Body text stays the platform font for readability.
 - **V3. Colour roles come from a mobile-suit tricolour.**
   - **Primary (V-fin yellow)** means "you can act": actions, the selected state and the FAB. Never use it for charts or plain information.
   - **Secondary (armour blue)** is for positive states and information, such as the *Legal* tag and charts.
@@ -50,7 +51,18 @@ Lock On is a Material 3 app first. Components, behaviour, type scale, motion and
   - Card colours are only for card identity.
   - Dark mode is the cockpit (deep navy surfaces). Light mode is white armour.
 - **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its color band, level and type initial, so a deck reads correctly before real artwork is licensed. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank, and the cost stays on a dark tag above the art.
-- **V5. Motion explains, never decorates.** Animations last 150–250 ms and show where something went, such as a count changing or a panel opening. Nothing loops on its own. Turning on reduce-motion removes everything except fades.
+- **V5. Motion explains, never decorates.** Every animation answers *what changed* or *where did I go*. The shared toolkit is in `ui/components/Motion.kt`.
+  - **Timing:** 150 ms for small exits, 220 ms for most changes, 320 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 45 ms apart.
+  - **Navigation:** going deeper slides forward, coming back slides back, and switching tabs fades through.
+  - **Lists:** rows glide when cards are added, removed or regrouped.
+  - **Numbers:** they roll up when they grow and down when they shrink.
+  - **Gauges:** deck gauges fill toward the limit. They're yellow while filling, blue when exactly full, and red when over.
+  - **Charts:** bars grow into place.
+  - **Test hand:** cards are dealt in, and shields flip over when revealed.
+  - **Touch:** tiles and cards sink slightly when pressed. Phones give a light tick on each +/−.
+  - **The Lock On moment:** when a deck becomes legal, the brackets close on the reticle and it lights up, with a confirming haptic on phones. At 650 ms it's the one signature animation. It plays only on the change, never on opening a legal deck.
+  - **Loops:** nothing loops except progress, and progress uses the reticle spinner.
+  - **Reduced motion:** with the system's "Remove animations" setting on, every animation becomes an instant change or a very short fade.
 - **V6. Dark and light are equals.** Both themes use the same colour roles, and contrast is at least 4.5:1 for text and 3:1 for controls and tags.
 - **V7. Gundam details are decoration, used sparingly, and never the only signal.**
   - **The Lock On mark:** a V-fin over a targeting reticle with a red crest. It appears in the desktop top bar, on face-down shields and as the launcher icon.

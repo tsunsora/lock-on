@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import app.lockon.ui.components.CautionStripes
+import app.lockon.ui.components.ReticleSpinner
 import app.lockon.ui.components.QrCodeView
 import app.lockon.ui.components.HudHeader
 import app.lockon.sync.AutoSyncState
@@ -125,7 +126,7 @@ private fun StatusLine(status: SyncStatus) {
     val message = status.message ?: return
     Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (status.isError) CautionStripes(Modifier.width(8.dp).fillMaxHeight())
-        if (status.working) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+        if (status.working) ReticleSpinner(size = 18.dp)
         Text(
             message,
             color = if (status.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
