@@ -49,7 +49,7 @@ Lock On is a Material 3 app first. Components, behaviour, type scale, motion and
   - **Tertiary (chest red)** is for rare emphasis. Errors keep Material's error role.
   - Card colours are only for card identity.
   - Dark mode is the cockpit (deep navy surfaces). Light mode is white armour.
-- **V4. Card faces carry identity at a glance.** A tile always shows its color band, cost (top-left), level, and type initial, so a deck reads correctly even before real artwork is licensed.
+- **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its color band, level and type initial, so a deck reads correctly before real artwork is licensed. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank, and the cost stays on a dark tag above the art.
 - **V5. Motion explains, never decorates.** Animations last 150–250 ms and show where something went, such as a count changing or a panel opening. Nothing loops on its own. Turning on reduce-motion removes everything except fades.
 - **V6. Dark and light are equals.** Both themes use the same colour roles, and contrast is at least 4.5:1 for text and 3:1 for controls and tags.
 - **V7. Gundam details are decoration, used sparingly, and never the only signal.**

@@ -71,6 +71,7 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
     private val _ruleset = MutableStateFlow(FALLBACK_RULESET)
     private val _info = MutableStateFlow<CatalogInfo?>(null)
     private val _catalogName = MutableStateFlow("")
+    private val _showArtwork = MutableStateFlow(true)
     private var bundledRulesetsJson = ""
 
     val cards: StateFlow<Map<String, Card>> = _cards.asStateFlow()
@@ -79,6 +80,13 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
     val ruleset: StateFlow<Ruleset> = _ruleset.asStateFlow()
     val info: StateFlow<CatalogInfo?> = _info.asStateFlow()
     val catalogName: StateFlow<String> = _catalogName.asStateFlow()
+    /** Whether card images from printing artwork links are shown. On unless turned off. */
+    val showArtwork: StateFlow<Boolean> = _showArtwork.asStateFlow()
+
+    suspend fun setShowArtwork(show: Boolean) {
+        db.metaDao().put(MetaEntity(KEY_SHOW_ARTWORK, show.toString()))
+        _showArtwork.value = show
+    }
 
     /**
      * Startup. The bundled sample is installed on first launch and refreshed when the app ships a
@@ -177,6 +185,7 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
         )
         _info.value = info
         _catalogName.value = info.name
+        _showArtwork.value = meta.get(KEY_SHOW_ARTWORK) != "false"
 
         val rulesJson = meta.get(KEY_RULESETS)?.takeIf { it.isNotBlank() } ?: bundledRulesetsJson
         val rules = runCatching { json.decodeFromString(RulesetFile.serializer(), rulesJson).rulesets }.getOrDefault(emptyList())
@@ -194,6 +203,7 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
         private const val KEY_INSTALLED_AT = "catalogInstalledAt"
         private const val KEY_RULESETS = "rulesetsJson"
         private const val KEY_RULESET = "ruleset"
+        private const val KEY_SHOW_ARTWORK = "showArtwork"
         val FALLBACK_RULESET = Ruleset(id = "standard", name = "Standard", region = "EN", effectiveDate = "")
     }
 }

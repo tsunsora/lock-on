@@ -16,6 +16,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -91,6 +92,17 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         if (current.source.isNotBlank()) {
                             Text(current.source, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                    }
+                    val showArtwork by container.catalog.showArtwork.collectAsState()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Show card artwork", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Images come from the catalog's links and are cached on this device. They never sync.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = showArtwork, onCheckedChange = { scope.launch { container.catalog.setShowArtwork(it) } })
                     }
                     HorizontalDivider()
                     HudHeader("Update from a link")

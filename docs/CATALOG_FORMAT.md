@@ -60,7 +60,7 @@ Every install shows a preview first. It gives the version, the card count, any p
 | `name` | yes | Shown in the Cards tab. |
 | `source` | no | Credit and terms, shown in the Catalog sheet. |
 | `cards` | yes | At least one card. Card numbers must be unique. |
-| `printings` | no | Artwork, rarity and language variants. Printings for card numbers not in `cards` are skipped, with a warning. |
+| `printings` | no | Artwork, rarity and language variants. Printings for card numbers not in `cards` are skipped, with a warning. A printing's `artworkUrl` (an `https://` image link) is shown in the app. The standard printing is used unless a deck picks another, and images are cached on each device. Card images are best around 630×880 (the card's 63:88 shape). |
 | `rulesets` | no | If present and not empty, these replace the deck rules. Otherwise the current rules are kept. Same fields as [rulesets.json](../shared/src/commonMain/composeResources/files/rulesets/rulesets.json). |
 
 ## Card fields

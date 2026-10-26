@@ -3,6 +3,12 @@ package app.lockon.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +61,20 @@ fun CardThumb(card: Card?, modifier: Modifier = Modifier) {
         else -> Brush.verticalGradient(colors.map { cardColor(it) })
     }
     val on = onCardColor(colors.firstOrNull())
+    val art = card?.let { LocalArtwork.current.urlFor(it.cardNumber) }
+    if (art != null) {
+        Box(modifier.size(width = 40.dp, height = 56.dp).clip(LockOnShapes.thumb).background(brush)) {
+            CardArtwork(art, contentDescription = null, modifier = Modifier.matchParentSize()) {}
+            // Cost stays readable over any artwork (UX rule V4).
+            card.cost?.let {
+                Text(
+                    "$it", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.TopStart).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 4.dp),
+                )
+            }
+        }
+        return
+    }
     Box(
         modifier.size(width = 40.dp, height = 56.dp).clip(LockOnShapes.thumb).background(brush),
     ) {
@@ -105,6 +125,8 @@ fun CardRow(
 
 @Composable
 fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Unit, extraActions: @Composable () -> Unit = {}) {
+    var shownPrinting by remember(card.cardNumber) { mutableStateOf<String?>(null) }
+    val art = LocalArtwork.current.urlFor(card.cardNumber, shownPrinting)
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
@@ -112,6 +134,12 @@ fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Uni
         title = { Text(card.name) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (art != null) {
+                    CardArtwork(
+                        art, contentDescription = "${card.name} artwork", contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth().aspectRatio(63f / 88f).clip(LockOnShapes.tile),
+                    ) {}
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CardThumb(card)
                     Spacer(Modifier.width(12.dp))
@@ -142,7 +170,18 @@ fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Uni
                 if (printings.isNotEmpty()) {
                     Text("Printings", style = MaterialTheme.typography.titleSmall)
                     printings.forEach {
-                        Text("• ${it.label} (${it.printingId}, ${it.rarity}, ${it.language.uppercase()})", style = MaterialTheme.typography.bodySmall)
+                        val line = "• ${it.label} (${it.printingId}, ${it.rarity}, ${it.language.uppercase()})"
+                        if (it.artworkUrl.isNullOrBlank() || art == null) {
+                            Text(line, style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            // Tapping a printing shows its artwork.
+                            Text(
+                                line + if ((shownPrinting ?: printings.first().printingId) == it.printingId) "  ◂" else "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable { shownPrinting = it.printingId }.padding(vertical = 4.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -286,7 +325,10 @@ fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = fal
         modifier.clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, LockOnShapes.tile),
     ) {
-        Box(
+        val art = if (faceDown || card == null) null else LocalArtwork.current.urlFor(card.cardNumber)
+        if (art != null) {
+            CardArtwork(art, contentDescription = null, modifier = Modifier.fillMaxWidth().height(96.dp).background(band)) {}
+        } else Box(
             Modifier.fillMaxWidth().height(64.dp).background(
                 if (colors.size > 1 && !faceDown) Brush.horizontalGradient(colors.map { cardColor(it) }) else Brush.verticalGradient(listOf(band, band.copy(alpha = 0.8f))),
             ),

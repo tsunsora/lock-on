@@ -52,7 +52,7 @@ fun main() {
             icon = painterResource("lock-on-window.png"),
             state = windowState,
         ) {
-            LockOnApp(container, state, sync, DesktopFileBridge(window))
+            LockOnApp(container, state, sync, DesktopFileBridge(window), imageCacheDir = File(AppDirs.data, "artwork-cache").absolutePath)
         }
     }
 }

@@ -67,7 +67,11 @@ import app.lockon.platform.FileBridge
 import app.lockon.sync.SyncController
 import app.lockon.ui.cards.CardBrowserScreen
 import androidx.compose.foundation.isSystemInDarkTheme
+import app.lockon.ui.components.ArtworkSource
+import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.LockOnMark
+import app.lockon.ui.components.artworkImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
 import app.lockon.ui.components.TricolorStripe
 import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
@@ -83,7 +87,16 @@ private fun Tab.icon(): ImageVector = when (this) {
 
 /** Shared root for Android and desktop. Wide windows get a side rail and multi-pane editors. */
 @Composable
-fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, files: FileBridge, dark: Boolean? = null) {
+fun LockOnApp(
+    container: AppContainer,
+    state: AppState,
+    sync: SyncController,
+    files: FileBridge,
+    /** Folder for cached card images; images never sync and can be deleted at any time. */
+    imageCacheDir: String,
+    dark: Boolean? = null,
+) {
+    ArtworkProvider(container, imageCacheDir) {
     LockOnTheme(dark ?: isSystemInDarkTheme()) {
         val snackbars = remember { SnackbarHostState() }
         val syncStatus by sync.status.collectAsState()
@@ -176,6 +189,17 @@ fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, fi
             }
         }
     }
+}
+}
+
+/** Sets up the image loader and tells every card view where its artwork is. */
+@Composable
+fun ArtworkProvider(container: AppContainer, imageCacheDir: String, content: @Composable () -> Unit) {
+    setSingletonImageLoaderFactory { context -> artworkImageLoader(context, imageCacheDir) }
+    val printings by container.catalog.printings.collectAsState()
+    val showArtwork by container.catalog.showArtwork.collectAsState()
+    val artwork = remember(printings, showArtwork) { ArtworkSource(showArtwork, printings) }
+    CompositionLocalProvider(LocalArtwork provides artwork, content = content)
 }
 
 /** Desktop navigation: brand on the left, then the three destinations (UX rules N1, N5). */

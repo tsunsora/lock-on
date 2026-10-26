@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize().background(Color(0xFF0B1220)))
             } else {
                 BackHandler(enabled = state.canGoBack) { state.goBack() }
-                LockOnApp(c, state, s, files)
+                LockOnApp(c, state, s, files, imageCacheDir = cacheDir.resolve("artwork").absolutePath)
             }
         }
     }

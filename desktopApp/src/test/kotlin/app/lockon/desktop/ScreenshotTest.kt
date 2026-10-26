@@ -5,7 +5,10 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.use
 import androidx.room.Room
 import app.lockon.AppContainer
+import app.lockon.data.CatalogFile
+import app.lockon.data.CatalogOrigin
 import app.lockon.data.db.LockOnDatabase
+import app.lockon.model.Printing
 import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
@@ -95,7 +98,7 @@ class ScreenshotTest {
 
     private fun shoot(name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync, setup: AppState.() -> Unit) {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
-        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, dark = dark) }.use { scene ->
+        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, imageCacheDir = File("build/artwork-cache").absolutePath, dark = dark) }.use { scene ->
             var image = scene.render()
             // Let Room flows and effects settle between frames.
             repeat(15) { Thread.sleep(60); image = scene.render() }
@@ -132,5 +135,61 @@ class ScreenshotTest {
             File(out, "phone-catalog.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
         assertTrue(File(out, "phone-cards.png").length() > 0)
+    }
+
+    /** Placeholder artwork drawn locally, linked from a catalog the same way real artwork would be. */
+    private fun fakeArt(name: String, color: java.awt.Color): String {
+        val file = File("build/test-art/$name.png").apply { parentFile.mkdirs() }
+        val image = java.awt.image.BufferedImage(630, 880, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        image.createGraphics().apply {
+            paint = java.awt.GradientPaint(0f, 0f, color, 630f, 880f, color.darker().darker())
+            fillRect(0, 0, 630, 880)
+            this.color = java.awt.Color(255, 255, 255, 90)
+            stroke = java.awt.BasicStroke(18f)
+            drawOval(165, 290, 300, 300)
+            drawLine(315, 200, 315, 680); drawLine(75, 440, 555, 440)
+            this.color = java.awt.Color.WHITE
+            font = java.awt.Font("SansSerif", java.awt.Font.BOLD, 54)
+            drawString(name, 40, 820)
+            dispose()
+        }
+        javax.imageio.ImageIO.write(image, "png", file)
+        return "file:///" + file.absolutePath.replace('\\', '/')
+    }
+
+    @Test fun renderArtwork() = runBlocking {
+        val cards = container.catalog.cards.value.values.toList()
+        val art = mapOf(
+            "SMP-001" to fakeArt("SMP-001", java.awt.Color(0x2A5BB8)),
+            "SMP-002" to fakeArt("SMP-002", java.awt.Color(0x3B7BE8)),
+            "SMP-008" to fakeArt("SMP-008", java.awt.Color(0xD3352B)),
+            "SMP-010" to fakeArt("SMP-010", java.awt.Color(0xB3261E)),
+        )
+        val printings = art.map { (number, url) -> Printing(number, number, "SMP", "R", artworkUrl = url) } +
+            Printing("SMP-001-P1", "SMP-001", "SMP", "R+", label = "Alternate art", isAlternateArt = true,
+                artworkUrl = fakeArt("SMP-001 alt", java.awt.Color(0x745B00)))
+        container.catalog.install(
+            CatalogFile(catalogId = "art-test", version = 1, name = "Artwork test", cards = cards, printings = printings),
+            CatalogOrigin.FILE, null,
+        )
+        shoot("phone-cards-artwork", 600, 1260) { select(Tab.CARDS) }
+        shoot("desktop-editor-artwork", 1980, 1290) { open(Screen.DeckEditor(deckId)) }
+        ImageComposeScene(600, 1260, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                app.lockon.ui.ArtworkProvider(container, File("build/artwork-cache").absolutePath) {
+                    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                        app.lockon.ui.components.CardDetailDialog(
+                            container.catalog.cards.value.getValue("SMP-001"),
+                            container.catalog.printings.value["SMP-001"].orEmpty(), onDismiss = {},
+                        )
+                    }
+                }
+            }
+        }.use { scene ->
+            var image = scene.render()
+            repeat(20) { Thread.sleep(80); image = scene.render() }
+            File(out, "phone-card-detail-artwork.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
+        container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())
     }
 }

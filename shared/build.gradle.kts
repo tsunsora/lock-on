@@ -68,6 +68,9 @@ kotlin {
             api("io.ktor:ktor-client-core:$ktorVersion")
             implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
             implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+            // Card artwork: loads printing artworkUrls with memory and disk caching.
+            implementation("io.coil-kt.coil3:coil-compose:3.4.0")
+            implementation("io.coil-kt.coil3:coil-network-ktor3:3.4.0")
         }
         // Plain HTTPS downloads (catalog updates) use the system trust store, unlike sync.
         androidMain.dependencies { implementation("io.ktor:ktor-client-okhttp:$ktorVersion") }

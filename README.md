@@ -15,6 +15,7 @@ A Gundam Card Game deck builder for Android and Windows (macOS and Linux later).
   - **Auto-sync while open**: with both apps open on the same network, edits reach the other device within seconds, and a paired desktop that changes IP address is followed automatically. It runs only while the phone app is on screen. Nothing runs in the background.
 - **Import and export**: plain-text deck lists (paste, copy or file) and a versioned JSON backup.
 - **Card catalog updates**: install a catalog from a file or an `https://` link, and later check that link for a newer version. Every install shows a preview first, including any cards your decks use that the new catalog lacks. Decks are never changed. The format is in [docs/CATALOG_FORMAT.md](docs/CATALOG_FORMAT.md), with a CSV converter in `scripts/`.
+- **Card artwork**: when a catalog's printings include `artworkUrl` links, card lists, grids, test hands and card details show the images. They're cached on each device, never synced, and can be turned off under **Cards → Catalog**. Until an image loads, or if its link breaks, the colour placeholder stays.
 
 The built-in catalog holds **20 fictional sample cards** (`SMP-001`…`SMP-020`). They follow the shape of Gundam Card Game data but contain no official text or artwork. Before importing the real catalog, find a data source you are allowed to use, and get permission to distribute card text and art. The official site has no public API.
 
@@ -132,7 +133,6 @@ Still to do by hand:
 
 ## Next milestones
 
-- A licensed source for the real card data, published as a catalog file.
-- Card artwork display from printing `artworkUrl`s.
+- A licensed source for the real card data and artwork, published as a catalog file.
 - A release signing key, code-signed installers, and shrunk builds (see [RELEASING.md](RELEASING.md)).
 - Database migration tests once the schema changes (`shared/schemas` holds the exported Room schema).

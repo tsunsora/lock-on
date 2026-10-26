@@ -16,6 +16,7 @@ First release for Android and Windows.
 - Deck library with tags, search, duplicate, rename, and delete with **Undo**.
 - Import and export plain-text deck lists, and a JSON backup of all decks.
 - Install a card catalog from a file or a link, check the link for updates, and go back to the sample at any time. A preview before each install lists any cards your decks use that are missing from the new catalog.
+- Card artwork from catalog links in lists, grids, test hands and card details, cached per device. In card details, tap a printing to see its art. It can be turned off in the Catalog dialog.
 
 **Sync, with no account or server**
 - QR pairing with a desktop, with a code check on both screens and a pinned certificate.
