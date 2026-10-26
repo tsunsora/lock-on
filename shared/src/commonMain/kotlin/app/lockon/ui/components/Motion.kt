@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -117,13 +119,13 @@ fun DeckGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifi
         count > limit -> scheme.error
         else -> scheme.primary
     }
-    Column(modifier.width(104.dp)) {
+    Column(modifier.widthIn(min = 104.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             RollingNumber(count, MaterialTheme.typography.titleMedium, color)
             Text("/$limit", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
         }
-        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(scheme.surfaceVariant)) {
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(scheme.surfaceVariant)) {
             Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(color))
         }
     }

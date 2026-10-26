@@ -7,6 +7,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import app.lockon.model.CardColor
 import app.lockon.model.Ruleset
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import app.lockon.ui.components.CardBack
+import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.ColorPips
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -27,8 +32,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
@@ -132,9 +135,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     "No decks yet",
                     "Create a deck, import a deck list, or pair with another device to bring your decks over.",
                 )
-                else -> LazyColumn(
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Adaptive(400.dp),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     val shown = list.filter {
                         (tagFilter == null || tagFilter in it.snapshot.tags) && it.snapshot.name.contains(search.trim(), ignoreCase = true)
@@ -144,9 +149,15 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             deck.snapshot.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
                         }
                         val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
+                        // The cover is the deck's highest-level Unit, the card people recognise it by.
+                        val cover = remember(deck, cards) {
+                            deck.snapshot.entries.filter { it.section == DeckSection.MAIN }.mapNotNull { cards[it.cardNumber] }
+                                .sortedWith(compareByDescending<app.lockon.model.Card> { it.type == app.lockon.model.CardType.UNIT }.thenByDescending { it.level ?: 0 })
+                                .firstOrNull()
+                        }
                         DeckRow(
                             Modifier.animateItem(),
-                            deck, legal, colors, ruleset,
+                            deck, legal, colors, ruleset, cover,
                             onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                             onRename = { dialog = LibraryDialog.Rename(deck) },
                             onTags = { dialog = LibraryDialog.Tags(deck) },
@@ -212,6 +223,7 @@ private fun DeckRow(
     legal: Boolean,
     colors: Set<CardColor>,
     ruleset: Ruleset,
+    cover: app.lockon.model.Card?,
     onOpen: () -> Unit,
     onRename: () -> Unit,
     onTags: () -> Unit,
@@ -234,6 +246,8 @@ private fun DeckRow(
                 val bands = colors.sortedBy { it.ordinal }.ifEmpty { listOf(null) }
                 bands.forEach { Box(Modifier.weight(1f).fillMaxWidth().background(cardColor(it))) }
             }
+        if (cover != null) CardImage(cover, Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp).width(56.dp))
+        else CardBack(Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp).width(56.dp))
         Row(Modifier.weight(1f).padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

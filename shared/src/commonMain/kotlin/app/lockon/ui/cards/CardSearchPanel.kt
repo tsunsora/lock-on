@@ -47,7 +47,8 @@ import app.lockon.model.Card
 import app.lockon.model.CardColor
 import app.lockon.model.CardQuery
 import app.lockon.model.CardType
-import app.lockon.ui.components.CardFace
+import app.lockon.ui.components.CardTile
+import app.lockon.ui.components.CompactStepper
 import app.lockon.ui.components.CardRow
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.theme.TabularNumbers
@@ -59,11 +60,19 @@ enum class CardSort(val label: String, val comparator: Comparator<Card>) {
     NAME("Name", compareBy { it.name.lowercase() }),
 }
 
+/** Deck controls for search results in the editor: copies in the deck, a rule tag, and one-tap changes. */
+class DeckControls(
+    val quantity: (Card) -> Int,
+    val tag: @Composable (Card) -> Unit,
+    val change: (Card, Int) -> Unit,
+)
+
 /**
- * Search and filters over the catalog. Results update as you type (UX rule S5). [trailing] adds
- * per-card controls, such as the deck editor's − / + and fit tags.
+ * Search and filters over the catalog. Results update as you type (UX rule S5). The grid shows
+ * whole cards; the list is denser. With [controls], each card gets the deck's − / + and tags.
  *
  * @param deckColors when set, offers "Deck colors only" so a two-color deck can hide the rest.
+ * @param selected highlights the card shown in a side panel.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -73,12 +82,15 @@ fun CardSearchPanel(
     modifier: Modifier = Modifier,
     focusRequests: Int = 0,
     deckColors: Set<CardColor>? = null,
-    trailing: @Composable (Card) -> Unit = {},
+    controls: DeckControls? = null,
+    selected: String? = null,
+    wide: Boolean = false,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
     var sort by rememberSaveable { mutableStateOf(CardSort.NUMBER) }
-    var grid by rememberSaveable { mutableStateOf(false) }
+    // Whole-card grid by default: the card images are the clearest way to browse.
+    var grid by rememberSaveable { mutableStateOf(true) }
     var deckColorsOnly by rememberSaveable { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
@@ -99,7 +111,7 @@ fun CardSearchPanel(
             value = query.text,
             onValueChange = { query = query.copy(text = it) },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).focusRequester(focus),
-            placeholder = { Text("Name, card number, or text") },
+            placeholder = { Text(if (query.isEmpty) "Search ${cards.size} cards" else "Name, card number, or text") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 if (!query.isEmpty) IconButton(onClick = { query = CardQuery() }) {
@@ -108,11 +120,28 @@ fun CardSearchPanel(
             },
             singleLine = true,
         )
-        // One scrolling row of quick filters keeps the results visible on phones.
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+        // Wide panes wrap the quick filters so all are visible; phones scroll one row to keep results in view.
+        val chipModifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+        else Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp)
+        FlowRow(
+            chipModifier,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            // Results, filters, sort and view share the chip row, so no separate toolbar is needed.
+            Text(
+                "${results.size}", style = MaterialTheme.typography.titleSmall.merge(TabularNumbers),
+                color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 2.dp),
+            )
+            FilterChip(selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") })
+            Box {
+                FilterChip(selected = false, onClick = { sortMenu = true }, label = { Text("Sort: ${sort.label}") })
+                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                    CardSort.entries.forEach { option ->
+                        DropdownMenuItem(text = { Text(option.label) }, onClick = { sort = option; sortMenu = false })
+                    }
+                }
+            }
+            FilterChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "List" else "Grid") })
             if (deckColors != null && deckColors.isNotEmpty()) {
                 FilterChip(
                     selected = deckColorsOnly,
@@ -135,25 +164,6 @@ fun CardSearchPanel(
                 )
             }
         }
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "${results.size}/${cards.size} cards",
-                style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = { showMore = !showMore }) { Text(if (showMore) "Fewer filters" else "Filters") }
-            Box {
-                TextButton(onClick = { sortMenu = true }) { Text("Sort: ${sort.label}") }
-                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                    CardSort.entries.forEach { option ->
-                        DropdownMenuItem(text = { Text(option.label) }, onClick = { sort = option; sortMenu = false })
-                    }
-                }
-            }
-            TextButton(onClick = { grid = !grid }) { Text(if (grid) "List view" else "Grid view") }
-        }
         if (showMore) {
             Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 ChipLine("Level", levels, query.levels) { query = query.copy(levels = query.levels.toggle(it)) }
@@ -172,21 +182,34 @@ fun CardSearchPanel(
         when {
             results.isEmpty() -> EmptyState("No cards match", "Try fewer filters or a shorter search.")
             grid -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(150.dp),
-                contentPadding = PaddingValues(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                columns = GridCells.Adaptive(if (wide) 160.dp else 104.dp),
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (wide) 16.dp else 10.dp),
+                verticalArrangement = Arrangement.spacedBy(if (wide) 18.dp else 12.dp),
             ) {
                 items(results, key = { it.cardNumber }) { card ->
-                    CardFace(card, Modifier.animateItem().clickable { onCardClick(card) }) {
-                        Spacer(Modifier.padding(top = 2.dp))
-                        trailing(card)
-                    }
+                    CardTile(
+                        card,
+                        onClick = { onCardClick(card) },
+                        modifier = Modifier.animateItem(),
+                        quantity = controls?.quantity?.invoke(card),
+                        tag = { controls?.tag?.invoke(card) },
+                        onMinus = controls?.let { c -> { c.change(card, -1) } },
+                        onPlus = controls?.let { c -> { c.change(card, 1) } },
+                        selected = card.cardNumber == selected,
+                    )
                 }
             }
             else -> LazyColumn(Modifier.fillMaxWidth()) {
                 items(results, key = { it.cardNumber }) { card ->
-                    CardRow(card, Modifier.animateItem(), onClick = { onCardClick(card) }, trailing = { trailing(card) })
+                    CardRow(card, Modifier.animateItem(), onClick = { onCardClick(card) }, trailing = {
+                        if (controls != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                controls.tag(card)
+                                CompactStepper(controls.quantity(card), { controls.change(card, -1) }, { controls.change(card, 1) })
+                            }
+                        }
+                    })
                 }
             }
         }

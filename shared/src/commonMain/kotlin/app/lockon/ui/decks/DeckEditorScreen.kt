@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -25,6 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -58,6 +61,7 @@ import app.lockon.rules.DeckValidator
 import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import app.lockon.ui.cards.CardSearchPanel
+import app.lockon.ui.cards.DeckControls
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -141,26 +145,44 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Header: who the deck is on the left, its health grouped on the right (UX rule I2).
+        Row(
+            Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = if (wide) 4.dp else 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    Text(deck.name, style = if (wide) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false))
                     IconButton(onClick = { renaming = true }) { Icon(Icons.Default.Edit, contentDescription = "Rename deck") }
                 }
-                // Deck health in one line (UX rule I2).
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     val c = MaterialTheme.colorScheme
                     ColorPips(deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet())
                     if (legality.isLegal) Badge("Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
                     else Badge("Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
-                    DeckGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize)
-                    DeckGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize)
                 }
             }
-            LockIndicator(locked = legality.isLegal)
-            TextButton(onClick = { exporting = true }) { Text("Export") }
+            if (wide) {
+                Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DeckGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(170.dp))
+                    DeckGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.width(150.dp))
+                    LockIndicator(locked = legality.isLegal, size = 48.dp)
+                    OutlinedButton(onClick = { exporting = true }) { Text("Export") }
+                }
+            } else {
+                LockIndicator(locked = legality.isLegal)
+                // A labelled icon on phones leaves room for the deck name (UX rule I5).
+                IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck list") }
+            }
+        }
+        if (!wide) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                DeckGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1.2f))
+                DeckGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.weight(1f))
+            }
         }
         if (summary?.hasConflict == true) {
             Card(
@@ -192,24 +214,26 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         val search: @Composable (Modifier) -> Unit = { modifier ->
             CardSearchPanel(
                 cards.values, onCardClick = { detail = it }, modifier = modifier,
-                focusRequests = state.searchFocusRequests, deckColors = deckColors,
-            ) { card ->
-                val quantity = deck.quantityOf(card.cardNumber, DeckSection.playedIn(card))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                focusRequests = state.searchFocusRequests, deckColors = deckColors, wide = wide,
+                controls = DeckControls(
+                    quantity = { card -> deck.quantityOf(card.cardNumber, DeckSection.playedIn(card)) },
                     // Rule limits shown where you act (UX rule S3), before anything goes wrong.
-                    FitTags(card, quantity, deck.quantityOf(card.cardNumber, DeckSection.CONSIDERING), deckColors, ruleset)
-                    QuantityStepper(quantity, onMinus = { change(card, -1) }, onPlus = { change(card, 1) })
-                }
-            }
+                    tag = { card ->
+                        FitTags(card, deck.quantityOf(card.cardNumber, DeckSection.playedIn(card)),
+                            deck.quantityOf(card.cardNumber, DeckSection.CONSIDERING), deckColors, ruleset)
+                    },
+                    change = { card, delta -> change(card, delta) },
+                ),
+            )
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }
         val test: @Composable (Modifier) -> Unit = { modifier -> SampleHandPanel(deck, cards, modifier) }
 
         if (wide) {
             Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Panel(Modifier.weight(1.1f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
-                Panel(Modifier.weight(1f).fillMaxSize()) { deckList(Modifier.fillMaxSize()) }
-                Panel(Modifier.weight(0.9f).fillMaxSize()) {
+                Panel(Modifier.weight(1.6f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
+                Panel(Modifier.weight(1f).widthIn(min = 320.dp).fillMaxSize()) { deckList(Modifier.fillMaxSize()) }
+                Panel(Modifier.weight(0.85f).widthIn(min = 300.dp).fillMaxSize()) {
                     var side by rememberSaveable { mutableStateOf(0) }
                     Column {
                         PrimaryTabRow(selectedTabIndex = side) {
@@ -313,7 +337,23 @@ private fun DeckList(
         item(key = "main-total") {
             HudHeader("Main deck", Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), readout = "${deck.count(DeckSection.MAIN)}")
         }
-        if (deck.count(DeckSection.MAIN) == 0) {
+        if (deck.entries.isEmpty()) {
+            item(key = "empty-deck") {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    LockIndicator(locked = false, size = 72.dp)
+                    Text("No cards yet", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Tap + on any card to add a copy. A deck needs 50 main-deck cards in up to two colors, and 10 resources.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else if (deck.count(DeckSection.MAIN) == 0) {
             item(key = "empty-main") {
                 Text(
                     "Add Units, Pilots, Commands and Bases from the card list.",
@@ -403,12 +443,17 @@ private fun DeckList(
             }
         }
         item(key = "notes") {
-            OutlinedTextField(
-                value = deck.notes, onValueChange = onNotes,
-                label = { Text("Notes") },
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                minLines = 3,
-            )
+            var editing by remember { mutableStateOf(false) }
+            if (deck.notes.isBlank() && !editing) {
+                TextButton(onClick = { editing = true }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) { Text("Add notes") }
+            } else {
+                OutlinedTextField(
+                    value = deck.notes, onValueChange = onNotes,
+                    label = { Text("Notes") },
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    minLines = 3,
+                )
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import app.lockon.model.Printing
 import coil3.ImageLoader
@@ -49,6 +50,8 @@ fun CardArtwork(url: String?, contentDescription: String?, modifier: Modifier = 
                 contentDescription = contentDescription,
                 contentScale = contentScale,
                 onError = { failed = true },
+                // High-quality filtering: card images are scaled a lot, and the default looks jagged.
+                filterQuality = FilterQuality.High,
                 modifier = Modifier.fillMaxSize(),
             )
         }

@@ -10,6 +10,12 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **N2. Two levels deep at most.** A destination's own screen counts as level one. A deck's editor or a conflict comparison counts as level two. Anything further opens as a sheet or dialog over level two, never a third screen. (Stella Sora is praised for having few nested menus.)
 - **N3. Back always works and never loses work.** System back, the on-screen back arrow and Escape on desktop all leave the current screen, and edits are already saved when they do.
 - **N4. Wide windows split into panes instead of adding screens.** At 840 dp and wider, the editor shows search, deck and analysis side by side. On phones the same panes become tabs in the same order.
+  - Width follows use: the card browser gets the most (about 45%), then the deck list, then analysis.
+  - The Cards tab shows details in a side panel instead of a dialog.
+  - The library lays decks out in a grid.
+  - Reading screens such as Sync stay under about 980 dp wide.
+  - Phones show three cards across.
+  - Search, the result count, Filters, Sort, the view toggle and the quick filters share one chip row, which wraps on wide panes and scrolls on phones.
 - **N5. Top bar on desktop, bottom bar on phones.** At 840 dp and wider, navigation is a top bar with the Lock On mark, the LOCK ON wordmark and the three destinations, each with an icon, a label and a V-fin yellow underline when selected. Below that, it is a bottom bar with the same three destinations, where thumbs reach it. Screen-level tabs, such as the editor's, always sit at the top of the screen.
 
 ## 2. Speed of building
@@ -50,6 +56,11 @@ Lock On is a Material 3 app first. Components, behaviour, type scale, motion and
   - **Tertiary (chest red)** is for rare emphasis. Errors keep Material's error role.
   - Card colours are only for card identity.
   - Dark mode is the cockpit (deep navy surfaces). Light mode is white armour.
+- **V4a. Cards are never cropped.**
+  - Every card shows whole at its real 63:88 shape with small rounded corners, and images are scaled with high-quality filtering.
+  - Grid tiles are just the card: an outline when it's in the deck, a rule tag at the top, and − count + underneath, so cost and AP/HP are never covered.
+  - Names aren't repeated under cards that already print them.
+  - Cards without artwork get a drawn placeholder in the same shape, so grids never shift when images load.
 - **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its color band, level and type initial, so a deck reads correctly before real artwork is licensed. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank, and the cost stays on a dark tag above the art.
 - **V5. Motion explains, never decorates.** Every animation answers *what changed* or *where did I go*. The shared toolkit is in `ui/components/Motion.kt`.
   - **Timing:** 150 ms for small exits, 220 ms for most changes, 320 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 45 ms apart.

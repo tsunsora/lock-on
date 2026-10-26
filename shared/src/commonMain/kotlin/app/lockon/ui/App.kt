@@ -221,8 +221,10 @@ fun LockOnApp(
                                     }
                                     when (destination) {
                                         Tab.DECKS -> DeckLibraryScreen(container, state, files)
-                                        Tab.CARDS -> CardBrowserScreen(container, state, files)
-                                        Tab.SYNC -> SyncScreen(sync, container.identity.deviceName)
+                                        Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
+                                        Tab.SYNC -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                                            Box(Modifier.widthIn(max = 980.dp)) { SyncScreen(sync, container.identity.deviceName) }
+                                        }
                                     }
                                 }
                             }

@@ -56,41 +56,7 @@ import app.lockon.ui.theme.onCardColor
 /** Placeholder card face until artwork is licensed: color band with cost and level. */
 @Composable
 fun CardThumb(card: Card?, modifier: Modifier = Modifier) {
-    val colors = card?.colors.orEmpty()
-    val brush = when (colors.size) {
-        0 -> Brush.verticalGradient(listOf(cardColor(null), cardColor(null)))
-        1 -> Brush.verticalGradient(listOf(cardColor(colors[0]), cardColor(colors[0]).copy(alpha = 0.75f)))
-        else -> Brush.verticalGradient(colors.map { cardColor(it) })
-    }
-    val on = onCardColor(colors.firstOrNull())
-    val art = card?.let { LocalArtwork.current.urlFor(it.cardNumber) }
-    if (art != null) {
-        Box(modifier.size(width = 40.dp, height = 56.dp).clip(LockOnShapes.thumb).background(brush)) {
-            CardArtwork(art, contentDescription = null, modifier = Modifier.matchParentSize()) {}
-            // Cost stays readable over any artwork (UX rule V4).
-            card.cost?.let {
-                Text(
-                    "$it", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.TopStart).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 4.dp),
-                )
-            }
-        }
-        return
-    }
-    Box(
-        modifier.size(width = 40.dp, height = 56.dp).clip(LockOnShapes.thumb).background(brush),
-    ) {
-        Text(
-            card?.cost?.toString() ?: "",
-            color = on, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
-        )
-        Text(
-            card?.level?.let { "Lv$it" } ?: card?.type?.label?.take(3) ?: "?",
-            color = on, style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp),
-        )
-    }
+    CardImage(card, modifier.width(48.dp))
 }
 
 @Composable
@@ -125,71 +91,6 @@ fun CardRow(
     }
 }
 
-@Composable
-fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Unit, extraActions: @Composable () -> Unit = {}) {
-    var shownPrinting by remember(card.cardNumber) { mutableStateOf<String?>(null) }
-    val art = LocalArtwork.current.urlFor(card.cardNumber, shownPrinting)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        dismissButton = extraActions,
-        title = { Text(card.name) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (art != null) {
-                    CardArtwork(
-                        art, contentDescription = "${card.name} artwork", contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxWidth().aspectRatio(63f / 88f).clip(LockOnShapes.tile),
-                    ) {}
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CardThumb(card)
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("${card.cardNumber} · ${card.rarity}", style = MaterialTheme.typography.labelLarge)
-                        Text(
-                            listOfNotNull(
-                                card.type.label,
-                                card.colors.joinToString("/") { it.label }.ifEmpty { null },
-                                card.level?.let { "Level $it" },
-                                card.cost?.let { "Cost $it" },
-                            ).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        if (card.ap != null || card.hp != null) {
-                            Text("AP ${card.ap ?: "-"} · HP ${card.hp ?: "-"}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-                if (card.traits.isNotEmpty()) Text("Traits: ${card.traits.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
-                if (card.zones.isNotEmpty()) Text("Zones: ${card.zones.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
-                card.link?.let { Text("Link: $it", style = MaterialTheme.typography.bodySmall) }
-                Text(card.displayText, style = MaterialTheme.typography.bodyMedium)
-                if (card.correctedText != null) {
-                    Text("Shows corrected text. Printed: ${card.text}", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (printings.isNotEmpty()) {
-                    Text("Printings", style = MaterialTheme.typography.titleSmall)
-                    printings.forEach {
-                        val line = "• ${it.label} (${it.printingId}, ${it.rarity}, ${it.language.uppercase()})"
-                        if (it.artworkUrl.isNullOrBlank() || art == null) {
-                            Text(line, style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            // Tapping a printing shows its artwork.
-                            Text(
-                                line + if ((shownPrinting ?: printings.first().printingId) == it.printingId) "  ◂" else "",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clickable { shownPrinting = it.printingId }.padding(vertical = 4.dp),
-                            )
-                        }
-                    }
-                }
-            }
-        },
-    )
-}
 
 /** Simple vertical bar chart for level and cost curves. */
 @Composable
@@ -321,49 +222,15 @@ fun Reticle(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorSch
     }
 }
 
-/** Larger card face for grid views and sample hands. */
+
+/**
+ * A card in the test hand or shield row: the whole card, or its back when face down. The footer
+ * sits underneath for any extra controls.
+ */
 @Composable
 fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = false, footer: @Composable () -> Unit = {}) {
-    val colors = card?.colors.orEmpty()
-    val band = if (faceDown) MaterialTheme.colorScheme.surfaceVariant else cardColor(colors.firstOrNull())
-    val on = if (faceDown) MaterialTheme.colorScheme.onSurfaceVariant else onCardColor(colors.firstOrNull())
-    Column(
-        modifier.clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, LockOnShapes.tile),
-    ) {
-        val art = if (faceDown || card == null) null else LocalArtwork.current.urlFor(card.cardNumber)
-        if (art != null) {
-            CardArtwork(art, contentDescription = null, modifier = Modifier.fillMaxWidth().height(96.dp).background(band)) {}
-        } else Box(
-            Modifier.fillMaxWidth().height(64.dp).background(
-                if (colors.size > 1 && !faceDown) Brush.horizontalGradient(colors.map { cardColor(it) }) else Brush.verticalGradient(listOf(band, band.copy(alpha = 0.8f))),
-            ),
-        ) {
-            if (faceDown) {
-                LockOnMark(Modifier.align(Alignment.Center), reticleColor = MaterialTheme.colorScheme.outline)
-            } else {
-                Text(card?.cost?.toString() ?: "", color = on, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp))
-                Text(card?.level?.let { "Lv$it" } ?: "", color = on, style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
-                Text(card?.type?.label?.uppercase() ?: "", color = on, style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp))
-            }
-        }
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-            Text(if (faceDown) "Shield" else card?.name ?: "Unknown card", style = MaterialTheme.typography.labelLarge,
-                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(min = 36.dp))
-            if (!faceDown && card != null) {
-                Text(card.cardNumber, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                if (card.ap != null || card.hp != null) {
-                    Text(
-                        "AP ${card.ap ?: "–"} · HP ${card.hp ?: "–"}",
-                        style = MaterialTheme.typography.labelSmall.merge(TabularNumbers),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
-                    )
-                }
-            }
-            footer()
-        }
+    Column(modifier) {
+        if (faceDown) CardBack(Modifier.fillMaxWidth()) else CardImage(card, Modifier.fillMaxWidth())
+        footer()
     }
 }

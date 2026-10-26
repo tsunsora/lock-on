@@ -39,7 +39,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 
 ### Decks (top level)
 - **Purpose:** find a deck and start working on it.
-- **Shows:** each deck as a chamfered tile with a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50 · Resource n/10`, tags, and when it was last edited.
+- **Shows:** each deck as a tile with its cover card (its highest-level Unit, or a card back for an empty deck), a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50 · Resource n/10`, tags, and when it was last edited. On desktop the tiles form a grid.
 - **Actions:**
   - Bottom right: **New deck**.
   - Top: **Import** and **Back up all**.
@@ -53,7 +53,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - **Export**
   - a conflict banner when one exists
 - **Panes**, shown side by side on wide windows and as tabs on phones (**Deck · Add cards · Analysis · Test**):
-  1. **Add cards:** catalog search with filters.
+  1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color.
      - **Deck colors only** narrows the list to the deck's colors.
      - Sort by number, level, cost or name.
@@ -81,7 +81,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 
 ### Cards (top level)
 - **Purpose:** browse and learn cards outside any deck.
-- **Shows:** a search field, color and type chips, and more filters (level, cost, set, trait), as a list or grid with the result count.
+- **Shows:** a search field with the card count, then one chip row (results, Filters, Sort, Grid/List, colors, types), as a gallery of whole cards or a list. On desktop, tapping a card opens its details in a side panel; on phones, in a dialog.
 - **Card details:** artwork when the catalog has it (tap a printing to switch art), type and stats, corrected text, traits, zones, link, and printings.
 - When a weekly background check finds a newer official list, the **Catalog** button reads *Card database update available* (UX rule C1: no pop-up).
 - **Catalog** (button next to the catalog name) opens a dialog that:
