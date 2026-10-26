@@ -1,0 +1,35 @@
+{
+  "catalogId": "lockon-sample",
+  "version": 1,
+  "name": "Lock On sample cards",
+  "source": "Fictional placeholder cards written for Lock On development. They follow the shape of Gundam Card Game data but contain no official card text or artwork.",
+  "cards": [
+    { "cardNumber": "SMP-001", "name": "Lancer Frame", "type": "UNIT", "colors": ["BLUE"], "level": 2, "cost": 1, "ap": 2, "hp": 2, "text": "<Repair 1> (At the end of your turn, this Unit recovers 1 HP.)", "traits": ["Orbital Guard"], "zones": ["Space", "Earth"], "link": "Pilot with trait (Orbital Guard)", "setCode": "SMP", "rarity": "C" },
+    { "cardNumber": "SMP-002", "name": "Bastion Heavy Armor", "type": "UNIT", "colors": ["BLUE"], "level": 4, "cost": 3, "ap": 3, "hp": 5, "text": "<Blocker> (Rest this Unit to change the target of an enemy attack to this Unit.)", "traits": ["Orbital Guard"], "zones": ["Earth"], "setCode": "SMP", "rarity": "U" },
+    { "cardNumber": "SMP-003", "name": "Skyline Interceptor", "type": "UNIT", "colors": ["BLUE"], "level": 3, "cost": 2, "ap": 3, "hp": 2, "text": "【Deploy】 Draw 1 card, then discard 1 card.", "traits": ["Orbital Guard", "Aerial"], "zones": ["Earth"], "setCode": "SMP", "rarity": "C" },
+    { "cardNumber": "SMP-004", "name": "Aegis Prototype", "type": "UNIT", "colors": ["BLUE"], "level": 6, "cost": 4, "ap": 5, "hp": 5, "text": "【When Paired】 Choose 1 enemy Unit with 3 or less HP. Rest it.", "traits": ["Orbital Guard", "Prototype"], "zones": ["Space", "Earth"], "link": "Captain Mira Sol", "setCode": "SMP", "rarity": "R" },
+    { "cardNumber": "SMP-005", "name": "Captain Mira Sol", "type": "PILOT", "colors": ["BLUE"], "level": 4, "cost": 1, "ap": 1, "hp": 1, "text": "【Burst】 Add this card to your hand. While paired, this Unit gets AP+1.", "traits": ["Orbital Guard"], "setCode": "SMP", "rarity": "R" },
+    { "cardNumber": "SMP-006", "name": "Shield Formation", "type": "COMMAND", "colors": ["BLUE"], "level": 2, "cost": 1, "text": "【Action】 Choose 1 friendly Unit. It gets HP+2 during this turn.", "traits": [], "setCode": "SMP", "rarity": "C" },
+    { "cardNumber": "SMP-007", "name": "Orbital Relay Station", "type": "BASE", "colors": ["BLUE"], "level": 3, "cost": 2, "hp": 5, "text": "【Deploy】 Add 1 of your Shields to your hand. Then, deploy this card into your shield area as your Base.", "traits": ["Orbital Guard", "Stronghold"], "zones": ["Space"], "setCode": "SMP", "rarity": "U" },
+    { "cardNumber": "SMP-008", "name": "Crimson Striker", "type": "UNIT", "colors": ["RED"], "level": 3, "cost": 2, "ap": 4, "hp": 2, "text": "<Breach 2> (When this Unit destroys an enemy Unit with battle damage, deal 2 damage to the first card in that player's shield area.)", "traits": ["Crimson Order"], "zones": ["Earth"], "setCode": "SMP", "rarity": "U" },
+    { "cardNumber": "SMP-009", "name": "Ember Scout", "type": "UNIT", "colors": ["RED"], "level": 1, "cost": 1, "ap": 1, "hp": 1, "text": "【Destroyed】 Deal 1 damage to 1 enemy Unit.", "traits": ["Crimson Order"], "zones": ["Earth"], "setCode": "SMP", "rarity": "C" },
+    { "cardNumber": "SMP-010", "name": "Inferno Lancer", "type": "UNIT", "colors": ["RED"], "level": 5, "cost": 3, "ap": 5, "hp": 3, "text": "<First Strike> (While attacking, this Unit deals damage before the enemy Unit.)", "traits": ["Crimson Order"], "zones": ["Space", "Earth"], "link": "Ace Rook Vance", "setCode": "SMP", "rarity": "R" },
+    { "cardNumber": "SMP-011", "name": "Warlord Mk-II", "type": "UNIT", "colors": ["RED"], "level": 7, "cost": 5, "ap": 6, "hp": 6, "text": "【Attack】 Deal 2 damage to all enemy Units with 2 or less HP.", "traits": ["Crimson Order", "Commander"], "zones": ["Space"], "setCode": "SMP", "rarity": "LR" },
+    { "cardNumber": "SMP-012", "name": "Ace Rook Vance", "type": "PILOT", "colors": ["RED"], "level": 5, "cost": 1, "ap": 2, "hp": 0, "text": "【Burst】 Add this card to your hand. 【When Paired】 Deal 1 damage to 1 enemy Unit.", "traits": ["Crimson Order"], "setCode": "SMP", "rarity": "SR" },
+    { "cardNumber": "SMP-013", "name": "Scorched Earth", "type": "COMMAND", "colors": ["RED"], "level": 4, "cost": 2, "text": "【Main】 Deal 3 damage to 1 enemy Unit.", "traits": [], "setCode": "SMP", "rarity": "C" },
+    { "cardNumber": "SMP-014", "name": "Forward Assault Base", "type": "BASE", "colors": ["RED"], "level": 2, "cost": 1, "hp": 3, "text": "【Activate･Main】 Rest this Base: 1 friendly Unit gets AP+1 during this turn.", "traits": ["Crimson Order", "Stronghold"], "zones": ["Earth"], "setCode": "SMP", "rarity": "U" },
+    { "cardNumber": "SMP-015", "name": "Verdant Sentinel", "type": "UNIT", "colors": ["GREEN"], "level": 3, "cost": 2, "ap": 2, "hp": 4, "text": "【Deploy】 Place the top card of your deck into your resource area as a rested Resource.", "traits": ["Frontier Union"], "zones": ["Earth"], "setCode": "SMP", "rarity": "C" },
+    { "cardNumber": "SMP-016", "name": "Canopy Ambush", "type": "COMMAND", "colors": ["GREEN"], "level": 3, "cost": 1, "text": "【Action】 Choose 1 friendly Unit. It gets AP+2 during this battle.", "traits": [], "setCode": "SMP", "rarity": "U" },
+    { "cardNumber": "SMP-017", "name": "Halo Paladin", "type": "UNIT", "colors": ["WHITE"], "level": 4, "cost": 3, "ap": 3, "hp": 4, "text": "<High-Maneuver> (This Unit cannot be blocked.)", "traits": ["Free Pilots"], "zones": ["Space"], "setCode": "SMP", "rarity": "R" },
+    { "cardNumber": "SMP-018", "name": "Lieutenant Ilse Hart", "type": "PILOT", "colors": ["WHITE"], "level": 3, "cost": 1, "ap": 1, "hp": 1, "text": "【Burst】 Add this card to your hand. While paired, this Unit gets HP+1.", "traits": ["Free Pilots"], "setCode": "SMP", "rarity": "U" },
+    { "cardNumber": "SMP-019", "name": "Standard Resource", "type": "RESOURCE", "colors": [], "text": "Place in your resource area.", "traits": [], "setCode": "SMP", "rarity": "C" },
+    { "cardNumber": "SMP-020", "name": "Reserve Resource", "type": "RESOURCE", "colors": [], "text": "Place in your resource area.", "correctedText": "Place in your resource area. (Corrected wording example.)", "traits": [], "setCode": "SMP", "rarity": "C" }
+  ],
+  "printings": [
+    { "printingId": "SMP-001", "cardNumber": "SMP-001", "setCode": "SMP", "rarity": "C" },
+    { "printingId": "SMP-001-P1", "cardNumber": "SMP-001", "setCode": "SMP", "rarity": "C+", "label": "Alternate art", "isAlternateArt": true },
+    { "printingId": "SMP-008", "cardNumber": "SMP-008", "setCode": "SMP", "rarity": "U" },
+    { "printingId": "SMP-008-P1", "cardNumber": "SMP-008", "setCode": "SMP", "rarity": "U+", "label": "Alternate art", "isAlternateArt": true },
+    { "printingId": "SMP-011-JP", "cardNumber": "SMP-011", "setCode": "SMP", "rarity": "LR", "language": "ja", "label": "Japanese" }
+  ]
+}

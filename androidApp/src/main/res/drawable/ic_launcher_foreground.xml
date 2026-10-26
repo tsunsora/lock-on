@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Targeting reticle: ring, four ticks, and a center dot. Drawn inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#FFB347"
+        android:strokeWidth="5"
+        android:fillColor="#00000000"
+        android:pathData="M54,32a22,22 0 1,1 0,44a22,22 0 1,1 0,-44z" />
+    <path
+        android:strokeColor="#FFB347"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M54,24L54,38M54,70L54,84M24,54L38,54M70,54L84,54" />
+    <path
+        android:fillColor="#FFB347"
+        android:pathData="M54,49a5,5 0 1,1 0,10a5,5 0 1,1 0,-10z" />
+</vector>

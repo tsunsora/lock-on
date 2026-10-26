@@ -1,0 +1,30 @@
+{
+  "rulesets": [
+    {
+      "id": "standard",
+      "name": "Standard",
+      "region": "EN",
+      "effectiveDate": "2026-01-01",
+      "mainDeckSize": 50,
+      "resourceDeckSize": 10,
+      "maxColors": 2,
+      "maxCopies": 4,
+      "resourceMaxCopies": null,
+      "banned": [],
+      "restricted": {},
+      "bannedCombinations": [],
+      "notes": "Base construction rules. Replace the restriction lists with the current official list before release."
+    },
+    {
+      "id": "sample-event",
+      "name": "Sample event (restriction demo)",
+      "region": "EN",
+      "effectiveDate": "2026-10-01",
+      "restricted": { "SMP-005": 1 },
+      "bannedCombinations": [
+        { "cardNumbers": ["SMP-004", "SMP-012"], "reason": "Example banned pairing." }
+      ],
+      "notes": "Shows how restricted cards and banned combinations are reported."
+    }
+  ]
+}
