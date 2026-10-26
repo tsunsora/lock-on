@@ -152,7 +152,7 @@ fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Uni
 
 /** Simple vertical bar chart for level and cost curves. */
 @Composable
-fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.primary) {
+fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.secondary) {
     Column(modifier) {
         Text(title, style = MaterialTheme.typography.titleSmall)
         Spacer(Modifier.height(8.dp))
@@ -215,7 +215,8 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actio
 @Composable
 fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Surface(
-        modifier = modifier.heightIn(min = 0.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, LockOnShapes.panel),
+        modifier = modifier.heightIn(min = 0.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, LockOnShapes.panel)
+            .panelLines(MaterialTheme.colorScheme.outlineVariant, vents = false),
         shape = LockOnShapes.panel,
         color = MaterialTheme.colorScheme.surface,
         content = content,
@@ -291,7 +292,7 @@ fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = fal
             ),
         ) {
             if (faceDown) {
-                Reticle(Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.outline)
+                LockOnMark(Modifier.align(Alignment.Center), reticleColor = MaterialTheme.colorScheme.outline)
             } else {
                 Text(card?.cost?.toString() ?: "", color = on, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
                     modifier = Modifier.align(Alignment.TopStart).padding(6.dp))

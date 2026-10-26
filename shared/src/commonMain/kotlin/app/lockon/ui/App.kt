@@ -66,7 +66,9 @@ import app.lockon.AppContainer
 import app.lockon.platform.FileBridge
 import app.lockon.sync.SyncController
 import app.lockon.ui.cards.CardBrowserScreen
-import app.lockon.ui.components.Reticle
+import androidx.compose.foundation.isSystemInDarkTheme
+import app.lockon.ui.components.LockOnMark
+import app.lockon.ui.components.TricolorStripe
 import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
 import app.lockon.ui.decks.DeckLibraryScreen
@@ -81,8 +83,8 @@ private fun Tab.icon(): ImageVector = when (this) {
 
 /** Shared root for Android and desktop. Wide windows get a side rail and multi-pane editors. */
 @Composable
-fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, files: FileBridge) {
-    LockOnTheme {
+fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, files: FileBridge, dark: Boolean? = null) {
+    LockOnTheme(dark ?: isSystemInDarkTheme()) {
         val snackbars = remember { SnackbarHostState() }
         val syncStatus by sync.status.collectAsState()
         val rootFocus = remember { FocusRequester() }
@@ -135,7 +137,9 @@ fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, fi
                     }
                 },
                 bottomBar = {
-                    if (!wide) NavigationBar {
+                    if (!wide) Column {
+                    TricolorStripe()
+                    NavigationBar {
                         Tab.entries.forEach { tab ->
                             NavigationBarItem(
                                 selected = state.tab == tab,
@@ -144,6 +148,7 @@ fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, fi
                                 label = { Text(tab.label) },
                             )
                         }
+                    }
                     }
                 },
             ) { padding ->
@@ -182,14 +187,14 @@ private fun TopNav(items: @Composable RowScope.() -> Unit) {
                 Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).height(56.dp).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Reticle()
+                LockOnMark(reticleColor = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.width(8.dp))
                 Text("LOCK ON", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(32.dp))
                 items()
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            TricolorStripe()
         }
     }
 }

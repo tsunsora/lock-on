@@ -58,7 +58,11 @@ import app.lockon.rules.DeckValidator
 import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import app.lockon.ui.cards.CardSearchPanel
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import app.lockon.ui.components.Badge
+import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.HudHeader
 import app.lockon.ui.components.CardDetailDialog
@@ -153,8 +157,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("This deck was changed on two devices. Both versions are kept.", Modifier.weight(1f),
+                Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+                    CautionStripes(Modifier.width(10.dp).fillMaxHeight())
+                    Text("This deck was changed on two devices. Both versions are kept.", Modifier.weight(1f).padding(12.dp),
                         color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
                     TextButton(onClick = { state.open(Screen.Conflict(deckId)) }) { Text("Compare") }
                 }

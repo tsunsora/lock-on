@@ -1,21 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Targeting reticle: ring, four ticks, and a center dot. Drawn inside the 66dp safe zone. -->
+<!-- The Lock On mark: V-fin, targeting reticle and red crest. Same 108-unit geometry as
+     LockOnMark in the shared UI, so the icon and the in-app mark match. Kept inside the 66dp
+     safe zone (21..87). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:strokeColor="#FFB347"
-        android:strokeWidth="5"
-        android:fillColor="#00000000"
-        android:pathData="M54,32a22,22 0 1,1 0,44a22,22 0 1,1 0,-44z" />
-    <path
-        android:strokeColor="#FFB347"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:pathData="M54,24L54,38M54,70L54,84M24,54L38,54M70,54L84,54" />
-    <path
-        android:fillColor="#FFB347"
-        android:pathData="M54,49a5,5 0 1,1 0,10a5,5 0 1,1 0,-10z" />
+    <group
+        android:scaleX="0.72"
+        android:scaleY="0.72"
+        android:pivotX="54"
+        android:pivotY="54">
+        <path
+            android:fillColor="#FFC94D"
+            android:pathData="M54,52 L20,18 L32,18 L54,40 L76,18 L88,18 Z" />
+        <path
+            android:strokeColor="#E9ECF2"
+            android:strokeWidth="6"
+            android:fillColor="#00000000"
+            android:pathData="M54,42a20,20 0 1,1 0,40a20,20 0 1,1 0,-40z" />
+        <path
+            android:strokeColor="#E9ECF2"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:pathData="M54,34L54,46M54,78L54,92M24,62L38,62M70,62L84,62" />
+        <path
+            android:fillColor="#D3352B"
+            android:pathData="M54,54 L60,62 L54,70 L48,62 Z" />
+    </group>
 </vector>

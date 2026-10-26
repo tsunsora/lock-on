@@ -10,7 +10,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **N2. Two levels deep at most.** A destination's own screen counts as level one. A deck's editor or a conflict comparison counts as level two. Anything further opens as a sheet or dialog over level two, never a third screen. (Stella Sora is praised for having few nested menus.)
 - **N3. Back always works and never loses work.** System back, the on-screen back arrow and Escape on desktop all leave the current screen, and edits are already saved when they do.
 - **N4. Wide windows split into panes instead of adding screens.** At 840 dp and wider, the editor shows search, deck and analysis side by side. On phones the same panes become tabs in the same order.
-- **N5. Top bar on desktop, bottom bar on phones.** At 840 dp and wider, navigation is a top bar with the reticle, the LOCK ON wordmark and the three destinations, each with an icon, a label and an amber underline when selected. Below that, it is a bottom bar with the same three destinations, where thumbs reach it. Screen-level tabs, such as the editor's, always sit at the top of the screen.
+- **N5. Top bar on desktop, bottom bar on phones.** At 840 dp and wider, navigation is a top bar with the Lock On mark, the LOCK ON wordmark and the three destinations, each with an icon, a label and a V-fin yellow underline when selected. Below that, it is a bottom bar with the same three destinations, where thumbs reach it. Screen-level tabs, such as the editor's, always sit at the top of the screen.
 
 ## 2. Speed of building
 
@@ -35,16 +35,29 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **C3. One bulk action instead of many single ones.** When something applies to many items, offer it once, such as *Clear section* or *Sync now*. (Aniimo reviewers asked for a claim-all.)
 - **C4. Pick from options, don't type.** Wherever a value comes from a known list, such as a card name, a color, a tag already in use or a ruleset, offer it as a choice. Typing is the fallback.
 
-## 5. Look and feel ("retro-future HUD")
+## 5. Look and feel (Material 3 with Gundam accents)
 
-Lock On borrows Stella Sora's bright retro-future presentation: clean anime-styled panels with a 90s targeting-computer accent. It keeps Aniimo's "clean and fast, clear and precise" information over decoration.
+Lock On is a Material 3 app first. Components, behaviour, type scale, motion and accessibility follow Material. The Gundam identity is a layer on top: a mobile-suit colour scheme and a few decorative details, borrowing Stella Sora's bright, stylised presentation and Aniimo's "clean and fast, clear and precise" information.
 
-- **V1. Chamfered panels.** Panels, card tiles and primary buttons use cut corners, about 6–10 dp on one or two corners, rather than full rounding. The cut is the brand mark and stays consistent everywhere.
-- **V2. HUD section headers.** Section headers are small uppercase labels with a short amber bar to their left, plus a right-aligned readout when the section has a count, such as `UNITS ··· 24`.
-- **V3. Amber means "you can act."** The amber primary color is only for actions and the selected state. Information uses neutral text, and card colors are only for card identity.
+- **V1. Material components, armour-plate surfaces.**
+  - Buttons, chips, text fields, menus, dialogs, the bottom navigation bar and the FAB use stock Material 3 shapes and behaviour.
+  - Large surfaces (cards, panels and card faces) use Material's shape theming to cut two opposite corners, like armour plates. Nothing small gets cut corners.
+- **V2. HUD section headers.** Section headers are small uppercase labels with a short accent bar to their left, plus a right-aligned readout when the section has a count, such as `UNITS ··· 24`.
+- **V3. Colour roles come from a mobile-suit tricolour.**
+  - **Primary (V-fin yellow)** means "you can act": actions, the selected state and the FAB. Never use it for charts or plain information.
+  - **Secondary (armour blue)** is for positive states and information, such as the *Legal* tag and charts.
+  - **Tertiary (chest red)** is for rare emphasis. Errors keep Material's error role.
+  - Card colours are only for card identity.
+  - Dark mode is the cockpit (deep navy surfaces). Light mode is white armour.
 - **V4. Card faces carry identity at a glance.** A tile always shows its color band, cost (top-left), level, and type initial, so a deck reads correctly even before real artwork is licensed.
 - **V5. Motion explains, never decorates.** Animations last 150–250 ms and show where something went, such as a count changing or a panel opening. Nothing loops on its own. Turning on reduce-motion removes everything except fades.
-- **V6. Dark first, light supported.** Both themes use the same color roles, and contrast is at least 4.5:1 for text and 3:1 for controls and tags.
+- **V6. Dark and light are equals.** Both themes use the same colour roles, and contrast is at least 4.5:1 for text and 3:1 for controls and tags.
+- **V7. Gundam details are decoration, used sparingly, and never the only signal.**
+  - **The Lock On mark:** a V-fin over a targeting reticle with a red crest. It appears in the desktop top bar, on face-down shields and as the launcher icon.
+  - **A tricolour stripe** (blue, white, red, yellow) along the inner edge of the navigation bar.
+  - **Faint armour panel lines** on plates: a seam in the top margin, plus vent marks on deck tiles where the corner is empty. They never cross content.
+  - **Yellow-and-black caution stripes,** reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
+  - All of these are original shapes, not official logos or artwork.
 
 ## 6. Reach and input
 
@@ -67,7 +80,7 @@ Lock On borrows Stella Sora's bright retro-future presentation: clean anime-styl
 **Inspiration games**
 
 - **Stella Sora (Yostar).** Reviewers praise a clean, modern, intuitive UI with clear labels, few nested menus and very smooth animation ([Game8 review](https://game8.co/articles/reviews/stella-sora-review)). Its "retro-future" look mixes fantasy characters with 90s-style tech, and its menus are compared to Persona 5 ([TapTap review](https://www.taptap.io/post/10565172)). Its run-based *Potentials* system offers a choice of three and saves good builds as reusable *Records* ([Game8](https://game8.co/articles/reviews/stella-sora-review), [Oslink guide](https://www.oslink.io/blog/guide/stella-sora-beginner-guide.html)).
-  - Taken into Lock On: retro-future HUD styling (V1, V2), shallow navigation (N2), clear labels (I5), purposeful motion (V5), and the sample hand's "draw and judge" loop.
+  - Taken into Lock On: stylised HUD details (V2, V7), shallow navigation (N2), clear labels (I5), purposeful motion (V5), and the sample hand's "draw and judge" loop.
 - **Aniimo (Pawprint Studio).** One review praises a UI that is "clean and fast in design" with "clear and precise information", including showing which creature suits gliding, swimming or climbing ([GamingOnPhone](https://gamingonphone.com/reviews/aniimo-game-review/)). Others criticize a 16-icon menu, reward systems that "scream at you from multiple menus", constant interruptions, unclear button prompts, and having no claim-all ([Siliconera](https://www.siliconera.com/review-aniimo-is-a-constantly-distracting-experience/), [Lootlevelchill](https://lootlevelchill.com/reviews/aniimo-review/), [Dualshockers](https://www.dualshockers.com/aniimo-review/)).
   - Taken into Lock On: suitability tags (S3, from the gliding/swimming hints), and the anti-patterns behind N1, C1, C3 and I5.
 

@@ -2,6 +2,8 @@ package app.lockon.ui.sync
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +46,11 @@ import app.lockon.sync.SyncController
 import app.lockon.sync.SyncProtocol
 import app.lockon.sync.SyncStatus
 import app.lockon.sync.verificationCode
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.QrCodeView
 import kotlinx.coroutines.delay
 import kotlin.time.Clock
@@ -99,7 +106,8 @@ fun SyncScreen(controller: SyncController, deviceName: String) {
 @Composable
 private fun StatusLine(status: SyncStatus) {
     val message = status.message ?: return
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (status.isError) CautionStripes(Modifier.width(8.dp).fillMaxHeight())
         if (status.working) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
         Text(
             message,
@@ -109,6 +117,7 @@ private fun StatusLine(status: SyncStatus) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HostSection(controller: HostSyncController) {
     val info by controller.hostInfo.collectAsState()
@@ -126,7 +135,8 @@ private fun HostSection(controller: HostSyncController) {
                 else -> {
                     Text("In Lock On on your phone, open Sync and scan this code. Keep both devices on the same network.",
                         style = MaterialTheme.typography.bodyMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Top) {
+                    // Details wrap under the QR code in a narrow window instead of squeezing beside it.
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         current.qr?.let { QrCodeView(it, Modifier.size(220.dp)) }
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.widthIn(max = 360.dp)) {
                             Text("Or enter it by hand:", style = MaterialTheme.typography.labelLarge)

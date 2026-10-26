@@ -63,7 +63,7 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         }
         HorizontalDivider()
         BarChart("Level curve (main deck)", stats.levelCurve)
-        BarChart("Cost curve (main deck)", stats.costCurve, color = MaterialTheme.colorScheme.secondary)
+        BarChart("Cost curve (main deck)", stats.costCurve, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f))
         HorizontalDivider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             HudHeader("Card types")

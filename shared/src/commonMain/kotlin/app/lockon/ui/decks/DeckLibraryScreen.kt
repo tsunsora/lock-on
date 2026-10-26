@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import app.lockon.model.CardColor
 import app.lockon.model.Ruleset
 import app.lockon.ui.components.ColorPips
+import app.lockon.ui.components.panelLines
 import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.cardColor
 import androidx.compose.foundation.horizontalScroll
@@ -216,7 +217,7 @@ private fun DeckRow(
     var menu by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).panelLines(scheme.outlineVariant),
         colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainer),
     ) {
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {

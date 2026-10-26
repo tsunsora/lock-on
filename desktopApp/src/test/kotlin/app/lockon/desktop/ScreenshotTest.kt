@@ -66,9 +66,9 @@ class ScreenshotTest {
         override suspend fun openText(mimeTypes: List<String>): String? = null
     }
 
-    private fun shoot(name: String, width: Int, height: Int, setup: AppState.() -> Unit) {
+    private fun shoot(name: String, width: Int, height: Int, dark: Boolean = true, setup: AppState.() -> Unit) {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
-        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, sync, files) }.use { scene ->
+        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, sync, files, dark = dark) }.use { scene ->
             var image = scene.render()
             // Let Room flows and effects settle between frames.
             repeat(15) { Thread.sleep(60); image = scene.render() }
@@ -86,6 +86,11 @@ class ScreenshotTest {
         shoot("phone-add-cards", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
         shoot("phone-considering", 600, 3200) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-test-hand", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("light-desktop-editor", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId)) }
+        shoot("light-phone-library", 600, 1260, dark = false) { select(Tab.DECKS) }
+        sync.status.value = SyncStatus(message = "Could not reach the desktop. Check that Lock On is open on it.", isError = true)
+        shoot("phone-sync-error", 600, 1260) { select(Tab.SYNC) }
+        sync.status.value = SyncStatus(message = "Ready for phones on port 53340.")
         assertTrue(File(out, "phone-cards.png").length() > 0)
     }
 }
