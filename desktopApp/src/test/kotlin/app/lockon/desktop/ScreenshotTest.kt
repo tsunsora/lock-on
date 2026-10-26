@@ -119,6 +119,18 @@ class ScreenshotTest {
         shoot("phone-sync-error", 600, 1260) { select(Tab.SYNC) }
         shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SYNC) }
         sync.status.value = SyncStatus(message = "Ready for phones on port 53340.")
+        // The Catalog dialog, drawn on its own because it opens from a button.
+        ImageComposeScene(600, 1260, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                    app.lockon.ui.cards.CatalogDialog(container, AppState(CoroutineScope(Dispatchers.Default)), files, onDismiss = {})
+                }
+            }
+        }.use { scene ->
+            var image = scene.render()
+            repeat(10) { Thread.sleep(60); image = scene.render() }
+            File(out, "phone-catalog.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
         assertTrue(File(out, "phone-cards.png").length() > 0)
     }
 }

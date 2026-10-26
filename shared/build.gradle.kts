@@ -69,6 +69,9 @@ kotlin {
             implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
             implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
         }
+        // Plain HTTPS downloads (catalog updates) use the system trust store, unlike sync.
+        androidMain.dependencies { implementation("io.ktor:ktor-client-okhttp:$ktorVersion") }
+        jvmMain.dependencies { implementation("io.ktor:ktor-client-okhttp:$ktorVersion") }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")

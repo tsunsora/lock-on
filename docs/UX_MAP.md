@@ -83,6 +83,11 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 - **Purpose:** browse and learn cards outside any deck.
 - **Shows:** a search field, color and type chips, and more filters (level, cost, set, trait), as a list or grid with the result count.
 - **Card details:** type and stats, corrected text, traits, zones, link, and printings.
+- **Catalog** (button next to the catalog name) opens a dialog that:
+  - shows the installed catalog: name, version, card count, where it came from, and when it was installed
+  - takes an `https://` link to **Download**, then later **Check for update**, or **Import file**
+  - offers **Go back to the sample catalog**
+  - always shows a preview before installing: an update or a replacement, warnings, and any cards your decks use that the new catalog lacks. **Update** / **Replace catalog** confirms, since this can't be undone (C2).
 
 ### Sync (top level)
 - **Desktop:**

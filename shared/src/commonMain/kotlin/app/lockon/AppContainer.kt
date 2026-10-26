@@ -1,5 +1,6 @@
 package app.lockon
 
+import app.lockon.catalog.CatalogUpdater
 import app.lockon.data.CatalogRepository
 import app.lockon.data.DeckRepository
 import app.lockon.data.db.LockOnDatabase
@@ -19,15 +20,20 @@ class AppContainer private constructor(
 ) {
     val syncClient by lazy { SyncClient(decks, devices) }
     val syncHost by lazy { SyncHost(decks, devices) }
+    val catalogUpdater by lazy { CatalogUpdater(catalog, decks) }
+
+    suspend fun restoreSampleCatalog() = catalog.restoreBundled(readBundledCatalog())
 
     companion object {
+        private suspend fun readBundledCatalog() = Res.readBytes("files/catalog/sample-catalog.json").decodeToString()
+
         suspend fun create(database: LockOnDatabase, defaultDeviceName: String): AppContainer {
             val devices = DeviceRepository(database)
             val identity = devices.identity(defaultDeviceName)
             val catalog = CatalogRepository(database)
             catalog.load(
-                catalogJson = Res.readBytes("files/catalog/sample-catalog.json").decodeToString(),
-                rulesetsJson = Res.readBytes("files/rulesets/rulesets.json").decodeToString(),
+                bundledCatalogJson = readBundledCatalog(),
+                bundledRulesetsJson = Res.readBytes("files/rulesets/rulesets.json").decodeToString(),
             )
             return AppContainer(database, identity, catalog, DeckRepository(database, identity.deviceId), devices)
         }

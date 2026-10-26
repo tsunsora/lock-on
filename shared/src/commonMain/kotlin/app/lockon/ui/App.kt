@@ -165,7 +165,7 @@ fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, fi
                                     }
                                     when (state.tab) {
                                         Tab.DECKS -> DeckLibraryScreen(container, state, files)
-                                        Tab.CARDS -> CardBrowserScreen(container.catalog, state)
+                                        Tab.CARDS -> CardBrowserScreen(container, state, files)
                                         Tab.SYNC -> SyncScreen(sync, container.identity.deviceName)
                                     }
                                 }
