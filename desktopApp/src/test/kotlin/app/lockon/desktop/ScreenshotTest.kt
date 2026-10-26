@@ -82,6 +82,8 @@ class ScreenshotTest {
         shoot("phone-library", 600, 1260) { select(Tab.DECKS) }
         shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-cards", 600, 1260) { select(Tab.CARDS) }
+        shoot("phone-add-cards", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        shoot("phone-test-hand", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 3)) }
         assertTrue(File(out, "phone-cards.png").length() > 0)
     }
 }

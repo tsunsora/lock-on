@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import app.lockon.model.Card
 import app.lockon.model.Printing
 import app.lockon.sync.QrMatrix
+import app.lockon.ui.theme.LockOnShapes
+import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.cardColor
 import app.lockon.ui.theme.onCardColor
 
@@ -54,7 +56,7 @@ fun CardThumb(card: Card?, modifier: Modifier = Modifier) {
     }
     val on = onCardColor(colors.firstOrNull())
     Box(
-        modifier.size(width = 40.dp, height = 56.dp).clip(RoundedCornerShape(6.dp)).background(brush),
+        modifier.size(width = 40.dp, height = 56.dp).clip(LockOnShapes.thumb).background(brush),
     ) {
         Text(
             card?.cost?.toString() ?: "",
@@ -177,7 +179,7 @@ fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Mod
 
 @Composable
 fun QrCodeView(matrix: QrMatrix, modifier: Modifier = Modifier) {
-    Surface(color = Color.White, shape = RoundedCornerShape(12.dp), modifier = modifier) {
+    Surface(color = Color.White, shape = LockOnShapes.panel, modifier = modifier) {
         Canvas(Modifier.padding(12.dp).fillMaxSize()) {
             val cell = size.minDimension / matrix.size
             for (y in 0 until matrix.size) for (x in 0 until matrix.size) {
@@ -193,7 +195,7 @@ fun Badge(text: String, background: Color, foreground: Color, modifier: Modifier
         text,
         style = MaterialTheme.typography.labelSmall,
         color = foreground,
-        modifier = modifier.clip(RoundedCornerShape(50)).background(background).padding(horizontal = 8.dp, vertical = 2.dp),
+        modifier = modifier.clip(MaterialTheme.shapes.extraSmall).background(background).padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }
 
@@ -213,9 +215,106 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actio
 @Composable
 fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Surface(
-        modifier = modifier.heightIn(min = 0.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.heightIn(min = 0.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, LockOnShapes.panel),
+        shape = LockOnShapes.panel,
         color = MaterialTheme.colorScheme.surface,
         content = content,
     )
+}
+
+/** Section header in the HUD style (UX rule V2): amber tick, uppercase label, optional readout. */
+@Composable
+fun HudHeader(label: String, modifier: Modifier = Modifier, readout: String? = null, trailing: @Composable () -> Unit = {}) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(width = 3.dp, height = 14.dp).background(MaterialTheme.colorScheme.primary))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            label.uppercase(),
+            style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.weight(1f))
+        if (readout != null) {
+            Text(readout, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurface)
+        }
+        trailing()
+    }
+}
+
+/** Small color squares with initials, so color is never the only signal (UX rule I4). */
+@Composable
+fun ColorPips(colors: Collection<app.lockon.model.CardColor>, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        colors.sortedBy { it.ordinal }.forEach { color ->
+            Box(
+                Modifier.size(18.dp).clip(LockOnShapes.thumb).background(cardColor(color)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(color.label.take(1), style = MaterialTheme.typography.labelSmall, color = app.lockon.ui.theme.onCardColor(color),
+                    fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/** The Lock On targeting reticle, drawn rather than shipped as an image. */
+@Composable
+fun Reticle(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.primary) {
+    Canvas(modifier.size(28.dp)) {
+        val stroke = size.minDimension * 0.09f
+        val r = size.minDimension * 0.3f
+        drawCircle(color, radius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        drawCircle(color, radius = stroke)
+        val c = center
+        val near = r * 0.55f
+        val far = size.minDimension / 2
+        listOf(Offset(1f, 0f), Offset(-1f, 0f), Offset(0f, 1f), Offset(0f, -1f)).forEach { d ->
+            drawLine(color, c + d * (r - near / 2), c + d * far, strokeWidth = stroke)
+        }
+    }
+}
+
+/** Larger card face for grid views and sample hands. */
+@Composable
+fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = false, footer: @Composable () -> Unit = {}) {
+    val colors = card?.colors.orEmpty()
+    val band = if (faceDown) MaterialTheme.colorScheme.surfaceVariant else cardColor(colors.firstOrNull())
+    val on = if (faceDown) MaterialTheme.colorScheme.onSurfaceVariant else onCardColor(colors.firstOrNull())
+    Column(
+        modifier.clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, LockOnShapes.tile),
+    ) {
+        Box(
+            Modifier.fillMaxWidth().height(64.dp).background(
+                if (colors.size > 1 && !faceDown) Brush.horizontalGradient(colors.map { cardColor(it) }) else Brush.verticalGradient(listOf(band, band.copy(alpha = 0.8f))),
+            ),
+        ) {
+            if (faceDown) {
+                Reticle(Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.outline)
+            } else {
+                Text(card?.cost?.toString() ?: "", color = on, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp))
+                Text(card?.level?.let { "Lv$it" } ?: "", color = on, style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+                Text(card?.type?.label?.uppercase() ?: "", color = on, style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp))
+            }
+        }
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+            Text(if (faceDown) "Shield" else card?.name ?: "Unknown card", style = MaterialTheme.typography.labelLarge,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(min = 36.dp))
+            if (!faceDown && card != null) {
+                Text(card.cardNumber, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                if (card.ap != null || card.hp != null) {
+                    Text(
+                        "AP ${card.ap ?: "–"} · HP ${card.hp ?: "–"}",
+                        style = MaterialTheme.typography.labelSmall.merge(TabularNumbers),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                    )
+                }
+            }
+            footer()
+        }
+    }
 }

@@ -1,0 +1,105 @@
+package app.lockon.ui.decks
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import app.lockon.model.Card
+import app.lockon.model.CardType
+import app.lockon.model.DeckSection
+import app.lockon.model.DeckSnapshot
+import app.lockon.rules.SampleHand
+import app.lockon.ui.components.CardDetailDialog
+import app.lockon.ui.components.CardFace
+import app.lockon.ui.components.EmptyState
+import app.lockon.ui.components.HudHeader
+import app.lockon.ui.theme.TabularNumbers
+
+/** Practice opening hands with the official redraw and shield rules. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modifier = Modifier) {
+    val mainCount = deck.count(DeckSection.MAIN)
+    if (mainCount < SampleHand.HAND_SIZE + SampleHand.SHIELDS) {
+        EmptyState("Not enough cards to test", "Add at least ${SampleHand.HAND_SIZE + SampleHand.SHIELDS} main-deck cards to draw a hand and set shields.", modifier)
+        return
+    }
+    // A new deal whenever the deck's main section changes, so the test always matches the list.
+    val mainKey = deck.entries.filter { it.section == DeckSection.MAIN }
+    var game by remember(mainKey) { mutableStateOf(SampleHand.deal(deck)) }
+    var revealShields by remember(mainKey) { mutableStateOf(false) }
+    var detail by remember { mutableStateOf<Card?>(null) }
+
+    val handCards = game.hand.map { cards[it] }
+    val earlyUnits = handCards.count { it?.type == CardType.UNIT && (it.level ?: 99) <= 2 }
+
+    Column(modifier) {
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        HudHeader("Hand", readout = "${game.hand.size}")
+        Text(
+            when {
+                !game.shieldsPlaced && game.canRedraw -> "Opening hand. Keep it, or redraw once: the hand goes to the bottom and you draw 5 new cards."
+                !game.shieldsPlaced -> "Redrawn hand. Keep it to set your 6 shields."
+                else -> "Turn draws taken: ${game.drawsTaken}. ${game.library.size} cards left in the deck."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Units at level 2 or lower in hand: $earlyUnits",
+            style = MaterialTheme.typography.bodyMedium.merge(TabularNumbers),
+            color = if (earlyUnits == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            handCards.forEach { card -> CardFace(card, Modifier.width(132.dp).clickable(enabled = card != null) { detail = card }) }
+        }
+        if (game.shieldsPlaced) {
+            HudHeader("Shields", readout = "${game.shields.size}") {
+                TextButton(onClick = { revealShields = !revealShields }) { Text(if (revealShields) "Hide" else "Reveal") }
+            }
+            val bursts = game.shields.count { cards[it]?.displayText?.contains("Burst】") == true }
+            if (revealShields) {
+                Text("Burst cards in shields: $bursts", style = MaterialTheme.typography.bodySmall.merge(TabularNumbers))
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                game.shields.forEach { number ->
+                    val card = cards[number]
+                    CardFace(card, Modifier.width(100.dp), faceDown = !revealShields)
+                }
+            }
+        }
+    }
+    // Actions stay pinned in the thumb zone instead of scrolling away under the cards (UX rule R3).
+    HorizontalDivider()
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!game.shieldsPlaced) {
+            Button(onClick = { game = game.keep() }) { Text("Keep") }
+            OutlinedButton(onClick = { game = game.redraw() }, enabled = game.canRedraw) { Text("Redraw") }
+        } else {
+            Button(onClick = { game = game.draw() }, enabled = game.canDraw) { Text("Draw") }
+        }
+        TextButton(onClick = { game = SampleHand.deal(deck); revealShields = false }) { Text("New game") }
+    }
+    }
+    detail?.let { CardDetailDialog(it, emptyList(), onDismiss = { detail = null }) }
+}

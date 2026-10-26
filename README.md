@@ -4,14 +4,22 @@ A Gundam Card Game deck builder for Android and Windows (macOS and Linux later).
 
 ## What's in this first milestone
 
-- **Card browser**: search by name, card number or text, filter by color, type, level, cost, set and trait. Card details show corrected text and every printing.
-- **Deck editor**: add and remove cards, set the preferred printing, write notes. It saves automatically. Wide windows show search, the deck and analysis side by side; phones use tabs.
-- **Deck library**: create, duplicate, rename, tag, filter by tag, and delete decks.
-- **Deck analysis**: level and cost curves, card-type and color counts, and legality messages. An incomplete deck saves as a *Draft*.
+- **Card browser**: search by name, card number or text, filter by color, type, level, cost, set and trait, sort, and switch between list and grid views. Card details show corrected text and every printing.
+- **Deck editor**: add and remove cards with one tap, set the preferred printing, write notes. It saves automatically. Cards are tagged **Max** at their copy limit and **Off-color** when they would add a third color, and **Deck colors only** hides the rest. The deck is grouped by type. Wide windows show search, the deck and analysis side by side; phones use tabs (Deck, Add cards, Analysis, Test).
+- **Test hand**: practice opening hands with the official setup: draw 5, redraw once to the bottom, set 6 shields, then draw each turn.
+- **Deck library**: create, duplicate, rename, tag, search and filter decks. Deleting shows **Undo** instead of asking first.
+- **Deck analysis**: legality messages, Burst and Blocker counts, Unit–Pilot link pairs, level and cost curves, and card-type and color counts. An incomplete deck saves as a *Draft*.
 - **Sync**: desktop QR code pairing (with a manual address and code as a fallback), paired devices, last successful sync, and **Sync now**.
 - **Import and export**: plain-text deck lists (paste, copy or file) and a versioned JSON backup.
 
 The catalog holds **20 fictional sample cards** (`SMP-001`…`SMP-020`). They follow the shape of Gundam Card Game data but contain no official text or artwork. Before importing the real catalog, find a data source you are allowed to use, and get permission to distribute card text and art. The official site has no public API.
+
+## UX
+
+- [docs/UX_MAP.md](docs/UX_MAP.md): every screen, what it shows, and how they connect.
+- [docs/UX_RULES.md](docs/UX_RULES.md): the rules every screen follows, with the research behind them. Inspiration came from Stella Sora and Aniimo, and from comparing other Gundam Card Game builders (ExBurst, GNDM TCG Dex, TCG Stacked).
+
+Desktop shortcuts: `Ctrl+F` searches cards, and `Esc` goes back.
 
 ## Project layout
 

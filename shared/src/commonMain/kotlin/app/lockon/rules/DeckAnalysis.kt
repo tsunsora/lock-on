@@ -14,9 +14,16 @@ data class DeckStats(
     val colorCounts: Map<CardColor, Int>,
     val mainCount: Int,
     val resourceCount: Int,
+    /** Copies with a 【Burst】 effect, which can trigger when they are taken from shields. */
+    val burstCount: Int,
+    val blockerCount: Int,
+    /** Units whose link condition a pilot in this deck satisfies, with those pilots. */
+    val linkPairs: List<Pair<Card, List<Card>>>,
 )
 
 object DeckAnalysis {
+    private val traitLink = Regex("""trait\s*\(([^)]+)\)""", RegexOption.IGNORE_CASE)
+
     fun stats(deck: DeckSnapshot, cards: Map<String, Card>): DeckStats {
         val main = deck.entries.filter { it.section == DeckSection.MAIN }
         fun curve(selector: (Card) -> Int?): List<Pair<Int, Int>> {
@@ -38,6 +45,10 @@ object DeckAnalysis {
                 card.colors.forEach { colors[it] = (colors[it] ?: 0) + entry.quantity }
             }
         }
+        fun copiesWith(keyword: String) = main.sumOf { entry ->
+            if (cards[entry.cardNumber]?.displayText?.contains(keyword, ignoreCase = true) == true) entry.quantity else 0
+        }
+        val mainCards = main.mapNotNull { cards[it.cardNumber] }.distinctBy { it.cardNumber }
         return DeckStats(
             levelCurve = curve { it.level },
             costCurve = curve { it.cost },
@@ -45,6 +56,23 @@ object DeckAnalysis {
             colorCounts = colors,
             mainCount = deck.count(DeckSection.MAIN),
             resourceCount = deck.count(DeckSection.RESOURCE),
+            burstCount = copiesWith("Burst】"),
+            blockerCount = copiesWith("<Blocker>"),
+            linkPairs = linkPairs(mainCards),
         )
+    }
+
+    /** Matches a unit's link text against pilots by name, or by trait for "Pilot with trait (X)". */
+    fun linkPairs(deckCards: List<Card>): List<Pair<Card, List<Card>>> {
+        val pilots = deckCards.filter { it.type == CardType.PILOT }
+        return deckCards.filter { it.type == CardType.UNIT && !it.link.isNullOrBlank() }.mapNotNull { unit ->
+            val link = unit.link.orEmpty()
+            val trait = traitLink.find(link)?.groupValues?.get(1)?.trim()
+            val partners = pilots.filter { pilot ->
+                if (trait != null) pilot.traits.any { it.equals(trait, ignoreCase = true) }
+                else link.contains(pilot.name, ignoreCase = true)
+            }
+            if (partners.isEmpty()) null else unit to partners
+        }
     }
 }

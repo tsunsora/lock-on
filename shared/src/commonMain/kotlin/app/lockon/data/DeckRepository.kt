@@ -74,6 +74,9 @@ class DeckRepository(
         save(deckId, current.copy(deleted = true))
     }
 
+    /** Undoes a delete by saving the earlier content on top of the deletion record. */
+    suspend fun restore(deckId: String, snapshot: DeckSnapshot) = save(deckId, snapshot.copy(deleted = false))
+
     suspend fun duplicate(deckId: String): String? {
         val current = currentSnapshot(deckId) ?: return null
         return create(current.copy(name = "${current.name} (copy)"))

@@ -21,6 +21,7 @@ import app.lockon.rules.DeckAnalysis
 import app.lockon.rules.DeckLegality
 import app.lockon.rules.Severity
 import app.lockon.ui.components.BarChart
+import app.lockon.ui.components.HudHeader
 import app.lockon.ui.theme.cardColor
 
 @Composable
@@ -28,7 +29,7 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Legality", style = MaterialTheme.typography.titleSmall)
+            HudHeader("Legality")
             if (legality.messages.isEmpty()) {
                 Text("This deck meets every construction rule.", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary)
@@ -46,18 +47,33 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
             }
         }
         HorizontalDivider()
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            HudHeader("Gundam readouts")
+            CountLine("Burst cards (can trigger from shields)", stats.burstCount)
+            CountLine("Blockers", stats.blockerCount)
+            if (stats.linkPairs.isEmpty()) {
+                Text("No Unit has a matching link Pilot in this deck yet.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text("Link pairs", style = MaterialTheme.typography.bodyMedium)
+                stats.linkPairs.forEach { (unit, pilots) ->
+                    Text("• ${unit.name} ↔ ${pilots.joinToString { it.name }}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        HorizontalDivider()
         BarChart("Level curve (main deck)", stats.levelCurve)
         BarChart("Cost curve (main deck)", stats.costCurve, color = MaterialTheme.colorScheme.secondary)
         HorizontalDivider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Card types", style = MaterialTheme.typography.titleSmall)
+            HudHeader("Card types")
             CardType.entries.forEach { type ->
                 CountLine(type.label, stats.typeCounts[type] ?: 0)
             }
         }
         if (stats.colorCounts.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Colors", style = MaterialTheme.typography.titleSmall)
+                HudHeader("Colors")
                 stats.colorCounts.forEach { (color, count) ->
                     CountLine(color.label, count, accent = cardColor(color))
                 }
@@ -70,6 +86,6 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
 private fun CountLine(label: String, count: Int, accent: androidx.compose.ui.graphics.Color? = null) {
     Row(Modifier.fillMaxWidth()) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = accent ?: MaterialTheme.colorScheme.onSurface)
-        Text("$count", style = MaterialTheme.typography.bodyMedium)
+        Text("$count", style = MaterialTheme.typography.bodyMedium.merge(app.lockon.ui.theme.TabularNumbers))
     }
 }

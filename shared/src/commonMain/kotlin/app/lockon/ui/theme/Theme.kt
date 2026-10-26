@@ -1,11 +1,15 @@
 package app.lockon.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
 import app.lockon.model.CardColor
 
 private val Amber = Color(0xFFFFB347)
@@ -53,9 +57,27 @@ private val LightColors = lightColorScheme(
     outlineVariant = Color(0xFFD0D4E0),
 )
 
+/** Cut corners are the Lock On mark (UX rule V1): panels, tiles and dialogs, never pills for surfaces. */
+object LockOnShapes {
+    val panel = CutCornerShape(topStart = 10.dp, bottomEnd = 10.dp)
+    val tile = CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp)
+    val thumb = CutCornerShape(topStart = 6.dp)
+}
+
+private val CutShapes = Shapes(
+    extraSmall = CutCornerShape(topStart = 4.dp, bottomEnd = 4.dp),
+    small = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp),
+    medium = LockOnShapes.tile,
+    large = LockOnShapes.panel,
+    extraLarge = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp),
+)
+
+/** Counts use tabular figures so totals don't jitter while editing (UX rule I1). */
+val TabularNumbers = TextStyle(fontFeatureSettings = "tnum")
+
 @Composable
 fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, shapes = CutShapes, content = content)
 }
 
 /** Accent for a card color, readable on both themes as a badge background with [onCardColor] text. */

@@ -1,7 +1,10 @@
 package app.lockon.ui.decks
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,7 +47,11 @@ import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
 import app.lockon.io.DeckListFormat
 import app.lockon.model.Card as GameCard
+import app.lockon.model.CardColor
+import app.lockon.model.CardType
+import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
+import app.lockon.model.Ruleset
 import app.lockon.model.DeckSnapshot
 import app.lockon.platform.FileBridge
 import app.lockon.rules.DeckValidator
@@ -52,18 +59,22 @@ import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import app.lockon.ui.cards.CardSearchPanel
 import app.lockon.ui.components.Badge
+import app.lockon.ui.components.ColorPips
+import app.lockon.ui.components.HudHeader
 import app.lockon.ui.components.CardDetailDialog
 import app.lockon.ui.components.CardThumb
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.Panel
 import app.lockon.ui.io.ExportDialog
+import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val AUTOSAVE_DELAY_MS = 400L
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge, deckId: String, wide: Boolean) {
+fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge, deckId: String, wide: Boolean, startTab: Int = 0) {
     val summary by container.decks.deck(deckId).collectAsState(initial = null)
     val cards by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
@@ -117,13 +128,16 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         modifier = Modifier.weight(1f, fill = false))
                     IconButton(onClick = { renaming = true }) { Icon(Icons.Default.Edit, contentDescription = "Rename deck") }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Deck health in one line (UX rule I2).
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     val c = MaterialTheme.colorScheme
+                    ColorPips(deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet())
                     if (legality.isLegal) Badge("Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
                     else Badge("Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
                     Text(
                         "Main ${deck.count(DeckSection.MAIN)}/${ruleset.mainDeckSize} · Resource ${deck.count(DeckSection.RESOURCE)}/${ruleset.resourceDeckSize}",
-                        style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = c.onSurfaceVariant,
+                        maxLines = 1, modifier = Modifier.align(Alignment.CenterVertically),
                     )
                 }
             }
@@ -145,31 +159,54 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         val deckList: @Composable (Modifier) -> Unit = { modifier ->
             DeckList(deck, cards, modifier, onCardClick = { detail = it }, onChange = ::change, onNotes = { draft = deck.copy(notes = it) })
         }
+        val deckColors = remember(deck, cards) {
+            deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+        }
         val search: @Composable (Modifier) -> Unit = { modifier ->
-            CardSearchPanel(cards.values, onCardClick = { detail = it }, modifier = modifier) { card ->
+            CardSearchPanel(
+                cards.values, onCardClick = { detail = it }, modifier = modifier,
+                focusRequests = state.searchFocusRequests, deckColors = deckColors,
+            ) { card ->
                 val section = if (card.type.isResource) DeckSection.RESOURCE else DeckSection.MAIN
-                QuantityStepper(deck.quantityOf(card.cardNumber, section), onMinus = { change(card, -1) }, onPlus = { change(card, 1) })
+                val quantity = deck.quantityOf(card.cardNumber, section)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Rule limits shown where you act (UX rule S3), before anything goes wrong.
+                    FitTags(card, quantity, deckColors, ruleset)
+                    QuantityStepper(quantity, onMinus = { change(card, -1) }, onPlus = { change(card, 1) })
+                }
             }
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }
+        val test: @Composable (Modifier) -> Unit = { modifier -> SampleHandPanel(deck, cards, modifier) }
 
         if (wide) {
             Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Panel(Modifier.weight(1.1f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
                 Panel(Modifier.weight(1f).fillMaxSize()) { deckList(Modifier.fillMaxSize()) }
-                Panel(Modifier.weight(0.9f).fillMaxSize()) { analysis(Modifier.fillMaxSize()) }
+                Panel(Modifier.weight(0.9f).fillMaxSize()) {
+                    var side by rememberSaveable { mutableStateOf(0) }
+                    Column {
+                        PrimaryTabRow(selectedTabIndex = side) {
+                            listOf("Analysis", "Test hand").forEachIndexed { i, label ->
+                                Tab(selected = side == i, onClick = { side = i }, text = { Text(label) })
+                            }
+                        }
+                        if (side == 0) analysis(Modifier.fillMaxSize()) else test(Modifier.fillMaxSize())
+                    }
+                }
             }
         } else {
-            var tab by rememberSaveable { mutableStateOf(0) }
+            var tab by rememberSaveable(deckId) { mutableStateOf(startTab) }
             PrimaryTabRow(selectedTabIndex = tab) {
-                listOf("Deck", "Add cards", "Analysis").forEachIndexed { i, label ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label) })
+                listOf("Deck", "Add cards", "Analysis", "Test").forEachIndexed { i, label ->
+                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1) })
                 }
             }
             when (tab) {
                 0 -> deckList(Modifier.fillMaxSize())
                 1 -> search(Modifier.fillMaxSize())
-                else -> analysis(Modifier.fillMaxSize())
+                2 -> analysis(Modifier.fillMaxSize())
+                else -> test(Modifier.fillMaxSize())
             }
         }
     }
@@ -219,41 +256,61 @@ private fun DeckList(
     onChange: (GameCard, Int) -> Unit,
     onNotes: (String) -> Unit,
 ) {
+    // Grouped by card type like a printed list, each under a HUD header with its count (UX rule V2).
+    val groups = remember(deck, cards) {
+        val order = compareBy<DeckEntry>({ cards[it.cardNumber]?.level ?: 99 }, { cards[it.cardNumber]?.cost ?: 99 }, { it.cardNumber })
+        val main = deck.entries.filter { it.section == DeckSection.MAIN }
+        val byType = CardType.entries.filter { !it.isResource }.map { type ->
+            "${type.label}s" to main.filter { cards[it.cardNumber]?.type == type }.sortedWith(order)
+        } + ("Unknown cards" to main.filter { cards[it.cardNumber] == null })
+        byType.filter { it.second.isNotEmpty() } +
+            ("Resources" to deck.entries.filter { it.section == DeckSection.RESOURCE }.sortedWith(order))
+    }
     LazyColumn(modifier) {
-        for (section in DeckSection.entries) {
-            val entries = deck.entries.filter { it.section == section }
-                .sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { cards[it.cardNumber]?.cost ?: 99 }, { it.cardNumber }))
-            item(key = "header-$section") {
+        item(key = "main-total") {
+            HudHeader("Main deck", Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), readout = "${deck.count(DeckSection.MAIN)}")
+        }
+        if (deck.count(DeckSection.MAIN) == 0) {
+            item(key = "empty-main") {
                 Text(
-                    "${section.label} (${entries.sumOf { it.quantity }})",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+                    "Add Units, Pilots, Commands and Bases from the card list.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
-            if (entries.isEmpty()) {
-                item(key = "empty-$section") {
+        }
+        for ((label, entries) in groups) {
+            item(key = "header-$label") {
+                Text(
+                    "$label · ${entries.sumOf { it.quantity }}",
+                    style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                    color = if (label == "Resources") MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, top = if (label == "Resources") 20.dp else 12.dp, bottom = 2.dp),
+                )
+            }
+            if (label == "Resources" && entries.isEmpty()) {
+                item(key = "empty-resource") {
                     Text(
-                        if (section == DeckSection.MAIN) "Add Units, Pilots, Commands and Bases from the card list."
-                        else "Add resource cards from the card list.",
+                        "Add resource cards from the card list.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
             }
-            items(entries, key = { "${section}-${it.cardNumber}" }) { entry ->
+            items(entries, key = { "${it.section}-${it.cardNumber}" }) { entry ->
                 val card = cards[entry.cardNumber]
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CardThumb(card)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        TextButton(onClick = { card?.let(onCardClick) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                            Text(card?.name ?: "Unknown card", maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth())
-                        }
+                        Text(card?.name ?: "Unknown card", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyLarge)
                         Text(entry.cardNumber, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (card != null) {
@@ -275,6 +332,19 @@ private fun DeckList(
     }
 }
 
+/** "Max" at the copy limit and "Off-color" when a card would add a third color (UX rule S3). */
+@Composable
+private fun FitTags(card: GameCard, quantity: Int, deckColors: Set<CardColor>, ruleset: Ruleset) {
+    val c = MaterialTheme.colorScheme
+    val limit = ruleset.restricted[card.cardNumber] ?: if (card.type.isResource) ruleset.resourceMaxCopies else ruleset.maxCopies
+    when {
+        card.cardNumber in ruleset.banned -> Badge("Banned", c.errorContainer, c.onErrorContainer)
+        limit != null && quantity >= limit -> Badge("Max", c.primaryContainer, c.onPrimaryContainer)
+        card.colors.isNotEmpty() && (deckColors + card.colors).size > ruleset.maxColors ->
+            Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
+    }
+}
+
 @Composable
 fun QuantityStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -283,7 +353,7 @@ fun QuantityStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
         }
         Text(
             "$quantity",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
             fontWeight = if (quantity > 0) FontWeight.Bold else FontWeight.Normal,
             color = if (quantity > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.widthIn(min = 20.dp),

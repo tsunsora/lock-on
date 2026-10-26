@@ -1,6 +1,15 @@
 package app.lockon.ui.decks
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import app.lockon.model.CardColor
+import app.lockon.model.Ruleset
+import app.lockon.ui.components.ColorPips
+import app.lockon.ui.theme.TabularNumbers
+import app.lockon.ui.theme.cardColor
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
@@ -63,7 +72,6 @@ private sealed interface LibraryDialog {
     data object New : LibraryDialog
     data class Rename(val deck: DeckSummary) : LibraryDialog
     data class Tags(val deck: DeckSummary) : LibraryDialog
-    data class Delete(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
     data object Import : LibraryDialog
 }
@@ -75,6 +83,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
     val ruleset by container.catalog.ruleset.collectAsState()
     var dialog by remember { mutableStateOf<LibraryDialog?>(null) }
     var tagFilter by remember { mutableStateOf<String?>(null) }
+    var search by remember { mutableStateOf("") }
     val scope = state.appScope
 
     Box(Modifier.fillMaxSize()) {
@@ -92,6 +101,14 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
                     }
                 }) { Text("Back up all") }
+            }
+            if ((list?.size ?: 0) > 3) {
+                OutlinedTextField(
+                    search, { search = it },
+                    placeholder = { Text("Search decks") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                )
             }
             val tags = list.orEmpty().flatMap { it.snapshot.tags }.distinct().sorted()
             if (tags.isNotEmpty()) {
@@ -115,16 +132,30 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(list.filter { tagFilter == null || tagFilter in it.snapshot.tags }, key = { it.deckId }) { deck ->
+                    val shown = list.filter {
+                        (tagFilter == null || tagFilter in it.snapshot.tags) && it.snapshot.name.contains(search.trim(), ignoreCase = true)
+                    }
+                    items(shown, key = { it.deckId }) { deck ->
+                        val colors = remember(deck, cards) {
+                            deck.snapshot.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+                        }
                         val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
                         DeckRow(
-                            deck, legal,
+                            deck, legal, colors, ruleset,
                             onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                             onRename = { dialog = LibraryDialog.Rename(deck) },
                             onTags = { dialog = LibraryDialog.Tags(deck) },
                             onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated.") } },
                             onExport = { dialog = LibraryDialog.Export(deck) },
-                            onDelete = { dialog = LibraryDialog.Delete(deck) },
+                            onDelete = {
+                                // Undo instead of "Are you sure?" (UX rule C2).
+                                scope.launch {
+                                    container.decks.delete(deck.deckId)
+                                    state.notify("Deleted ${deck.snapshot.name}", "Undo") {
+                                        scope.launch { container.decks.restore(deck.deckId, deck.snapshot) }
+                                    }
+                                }
+                            },
                         )
                     }
                 }
@@ -144,7 +175,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dialog = null
             scope.launch {
                 val id = container.decks.create(DeckSnapshot(name = name.ifBlank { "Untitled deck" }))
-                state.open(Screen.DeckEditor(id))
+                state.open(Screen.DeckEditor(id, startTab = 1))
             }
         }
         is LibraryDialog.Rename -> TextPromptDialog("Rename deck", "Deck name", d.deck.snapshot.name, confirm = "Rename", onDismiss = { dialog = null }) { name ->
@@ -159,18 +190,6 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             val tags = text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
             scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(tags = tags)) }
         }
-        is LibraryDialog.Delete -> AlertDialog(
-            onDismissRequest = { dialog = null },
-            title = { Text("Delete ${d.deck.snapshot.name}?") },
-            text = { Text("The deck is removed here and from paired devices the next time they sync.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    dialog = null
-                    scope.launch { container.decks.delete(d.deck.deckId); state.notify("Deck deleted.") }
-                }) { Text("Delete") }
-            },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancel") } },
-        )
         is LibraryDialog.Export -> ExportDialog(
             title = d.deck.snapshot.name,
             text = DeckListFormat.export(d.deck.snapshot, cards),
@@ -185,6 +204,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
 private fun DeckRow(
     deck: DeckSummary,
     legal: Boolean,
+    colors: Set<CardColor>,
+    ruleset: Ruleset,
     onOpen: () -> Unit,
     onRename: () -> Unit,
     onTags: () -> Unit,
@@ -193,29 +214,39 @@ private fun DeckRow(
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
-    val colors = MaterialTheme.colorScheme
+    val scheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainer),
     ) {
-        Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+            // Color identity band: the deck's colors at a glance, with initials beside the name (UX rules V4, I4).
+            Column(Modifier.width(6.dp).fillMaxHeight()) {
+                val bands = colors.sortedBy { it.ordinal }.ifEmpty { listOf(null) }
+                bands.forEach { Box(Modifier.weight(1f).fillMaxWidth().background(cardColor(it))) }
+            }
+        Row(Modifier.weight(1f).padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false))
+                    ColorPips(colors)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     when {
-                        deck.hasConflict -> Badge("Needs review", colors.errorContainer, colors.onErrorContainer)
-                        legal -> Badge("Legal", colors.secondaryContainer, colors.onSecondaryContainer)
-                        else -> Badge("Draft", colors.surfaceVariant, colors.onSurfaceVariant)
+                        deck.hasConflict -> Badge("Needs review", scheme.errorContainer, scheme.onErrorContainer)
+                        legal -> Badge("Legal", scheme.secondaryContainer, scheme.onSecondaryContainer)
+                        else -> Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant)
                     }
                     Text(
-                        "Main ${deck.snapshot.count(DeckSection.MAIN)} · Resource ${deck.snapshot.count(DeckSection.RESOURCE)}",
-                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                        "Main ${deck.snapshot.count(DeckSection.MAIN)}/${ruleset.mainDeckSize} · Resource ${deck.snapshot.count(DeckSection.RESOURCE)}/${ruleset.resourceDeckSize}",
+                        style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
                     )
                 }
                 val tags = deck.snapshot.tags.joinToString(" · ")
                 Text(
                     listOf(tags, "Edited ${formatTimestamp(deck.updatedAt)}").filter { it.isNotBlank() }.joinToString("  —  "),
-                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(4.dp))
@@ -229,6 +260,7 @@ private fun DeckRow(
                     DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onDelete() })
                 }
             }
+        }
         }
     }
 }

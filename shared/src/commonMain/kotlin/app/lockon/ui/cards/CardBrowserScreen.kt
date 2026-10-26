@@ -15,10 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lockon.data.CatalogRepository
 import app.lockon.model.Card
+import app.lockon.ui.AppState
 import app.lockon.ui.components.CardDetailDialog
 
 @Composable
-fun CardBrowserScreen(catalog: CatalogRepository) {
+fun CardBrowserScreen(catalog: CatalogRepository, state: AppState) {
     val cards by catalog.cards.collectAsState()
     val printings by catalog.printings.collectAsState()
     val catalogName by catalog.catalogName.collectAsState()
@@ -31,7 +32,10 @@ fun CardBrowserScreen(catalog: CatalogRepository) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
         )
-        CardSearchPanel(cards.values, onCardClick = { selected = it }, modifier = Modifier.fillMaxSize())
+        CardSearchPanel(
+            cards.values, onCardClick = { selected = it }, modifier = Modifier.fillMaxSize(),
+            focusRequests = state.searchFocusRequests,
+        )
     }
     selected?.let { card ->
         CardDetailDialog(card, printings[card.cardNumber].orEmpty(), onDismiss = { selected = null })
