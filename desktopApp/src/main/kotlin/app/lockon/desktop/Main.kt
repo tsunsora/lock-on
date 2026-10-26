@@ -20,6 +20,7 @@ import java.awt.Frame
 import java.io.File
 import java.net.InetAddress
 import javax.swing.JOptionPane
+import kotlin.system.exitProcess
 
 fun main() {
     // Before anything logs: send logs to a file people can attach to a bug report.
@@ -47,7 +48,8 @@ fun main() {
             size = saved.size,
         )
         Window(
-            onCloseRequest = { WindowMemory.save(windowState); sync.stop(); exitApplication() },
+            // The window closes at once; the sync server and LAN announcement shut down after it.
+            onCloseRequest = { WindowMemory.save(windowState); exitApplication() },
             title = "Lock On",
             icon = painterResource("lock-on-window.png"),
             state = windowState,
@@ -55,6 +57,8 @@ fun main() {
             LockOnApp(container, state, sync, DesktopFileBridge(window), imageCacheDir = File(AppDirs.data, "artwork-cache").absolutePath)
         }
     }
+    sync.stop()
+    exitProcess(0)
 }
 
 private class DesktopFileBridge(private val owner: Frame) : FileBridge {
