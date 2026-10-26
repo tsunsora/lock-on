@@ -11,6 +11,9 @@ import app.lockon.sync.PushRequest
 import app.lockon.sync.SyncHost
 import app.lockon.sync.SyncProtocol
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -29,7 +32,14 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 
 /** HTTP routes for pairing and sync. Kept separate from the server so tests can mount them. */
-fun Application.lockOnSync(host: SyncHost, devices: DeviceRepository, pairing: PairingManager, identity: LocalIdentity) {
+fun Application.lockOnSync(
+    host: SyncHost,
+    devices: DeviceRepository,
+    pairing: PairingManager,
+    identity: LocalIdentity,
+    live: LiveClients = LiveClients(),
+    maxWaitMs: Long = SyncProtocol.MAX_WAIT_SECONDS * 1000L,
+) {
     install(ContentNegotiation) { json(SyncProtocol.json) }
 
     suspend fun ApplicationCall.client(): PairedDevice? {
@@ -76,6 +86,19 @@ fun Application.lockOnSync(host: SyncHost, devices: DeviceRepository, pairing: P
             val client = call.client() ?: return@post call.unauthorized()
             call.guard { call.respond(host.push(client.deviceId, call.receive<PushRequest>())) }
         }
+        // Held open until something changes, so phones hear about desktop edits within moments.
+        get("/v1/sync/wait") {
+            val client = call.client() ?: return@get call.unauthorized()
+            call.guard {
+                val after = call.request.queryParameters["after"]?.toLongOrNull() ?: 0
+                live.enter(client.deviceId)
+                try {
+                    call.respond(host.waitForChanges(after, maxWaitMs))
+                } finally {
+                    live.leave(client.deviceId)
+                }
+            }
+        }
         get("/v1/sync/pull") {
             val client = call.client() ?: return@get call.unauthorized()
             call.guard {
@@ -84,6 +107,21 @@ fun Application.lockOnSync(host: SyncHost, devices: DeviceRepository, pairing: P
                 call.respond(host.pull(client.deviceId, after, limit))
             }
         }
+    }
+}
+
+/** Phones currently holding a wait request open, which means auto-sync is live for them. */
+class LiveClients {
+    private val counts = mutableMapOf<String, Int>()
+    private val _ids = MutableStateFlow<Set<String>>(emptySet())
+    val ids: StateFlow<Set<String>> = _ids.asStateFlow()
+
+    @Synchronized fun enter(id: String) { counts[id] = (counts[id] ?: 0) + 1; _ids.value = counts.keys.toSet() }
+
+    @Synchronized fun leave(id: String) {
+        val left = (counts[id] ?: 1) - 1
+        if (left <= 0) counts.remove(id) else counts[id] = left
+        _ids.value = counts.keys.toSet()
     }
 }
 

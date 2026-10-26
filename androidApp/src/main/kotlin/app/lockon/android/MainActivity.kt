@@ -63,7 +63,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             val container by produceState<AppContainer?>(null) { value = app.container.await() }
             val sync by produceState<AndroidSyncController?>(null) {
-                value = app.sync.await().also { it.scanner = ::launchScanner; syncController = it }
+                value = app.sync.await().also {
+                    it.scanner = ::launchScanner
+                    syncController = it
+                    // The controller may arrive after onStart on a cold launch.
+                    if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) it.setForeground(true)
+                }
             }
             val state = remember { AppState(app.appScope) }
             val c = container
@@ -75,6 +80,17 @@ class MainActivity : ComponentActivity() {
                 LockOnApp(c, state, s, files)
             }
         }
+    }
+
+    // Discovery and auto-sync run only while Lock On is on screen.
+    override fun onStart() {
+        super.onStart()
+        syncController?.setForeground(true)
+    }
+
+    override fun onStop() {
+        syncController?.setForeground(false)
+        super.onStop()
     }
 
     override fun onDestroy() {

@@ -71,6 +71,7 @@ Lock On is a Material 3 app first. Components, behaviour, type scale, motion and
 - **T1. Never silently discard an edit.** Conflicting versions are kept and compared side by side, and the person chooses.
 - **T2. Show where data lives.** The Sync screen states that only decks sync and that no account or server is involved.
 - **T3. Errors say what to do next.** *"Could not reach the desktop. Check that Lock On is open on it…"*, not error codes.
+- **T5. Automatic sync is quiet.** Auto-sync only runs while the app is open. It never shows a snackbar or dialog. It reports itself only on the Sync screen, as *Live* or *Waiting for the desktop*. An unreachable desktop is normal, not an error, so it never sets the error dot. Errors are for syncs the person asked for.
 - **T4. No ads and no upsell.** These are the most common complaints in Gundam deck-builder store reviews.
 
 ---

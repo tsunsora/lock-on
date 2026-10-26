@@ -24,6 +24,8 @@ import kotlinx.coroutines.launch
 class DesktopSyncController(private val container: AppContainer, private val scope: CoroutineScope) : HostSyncController {
     private val tls = TlsIdentity.loadOrCreate(AppDirs.data)
     private val pairing = PairingManager(container.devices, container.identity, tls.fingerprint)
+    private val live = LiveClients()
+    private val advertiser = LanAdvertiser(container.identity, tls.fingerprint)
     private val _hostInfo = MutableStateFlow<HostInfo?>(null)
     private val _status = MutableStateFlow(SyncStatus())
     private var addresses = lanAddresses()
@@ -34,12 +36,13 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     override val status: StateFlow<SyncStatus> = _status.asStateFlow()
     override val hostInfo: StateFlow<HostInfo?> = _hostInfo.asStateFlow()
     override val pairingPrompt: StateFlow<PairingPrompt?> = pairing.prompt
+    override val liveClients: StateFlow<Set<String>> = live.ids
 
     fun start() {
         scope.launch(Dispatchers.IO) {
             try {
                 val (started, chosenPort) = startSyncServer(tls, SyncProtocol.DEFAULT_PORT) {
-                    lockOnSync(container.syncHost, container.devices, pairing, container.identity)
+                    lockOnSync(container.syncHost, container.devices, pairing, container.identity, live)
                 }
                 server = started
                 port = chosenPort
@@ -68,7 +71,10 @@ class DesktopSyncController(private val container: AppContainer, private val sco
         }
     }
 
-    fun stop() { server?.stop(500, 1500) }
+    fun stop() {
+        advertiser.stop()
+        server?.stop(500, 1500)
+    }
 
     private fun publish() {
         val code = pairing.code.value
@@ -80,6 +86,8 @@ class DesktopSyncController(private val container: AppContainer, private val sco
             error = if (primary == null) "No network connection found. Connect this computer to the same Wi-Fi as your phone." else null,
         )
         if (_status.value.message == null) _status.value = SyncStatus(message = "Ready for phones on port $port.")
+        // Let phones on the same network find this desktop without typing the address.
+        primary?.let { address -> scope.launch(Dispatchers.IO) { advertiser.advertise(address, port) } }
     }
 
     override fun answerPairing(requestId: String, accept: Boolean) = pairing.answer(requestId, accept)

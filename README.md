@@ -11,6 +11,8 @@ A Gundam Card Game deck builder for Android and Windows (macOS and Linux later).
 - **Deck library**: create, duplicate, rename, tag, search and filter decks. Deleting shows **Undo** instead of asking first.
 - **Deck analysis**: legality messages, Burst and Blocker counts, Unit–Pilot link pairs, level and cost curves, and card-type and color counts. An incomplete deck saves as a *Draft*.
 - **Sync**: desktop QR code pairing (with a manual address and code as a fallback), paired devices, last successful sync, and **Sync now**.
+  - **Nearby desktops**: phones find Lock On desktops on the same network and pair with just the code, no address to type.
+  - **Auto-sync while open**: with both apps open on the same network, edits reach the other device within seconds, and a paired desktop that changes IP address is followed automatically. It runs only while the phone app is on screen. Nothing runs in the background.
 - **Import and export**: plain-text deck lists (paste, copy or file) and a versioned JSON backup.
 
 The catalog holds **20 fictional sample cards** (`SMP-001`…`SMP-020`). They follow the shape of Gundam Card Game data but contain no official text or artwork. Before importing the real catalog, find a data source you are allowed to use, and get permission to distribute card text and art. The official site has no public API.
@@ -61,7 +63,12 @@ The desktop hosts HTTPS on port **53340** (or the next free port). Phones start 
    - Every batch is applied in one database transaction, together with its cursor update. Revision IDs are unique, so a retried or replayed batch is ignored.
    - An interrupted sync resumes where it stopped.
    - The database file itself is never transferred, and card images are never part of sync.
-3. **Data format.** Deck snapshots are at data format **2**, which added the Considering section. Both sides must use the same format to sync; otherwise the phone shows which device to update. A format-1 app would drop considered cards the next time it saved a deck.
+3. **Discovery and live sync.**
+   - The desktop advertises `_lockon._tcp` over DNS-SD (mDNS) with its device ID, name, certificate fingerprint, and protocol and data versions.
+   - Phones browse for it only while the app is in the foreground. A discovered desktop is just a hint; trust still comes from pairing.
+   - While open, the phone holds `GET /v1/sync/wait?after=<cursor>` open, and the desktop answers within 25 seconds, as soon as it has new revisions. Local edits trigger a sync about 2 seconds after they settle.
+   - Failures back off from 5 to 60 seconds and show as "Waiting for the desktop", not as errors.
+4. **Data format.** Deck snapshots are at data format **2**, which added the Considering section. Both sides must use the same format to sync; otherwise the phone shows which device to update. A format-1 app would drop considered cards the next time it saved a deck.
 
 ## Building
 
@@ -124,7 +131,6 @@ Still to do by hand:
 
 ## Next milestones
 
-- LAN discovery (mDNS) and automatic sync while both apps are open (foreground only on Android).
 - A real catalog source and catalog updates.
 - A single-instance lock on the desktop.
 - Release signing, installers, and database migrations (`shared/schemas` holds the exported Room schema).

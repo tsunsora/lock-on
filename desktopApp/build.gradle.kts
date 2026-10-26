@@ -30,6 +30,7 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.ktor:ktor-network-tls-certificates:$ktorVersion")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("org.jmdns:jmdns:3.6.3")
     implementation("org.slf4j:slf4j-simple:2.0.17")
 
     testImplementation(kotlin("test"))

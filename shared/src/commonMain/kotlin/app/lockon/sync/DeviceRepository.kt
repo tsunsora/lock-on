@@ -41,6 +41,11 @@ class DeviceRepository(private val db: LockOnDatabase) {
 
     suspend fun rename(name: String) = db.metaDao().put(MetaEntity(KEY_NAME, name))
 
+    /** Whether phones sync on their own while Lock On is open. On unless turned off. */
+    suspend fun autoSyncEnabled(): Boolean = db.metaDao().get(KEY_AUTO_SYNC) != "false"
+
+    suspend fun setAutoSync(enabled: Boolean) = db.metaDao().put(MetaEntity(KEY_AUTO_SYNC, enabled.toString()))
+
     suspend fun device(deviceId: String): PairedDevice? = dao.device(deviceId)?.toModel()
 
     suspend fun byTokenHash(tokenHash: String): PairedDevice? = dao.byTokenHash(tokenHash)?.toModel()
@@ -81,5 +86,6 @@ class DeviceRepository(private val db: LockOnDatabase) {
     private companion object {
         const val KEY_ID = "deviceId"
         const val KEY_NAME = "deviceName"
+        const val KEY_AUTO_SYNC = "autoSync"
     }
 }

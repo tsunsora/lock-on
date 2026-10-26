@@ -2,6 +2,8 @@ package app.lockon.sync
 
 import app.lockon.data.DeckRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.uuid.Uuid
 
 /** How the client reaches a host. HTTP in the apps; a direct call in tests. */
@@ -9,6 +11,8 @@ interface SyncTransport {
     suspend fun hello(): HelloResponse
     suspend fun push(request: PushRequest): PushResponse
     suspend fun pull(after: Long, limit: Int): PullResponse
+    /** Waits up to [SyncProtocol.MAX_WAIT_SECONDS] for the host to have revisions after [after]. */
+    suspend fun waitForChanges(after: Long): WaitResponse = WaitResponse(changed = false)
 }
 
 class SyncException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -21,7 +25,11 @@ data class SyncResult(val sent: Int, val received: Int)
  * batch is ignored by revision ID.
  */
 class SyncClient(private val decks: DeckRepository, private val devices: DeviceRepository) {
-    suspend fun sync(hostId: String, transport: SyncTransport, batchSize: Int = 200): SyncResult {
+    /**
+     * @param recordErrors false for background auto-sync, whose failures (desktop closed, other
+     *   network) are expected and shown as "waiting" rather than as an error (UX rule C1).
+     */
+    suspend fun sync(hostId: String, transport: SyncTransport, batchSize: Int = 200, recordErrors: Boolean = true): SyncResult {
         try {
             val hello = transport.hello()
             SyncProtocol.incompatibility(hello)?.let { throw SyncException(it) }
@@ -57,7 +65,7 @@ class SyncClient(private val decks: DeckRepository, private val devices: DeviceR
             throw e
         } catch (e: Exception) {
             val message = (e as? SyncException)?.message ?: e.message ?: "Sync failed."
-            devices.markError(hostId, message)
+            if (recordErrors) devices.markError(hostId, message)
             throw e as? SyncException ?: SyncException(message, e)
         }
     }
@@ -69,6 +77,12 @@ class SyncHost(private val decks: DeckRepository, private val devices: DeviceRep
         val applied = decks.applyIncoming(request.revisions, peer = clientId)
         devices.markSynced(clientId)
         return PushResponse(request.batchId, applied.received, applied.alreadyKnown)
+    }
+
+    /** Holds until a revision past [after] exists or [timeoutMs] passes. */
+    suspend fun waitForChanges(after: Long, timeoutMs: Long): WaitResponse {
+        val changed = withTimeoutOrNull(timeoutMs) { decks.latestSeq.first { it > after } } != null
+        return WaitResponse(changed)
     }
 
     suspend fun pull(clientId: String, after: Long, limit: Int): PullResponse {

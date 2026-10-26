@@ -68,6 +68,27 @@ class SyncRoutesTest {
         assertTrue("Pair again" in error.message.orEmpty())
     }
 
+    @Test fun waitAnswersWhenTheDesktopChangesAndTracksLivePhones() = testApplication {
+        val live = LiveClients()
+        application { lockOnSync(SyncHost(desktopDecks, desktopDevices), desktopDevices, pairing, identity, live, maxWaitMs = 1_500) }
+        val http = createClient { lockOnDefaults() }
+        desktopDevices.savePairing("phone-id", "Phone", DeviceRole.CLIENT, tokenHash = sha256Hex("tok".toByteArray()))
+        val transport = HttpSyncTransport(http, "", "tok")
+
+        // Nothing new: the desktop holds the request, then answers "no change".
+        assertFalse(transport.waitForChanges(after = 0).changed)
+
+        // A desktop edit wakes a waiting phone, which shows as connected while it waits.
+        coroutineScope {
+            val waiting = async { transport.waitForChanges(after = 0) }
+            live.ids.first { "phone-id" in it }
+            desktopDecks.create(DeckSnapshot(name = "Edited on desktop"))
+            assertTrue(waiting.await().changed)
+        }
+        assertTrue(live.ids.value.isEmpty())
+        assertFailsWith<SyncException> { HttpSyncTransport(http, "", "wrong").waitForChanges(0) }
+    }
+
     @Test fun declinedPairingStoresNothing() = testApplication {
         application { lockOnSync(SyncHost(desktopDecks, desktopDevices), desktopDevices, pairing, identity) }
         val http = createClient { lockOnDefaults() }

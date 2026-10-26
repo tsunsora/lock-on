@@ -46,6 +46,9 @@ class DeckRepository(
             decks.map { it.toSummary(byDeck[it.deckId].orEmpty()) }
         }
 
+    /** Highest local revision seq. It rises on every save and every received revision. */
+    val latestSeq: Flow<Long> = revisions.observeMaxSeq()
+
     fun deck(deckId: String): Flow<DeckSummary?> = decks.map { list -> list.firstOrNull { it.deckId == deckId } }
 
     suspend fun create(snapshot: DeckSnapshot, deckId: String = Uuid.random().toString()): String {

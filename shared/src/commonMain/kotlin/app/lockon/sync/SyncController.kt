@@ -14,6 +14,12 @@ data class SyncStatus(val working: Boolean = false, val message: String? = null,
 
 interface ClientSyncController : SyncController {
     val canScanQr: Boolean
+    val autoSync: StateFlow<Boolean>
+    /** Auto-sync state per paired desktop; absent while auto-sync is off or the app is in the background. */
+    val autoStates: StateFlow<Map<String, AutoSyncState>>
+    /** Desktops found on the local network that aren't paired yet. */
+    val nearby: StateFlow<List<NearbyDesktop>>
+    fun setAutoSync(enabled: Boolean)
     /** Set while a pairing waits for the desktop. People compare this code with the desktop's. */
     val pendingVerification: StateFlow<String?>
     fun scanQr()
@@ -40,6 +46,8 @@ data class PairingPrompt(val requestId: String, val deviceName: String, val veri
 
 interface HostSyncController : SyncController {
     val hostInfo: StateFlow<HostInfo?>
+    /** Phones with auto-sync connected right now. */
+    val liveClients: StateFlow<Set<String>>
     val pairingPrompt: StateFlow<PairingPrompt?>
     fun answerPairing(requestId: String, accept: Boolean)
     fun newPairingCode()

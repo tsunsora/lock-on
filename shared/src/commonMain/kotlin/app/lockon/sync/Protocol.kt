@@ -19,6 +19,17 @@ object SyncProtocol {
     const val DEFAULT_PORT = 53340
     const val PAIRING_SCHEME = "lockon"
 
+    /** DNS-SD service the desktop advertises on the local network. */
+    const val SERVICE_TYPE = "_lockon._tcp"
+    /** TXT record keys: device ID, display name, certificate fingerprint, protocol and data versions. */
+    const val TXT_ID = "id"
+    const val TXT_NAME = "name"
+    const val TXT_FINGERPRINT = "fp"
+    const val TXT_PROTOCOL = "pv"
+    const val TXT_DATA_FORMAT = "df"
+    /** Longest a phone's change-wait request is held open before the desktop answers "nothing new". */
+    const val MAX_WAIT_SECONDS = 25
+
     val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     /** Returns a reason the two sides cannot sync, or null when they are compatible. */
@@ -85,6 +96,20 @@ data class PullResponse(val revisions: List<RevisionDto>, val nextCursor: Long, 
 
 @Serializable
 data class ErrorResponse(val message: String)
+
+/** Answer to a change-wait: true when the desktop has revisions after the phone's cursor. */
+@Serializable
+data class WaitResponse(val changed: Boolean)
+
+/** A Lock On desktop seen on the local network. Trust still comes from pairing, never from this. */
+data class NearbyDesktop(
+    val deviceId: String,
+    val name: String,
+    val host: String,
+    val port: Int,
+    val fingerprint: String?,
+    val compatible: Boolean,
+)
 
 /** Contents of the desktop's pairing QR code. */
 data class PairingInvite(

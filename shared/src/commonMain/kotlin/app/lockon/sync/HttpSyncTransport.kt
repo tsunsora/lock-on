@@ -51,6 +51,13 @@ class HttpSyncTransport(
             parameter("limit", limit)
         }.read()
 
+    override suspend fun waitForChanges(after: Long): WaitResponse =
+        client.get("$baseUrl/v1/sync/wait") {
+            authed()
+            parameter("after", after)
+            timeout { requestTimeoutMillis = (SyncProtocol.MAX_WAIT_SECONDS + 10) * 1000L }
+        }.read()
+
     private fun HttpRequestBuilder.authed() = bearerAuth(authToken)
 }
 

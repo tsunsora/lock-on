@@ -52,6 +52,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.QrCodeView
+import app.lockon.ui.components.HudHeader
+import app.lockon.sync.AutoSyncState
+import app.lockon.sync.NearbyDesktop
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Switch
+import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.delay
 import kotlin.time.Clock
 
@@ -60,6 +69,8 @@ fun SyncScreen(controller: SyncController, deviceName: String) {
     val status by controller.status.collectAsState()
     val devices by controller.pairedDevices.collectAsState(initial = emptyList())
     var forgetting by remember { mutableStateOf<PairedDevice?>(null) }
+    val liveHosts by ((controller as? ClientSyncController)?.autoStates ?: remember { MutableStateFlow(emptyMap()) }).collectAsState()
+    val liveClients by ((controller as? HostSyncController)?.liveClients ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -82,6 +93,10 @@ fun SyncScreen(controller: SyncController, deviceName: String) {
             DeviceCard(
                 device = device,
                 working = status.working,
+                live = when (controller) {
+                    is ClientSyncController -> liveHosts[device.deviceId]?.let { it.label to (it == AutoSyncState.LIVE) }
+                    is HostSyncController -> if (device.deviceId in liveClients) "Connected now: changes sync automatically" to true else null
+                },
                 onSync = (controller as? ClientSyncController)?.let { c -> { c.syncNow(device.deviceId) } },
                 onForget = { forgetting = device },
             )
@@ -194,6 +209,63 @@ private fun Field(label: String, value: String) {
 
 @Composable
 private fun ClientSection(controller: ClientSyncController, firstPairing: Boolean) {
+    val autoSync by controller.autoSync.collectAsState()
+    val nearby by controller.nearby.collectAsState()
+    var pairingWith by remember { mutableStateOf<NearbyDesktop?>(null) }
+
+    if (!firstPairing) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Auto-sync while Lock On is open", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Edits sync within seconds when your desktop is open on the same network. Nothing runs in the background.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = autoSync, onCheckedChange = controller::setAutoSync)
+        }
+    }
+    if (nearby.isNotEmpty()) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                HudHeader("Nearby desktops", readout = "${nearby.size}")
+                nearby.forEach { desktop ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(desktop.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                if (desktop.compatible) "${desktop.host}:${desktop.port}" else "Needs a Lock On update to sync with this phone",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        // Picking from the list replaces typing an address (UX rule C4).
+                        Button(onClick = { pairingWith = desktop }, enabled = desktop.compatible) { Text("Pair") }
+                    }
+                }
+            }
+        }
+    }
+    pairingWith?.let { desktop ->
+        var code by remember(desktop) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { pairingWith = null },
+            title = { Text("Pair with ${desktop.name}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Enter the pairing code shown in Lock On on that desktop, under Sync.")
+                    OutlinedTextField(code, { code = it.trim().uppercase() }, label = { Text("Pairing code") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = code.length >= 4, onClick = {
+                    controller.pair(PairingInvite(desktop.host, desktop.port, code, desktop.fingerprint, desktop.name))
+                    pairingWith = null
+                }) { Text("Pair") }
+            },
+            dismissButton = { TextButton(onClick = { pairingWith = null }) { Text("Cancel") } },
+        )
+    }
+
     val verification by controller.pendingVerification.collectAsState()
     val status by controller.status.collectAsState()
     var manual by remember { mutableStateOf(!controller.canScanQr) }
@@ -239,12 +311,23 @@ private fun ClientSection(controller: ClientSyncController, firstPairing: Boolea
     }
 }
 
+/** @param live auto-sync label and whether it is healthy, or null when auto-sync isn't running for this device. */
 @Composable
-private fun DeviceCard(device: PairedDevice, working: Boolean, onSync: (() -> Unit)?, onForget: () -> Unit) {
+private fun DeviceCard(device: PairedDevice, working: Boolean, live: Pair<String, Boolean>?, onSync: (() -> Unit)?, onForget: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium)
+                live?.let { (label, healthy) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(
+                            Modifier.size(8.dp).clip(CircleShape)
+                                .background(if (healthy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline),
+                        )
+                        Text(label, style = MaterialTheme.typography.bodySmall,
+                            color = if (healthy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 if (device.host != null) Text("${device.host}:${device.port}", style = MaterialTheme.typography.bodySmall)
                 Text(
                     device.lastSyncAt?.let { "Last successful sync ${formatTimestamp(it)}" } ?: "Not synced yet",

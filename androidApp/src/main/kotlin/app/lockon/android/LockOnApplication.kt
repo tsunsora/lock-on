@@ -30,6 +30,6 @@ class LockOnApplication : Application() {
             val name = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() } ?: Build.MODEL
             AppContainer.create(database, defaultDeviceName = name)
         }
-        sync = appScope.async { AndroidSyncController(container.await(), SecretStore(this@LockOnApplication), appScope) }
+        sync = appScope.async { AndroidSyncController(this@LockOnApplication, container.await(), SecretStore(this@LockOnApplication), appScope) }
     }
 }

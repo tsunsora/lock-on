@@ -87,11 +87,13 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 ### Sync (top level)
 - **Desktop:**
   - a pairing card with the QR code, address, port, pairing code, verification code and code expiry
-  - paired phones with their last successful sync
+  - paired phones with their last successful sync, and *Connected now* while a phone's auto-sync is live
   - a dialog to confirm a pairing request
 - **Phone:**
+  - **Auto-sync while Lock On is open** switch (on by default), once a desktop is paired
+  - **Nearby desktops** found on the network, each with **Pair**, which asks only for the pairing code
   - **Scan QR code** and **Enter address**
-  - paired desktops with **Sync now**, last sync and the last error
+  - paired desktops with **Sync now**, last sync, the last manual-sync error, and a live line: *Live: changes sync automatically* or *Waiting for the desktop*
   - a verification code dialog while the desktop is confirming
 - **Always:** the line "Only decks sync. No account or cloud server."
 
@@ -106,12 +108,13 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 2. **Import a list from a friend:**
    1. Decks → **Import** → paste.
    2. The editor opens on the imported deck, with any unreadable lines reported.
-3. **Phone to desktop:**
+3. **Phone to desktop (first time):**
    1. Desktop: **Sync**, which shows the QR code.
    2. Phone: **Sync** → **Scan QR code**.
    3. Desktop: confirm the codes match → **Pair**.
    4. The phone syncs right away.
-   5. Edit on the desktop, then **Sync now** on the phone.
+   5. With both open, edits on either device appear on the other within seconds. **Sync now** is there when auto-sync is off.
+   - Or, without the camera: the desktop shows under **Nearby desktops** on the phone → **Pair** → type the code.
 4. **Edited on both devices:**
    1. The deck tile shows **Needs review**.
    2. Open **Compare versions** → **Keep this version** → back in the editor.

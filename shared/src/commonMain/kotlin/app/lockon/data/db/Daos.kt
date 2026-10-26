@@ -96,6 +96,9 @@ interface RevisionDao {
     @Query("SELECT COALESCE(MAX(seq), 0) FROM revisions")
     suspend fun maxSeq(): Long
 
+    @Query("SELECT COALESCE(MAX(seq), 0) FROM revisions")
+    fun observeMaxSeq(): Flow<Long>
+
     @Query("SELECT COUNT(*) FROM revisions WHERE seq > :after AND (receivedFrom IS NULL OR receivedFrom != :peer)")
     fun observePendingFor(peer: String, after: Long): Flow<Int>
 }

@@ -10,7 +10,13 @@ import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.platform.FileBridge
+import app.lockon.sync.AutoSyncState
+import app.lockon.sync.ClientSyncController
+import app.lockon.sync.DeviceRole
 import app.lockon.sync.HostInfo
+import app.lockon.sync.NearbyDesktop
+import app.lockon.sync.PairingInvite
+import app.lockon.sync.SyncController
 import app.lockon.sync.HostSyncController
 import app.lockon.sync.PairedDevice
 import app.lockon.sync.PairingPrompt
@@ -23,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.EncodedImageFormat
 import java.io.File
@@ -55,9 +62,29 @@ class ScreenshotTest {
                 encodeQr("lockon://pair?host=192.168.1.20&port=53340&code=K7Q2MX&fp=" + "ab".repeat(32))),
         )
         override val pairingPrompt = MutableStateFlow<PairingPrompt?>(null)
+        override val liveClients = MutableStateFlow(setOf("phone-1"))
         override fun answerPairing(requestId: String, accept: Boolean) = Unit
         override fun newPairingCode() = Unit
         override fun selectAddress(address: String) = Unit
+        override fun forget(deviceId: String) = Unit
+    }
+
+    /** A phone's view: one paired desktop live, another desktop nearby and unpaired. */
+    private val client = object : ClientSyncController {
+        override val pairedDevices: Flow<List<PairedDevice>> = flowOf(listOf(
+            PairedDevice("desk-1", "DESKTOP-VPP8OD2", DeviceRole.HOST, "192.168.1.20", 53340, "ab".repeat(32),
+                System.currentTimeMillis() - 86_400_000, System.currentTimeMillis() - 60_000, null, 0, 0),
+        ))
+        override val status = MutableStateFlow(SyncStatus(message = "Auto-synced with DESKTOP-VPP8OD2: sent 1, received 0 changes."))
+        override val canScanQr = true
+        override val autoSync = MutableStateFlow(true)
+        override val autoStates = MutableStateFlow(mapOf("desk-1" to AutoSyncState.LIVE))
+        override val nearby = MutableStateFlow(listOf(NearbyDesktop("desk-2", "Studio iMac", "192.168.1.41", 53340, null, true)))
+        override val pendingVerification = MutableStateFlow<String?>(null)
+        override fun setAutoSync(enabled: Boolean) = Unit
+        override fun scanQr() = Unit
+        override fun pair(invite: PairingInvite) = Unit
+        override fun syncNow(deviceId: String) = Unit
         override fun forget(deviceId: String) = Unit
     }
 
@@ -66,9 +93,9 @@ class ScreenshotTest {
         override suspend fun openText(mimeTypes: List<String>): String? = null
     }
 
-    private fun shoot(name: String, width: Int, height: Int, dark: Boolean = true, setup: AppState.() -> Unit) {
+    private fun shoot(name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync, setup: AppState.() -> Unit) {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
-        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, sync, files, dark = dark) }.use { scene ->
+        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, dark = dark) }.use { scene ->
             var image = scene.render()
             // Let Room flows and effects settle between frames.
             repeat(15) { Thread.sleep(60); image = scene.render() }
@@ -90,6 +117,7 @@ class ScreenshotTest {
         shoot("light-phone-library", 600, 1260, dark = false) { select(Tab.DECKS) }
         sync.status.value = SyncStatus(message = "Could not reach the desktop. Check that Lock On is open on it.", isError = true)
         shoot("phone-sync-error", 600, 1260) { select(Tab.SYNC) }
+        shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SYNC) }
         sync.status.value = SyncStatus(message = "Ready for phones on port 53340.")
         assertTrue(File(out, "phone-cards.png").length() > 0)
     }
