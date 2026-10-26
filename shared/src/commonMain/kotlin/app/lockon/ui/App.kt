@@ -35,6 +35,8 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -124,16 +126,22 @@ fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, fi
             }
             Scaffold(
                 snackbarHost = { SnackbarHost(snackbars) },
+                // Desktop navigates from a top bar; phones keep it at the bottom, in thumb reach (UX rule N5).
                 topBar = {
-                    TopNav(wide) {
+                    if (wide) TopNav {
                         Tab.entries.forEach { tab ->
-                            TopNavItem(
-                                tab = tab,
+                            TopNavItem(tab = tab, selected = state.tab == tab, onClick = { state.select(tab) }, icon = { TabIcon(tab) })
+                        }
+                    }
+                },
+                bottomBar = {
+                    if (!wide) NavigationBar {
+                        Tab.entries.forEach { tab ->
+                            NavigationBarItem(
                                 selected = state.tab == tab,
-                                wide = wide,
                                 onClick = { state.select(tab) },
                                 icon = { TabIcon(tab) },
-                                modifier = if (wide) Modifier else Modifier.weight(1f),
+                                label = { Text(tab.label) },
                             )
                         }
                     }
@@ -146,6 +154,10 @@ fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, fi
                                 is Screen.DeckEditor -> DeckEditorScreen(container, state, files, screen.deckId, wide, screen.startTab)
                                 is Screen.Conflict -> ConflictScreen(container, state, screen.deckId, wide)
                                 null -> Column(Modifier.fillMaxSize()) {
+                                    if (!wide) {
+                                        Text(state.tab.label, style = MaterialTheme.typography.headlineSmall,
+                                            modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp))
+                                    }
                                     when (state.tab) {
                                         Tab.DECKS -> DeckLibraryScreen(container, state, files)
                                         Tab.CARDS -> CardBrowserScreen(container.catalog, state)
@@ -161,12 +173,9 @@ fun LockOnApp(container: AppContainer, state: AppState, sync: SyncController, fi
     }
 }
 
-/**
- * The one navigation bar, at the top on every size. Brand on the left, then the three destinations
- * (UX rule N1). Phones drop the wordmark and share the width between the tabs.
- */
+/** Desktop navigation: brand on the left, then the three destinations (UX rules N1, N5). */
 @Composable
-private fun TopNav(wide: Boolean, items: @Composable RowScope.() -> Unit) {
+private fun TopNav(items: @Composable RowScope.() -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Column {
             Row(
@@ -174,14 +183,10 @@ private fun TopNav(wide: Boolean, items: @Composable RowScope.() -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Reticle()
-                if (wide) {
-                    Spacer(Modifier.width(8.dp))
-                    Text("LOCK ON", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(32.dp))
-                } else {
-                    Spacer(Modifier.width(8.dp))
-                }
+                Spacer(Modifier.width(8.dp))
+                Text("LOCK ON", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(32.dp))
                 items()
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -194,7 +199,6 @@ private fun TopNav(wide: Boolean, items: @Composable RowScope.() -> Unit) {
 private fun TopNavItem(
     tab: Tab,
     selected: Boolean,
-    wide: Boolean,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -202,7 +206,7 @@ private fun TopNavItem(
     val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     val underline = MaterialTheme.colorScheme.primary
     Box(
-        modifier.fillMaxHeight().widthIn(min = if (wide) 112.dp else 0.dp)
+        modifier.fillMaxHeight().widthIn(min = 112.dp)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             // Drawn rather than laid out, so the underline never changes the item's width.
             .drawBehind {
