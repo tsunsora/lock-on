@@ -6,6 +6,7 @@ A Gundam Card Game deck builder for Android and Windows (macOS and Linux later).
 
 - **Card browser**: search by name, card number or text, filter by color, type, level, cost, set and trait, sort, and switch between list and grid views. Card details show corrected text and every printing.
 - **Deck editor**: add and remove cards with one tap, set the preferred printing, write notes. It saves automatically. Cards are tagged **Max** at their copy limit and **Off-color** when they would add a third color, and **Deck colors only** hides the rest. The deck is grouped by type. Wide windows show search, the deck and analysis side by side; phones use tabs (Deck, Add cards, Analysis, Test).
+- **Considering list**: park cards you're weighing up in a separate section that never counts toward deck size, colors or legality. Move copies in and out with one tap. It syncs and exports with the deck (`// Considering`; `Maybe:` and `Sideboard` headers also import into it).
 - **Test hand**: practice opening hands with the official setup: draw 5, redraw once to the bottom, set 6 shields, then draw each turn.
 - **Deck library**: create, duplicate, rename, tag, search and filter decks. Deleting shows **Undo** instead of asking first.
 - **Deck analysis**: legality messages, Burst and Blocker counts, Unit–Pilot link pairs, level and cost curves, and card-type and color counts. An incomplete deck saves as a *Draft*.
@@ -60,6 +61,7 @@ The desktop hosts HTTPS on port **53340** (or the next free port). Phones start 
    - Every batch is applied in one database transaction, together with its cursor update. Revision IDs are unique, so a retried or replayed batch is ignored.
    - An interrupted sync resumes where it stopped.
    - The database file itself is never transferred, and card images are never part of sync.
+3. **Data format.** Deck snapshots are at data format **2**, which added the Considering section. Both sides must use the same format to sync; otherwise the phone shows which device to update. A format-1 app would drop considered cards the next time it saved a deck.
 
 ## Building
 

@@ -14,6 +14,8 @@ import app.lockon.model.DeckSnapshot
  * 4 SMP-001 Vanguard Frame
  * // Resource deck (10)
  * 10 SMP-020 Standard Resource
+ * // Considering (2)
+ * 2 SMP-013 Scorched Earth
  * ```
  */
 object DeckListFormat {
@@ -55,6 +57,8 @@ object DeckListFormat {
                 val header = line.removePrefix("//").removeSuffix(":").trim().lowercase()
                 when {
                     header.startsWith("resource") -> section = DeckSection.RESOURCE
+                    header.startsWith("consider") || header.startsWith("maybe") || header.startsWith("side") ->
+                        section = DeckSection.CONSIDERING
                     header.startsWith("main") || header.startsWith("deck") -> section = DeckSection.MAIN
                 }
                 continue
@@ -74,7 +78,11 @@ object DeckListFormat {
             }
             if (cardNumber !in cards) problems += "Line ${index + 1}: $cardNumber is not in the card catalog."
             // A resource card listed under the main deck header still belongs in the resource deck.
-            val target = if (cards[cardNumber]?.type?.isResource == true) DeckSection.RESOURCE else section
+            val target = when {
+                section == DeckSection.CONSIDERING -> section
+                cards[cardNumber]?.type?.isResource == true -> DeckSection.RESOURCE
+                else -> section
+            }
             val key = cardNumber to target
             totals[key] = (totals[key] ?: 0) + quantity
         }

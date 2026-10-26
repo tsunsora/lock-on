@@ -121,14 +121,16 @@ private fun VersionCard(
                     val diffs = keys.mapNotNull { (number, section) ->
                         val mine = snapshot.quantityOf(number, section)
                         val theirs = other.quantityOf(number, section)
-                        if (mine == theirs) null else Triple(number, mine, theirs)
+                        if (mine == theirs) null else Triple(number to section, mine, theirs)
                     }
                     if (other.name != snapshot.name) Text("Name differs: \"${snapshot.name}\"", style = MaterialTheme.typography.bodySmall)
                     if (other.notes != snapshot.notes) Text("Notes differ", style = MaterialTheme.typography.bodySmall)
                     if (diffs.isEmpty() && other.name == snapshot.name) Text("Same cards as the other version.", style = MaterialTheme.typography.bodySmall)
-                    diffs.forEach { (number, mine, theirs) ->
+                    diffs.forEach { (key, mine, theirs) ->
+                        val (number, section) = key
+                        val where = if (section == DeckSection.CONSIDERING) " (considering)" else ""
                         Text(
-                            "${cards[number]?.name ?: number}: $mine here, $theirs in the other",
+                            "${cards[number]?.name ?: number}$where: $mine here, $theirs in the other",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (mine > theirs) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )

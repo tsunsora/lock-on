@@ -3,7 +3,17 @@ package app.lockon.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class DeckSection(val label: String) { MAIN("Main deck"), RESOURCE("Resource deck") }
+enum class DeckSection(val label: String) {
+    MAIN("Main deck"),
+    RESOURCE("Resource deck"),
+    /** Cards someone is weighing up. Never counted toward deck size, colors or legality. */
+    CONSIDERING("Considering");
+
+    companion object {
+        /** Where a card is played: resources in the resource deck, everything else in the main deck. */
+        fun playedIn(card: Card) = if (card.type.isResource) RESOURCE else MAIN
+    }
+}
 
 @Serializable
 data class DeckEntry(
@@ -41,6 +51,16 @@ data class DeckSnapshot(
             others + DeckEntry(cardNumber, quantity, section, printingId ?: existing?.printingId)
         }
         return copy(entries = updated.sortedWith(compareBy({ it.section }, { it.cardNumber })))
+    }
+
+    /** Moves up to [copies] of a card between sections, keeping its preferred printing. */
+    fun move(cardNumber: String, from: DeckSection, to: DeckSection, copies: Int = 1): DeckSnapshot {
+        val available = quantityOf(cardNumber, from)
+        val moving = copies.coerceAtMost(available)
+        if (moving <= 0 || from == to) return this
+        val printing = entries.firstOrNull { it.cardNumber == cardNumber && it.section == from }?.printingId
+        return withQuantity(cardNumber, from, available - moving)
+            .withQuantity(cardNumber, to, quantityOf(cardNumber, to) + moving, printing)
     }
 
     companion object {

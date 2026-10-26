@@ -114,9 +114,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     var renaming by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
 
-    fun change(card: GameCard, delta: Int) {
-        val section = if (card.type.isResource) DeckSection.RESOURCE else DeckSection.MAIN
+    fun change(card: GameCard, delta: Int, section: DeckSection = DeckSection.playedIn(card)) {
         draft = deck.withQuantity(card.cardNumber, section, (deck.quantityOf(card.cardNumber, section) + delta).coerceAtLeast(0))
+    }
+
+    fun move(card: GameCard, toConsidering: Boolean) {
+        val played = DeckSection.playedIn(card)
+        draft = if (toConsidering) deck.move(card.cardNumber, played, DeckSection.CONSIDERING)
+        else deck.move(card.cardNumber, DeckSection.CONSIDERING, played)
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -157,7 +162,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
 
         val deckList: @Composable (Modifier) -> Unit = { modifier ->
-            DeckList(deck, cards, modifier, onCardClick = { detail = it }, onChange = ::change, onNotes = { draft = deck.copy(notes = it) })
+            DeckList(
+                deck, cards, modifier,
+                onCardClick = { detail = it },
+                onChange = { card, delta -> change(card, delta) },
+                onRemoveConsidering = { change(it, -1, DeckSection.CONSIDERING) },
+                onMoveToDeck = { move(it, toConsidering = false) },
+                onNotes = { draft = deck.copy(notes = it) },
+            )
         }
         val deckColors = remember(deck, cards) {
             deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
@@ -167,11 +179,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 cards.values, onCardClick = { detail = it }, modifier = modifier,
                 focusRequests = state.searchFocusRequests, deckColors = deckColors,
             ) { card ->
-                val section = if (card.type.isResource) DeckSection.RESOURCE else DeckSection.MAIN
-                val quantity = deck.quantityOf(card.cardNumber, section)
+                val quantity = deck.quantityOf(card.cardNumber, DeckSection.playedIn(card))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     // Rule limits shown where you act (UX rule S3), before anything goes wrong.
-                    FitTags(card, quantity, deckColors, ruleset)
+                    FitTags(card, quantity, deck.quantityOf(card.cardNumber, DeckSection.CONSIDERING), deckColors, ruleset)
                     QuantityStepper(quantity, onMinus = { change(card, -1) }, onPlus = { change(card, 1) })
                 }
             }
@@ -212,7 +223,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
 
     detail?.let { card ->
-        val section = if (card.type.isResource) DeckSection.RESOURCE else DeckSection.MAIN
+        val section = DeckSection.playedIn(card)
+        val considering = deck.quantityOf(card.cardNumber, DeckSection.CONSIDERING)
         val cardPrintings = printings[card.cardNumber].orEmpty()
         CardDetailDialog(card, cardPrintings, onDismiss = { detail = null }) {
             Column(horizontalAlignment = Alignment.End) {
@@ -229,6 +241,20 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                 }
                 QuantityStepper(deck.quantityOf(card.cardNumber, section), onMinus = { change(card, -1) }, onPlus = { change(card, 1) })
+                // Considering is a scratch list; moving keeps the total and never checks rules (UX rule S4).
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Considering $considering",
+                        style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    when {
+                        considering > 0 -> TextButton(onClick = { move(card, toConsidering = false) }) { Text("Move 1 to deck") }
+                        deck.quantityOf(card.cardNumber, section) > 0 ->
+                            TextButton(onClick = { move(card, toConsidering = true) }) { Text("Move 1 to Considering") }
+                        else -> TextButton(onClick = { change(card, 1, DeckSection.CONSIDERING) }) { Text("Consider") }
+                    }
+                }
             }
         }
     }
@@ -254,6 +280,8 @@ private fun DeckList(
     modifier: Modifier,
     onCardClick: (GameCard) -> Unit,
     onChange: (GameCard, Int) -> Unit,
+    onRemoveConsidering: (GameCard) -> Unit,
+    onMoveToDeck: (GameCard) -> Unit,
     onNotes: (String) -> Unit,
 ) {
     // Grouped by card type like a printed list, each under a HUD header with its count (UX rule V2).
@@ -321,6 +349,44 @@ private fun DeckList(
                 }
             }
         }
+        val considering = deck.entries.filter { it.section == DeckSection.CONSIDERING }
+            .sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
+        item(key = "considering-header") {
+            HudHeader(
+                "Considering", Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp),
+                readout = "${considering.sumOf { it.quantity }}",
+            )
+            Text(
+                if (considering.isEmpty()) "Cards you're weighing up. Open a card and choose Consider to park it here."
+                else "Not counted toward the deck or its legality.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        items(considering, key = { "considering-${it.cardNumber}" }) { entry ->
+            val card = cards[entry.cardNumber]
+            Row(
+                Modifier.fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CardThumb(card)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(card?.name ?: "Unknown card", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                    Text("${entry.cardNumber} · ×${entry.quantity}", style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (card != null) {
+                    // One tap per copy (UX rule S1): move one into the deck, or drop one.
+                    TextButton(onClick = { onMoveToDeck(card) }) { Text("To deck") }
+                    IconButton(onClick = { onRemoveConsidering(card) }) {
+                        Text("−", style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+            }
+        }
         item(key = "notes") {
             OutlinedTextField(
                 value = deck.notes, onValueChange = onNotes,
@@ -334,7 +400,7 @@ private fun DeckList(
 
 /** "Max" at the copy limit and "Off-color" when a card would add a third color (UX rule S3). */
 @Composable
-private fun FitTags(card: GameCard, quantity: Int, deckColors: Set<CardColor>, ruleset: Ruleset) {
+private fun FitTags(card: GameCard, quantity: Int, considering: Int, deckColors: Set<CardColor>, ruleset: Ruleset) {
     val c = MaterialTheme.colorScheme
     val limit = ruleset.restricted[card.cardNumber] ?: if (card.type.isResource) ruleset.resourceMaxCopies else ruleset.maxCopies
     when {
@@ -342,6 +408,7 @@ private fun FitTags(card: GameCard, quantity: Int, deckColors: Set<CardColor>, r
         limit != null && quantity >= limit -> Badge("Max", c.primaryContainer, c.onPrimaryContainer)
         card.colors.isNotEmpty() && (deckColors + card.colors).size > ruleset.maxColors ->
             Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
+        quantity == 0 && considering > 0 -> Badge("Considering", c.secondaryContainer, c.onSecondaryContainer)
     }
 }
 

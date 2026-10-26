@@ -11,8 +11,11 @@ import kotlinx.serialization.json.Json
 object SyncProtocol {
     const val PROTOCOL_VERSION = 1
     const val MIN_PROTOCOL_VERSION = 1
-    /** Version of [DeckSnapshot] inside revisions. A device refuses revisions newer than it understands. */
-    const val DATA_FORMAT_VERSION = 1
+    /**
+     * Version of [DeckSnapshot] inside revisions. A device refuses revisions newer than it understands.
+     * 2 added the Considering section; a version-1 app would drop those cards on its next save.
+     */
+    const val DATA_FORMAT_VERSION = 2
     const val DEFAULT_PORT = 53340
     const val PAIRING_SCHEME = "lockon"
 
@@ -24,6 +27,8 @@ object SyncProtocol {
         peer.minProtocolVersion > PROTOCOL_VERSION -> "The desktop app is newer than this app. Update Lock On on this device."
         peer.protocolVersion < MIN_PROTOCOL_VERSION -> "The desktop app is too old for this device. Update Lock On on the desktop."
         peer.dataFormatVersion > DATA_FORMAT_VERSION -> "The desktop stores decks in a newer format. Update Lock On on this device."
+        // An older desktop would lose parts of decks it cannot read, so both sides must match.
+        peer.dataFormatVersion < DATA_FORMAT_VERSION -> "The desktop app is too old for this device. Update Lock On on the desktop."
         else -> null
     }
 

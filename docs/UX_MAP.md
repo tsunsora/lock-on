@@ -57,7 +57,11 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color.
      - **Deck colors only** narrows the list to the deck's colors.
      - Sort by number, level, cost or name.
-  2. **Deck:** grouped by type (Units, Pilots, Commands, Bases, then Resources), each with a HUD header and count, sorted by level and then cost, with − / + on every row. Notes go at the end.
+  2. **Deck:** grouped by type (Units, Pilots, Commands, Bases, then Resources), each with a HUD header and count, sorted by level and then cost, with − / + on every row.
+     - **Considering** comes after Resources: cards you're weighing up, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − (drops one).
+     - Card details offer **Consider**, **Move 1 to Considering** or **Move 1 to deck**, depending on where the card already is.
+     - In the card list, a card that is only being considered is tagged **Considering**.
+     - Notes go at the end.
   3. **Analysis:**
      - legality messages first
      - Gundam readouts: Burst cards (how many can trigger from shields), Blockers, and Unit–Pilot link pairs present
@@ -112,3 +116,8 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
    1. The deck tile shows **Needs review**.
    2. Open **Compare versions** → **Keep this version** → back in the editor.
 5. **Remove a deck by mistake:** Delete → **Undo** in the snackbar.
+6. **Not sure about a card:**
+   1. Open the card → **Consider**, or **Move 1 to Considering** if it's already in the deck.
+   2. It waits under Considering without affecting legality.
+   3. **To deck** brings a copy back in.
+   4. Exported lists carry a `// Considering` section.

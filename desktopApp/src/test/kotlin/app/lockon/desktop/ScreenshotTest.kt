@@ -41,7 +41,8 @@ class ScreenshotTest {
             DeckSnapshot(
                 name = "Blue Red Aggro", tags = listOf("tournament"),
                 entries = (1..12).map { DeckEntry("SMP-%03d".format(it), 4) } + DeckEntry("SMP-013", 2) +
-                    DeckEntry("SMP-019", 6, DeckSection.RESOURCE) + DeckEntry("SMP-020", 4, DeckSection.RESOURCE),
+                    DeckEntry("SMP-019", 6, DeckSection.RESOURCE) + DeckEntry("SMP-020", 4, DeckSection.RESOURCE) +
+                    DeckEntry("SMP-014", 2, DeckSection.CONSIDERING) + DeckEntry("SMP-016", 1, DeckSection.CONSIDERING),
             ),
         ).also { container.decks.create(DeckSnapshot(name = "Green test", entries = listOf(DeckEntry("SMP-015", 3)))) }
     }
@@ -83,6 +84,7 @@ class ScreenshotTest {
         shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-cards", 600, 1260) { select(Tab.CARDS) }
         shoot("phone-add-cards", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        shoot("phone-considering", 600, 3200) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-test-hand", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 3)) }
         assertTrue(File(out, "phone-cards.png").length() > 0)
     }

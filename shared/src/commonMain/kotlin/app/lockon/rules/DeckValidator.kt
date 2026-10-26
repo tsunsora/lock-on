@@ -31,7 +31,9 @@ object DeckValidator {
         if (resource != ruleset.resourceDeckSize) error("Resource deck has $resource of ${ruleset.resourceDeckSize} cards.")
 
         // Copies are counted by card number, so alternate art never adds extra copies.
-        val totals = deck.entries.groupBy { it.cardNumber to it.section }.mapValues { (_, e) -> e.sumOf { it.quantity } }
+        // Considering cards are a scratch list and are never checked.
+        val playing = deck.entries.filter { it.section != DeckSection.CONSIDERING }
+        val totals = playing.groupBy { it.cardNumber to it.section }.mapValues { (_, e) -> e.sumOf { it.quantity } }
         for ((key, quantity) in totals) {
             val (number, section) = key
             val card = cards[number]
@@ -53,7 +55,7 @@ object DeckValidator {
             if (limit != null && quantity > limit) error("${nameOf(number)} has $quantity copies; the limit is $limit.", number)
         }
 
-        val present = deck.entries.filter { it.quantity > 0 }.map { it.cardNumber }.toSet()
+        val present = playing.filter { it.quantity > 0 }.map { it.cardNumber }.toSet()
         for (number in present.intersect(ruleset.banned.toSet())) error("${nameOf(number)} is banned.", number)
         for (combo in ruleset.bannedCombinations) {
             if (combo.cardNumbers.isNotEmpty() && combo.cardNumbers.all { it in present }) {

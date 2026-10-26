@@ -79,6 +79,15 @@ class SyncEngineTest {
         assertFalse(phone.decks.decks.first().single().hasConflict)
     }
 
+    @Test fun consideredCardsSyncWithTheDeck() = runTest {
+        pair()
+        val id = phone.decks.create(DeckSnapshot(name = "Maybe list"))
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.withQuantity("SMP-013", DeckSection.CONSIDERING, 2))
+        sync()
+        assertEquals(2, desktop.decks.currentSnapshot(id)!!.quantityOf("SMP-013", DeckSection.CONSIDERING))
+        assertEquals(2, desktop.decks.decks.first().single().snapshot.quantityOf("SMP-013", DeckSection.CONSIDERING))
+    }
+
     @Test fun autosavesFoldUntilShared() = runTest {
         pair()
         val id = phone.decks.create(DeckSnapshot(name = "Draft"))
