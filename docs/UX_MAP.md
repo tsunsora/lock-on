@@ -6,7 +6,7 @@ How screens connect, what each one is for, and what you can do there. The rules 
 
 ```mermaid
 flowchart LR
-    subgraph Top["Top level (rail on wide windows, bottom bar on phones)"]
+    subgraph Top["Top level (top bar on every size)"]
         D[Decks]
         C[Cards]
         S[Sync]
@@ -72,7 +72,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - **Draw** adds one card per turn.
      - **New game** shuffles again.
      - Stats show how many Units of level 2 or lower are in hand.
-- **Leaving:** back or rail navigation, which saves first.
+- **Leaving:** back or the top bar, which saves first.
 
 ### Compare versions (level 2)
 - **Purpose:** settle a deck that was edited on two devices before they synced.

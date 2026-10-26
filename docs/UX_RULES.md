@@ -9,7 +9,8 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **N1. Three destinations, no more.** The top level is **Decks**, **Cards** and **Sync**. A new feature goes inside an existing destination unless it is used as often as those three. (Aniimo opens on a 16-icon menu and reviewers call it a nightmare to navigate.)
 - **N2. Two levels deep at most.** A destination's own screen counts as level one. A deck's editor or a conflict comparison counts as level two. Anything further opens as a sheet or dialog over level two, never a third screen. (Stella Sora is praised for having few nested menus.)
 - **N3. Back always works and never loses work.** System back, the on-screen back arrow and Escape on desktop all leave the current screen, and edits are already saved when they do.
-- **N4. Wide windows split into panes instead of adding screens.** At 840 dp and wider, the editor shows search, deck and analysis side by side, and the navigation moves to a side rail. On phones the same panes become tabs in the same order.
+- **N4. Wide windows split into panes instead of adding screens.** At 840 dp and wider, the editor shows search, deck and analysis side by side. On phones the same panes become tabs in the same order.
+- **N5. Navigation lives in one top bar on every size.** The bar holds the reticle, the wordmark on wide windows, and the three destinations, each with an icon, a label and an amber underline when selected. Phones give the three destinations equal width. Screen-level tabs, such as the editor's, sit directly under it, so "where am I" always reads top-down.
 
 ## 2. Speed of building
 
@@ -29,7 +30,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 
 ## 4. Calm by default
 
-- **C1. No nagging.** No badges, banners or pop-ups announce anything the person didn't just do. Sync status appears on the Sync screen and as a small dot on its rail or tab item, and nowhere else. (Aniimo's reward systems "scream at you from multiple menus.")
+- **C1. No nagging.** No badges, banners or pop-ups announce anything the person didn't just do. Sync status appears on the Sync screen and as a small dot on its item in the top bar, and nowhere else. (Aniimo's reward systems "scream at you from multiple menus.")
 - **C2. Undo instead of "Are you sure?"** Reversible actions such as deleting a deck or clearing a section happen immediately and offer **Undo** in a snackbar. A confirmation dialog is only for actions undo can't reverse, such as forgetting a paired device or overwriting from a backup.
 - **C3. One bulk action instead of many single ones.** When something applies to many items, offer it once, such as *Clear section* or *Sync now*. (Aniimo reviewers asked for a claim-all.)
 - **C4. Pick from options, don't type.** Wherever a value comes from a known list, such as a card name, a color, a tag already in use or a ruleset, offer it as a choice. Typing is the fallback.
@@ -49,7 +50,7 @@ Lock On borrows Stella Sora's bright retro-future presentation: clean anime-styl
 
 - **R1. 48 dp touch targets** on Android, including quantity buttons, even when they look smaller.
 - **R2. Keyboard first on desktop.** `Ctrl+F` focuses search, `Esc` goes back, and `+` / `−` change the focused card's count. Every action also works with a mouse.
-- **R3. Thumb zone on phones.** Primary actions (New deck, Draw, Sync now) sit in the lower half of the screen.
+- **R3. Thumb zone on phones.** Navigation is at the top (N5), so primary actions on a screen (New deck, Keep / Draw, Sync now) sit in its lower half, within thumb reach.
 - **R4. Offline always.** Nothing needs a network connection except syncing, and a failed sync never blocks editing.
 
 ## 7. Trust (sync and data)
