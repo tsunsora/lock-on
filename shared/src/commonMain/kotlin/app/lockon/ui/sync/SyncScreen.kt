@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import app.lockon.BuildInfo
 import app.lockon.platform.formatTimestamp
 import app.lockon.sync.ClientSyncController
 import app.lockon.sync.HostSyncController
@@ -105,6 +106,7 @@ fun SyncScreen(controller: SyncController, deviceName: String) {
             "Only decks sync. Each device keeps its own card catalog, and no account or cloud server is involved.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Text("Lock On ${BuildInfo.VERSION}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
     }
 
     forgetting?.let { device ->

@@ -96,10 +96,10 @@ Run all tests:
 ./gradlew :shared:jvmTest :desktopApp:test
 ```
 
-Build the Windows installer (`desktopApp/build/compose/binaries`):
+Build the Windows installer and the release APK into `dist/` (see [RELEASING.md](RELEASING.md) for signing and the device checklist):
 
 ```bash
-./gradlew :desktopApp:packageMsi
+./gradlew releaseArtifacts
 ```
 
 Running a second desktop profile, for example to test sync against yourself, uses a separate data folder:
@@ -132,5 +132,5 @@ Still to do by hand:
 ## Next milestones
 
 - A real catalog source and catalog updates.
-- A single-instance lock on the desktop.
-- Release signing, installers, and database migrations (`shared/schemas` holds the exported Room schema).
+- A release signing key, code-signed installers, and shrunk builds (see [RELEASING.md](RELEASING.md)).
+- Database migration tests once the schema changes (`shared/schemas` holds the exported Room schema).

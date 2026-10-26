@@ -11,6 +11,30 @@ plugins {
 }
 
 val roomVersion = "2.8.4"
+val appVersion = providers.gradleProperty("lockon.version").get()
+
+// Writes the app version into shared code so every screen and the sync hello can show it.
+val generateBuildInfo by tasks.registering {
+    val outDir = layout.buildDirectory.dir("generated/buildinfo/commonMain/kotlin")
+    val version = appVersion
+    inputs.property("version", version)
+    outputs.dir(outDir)
+    doLast {
+        val file = outDir.get().file("app/lockon/BuildInfo.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            listOf(
+                "package app.lockon",
+                "",
+                "/** Generated from gradle.properties. */",
+                "object BuildInfo {",
+                "    const val VERSION = \"$version\"",
+                "}",
+                "",
+            ).joinToString(System.lineSeparator()),
+        )
+    }
+}
 val ktorVersion = "3.3.3"
 val composeVersion = "1.10.3"
 
@@ -29,6 +53,7 @@ kotlin {
     }
 
     sourceSets {
+        commonMain { kotlin.srcDir(generateBuildInfo) }
         commonMain.dependencies {
             implementation("org.jetbrains.compose.runtime:runtime:$composeVersion")
             implementation("org.jetbrains.compose.foundation:foundation:$composeVersion")

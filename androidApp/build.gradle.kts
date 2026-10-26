@@ -1,8 +1,18 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     kotlin("android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Release signing comes from keystore.properties (git-ignored) or LOCKON_* environment variables.
+// Without either, release builds fall back to the debug key so they still install for testing.
+val signingProps = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun signingValue(key: String, env: String): String? = signingProps.getProperty(key) ?: System.getenv(env)
+val releaseStore = signingValue("storeFile", "LOCKON_KEYSTORE_PATH")
 
 android {
     namespace = "app.lockon.android"
@@ -11,14 +21,25 @@ android {
         applicationId = "app.lockon"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("lockon.versionCode").get().toInt()
+        versionName = providers.gradleProperty("lockon.version").get()
+    }
+    signingConfigs {
+        if (releaseStore != null) create("release") {
+            storeFile = rootProject.file(releaseStore)
+            storePassword = signingValue("storePassword", "LOCKON_KEYSTORE_PASSWORD")
+            keyAlias = signingValue("keyAlias", "LOCKON_KEY_ALIAS")
+            keyPassword = signingValue("keyPassword", "LOCKON_KEY_PASSWORD")
+        }
     }
     buildTypes {
         release {
+            // R8 stays off until release builds have been checked on a device; Room, Ktor and
+            // serialization all need keep rules that can only be confirmed by running the app.
             isMinifyEnabled = false
-            // Sideload builds reuse the debug key until a release key exists.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug").also {
+                logger.warn("Lock On: no release key configured, signing the release APK with the debug key. See RELEASING.md.")
+            }
         }
     }
     compileOptions {

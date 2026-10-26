@@ -1,5 +1,6 @@
 package app.lockon.sync
 
+import app.lockon.BuildInfo
 import app.lockon.model.DeckSnapshot
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -54,6 +55,8 @@ data class HelloResponse(
     val dataFormatVersion: Int = SyncProtocol.DATA_FORMAT_VERSION,
     val deviceId: String,
     val deviceName: String,
+    /** Informational only; compatibility is decided by the version fields above. */
+    val appVersion: String = BuildInfo.VERSION,
 )
 
 @Serializable

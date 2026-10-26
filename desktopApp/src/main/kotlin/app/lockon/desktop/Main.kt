@@ -1,6 +1,6 @@
 package app.lockon.desktop
 
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -19,8 +19,17 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
 import java.net.InetAddress
+import javax.swing.JOptionPane
 
 fun main() {
+    // Before anything logs: send logs to a file people can attach to a bug report.
+    System.setProperty("org.slf4j.simpleLogger.logFile", File(AppDirs.data, "lock-on.log").absolutePath)
+    System.setProperty("org.slf4j.simpleLogger.showDateTime", "true")
+    // Two copies would share one database and fight over the sync port.
+    if (!SingleInstance.acquire(AppDirs.data)) {
+        JOptionPane.showMessageDialog(null, "Lock On is already open.", "Lock On", JOptionPane.INFORMATION_MESSAGE)
+        return
+    }
     val database = LockOnDatabase.build(
         Room.databaseBuilder<LockOnDatabase>(name = File(AppDirs.data, LockOnDatabase.FILE_NAME).absolutePath),
     )
@@ -30,11 +39,18 @@ fun main() {
     val sync = DesktopSyncController(container, appScope).also { it.start() }
     val state = AppState(appScope)
 
+    val saved = WindowMemory.load()
     application {
+        val windowState = rememberWindowState(
+            placement = saved.placement,
+            position = saved.position,
+            size = saved.size,
+        )
         Window(
-            onCloseRequest = { sync.stop(); exitApplication() },
+            onCloseRequest = { WindowMemory.save(windowState); sync.stop(); exitApplication() },
             title = "Lock On",
-            state = rememberWindowState(width = 1320.dp, height = 860.dp),
+            icon = painterResource("lock-on-window.png"),
+            state = windowState,
         ) {
             LockOnApp(container, state, sync, DesktopFileBridge(window))
         }

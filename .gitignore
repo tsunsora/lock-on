@@ -13,3 +13,7 @@ local.properties
 *.pem
 .env
 .env.*
+
+# Release signing secrets and gathered release files.
+keystore.properties
+dist/

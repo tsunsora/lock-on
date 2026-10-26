@@ -46,13 +46,33 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Lock On"
-            packageVersion = "1.0.0" // DMG and MSI need a major version above zero.
+            packageVersion = providers.gradleProperty("lockon.version").get()
             vendor = "Lock On"
             description = "Gundam Card Game deck builder"
-            modules("java.naming", "jdk.crypto.ec", "java.sql")
+            // From `suggestRuntimeModules`, plus TLS, preferences and logging used at runtime.
+            modules(
+                "java.instrument", "java.management", "jdk.jfr", "jdk.unsupported",
+                "java.naming", "jdk.crypto.ec", "java.sql", "java.prefs", "java.logging",
+            )
+            copyright = "Copyright 2026 tsunsora"
             windows {
                 menuGroup = "Lock On"
+                // Keep this UUID forever: it lets new installers upgrade old installs in place.
                 upgradeUuid = "6b1f3f0e-7f0b-4c55-9d38-3d8f3c2a9e41"
+                // Installs for the current user, so no administrator prompt is needed.
+                perUserInstall = true
+                dirChooser = true
+                shortcut = true
+                menu = true
+                iconFile = project.file("icons/lock-on.ico")
+            }
+            macOS {
+                bundleID = "app.lockon"
+                iconFile = project.file("icons/lock-on.icns")
+            }
+            linux {
+                packageName = "lock-on"
+                iconFile = project.file("icons/lock-on.png")
             }
         }
     }
