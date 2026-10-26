@@ -31,6 +31,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
 import app.lockon.catalog.CatalogPreview
+import app.lockon.catalog.CatalogUpdater
+import app.lockon.catalog.GcgApi
 import app.lockon.data.CatalogException
 import app.lockon.data.CatalogOrigin
 import app.lockon.platform.FileBridge
@@ -52,6 +54,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<CatalogPreview?>(null) }
+    var check by remember { mutableStateOf<CatalogUpdater.UpdateCheck?>(null) }
     val scope = state.appScope
 
     fun attempt(block: suspend () -> CatalogPreview?) {
@@ -94,6 +97,47 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                             Text(current.source, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    HorizontalDivider()
+                    HudHeader("Official card list")
+                    val official = info?.origin == CatalogOrigin.GCG_API
+                    Text(
+                        if (official) "Updated weekly from the official card list. Check whenever a new set is out."
+                        else "Download every card from the official card list in one step. It replaces the current catalog; your decks stay as they are.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        when (val result = check) {
+                            is CatalogUpdater.UpdateCheck.Available ->
+                                Button(onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy) {
+                                    Text("Download update")
+                                }
+                            else -> if (official) {
+                                Button(onClick = {
+                                    busy = true; problem = null
+                                    scope.launch {
+                                        try { check = container.catalogUpdater.checkCardDatabase() } catch (e: CatalogException) { problem = e.message }
+                                        busy = false
+                                    }
+                                }, enabled = !busy) { Text("Check for updates") }
+                                if (result is CatalogUpdater.UpdateCheck.UpToDate) {
+                                    Text("Up to date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+                                }
+                            } else {
+                                Button(onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy) {
+                                    Text("Download the latest card database")
+                                }
+                            }
+                        }
+                        if (busy) ReticleSpinner(size = 20.dp)
+                    }
+                    (check as? CatalogUpdater.UpdateCheck.Available)?.let {
+                        Text(
+                            "A newer card list is out: version ${it.version}, ${it.cardCount} entries, built ${it.builtAt}.",
+                            style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                        )
+                    }
+                    Text(GcgApi.ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    HorizontalDivider()
                     val showArtwork by container.catalog.showArtwork.collectAsState()
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -106,7 +150,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         Switch(checked = showArtwork, onCheckedChange = { scope.launch { container.catalog.setShowArtwork(it) } })
                     }
                     HorizontalDivider()
-                    HudHeader("Update from a link")
+                    HudHeader("Other sources")
                     Text(
                         "Paste the link to a Lock On catalog file. Lock On remembers it, so checking for updates later is one tap.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

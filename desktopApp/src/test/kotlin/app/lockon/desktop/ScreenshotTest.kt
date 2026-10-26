@@ -192,4 +192,28 @@ class ScreenshotTest {
         }
         container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())
     }
+
+    /** Real card data and Bandai artwork; needs the network, so it only runs with LOCKON_LIVE=1. */
+    @Test fun renderLiveCardDatabase() = runBlocking {
+        if (System.getenv("LOCKON_LIVE") != "1") return@runBlocking
+        container.catalogUpdater.install(container.catalogUpdater.latestCardDatabase())
+        shoot("live-phone-cards", 600, 1260) { select(Tab.CARDS) }
+        ImageComposeScene(600, 1260, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                app.lockon.ui.ArtworkProvider(container, File("build/artwork-cache").absolutePath) {
+                    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                        app.lockon.ui.components.CardDetailDialog(
+                            container.catalog.cards.value.getValue("GD01-001"),
+                            container.catalog.printings.value["GD01-001"].orEmpty(), onDismiss = {},
+                        )
+                    }
+                }
+            }
+        }.use { scene ->
+            var image = scene.render()
+            repeat(40) { frame -> Thread.sleep(150); image = scene.render((frame + 1) * 100_000_000L) }
+            File(out, "live-card-detail.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
+        container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())
+    }
 }

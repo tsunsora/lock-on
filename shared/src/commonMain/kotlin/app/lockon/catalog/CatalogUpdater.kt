@@ -52,6 +52,65 @@ class CatalogUpdater(
 
     suspend fun install(preview: CatalogPreview) = catalog.install(preview.checked.file, preview.origin, preview.url)
 
+    /** Downloads the latest official card list from gcg-api and converts it on this device. */
+    suspend fun latestCardDatabase(): CatalogPreview {
+        val manifest = officialManifest()
+        val entries = try {
+            GcgApi.parseCards(fetchOrExplain(GcgApi.CARDS_URL))
+        } catch (e: CatalogException) {
+            throw e
+        } catch (e: Exception) {
+            throw CatalogException("The card database didn't download in a readable form. Try again later.")
+        }
+        val converted = GcgApi.toCatalog(manifest, entries)
+        val checked = catalog.validate(converted.catalog)
+        val note = "${converted.skippedTokens} token cards (EX Base, EX Resource, Unit tokens) are left out because they can't be put in a deck."
+        return preview(checked.copy(warnings = checked.warnings + note), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
+    }
+
+    sealed interface UpdateCheck {
+        data class UpToDate(val version: Int) : UpdateCheck
+        data class Available(val version: Int, val cardCount: Int, val builtAt: String) : UpdateCheck
+    }
+
+    /** Asks gcg-api for its latest version without downloading the cards (a small file). */
+    suspend fun checkCardDatabase(): UpdateCheck {
+        val manifest = officialManifest()
+        catalog.markUpdateChecked()
+        val installed = catalog.info.value
+        val newer = installed?.catalogId != GcgApi.CATALOG_ID || manifest.run > installed.version
+        return if (newer) UpdateCheck.Available(manifest.run, manifest.cardCount, manifest.builtAt.take(10))
+        else UpdateCheck.UpToDate(manifest.run)
+    }
+
+    /**
+     * Background check, at most weekly, only for people already using the official list. A newer
+     * list shows as a quiet note in the Cards tab; nothing pops up and nothing installs itself (UX
+     * rules C1, C2).
+     */
+    suspend fun quietWeeklyCheck(now: Long) {
+        if (catalog.info.value?.origin != CatalogOrigin.GCG_API) return
+        if (now - catalog.lastUpdateCheck() < WEEK_MS) return
+        val result = runCatching { checkCardDatabase() }.getOrNull()
+        if (result is UpdateCheck.Available) catalog.setUpdateAvailable("Card database update available")
+    }
+
+    private suspend fun officialManifest(): GcgApi.Manifest = try {
+        GcgApi.parseManifest(fetchOrExplain(GcgApi.MANIFEST_URL))
+    } catch (e: CatalogException) {
+        throw e
+    } catch (e: Exception) {
+        throw CatalogException("The card database's version file wasn't readable. Try again later.")
+    }
+
+    private suspend fun fetchOrExplain(url: String): String = try {
+        fetch(url)
+    } catch (e: CatalogException) {
+        throw e
+    } catch (e: Exception) {
+        throw CatalogException("Couldn't reach the card database. Check your internet connection.")
+    }
+
     private suspend fun preview(checked: CheckedCatalog, origin: CatalogOrigin, url: String?): CatalogPreview {
         val installed = catalog.info.value
         val numbers = checked.file.cards.map { it.cardNumber }.toSet()
@@ -67,6 +126,8 @@ class CatalogUpdater(
     }
 
     private companion object {
+        const val WEEK_MS = 7L * 24 * 60 * 60 * 1000
+
         suspend fun httpGet(url: String): String {
             val client = downloadClient()
             try {

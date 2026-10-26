@@ -44,7 +44,12 @@ data class CatalogFile(
 @Serializable
 data class RulesetFile(val rulesets: List<Ruleset>)
 
-enum class CatalogOrigin(val label: String) { BUNDLED("Built-in sample"), FILE("Imported from a file"), URL("Downloaded from a link") }
+enum class CatalogOrigin(val label: String) {
+    BUNDLED("Built-in sample"),
+    FILE("Imported from a file"),
+    URL("Downloaded from a link"),
+    GCG_API("Official card list via gcg-api"),
+}
 
 /** What is installed now, for the Catalog sheet. */
 data class CatalogInfo(
@@ -72,6 +77,7 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
     private val _info = MutableStateFlow<CatalogInfo?>(null)
     private val _catalogName = MutableStateFlow("")
     private val _showArtwork = MutableStateFlow(true)
+    private val _updateAvailable = MutableStateFlow<String?>(null)
     private var bundledRulesetsJson = ""
 
     val cards: StateFlow<Map<String, Card>> = _cards.asStateFlow()
@@ -80,6 +86,15 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
     val ruleset: StateFlow<Ruleset> = _ruleset.asStateFlow()
     val info: StateFlow<CatalogInfo?> = _info.asStateFlow()
     val catalogName: StateFlow<String> = _catalogName.asStateFlow()
+    /** Set when a background check found a newer card database; shown quietly in the Cards tab. */
+    val updateAvailable: StateFlow<String?> = _updateAvailable.asStateFlow()
+
+    fun setUpdateAvailable(message: String?) { _updateAvailable.value = message }
+
+    suspend fun lastUpdateCheck(): Long = db.metaDao().get(KEY_CHECKED_AT)?.toLongOrNull() ?: 0
+
+    suspend fun markUpdateChecked() = db.metaDao().put(MetaEntity(KEY_CHECKED_AT, now().toString()))
+
     /** Whether card images from printing artwork links are shown. On unless turned off. */
     val showArtwork: StateFlow<Boolean> = _showArtwork.asStateFlow()
 
@@ -114,6 +129,11 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
             val reason = e.message?.lineSequence()?.firstOrNull() ?: "unreadable"
             throw CatalogException("This isn't a Lock On card catalog, or it is damaged ($reason).")
         }
+        return validate(file)
+    }
+
+    /** The checks every catalog goes through, whether it came from a file, a link or a conversion. */
+    fun validate(file: CatalogFile): CheckedCatalog {
         if (file.format != CatalogFile.CATALOG_FORMAT) throw CatalogException("This file isn't a Lock On card catalog.")
         if (file.formatVersion > CatalogFile.CATALOG_FORMAT_VERSION) {
             throw CatalogException("This catalog needs a newer version of Lock On.")
@@ -185,6 +205,7 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
         )
         _info.value = info
         _catalogName.value = info.name
+        _updateAvailable.value = null
         _showArtwork.value = meta.get(KEY_SHOW_ARTWORK) != "false"
 
         val rulesJson = meta.get(KEY_RULESETS)?.takeIf { it.isNotBlank() } ?: bundledRulesetsJson
@@ -204,6 +225,7 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
         private const val KEY_RULESETS = "rulesetsJson"
         private const val KEY_RULESET = "ruleset"
         private const val KEY_SHOW_ARTWORK = "showArtwork"
+        private const val KEY_CHECKED_AT = "catalogCheckedAt"
         val FALLBACK_RULESET = Ruleset(id = "standard", name = "Standard", region = "EN", effectiveDate = "")
     }
 }

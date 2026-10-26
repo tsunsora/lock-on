@@ -76,6 +76,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import app.lockon.ui.components.ArtworkSource
+import kotlinx.coroutines.launch
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.LocalArtwork
@@ -124,6 +125,12 @@ fun LockOnApp(
             if (result == SnackbarResult.ActionPerformed) notice.action?.invoke()
         }
         LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
+        // At most weekly, and only for people on the official card list.
+        LaunchedEffect(Unit) {
+            state.appScope.launch {
+                runCatching { container.catalogUpdater.quietWeeklyCheck(kotlin.time.Clock.System.now().toEpochMilliseconds()) }
+            }
+        }
 
         BoxWithConstraints(
             Modifier.fillMaxSize()

@@ -15,6 +15,7 @@ First release for Android and Windows.
 - **Test hand** using the official setup: draw 5, redraw once, set 6 shields, then draw.
 - Deck library with tags, search, duplicate, rename, and delete with **Undo**.
 - Import and export plain-text deck lists, and a JSON backup of all decks.
+- **Download the latest card database** in one tap: the official card list via gcg-api, with official card images, converted on the device. Check for updates at any time, and a weekly quiet check notes when a newer list is out.
 - Install a card catalog from a file or a link, check the link for updates, and go back to the sample at any time. A preview before each install lists any cards your decks use that are missing from the new catalog.
 - Card artwork from catalog links in lists, grids, test hands and card details, cached per device. In card details, tap a printing to see its art. It can be turned off in the Catalog dialog.
 
@@ -38,4 +39,4 @@ First release for Android and Windows.
 - Windows installer that installs per user with shortcuts, and needs no administrator prompt.
 - Only one copy runs at a time, the window remembers its size and position, and logs go to `%APPDATA%\LockOn\lock-on.log`.
 
-The built-in card catalog is a 20-card fictional sample. Install a real one from **Cards → Catalog** once you have a data source you're allowed to use (see docs/CATALOG_FORMAT.md).
+Fresh installs start with a 20-card fictional sample; **Cards → Catalog → Download the latest card database** brings in the real card list. Card data comes from gcg-api (ODbL 1.0) and isn't affiliated with Bandai.

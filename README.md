@@ -14,10 +14,11 @@ A Gundam Card Game deck builder for Android and Windows (macOS and Linux later).
   - **Nearby desktops**: phones find Lock On desktops on the same network and pair with just the code, no address to type.
   - **Auto-sync while open**: with both apps open on the same network, edits reach the other device within seconds, and a paired desktop that changes IP address is followed automatically. It runs only while the phone app is on screen. Nothing runs in the background.
 - **Import and export**: plain-text deck lists (paste, copy or file) and a versioned JSON backup.
+- **Download the latest card database**: one tap in **Cards → Catalog** downloads the full official card list from [gcg-api](https://gcgapi.com) (about 1,200 cards and 2,000 printings, refreshed weekly) straight to that device and converts it there, with official card images. **Check for updates** reads only a small version file, and a weekly background check shows a quiet *Card database update available* in the Cards tab. Nothing installs itself.
 - **Card catalog updates**: install a catalog from a file or an `https://` link, and later check that link for a newer version. Every install shows a preview first, including any cards your decks use that the new catalog lacks. Decks are never changed. The format is in [docs/CATALOG_FORMAT.md](docs/CATALOG_FORMAT.md), with a CSV converter in `scripts/`.
 - **Card artwork**: when a catalog's printings include `artworkUrl` links, card lists, grids, test hands and card details show the images. They're cached on each device, never synced, and can be turned off under **Cards → Catalog**. Until an image loads, or if its link breaks, the colour placeholder stays.
 
-The built-in catalog holds **20 fictional sample cards** (`SMP-001`…`SMP-020`). They follow the shape of Gundam Card Game data but contain no official text or artwork. Before importing the real catalog, find a data source you are allowed to use, and get permission to distribute card text and art. The official site has no public API.
+Until the official card list is downloaded, the built-in catalog holds **20 fictional sample cards** (`SMP-001`…`SMP-020`). They follow the shape of Gundam Card Game data but contain no official text or artwork. Before importing the real catalog, find a data source you are allowed to use, and get permission to distribute card text and art. The official site has no public API.
 
 ## UX
 
@@ -135,10 +136,12 @@ Still to do by hand:
 
 ## Third-party assets
 
+- Card data, when downloaded, comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai. Gundam, card text and card images are copyright Bandai, and images load from Bandai's site.
+
 - Rajdhani font by the Indian Type Foundry, under the SIL Open Font License 1.1 ([licenses/Rajdhani-OFL.txt](licenses/Rajdhani-OFL.txt)).
 
 ## Next milestones
 
-- A licensed source for the real card data and artwork, published as a catalog file.
+- The current banned and restricted list as a ruleset (gcg-api doesn't include it).
 - A release signing key, code-signed installers, and shrunk builds (see [RELEASING.md](RELEASING.md)).
 - Database migration tests once the schema changes (`shared/schemas` holds the exported Room schema).

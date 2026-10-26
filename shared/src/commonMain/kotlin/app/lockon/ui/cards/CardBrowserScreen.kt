@@ -30,6 +30,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
     val cards by catalog.cards.collectAsState()
     val printings by catalog.printings.collectAsState()
     val info by catalog.info.collectAsState()
+    val update by catalog.updateAvailable.collectAsState()
     var selected by remember { mutableStateOf<Card?>(null) }
     var managing by remember { mutableStateOf(false) }
 
@@ -42,7 +43,8 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { managing = true }) { Text("Catalog") }
+            // A found update is a quiet label here, never a pop-up (UX rule C1).
+            TextButton(onClick = { managing = true }) { Text(update ?: "Catalog") }
         }
         CardSearchPanel(
             cards.values, onCardClick = { selected = it }, modifier = Modifier.fillMaxSize(),
