@@ -81,6 +81,8 @@ class DeckControls(
     val change: (Card, Int) -> Unit,
     /** The copy limit shown as pips under the count; null when the card has none. */
     val limit: (Card) -> Int? = { null },
+    /** When set, cards can be dragged out of the list and dropped onto the deck. */
+    val drag: CardDrag? = null,
 )
 
 /**
@@ -233,7 +235,7 @@ fun CardSearchPanel(
                     CardTile(
                         card,
                         onClick = { onCardClick(card) },
-                        modifier = Modifier.animateItem(),
+                        modifier = Modifier.animateItem().cardDragSource(card, controls?.drag),
                         quantity = controls?.quantity?.invoke(card),
                         tag = { controls?.tag?.invoke(card) },
                         onMinus = controls?.let { c -> { c.change(card, -1) } },
@@ -245,7 +247,7 @@ fun CardSearchPanel(
             }
             else -> LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = LocalNavClearance.current)) {
                 items(results, key = { it.cardNumber }) { card ->
-                    CardRow(card, Modifier.animateItem(), onClick = { onCardClick(card) }, trailing = {
+                    CardRow(card, Modifier.animateItem().cardDragSource(card, controls?.drag), onClick = { onCardClick(card) }, trailing = {
                         if (controls != null) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 controls.tag(card)

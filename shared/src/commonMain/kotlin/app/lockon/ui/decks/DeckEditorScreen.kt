@@ -87,6 +87,11 @@ import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import app.lockon.ui.cards.CardSearchPanel
 import app.lockon.ui.cards.DeckControls
+import app.lockon.ui.cards.CardDrag
+import app.lockon.ui.cards.CardDragGhost
+import app.lockon.ui.cards.cardDropTarget
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -311,7 +316,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         val colorsNowState = rememberUpdatedState(deckColors)
         // One set of controls for the editor's life. They read the counts through state, so a change
         // recomposes only the cards whose numbers or tags moved, not the whole card list.
-        val controls = remember(deckId, ruleset) {
+        // Wide windows show the card list and the deck side by side, so a card can be dragged across.
+        val cardDrag = remember(deckId) { CardDrag { card -> change(card, 1) } }
+        val controls = remember(deckId, ruleset, wide) {
             fun copies(card: GameCard, section: DeckSection = DeckSection.playedIn(card)) = countsNow.value[section]?.get(card.cardNumber) ?: 0
             DeckControls(
                 quantity = { card -> copies(card) },
@@ -319,6 +326,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 tag = { card -> FitTags(card, copies(card), copies(card, DeckSection.CONSIDERING), colorsNowState.value, ruleset) },
                 change = { card, delta -> change(card, delta) },
                 limit = { card -> copyLimit(card, ruleset) },
+                drag = if (wide) cardDrag else null,
             )
         }
         val search: @Composable (Modifier) -> Unit = { modifier ->
@@ -374,9 +382,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         if (wide) {
             // Two areas, so most of the window is cards and the deck being built (UX rule N4): the card
             // list, and one deck panel whose tabs hold the analysis, test hand, matches and versions.
+            Box(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Panel(Modifier.weight(1.6f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
-                Panel(Modifier.weight(1f).widthIn(min = 380.dp).fillMaxSize()) {
+                // The deck panel takes dropped cards, and its rim lights up while one is held over it.
+                val dropRim = when {
+                    cardDrag.overTarget -> MaterialTheme.colorScheme.primary
+                    cardDrag.card != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    else -> Color.Transparent
+                }
+                Panel(Modifier.weight(1f).widthIn(min = 380.dp).fillMaxSize().cardDropTarget(cardDrag)
+                    .border(BorderStroke(2.dp, dropRim), LockOnShapes.panel)) {
                     Column {
                         PillTabs(listOf("Deck", "Analysis", "Test", "Matches", "Versions"), deckTab, { deckTab = it }, fill = true)
                         when (deckTab) {
@@ -388,6 +404,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         }
                     }
                 }
+            }
+            CardDragGhost(cardDrag, Modifier.matchParentSize())
             }
         } else {
             // The sections float in a pill over the content, which scrolls underneath it.
@@ -506,7 +524,8 @@ private fun DeckList(
                     LockIndicator(locked = false, size = 72.dp)
                     Text("No cards yet", style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Tap + on any card to add a copy. A deck needs 50 cards in up to two colors.",
+                        if (compact) "Drag a card here or click + to add a copy. A deck needs 50 cards in up to two colors."
+                        else "Tap + on any card to add a copy. A deck needs 50 cards in up to two colors.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
