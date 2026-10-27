@@ -32,4 +32,34 @@ object RevisionGraph {
             else -> DeckState.Conflicted(heads)
         }
     }
+
+    /**
+     * Every revision behind [headId], newest first. A revision always comes before its parents;
+     * only revisions on separate branches, which no parent link orders, fall back to their times.
+     */
+    fun history(nodes: Collection<Node>, headId: String): List<Node> {
+        val byId = nodes.associateBy { it.revisionId }
+        val ancestors = linkedSetOf<String>()
+        val pending = ArrayDeque(listOf(headId))
+        while (pending.isNotEmpty()) {
+            val id = pending.removeLast()
+            val node = byId[id] ?: continue
+            if (ancestors.add(id)) pending.addAll(node.parents)
+        }
+        // A revision is ready once every child that names it has been listed.
+        val children = ancestors.associateWith { 0 }.toMutableMap()
+        ancestors.forEach { id -> byId.getValue(id).parents.filter { it in children }.forEach { children[it] = children.getValue(it) + 1 } }
+        val ordered = mutableListOf<Node>()
+        val ready = ancestors.filter { children[it] == 0 }.map { byId.getValue(it) }.toMutableList()
+        while (ready.isNotEmpty()) {
+            val next = ready.maxWith(compareBy<Node> { it.createdAt }.thenByDescending { it.revisionId })
+            ready.remove(next)
+            ordered += next
+            next.parents.filter { it in children }.forEach { parent ->
+                children[parent] = children.getValue(parent) - 1
+                if (children[parent] == 0) ready += byId.getValue(parent)
+            }
+        }
+        return ordered
+    }
 }

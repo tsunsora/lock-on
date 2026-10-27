@@ -12,6 +12,7 @@ import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.model.DeckSummary
 import app.lockon.model.DeckVersion
+import app.lockon.model.MatchRecord
 import app.lockon.sync.RevisionDto
 import app.lockon.sync.RevisionGraph
 import app.lockon.sync.SyncProtocol
@@ -60,16 +61,65 @@ class DeckRepository(
     }
 
     /**
-     * Saves the deck's new content. Consecutive autosaves fold into one revision until that revision
-     * is sent to another device, which keeps history short without ever changing shared data.
+     * Saves the deck's new content. Consecutive autosaves fold into one revision, so each version in
+     * the history is an editing session. A version closes when it is sent to another device, kept
+     * with [keepVersion], or left alone for [VERSION_IDLE_MS]. Shared data is never changed.
      */
-    suspend fun save(deckId: String, snapshot: DeckSnapshot) = transaction {
-        val deck = decksDao.deck(deckId) ?: error("Deck $deckId does not exist.")
-        val head = revisions.revision(deck.headRevisionId)
-        val amended = head != null && !deck.hasConflict && head.originDeviceId == localDeviceId && !head.shared &&
-            revisions.amend(head.seq, encode(snapshot), snapshot.deleted, now()) == 1
-        if (!amended) insertRevision(deckId, parents = listOf(deck.headRevisionId), snapshot = snapshot)
-        rebuild(deckId)
+    suspend fun save(deckId: String, snapshot: DeckSnapshot) = transaction { saveInTransaction(deckId, snapshot) }
+
+    /** Saves [snapshot] and closes the version, so the next edit starts a new one. */
+    suspend fun keepVersion(deckId: String, snapshot: DeckSnapshot) = transaction {
+        saveInTransaction(deckId, snapshot)
+        decksDao.deck(deckId)?.let { revisions.freeze(it.headRevisionId) }
+    }
+
+    /** Every earlier version of the deck's current content, newest first. Deletions are left out. */
+    suspend fun history(deckId: String): List<DeckVersion> {
+        val deck = decksDao.deck(deckId) ?: return emptyList()
+        val all = revisions.forDeck(deckId)
+        val byId = all.associateBy { it.revisionId }
+        return RevisionGraph.history(nodes(deckId, all), deck.headRevisionId).filterNot { it.deleted }.map { node ->
+            val revision = byId.getValue(node.revisionId)
+            DeckVersion(revision.revisionId, revision.originDeviceId, revision.createdAt, decode(revision.snapshotJson))
+        }
+    }
+
+    // --- Folders ---
+    // A folder is only a name on each deck, so it syncs with the deck and needs no record of its own.
+
+    /**
+     * Puts decks in [folder], or takes them out of any folder when it is blank. Returns the folder
+     * name as saved, which reuses an existing folder's spelling.
+     */
+    suspend fun moveToFolder(deckIds: Collection<String>, folder: String?): String? = transaction {
+        val target = canonicalFolder(folder)
+        for (id in deckIds) {
+            val current = currentInTransaction(id) ?: continue
+            if (current.folder != target) saveInTransaction(id, current.copy(folder = target))
+        }
+        target
+    }
+
+    /**
+     * Renames a folder on every deck in it and returns the name as saved. Renaming onto an existing
+     * folder merges the two.
+     */
+    suspend fun renameFolder(from: String, to: String): String? = transaction {
+        val target = canonicalFolder(to, ignoring = from) ?: return@transaction null
+        for (deck in decksDao.inFolder(from)) {
+            val current = currentInTransaction(deck.deckId) ?: continue
+            saveInTransaction(deck.deckId, current.copy(folder = target))
+        }
+        target
+    }
+
+    /** Takes every deck out of [folder] and returns their IDs, so the change can be undone. */
+    suspend fun removeFolder(folder: String): List<String> = transaction {
+        decksDao.inFolder(folder).mapNotNull { deck ->
+            val current = currentInTransaction(deck.deckId) ?: return@mapNotNull null
+            saveInTransaction(deck.deckId, current.copy(folder = null))
+            deck.deckId
+        }
     }
 
     suspend fun delete(deckId: String) {
@@ -80,9 +130,10 @@ class DeckRepository(
     /** Undoes a delete by saving the earlier content on top of the deletion record. */
     suspend fun restore(deckId: String, snapshot: DeckSnapshot) = save(deckId, snapshot.copy(deleted = false))
 
+    /** The copy keeps the folder and cover but starts with an empty match log. */
     suspend fun duplicate(deckId: String): String? {
         val current = currentSnapshot(deckId) ?: return null
-        return create(current.copy(name = "${current.name} (copy)"))
+        return create(current.copy(name = "${current.name} (copy)", matches = emptyList()))
     }
 
     /** All heads of a deck. More than one means devices edited it independently. */
@@ -96,10 +147,16 @@ class DeckRepository(
         }
     }
 
-    /** Ends a conflict with a merge revision that supersedes every head. */
+    /**
+     * Ends a conflict with a merge revision that supersedes every head. The chosen version wins,
+     * except for matches: games logged on any device are all kept.
+     */
     suspend fun resolve(deckId: String, chosen: DeckSnapshot) = transaction {
-        val heads = RevisionGraph.heads(nodes(deckId, revisions.forDeck(deckId))).map { it.revisionId }
-        insertRevision(deckId, parents = heads, snapshot = chosen)
+        val all = revisions.forDeck(deckId)
+        val heads = RevisionGraph.heads(nodes(deckId, all)).map { it.revisionId }
+        val byId = all.associateBy { it.revisionId }
+        val matches = heads.flatMap { decode(byId.getValue(it).snapshotJson).matches } + chosen.matches
+        insertRevision(deckId, parents = heads, snapshot = chosen.copy(matches = mergeMatches(matches)))
         rebuild(deckId)
     }
 
@@ -122,10 +179,7 @@ class DeckRepository(
         return imported
     }
 
-    suspend fun currentSnapshot(deckId: String): DeckSnapshot? {
-        val deck = decksDao.deck(deckId) ?: return null
-        return revisions.revision(deck.headRevisionId)?.let { decode(it.snapshotJson) }
-    }
+    suspend fun currentSnapshot(deckId: String): DeckSnapshot? = currentInTransaction(deckId)
 
     // --- Sync support ---
 
@@ -187,6 +241,27 @@ class DeckRepository(
     private suspend fun <T> transaction(block: suspend () -> T): T =
         db.useWriterConnection { it.immediateTransaction { block() } }
 
+    private suspend fun currentInTransaction(deckId: String): DeckSnapshot? {
+        val deck = decksDao.deck(deckId) ?: return null
+        return revisions.revision(deck.headRevisionId)?.let { decode(it.snapshotJson) }
+    }
+
+    private suspend fun saveInTransaction(deckId: String, snapshot: DeckSnapshot) {
+        val deck = decksDao.deck(deckId) ?: error("Deck $deckId does not exist.")
+        val head = revisions.revision(deck.headRevisionId)
+        val amended = head != null && !deck.hasConflict && head.originDeviceId == localDeviceId && !head.shared &&
+            now() - head.createdAt < VERSION_IDLE_MS &&
+            revisions.amend(head.seq, encode(snapshot), snapshot.deleted, now()) == 1
+        if (!amended) insertRevision(deckId, parents = listOf(deck.headRevisionId), snapshot = snapshot)
+        rebuild(deckId)
+    }
+
+    /** Trims [name] and reuses an existing folder's spelling when only the case differs. */
+    private suspend fun canonicalFolder(name: String?, ignoring: String? = null): String? {
+        val trimmed = name?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return decksDao.folders().firstOrNull { it != ignoring && it.equals(trimmed, ignoreCase = true) } ?: trimmed
+    }
+
     private suspend fun insertRevision(deckId: String, parents: List<String>, snapshot: DeckSnapshot) {
         val revisionId = Uuid.random().toString()
         revisions.insert(
@@ -218,7 +293,9 @@ class DeckRepository(
         decksDao.upsert(
             DeckEntity(
                 deckId = deckId, name = snapshot.name, notes = snapshot.notes, format = snapshot.format,
-                tags = json.encodeToString(tagSerializer, snapshot.tags), headRevisionId = revision.revisionId,
+                tags = json.encodeToString(tagSerializer, snapshot.tags), folder = snapshot.folder,
+                coverCard = snapshot.coverCard, matches = json.encodeToString(matchSerializer, snapshot.matches),
+                headRevisionId = revision.revisionId,
                 hasConflict = conflict, deleted = snapshot.deleted && !conflict, updatedAt = revision.createdAt,
             ),
         )
@@ -235,6 +312,9 @@ class DeckRepository(
         snapshot = DeckSnapshot(
             name = name, notes = notes, format = format,
             tags = runCatching { json.decodeFromString(tagSerializer, tags) }.getOrDefault(emptyList()),
+            folder = folder,
+            coverCard = coverCard,
+            matches = runCatching { json.decodeFromString(matchSerializer, matches) }.getOrDefault(emptyList()),
             entries = entries.map {
                 DeckEntry(it.cardNumber, it.quantity, DeckSection.valueOf(it.section), it.printingId)
             }.sortedWith(compareBy({ it.section }, { it.cardNumber })),
@@ -253,7 +333,15 @@ class DeckRepository(
     private fun encode(snapshot: DeckSnapshot) = json.encodeToString(DeckSnapshot.serializer(), snapshot)
     private fun decode(text: String) = json.decodeFromString(DeckSnapshot.serializer(), text)
 
-    private companion object {
-        val tagSerializer = ListSerializer(String.serializer())
+    companion object {
+        /** An edit after this long without one starts a new version. */
+        const val VERSION_IDLE_MS = 30 * 60_000L
+
+        private val tagSerializer = ListSerializer(String.serializer())
+        private val matchSerializer = ListSerializer(MatchRecord.serializer())
+
+        /** One copy of each match, oldest first. */
+        fun mergeMatches(matches: List<MatchRecord>): List<MatchRecord> =
+            matches.distinctBy { it.id }.sortedWith(compareBy({ it.playedAt }, { it.id }))
     }
 }

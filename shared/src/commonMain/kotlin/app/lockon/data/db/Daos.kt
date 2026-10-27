@@ -48,6 +48,12 @@ interface DeckDao {
     @Query("SELECT * FROM decks WHERE deckId = :deckId")
     suspend fun deck(deckId: String): DeckEntity?
 
+    @Query("SELECT * FROM decks WHERE deleted = 0 AND folder = :folder")
+    suspend fun inFolder(folder: String): List<DeckEntity>
+
+    @Query("SELECT DISTINCT folder FROM decks WHERE deleted = 0 AND folder IS NOT NULL")
+    suspend fun folders(): List<String>
+
     @Query("SELECT * FROM deck_entries")
     fun observeAllEntries(): Flow<List<DeckEntryEntity>>
 
@@ -89,6 +95,10 @@ interface RevisionDao {
 
     @Query("UPDATE revisions SET shared = 1 WHERE seq IN (:seqs)")
     suspend fun markShared(seqs: List<Long>)
+
+    /** Freezes a revision so the next edit starts a new version. */
+    @Query("UPDATE revisions SET shared = 1 WHERE revisionId = :revisionId")
+    suspend fun freeze(revisionId: String)
 
     @Query("UPDATE revisions SET snapshotJson = :snapshotJson, deleted = :deleted, createdAt = :createdAt WHERE seq = :seq AND shared = 0")
     suspend fun amend(seq: Long, snapshotJson: String, deleted: Boolean, createdAt: Long): Int

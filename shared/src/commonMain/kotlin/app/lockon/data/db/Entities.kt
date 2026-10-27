@@ -1,5 +1,6 @@
 package app.lockon.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -54,6 +55,10 @@ data class DeckEntity(
     val format: String,
     /** JSON array of tags. */
     val tags: String,
+    val folder: String? = null,
+    val coverCard: String? = null,
+    /** JSON array of [app.lockon.model.MatchRecord]. */
+    @ColumnInfo(defaultValue = "[]") val matches: String = "[]",
     val headRevisionId: String,
     val hasConflict: Boolean,
     val deleted: Boolean,
@@ -88,7 +93,10 @@ data class RevisionEntity(
     val deleted: Boolean,
     val dataFormatVersion: Int,
     val snapshotJson: String,
-    /** Set once the revision has left this device. Shared revisions are never edited again. */
+    /**
+     * Set once the revision has left this device, or was kept as a version. Either way it is never
+     * edited again; later edits become a new revision.
+     */
     val shared: Boolean,
 )
 

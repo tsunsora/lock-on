@@ -1,5 +1,6 @@
 package app.lockon.data.db
 
+import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -14,8 +15,10 @@ import kotlinx.coroutines.IO
         DeckEntity::class, DeckEntryEntity::class, RevisionEntity::class, RevisionParentEntity::class,
         PairedDeviceEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    // 2: deck folders, cover cards and match records on the decks cache.
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @ConstructedBy(LockOnDatabaseConstructor::class)
 abstract class LockOnDatabase : RoomDatabase() {

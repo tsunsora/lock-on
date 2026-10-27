@@ -35,6 +35,12 @@ data class DeckSnapshot(
     val format: String = DEFAULT_FORMAT,
     val tags: List<String> = emptyList(),
     val entries: List<DeckEntry> = emptyList(),
+    /** The library folder the deck sits in, or null for none. Folders exist only as these names. */
+    val folder: String? = null,
+    /** Card number shown as the deck's cover. Null picks the highest-level Unit. */
+    val coverCard: String? = null,
+    /** Games played with this deck, oldest first. */
+    val matches: List<MatchRecord> = emptyList(),
     /** True for the synced deletion record that keeps an older device from restoring the deck. */
     val deleted: Boolean = false,
 ) {
@@ -67,6 +73,22 @@ data class DeckSnapshot(
         const val DEFAULT_FORMAT = "standard"
     }
 }
+
+@Serializable
+enum class MatchResult(val label: String) { WIN("Win"), LOSS("Loss"), DRAW("Draw") }
+
+/** One logged game. [id] lets versions from two devices be merged without duplicates. */
+@Serializable
+data class MatchRecord(
+    val id: String,
+    val playedAt: Long,
+    val result: MatchResult,
+    /** Free text such as "Blue-White Wing"; suggestions come from earlier entries. */
+    val opponent: String = "",
+    /** True when this deck went first, false second, null when not recorded. */
+    val wentFirst: Boolean? = null,
+    val notes: String = "",
+)
 
 /** A deck as the library shows it: the current snapshot plus its sync state. */
 data class DeckSummary(
