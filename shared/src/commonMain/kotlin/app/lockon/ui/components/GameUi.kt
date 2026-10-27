@@ -105,6 +105,22 @@ import app.lockon.platform.imageBitmapOf
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.foundation.interaction.HoverInteraction
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.currentValueOf
+import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.node.invalidatePlacement
+import androidx.compose.ui.unit.Constraints
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -467,7 +483,8 @@ fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.
 
 /**
  * Hover lift for cards and tiles on desktop: rises a little and casts a soft shadow tinted with its
- * colour. Press sinks it a hair. Phones never hover, so they only get the press.
+ * colour. Press sinks it a hair. Phones never hover, so they only get the press. A modifier node
+ * rather than `composed`, so a grid of cards scrolling into view builds no extra state per card.
  */
 fun Modifier.hoverLift(
     interaction: MutableInteractionSource,
@@ -475,19 +492,83 @@ fun Modifier.hoverLift(
     shape: Shape,
     lift: Dp = 3.dp,
     resting: Float = 0f,
-): Modifier = composed {
-    val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedAsState()
-    val t by animateFloatAsState(if (hovered) 1f else 0f, motion(Motion.MEDIUM), label = "hover-lift")
-    val press by animateFloatAsState(if (pressed) 0.985f else 1f, motion(Motion.SHORT), label = "press")
-    hoverable(interaction).graphicsLayer {
-        val s = (1f + 0.01f * t) * press
-        scaleX = s; scaleY = s
-        translationY = -lift.toPx() * t
-        this.shape = shape
-        shadowElevation = 8.dp.toPx() * maxOf(t, resting)
-        ambientShadowColor = glow.copy(alpha = 0.5f); spotShadowColor = glow.copy(alpha = 0.5f)
+): Modifier = hoverable(interaction) then HoverLiftElement(interaction, glow, shape, lift, resting)
+
+private data class HoverLiftElement(
+    val interaction: MutableInteractionSource,
+    val glow: Color,
+    val shape: Shape,
+    val lift: Dp,
+    val resting: Float,
+) : ModifierNodeElement<HoverLiftNode>() {
+    override fun create() = HoverLiftNode(interaction, glow, shape, lift, resting)
+    override fun update(node: HoverLiftNode) = node.update(interaction, glow, shape, lift, resting)
+}
+
+private class HoverLiftNode(
+    private var interaction: MutableInteractionSource,
+    private var glow: Color,
+    private var shape: Shape,
+    private var lift: Dp,
+    private var resting: Float,
+) : Modifier.Node(), LayoutModifierNode, CompositionLocalConsumerModifierNode {
+    private val hover = Animatable(0f)
+    private val press = Animatable(1f)
+    private var watching: Job? = null
+
+    override fun onAttach() = watch()
+
+    // A lazy grid reuses this node for another card, which starts at rest.
+    override fun onReset() {
+        if (isAttached) coroutineScope.launch { hover.snapTo(0f); press.snapTo(1f) }
     }
+
+    fun update(interaction: MutableInteractionSource, glow: Color, shape: Shape, lift: Dp, resting: Float) {
+        val newSource = interaction != this.interaction
+        this.interaction = interaction; this.glow = glow; this.shape = shape; this.lift = lift; this.resting = resting
+        if (newSource) { watching?.cancel(); watch() }
+        invalidatePlacement()
+    }
+
+    private fun watch() {
+        watching = coroutineScope.launch {
+            var hovers = 0
+            var presses = 0
+            interaction.interactions.collect { event ->
+                when (event) {
+                    is HoverInteraction.Enter -> hovers++
+                    is HoverInteraction.Exit -> hovers = (hovers - 1).coerceAtLeast(0)
+                    is PressInteraction.Press -> presses++
+                    is PressInteraction.Release, is PressInteraction.Cancel -> presses = (presses - 1).coerceAtLeast(0)
+                    else -> return@collect
+                }
+                val reduce = currentValueOf(LocalReduceMotion)
+                launch { hover.settle(if (hovers > 0) 1f else 0f, Motion.MEDIUM, reduce) }
+                launch { press.settle(if (presses > 0) 0.985f else 1f, Motion.SHORT, reduce) }
+            }
+        }
+    }
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        return layout(placeable.width, placeable.height) {
+            placeable.placeWithLayer(0, 0) {
+                // Read here, in the layer, so hovering redraws the card without recomposing or relaying it out.
+                val t = hover.value
+                val s = (1f + 0.01f * t) * press.value
+                scaleX = s; scaleY = s
+                translationY = -lift.toPx() * t
+                this.shape = this@HoverLiftNode.shape
+                shadowElevation = 8.dp.toPx() * maxOf(t, resting)
+                ambientShadowColor = glow.copy(alpha = 0.5f); spotShadowColor = glow.copy(alpha = 0.5f)
+            }
+        }
+    }
+}
+
+/** Animates to [target] the way [motion] would: an emphasized tween, or at once when motion is reduced. */
+private suspend fun Animatable<Float, *>.settle(target: Float, durationMillis: Int, reduce: Boolean) {
+    if (reduce) snapTo(target) else animateTo(target, tween(durationMillis, easing = Motion.emphasized))
 }
 
 /** A small nudge when [value] grows, so an added copy registers (UX rule V5: what changed). */
@@ -507,22 +588,46 @@ fun Modifier.bumpOnIncrease(value: Int): Modifier = composed {
 
 /**
  * A faint tint over a card when a copy is added (or a red one when removed), fading in under half
- * a second. Drawn over the content, so it never moves anything.
+ * a second. Drawn over the content, so it never moves anything. A modifier node, like [hoverLift].
  */
-fun Modifier.flashOnChange(value: Int, add: Color, remove: Color, shape: Shape): Modifier = composed {
-    val reduce = LocalReduceMotion.current
-    val flash = remember { Animatable(0f) }
-    var last by remember { mutableStateOf(value) }
-    var tint by remember { mutableStateOf(add) }
-    LaunchedEffect(value) {
-        if (!reduce && value != last) {
-            tint = if (value > last) add else remove
-            flash.snapTo(1f)
-            flash.animateTo(0f, tween(420, easing = Motion.emphasizedDecelerate))
-        }
-        last = value
+fun Modifier.flashOnChange(value: Int, add: Color, remove: Color, shape: Shape): Modifier =
+    this then FlashElement(value, add, remove, shape)
+
+private data class FlashElement(val value: Int, val add: Color, val remove: Color, val shape: Shape) : ModifierNodeElement<FlashNode>() {
+    override fun create() = FlashNode(value, add, remove, shape)
+    override fun update(node: FlashNode) = node.update(value, add, remove, shape)
+}
+
+private class FlashNode(
+    private var value: Int,
+    private var add: Color,
+    private var remove: Color,
+    private var shape: Shape,
+) : Modifier.Node(), DrawModifierNode, CompositionLocalConsumerModifierNode {
+    private val flash = Animatable(0f)
+    private var tint = add
+    private var reused = false
+
+    // A lazy grid reuses this node for another card: its count is new, not a change.
+    override fun onReset() {
+        reused = true
+        if (isAttached) coroutineScope.launch { flash.snapTo(0f) }
     }
-    drawWithContent {
+
+    fun update(value: Int, add: Color, remove: Color, shape: Shape) {
+        if (isAttached && !reused && value != this.value && !currentValueOf(LocalReduceMotion)) {
+            tint = if (value > this.value) add else remove
+            coroutineScope.launch {
+                flash.snapTo(1f)
+                flash.animateTo(0f, tween(420, easing = Motion.emphasizedDecelerate))
+            }
+        }
+        reused = false
+        this.value = value; this.add = add; this.remove = remove; this.shape = shape
+        invalidateDraw()
+    }
+
+    override fun ContentDrawScope.draw() {
         drawContent()
         val a = flash.value
         if (a > 0f) {

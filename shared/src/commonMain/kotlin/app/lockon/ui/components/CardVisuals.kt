@@ -97,12 +97,13 @@ val CardShape = RoundedCornerShape(percent = 5)
 
 /**
  * A card at its true shape: the official image when the catalog has one, otherwise a designed
- * placeholder card in the same proportions, so grids never shift when images arrive.
+ * placeholder card in the same proportions, so grids never shift when images arrive. Grid cards
+ * turn off [shadow]: a shadow is a drawing layer of its own, and their hover lift casts one.
  */
 @Composable
-fun CardImage(card: Card?, modifier: Modifier = Modifier, printingId: String? = null) {
+fun CardImage(card: Card?, modifier: Modifier = Modifier, printingId: String? = null, shadow: Boolean = true) {
     val art = card?.let { LocalArtwork.current.urlFor(it.cardNumber, printingId) }
-    Box(modifier.aspectRatio(CARD_ASPECT).shadow(3.dp, CardShape).clip(CardShape)) {
+    Box(modifier.aspectRatio(CARD_ASPECT).then(if (shadow) Modifier.shadow(3.dp, CardShape) else Modifier).clip(CardShape)) {
         CardArtwork(art, contentDescription = card?.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) {
             PlaceholderCard(card, Modifier.fillMaxSize())
         }
@@ -237,11 +238,11 @@ fun CardTile(
                 .hoverLift(press, glow = if (count > 0) scheme.primary else lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape,
                     resting = if (count > 0) 0.35f else 0f)
                 .flashOnChange(count, scheme.primary, scheme.error, CardShape)
-                .border(BorderStroke(2.dp, outline), CardShape)
+                .then(if (outline != Color.Transparent) Modifier.border(BorderStroke(2.dp, outline), CardShape) else Modifier)
                 .clip(CardShape)
                 .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
         ) {
-            CardImage(card, Modifier.fillMaxWidth())
+            CardImage(card, Modifier.fillMaxWidth(), shadow = false)
             Box(Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) { tag() }
             CardHoverPreview(card, null, hovered)
         }
@@ -600,7 +601,7 @@ fun DeckCard(
                 .clip(CardShape)
                 .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
         ) {
-            CardImage(card, Modifier.fillMaxWidth(), printingId)
+            CardImage(card, Modifier.fillMaxWidth(), printingId, shadow = false)
             CardHoverPreview(card, printingId, hovered)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

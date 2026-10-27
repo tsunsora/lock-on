@@ -61,6 +61,10 @@ fun main() {
             icon = painterResource("lock-on-window.png"),
             state = windowState,
         ) {
+            // Which graphics API draws the window, for reports of slow scrolling: SOFTWARE means no GPU.
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                org.slf4j.LoggerFactory.getLogger("LockOn").info("Rendering with ${window.renderApi}")
+            }
             LockOnApp(container, state, sync, DesktopFileBridge(window), artworkDir = File(AppDirs.data, "artwork").absolutePath)
         }
     }

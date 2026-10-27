@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -65,19 +66,21 @@ fun Modifier.cardDropTarget(drag: CardDrag): Modifier = onGloballyPositioned { d
 /** Lets this card be picked up: a mouse drags straight away, a finger after a long press so lists still scroll. */
 fun Modifier.cardDragSource(card: Card, drag: CardDrag?): Modifier = if (drag == null) this else composed {
     val haptics = LocalHapticFeedback.current
-    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    onGloballyPositioned { coords = it }.pointerInput(card, drag) {
+    // Layout coordinates stay live, so they are kept once rather than written to state on every
+    // scrolled frame, which a grid full of cards would otherwise do.
+    val placed = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    onPlaced { placed[0] = it }.pointerInput(card, drag) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val held = if (down.type == PointerType.Mouse) awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
             else awaitLongPressOrCancellation(down.id)
-            val at = coords ?: return@awaitEachGesture
+            val at = placed[0] ?: return@awaitEachGesture
             if (held == null) return@awaitEachGesture
             if (down.type != PointerType.Mouse) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             drag.start(card, at.localToRoot(held.position))
             val finished = followDrag(held.id) { change ->
                 change.consume()
-                coords?.let { drag.moveTo(it.localToRoot(change.position)) }
+                placed[0]?.let { drag.moveTo(it.localToRoot(change.position)) }
             }
             drag.end(drop = finished)
         }

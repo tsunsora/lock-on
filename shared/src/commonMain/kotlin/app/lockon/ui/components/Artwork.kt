@@ -55,10 +55,14 @@ val LocalArtworkStore = staticCompositionLocalOf<ArtworkStore?> { null }
 /** How long a loaded image takes to fade in over its placeholder. */
 private const val CROSSFADE_MS = 200
 
+/** How long an image may take before its placeholder face shows. Saved images arrive well within it. */
+private const val PLACEHOLDER_DELAY_MS = 150L
+
 /**
- * Draws [fallback] (the coloured placeholder face) and lays the artwork over it once it loads, so
- * nothing jumps while images arrive and a broken link simply leaves the placeholder. Once the
- * image has faded in, the placeholder goes, so a grid of loaded cards draws only their images.
+ * Draws the artwork, with [fallback] (the coloured placeholder face) under it when there is no
+ * image, the image fails, or it takes longer than [PLACEHOLDER_DELAY_MS]. Building the placeholder
+ * is the costliest part of a card coming into view, so cards scrolled in from saved images skip it.
+ * Once an image has faded in over a placeholder, the placeholder goes.
  */
 @Composable
 fun CardArtwork(
@@ -71,10 +75,14 @@ fun CardArtwork(
 ) {
     var failed by remember(url) { mutableStateOf(false) }
     var loaded by remember(url) { mutableStateOf(false) }
+    var slow by remember(url) { mutableStateOf(false) }
     var covered by remember(url) { mutableStateOf(false) }
-    LaunchedEffect(loaded) { if (loaded) { delay(CROSSFADE_MS + 50L); covered = true } }
+    // One timer per card: until the image loads it waits to show the placeholder, then to drop it.
+    LaunchedEffect(url, loaded) {
+        if (!loaded) { delay(PLACEHOLDER_DELAY_MS); slow = true } else { delay(CROSSFADE_MS + 50L); covered = true }
+    }
     Box(modifier) {
-        if (!covered) fallback()
+        if (url == null || failed || (slow && !covered)) fallback()
         if (url != null && !failed) {
             AsyncImage(
                 model = url,
