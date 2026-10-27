@@ -2,9 +2,14 @@ package app.lockon.ui.decks
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import app.lockon.model.CardColor
 import app.lockon.model.Ruleset
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -21,6 +26,8 @@ import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.cardColor
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,11 +51,14 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +66,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
@@ -69,6 +80,7 @@ import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import app.lockon.ui.components.Badge
 import app.lockon.ui.components.EmptyState
+import app.lockon.ui.components.HudHeader
 import app.lockon.ui.io.ExportDialog
 import app.lockon.ui.io.ImportDialog
 import app.lockon.io.BackupFormat
@@ -79,8 +91,24 @@ private sealed interface LibraryDialog {
     data object New : LibraryDialog
     data class Rename(val deck: DeckSummary) : LibraryDialog
     data class Tags(val deck: DeckSummary) : LibraryDialog
+    data class Move(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
+    data object NewFolder : LibraryDialog
+    data class RenameFolder(val folder: String) : LibraryDialog
     data object Import : LibraryDialog
+}
+
+/** Which decks the library shows. A folder filters one list rather than opening a screen (UX rule N2). */
+private sealed interface FolderFilter {
+    data object All : FolderFilter
+    data object Unfiled : FolderFilter
+    data class Named(val name: String) : FolderFilter
+
+    fun matches(deck: DeckSummary) = when (this) {
+        All -> true
+        Unfiled -> deck.snapshot.folder == null
+        is Named -> deck.snapshot.folder == name
+    }
 }
 
 @Composable
@@ -90,107 +118,161 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
     val ruleset by container.catalog.ruleset.collectAsState()
     var dialog by remember { mutableStateOf<LibraryDialog?>(null) }
     var tagFilter by remember { mutableStateOf<String?>(null) }
+    var folderFilter by remember { mutableStateOf<FolderFilter>(FolderFilter.All) }
     var search by remember { mutableStateOf("") }
     val scope = state.appScope
 
-    Box(Modifier.fillMaxSize()) {
-        val list = decks
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedButton(onClick = { dialog = LibraryDialog.Import }) { Text("Import") }
-                OutlinedButton(onClick = {
-                    scope.launch {
-                        val backup = BackupFormat.encode(container.decks.exportBackup())
-                        if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
-                    }
-                }) { Text("Back up all") }
-            }
-            if ((list?.size ?: 0) > 3) {
-                OutlinedTextField(
-                    search, { search = it },
-                    placeholder = { Text("Search decks") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+    val list = decks
+    val folders = remember(list) {
+        list.orEmpty().mapNotNull { it.snapshot.folder }.groupingBy { it }.eachCount().toList().sortedBy { it.first.lowercase() }
+    }
+    val unfiled = list.orEmpty().count { it.snapshot.folder == null }
+    // A folder empties when its last deck moves out, here or on another device; then show every deck.
+    LaunchedEffect(folders, unfiled) {
+        val f = folderFilter
+        if ((f is FolderFilter.Named && folders.none { it.first == f.name }) || (f == FolderFilter.Unfiled && unfiled == 0)) {
+            folderFilter = FolderFilter.All
+        }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 840.dp
+        Row(Modifier.fillMaxSize()) {
+            if (wide && !list.isNullOrEmpty()) {
+                FolderRail(
+                    total = list.size, folders = folders, unfiled = unfiled, selected = folderFilter,
+                    onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder },
                 )
             }
-            val tags = list.orEmpty().flatMap { it.snapshot.tags }.distinct().sorted()
-            if (tags.isNotEmpty()) {
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    FilterChip(selected = tagFilter == null, onClick = { tagFilter = null }, label = { Text("All") })
-                    tags.forEach { tag ->
-                        FilterChip(selected = tagFilter == tag, onClick = { tagFilter = tag }, label = { Text(tag) })
+            Box(Modifier.weight(1f).fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedButton(onClick = { dialog = LibraryDialog.Import }) { Text("Import") }
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                val backup = BackupFormat.encode(container.decks.exportBackup())
+                                if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
+                            }
+                        }) { Text("Back up all") }
                     }
-                }
-            }
-            when {
-                list == null -> Unit
-                list.isEmpty() -> EmptyState(
-                    "No decks yet",
-                    "Create a deck, import a deck list, or pair with another device to bring your decks over.",
-                )
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Adaptive(400.dp),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    val shown = list.filter {
-                        (tagFilter == null || tagFilter in it.snapshot.tags) && it.snapshot.name.contains(search.trim(), ignoreCase = true)
-                    }
-                    items(shown, key = { it.deckId }) { deck ->
-                        val colors = remember(deck, cards) {
-                            deck.snapshot.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
-                        }
-                        val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
-                        // The cover is the deck's highest-level Unit, the card people recognise it by.
-                        val cover = remember(deck, cards) {
-                            deck.snapshot.entries.filter { it.section == DeckSection.MAIN }.mapNotNull { cards[it.cardNumber] }
-                                .sortedWith(compareByDescending<app.lockon.model.Card> { it.type == app.lockon.model.CardType.UNIT }.thenByDescending { it.level ?: 0 })
-                                .firstOrNull()
-                        }
-                        DeckRow(
-                            Modifier.animateItem(),
-                            deck, legal, colors, ruleset, cover,
-                            onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
-                            onRename = { dialog = LibraryDialog.Rename(deck) },
-                            onTags = { dialog = LibraryDialog.Tags(deck) },
-                            onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated.") } },
-                            onExport = { dialog = LibraryDialog.Export(deck) },
-                            onDelete = {
-                                // Undo instead of "Are you sure?" (UX rule C2).
-                                scope.launch {
-                                    container.decks.delete(deck.deckId)
-                                    state.notify("Deleted ${deck.snapshot.name}", "Undo") {
-                                        scope.launch { container.decks.restore(deck.deckId, deck.snapshot) }
-                                    }
-                                }
-                            },
+                    if ((list?.size ?: 0) > 3) {
+                        OutlinedTextField(
+                            search, { search = it },
+                            placeholder = { Text("Search decks") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                         )
                     }
+                    if (!wide && !list.isNullOrEmpty()) {
+                        FolderChips(
+                            folders = folders, unfiled = unfiled, selected = folderFilter,
+                            onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder },
+                        )
+                    }
+                    val tags = list.orEmpty().flatMap { it.snapshot.tags }.distinct().sorted()
+                    if (tags.isNotEmpty()) {
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            FilterChip(selected = tagFilter == null, onClick = { tagFilter = null }, label = { Text("All tags") })
+                            tags.forEach { tag ->
+                                FilterChip(selected = tagFilter == tag, onClick = { tagFilter = tag }, label = { Text(tag) })
+                            }
+                        }
+                    }
+                    (folderFilter as? FolderFilter.Named)?.let { selected ->
+                        val count = folders.firstOrNull { it.first == selected.name }?.second ?: 0
+                        HudHeader(selected.name, Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp), readout = "$count") {
+                            TextButton(onClick = { dialog = LibraryDialog.RenameFolder(selected.name) }) { Text("Rename") }
+                            TextButton(onClick = {
+                                // Removing a folder only unfiles its decks, so it happens at once with Undo (UX rule C2).
+                                scope.launch {
+                                    val moved = container.decks.removeFolder(selected.name)
+                                    state.notify("Removed folder ${selected.name}", "Undo") {
+                                        scope.launch { container.decks.moveToFolder(moved, selected.name) }
+                                    }
+                                }
+                            }) { Text("Remove folder") }
+                        }
+                    }
+                    when {
+                        list == null -> Unit
+                        list.isEmpty() -> EmptyState(
+                            "No decks yet",
+                            "Create a deck, import a deck list, or pair with another device to bring your decks over.",
+                        )
+                        else -> {
+                            val shown = list.filter {
+                                folderFilter.matches(it) && (tagFilter == null || tagFilter in it.snapshot.tags) &&
+                                    it.snapshot.name.contains(search.trim(), ignoreCase = true)
+                            }
+                            if (shown.isEmpty()) {
+                                Text(
+                                    "No decks here match. Clear the search, or pick another folder or tag.",
+                                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(16.dp),
+                                )
+                            }
+                            LazyVerticalGrid(
+                                columns = GridCells.Adaptive(400.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                items(shown, key = { it.deckId }) { deck ->
+                                    val colors = remember(deck, cards) {
+                                        deck.snapshot.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+                                    }
+                                    val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
+                                    val cover = remember(deck, cards) { deckCover(deck.snapshot, cards) }
+                                    DeckRow(
+                                        Modifier.animateItem(),
+                                        deck, legal, colors, ruleset, cover,
+                                        showFolder = folderFilter == FolderFilter.All,
+                                        onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
+                                        onRename = { dialog = LibraryDialog.Rename(deck) },
+                                        onTags = { dialog = LibraryDialog.Tags(deck) },
+                                        onMove = { dialog = LibraryDialog.Move(deck) },
+                                        onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated.") } },
+                                        onExport = { dialog = LibraryDialog.Export(deck) },
+                                        onDelete = {
+                                            // Undo instead of "Are you sure?" (UX rule C2).
+                                            scope.launch {
+                                                container.decks.delete(deck.deckId)
+                                                state.notify("Deleted ${deck.snapshot.name}", "Undo") {
+                                                    scope.launch { container.decks.restore(deck.deckId, deck.snapshot) }
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
+                ExtendedFloatingActionButton(
+                    onClick = { dialog = LibraryDialog.New },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("New deck") },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                )
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = { dialog = LibraryDialog.New },
-            icon = { Icon(Icons.Default.Add, contentDescription = null) },
-            text = { Text("New deck") },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-        )
     }
 
     when (val d = dialog) {
         null -> Unit
         LibraryDialog.New -> TextPromptDialog("New deck", "Deck name", "", confirm = "Create", onDismiss = { dialog = null }) { name ->
             dialog = null
+            // A deck made while a folder is open goes into that folder.
+            val folder = (folderFilter as? FolderFilter.Named)?.name
             scope.launch {
-                val id = container.decks.create(DeckSnapshot(name = name.ifBlank { "Untitled deck" }))
+                val id = container.decks.create(DeckSnapshot(name = name.ifBlank { "Untitled deck" }, folder = folder))
                 state.open(Screen.DeckEditor(id, startTab = 1))
             }
         }
@@ -206,6 +288,32 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             val tags = text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
             scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(tags = tags)) }
         }
+        is LibraryDialog.Move -> MoveToFolderDialog(
+            current = d.deck.snapshot.folder, folders = folders.map { it.first }, onDismiss = { dialog = null },
+        ) { folder ->
+            dialog = null
+            val previous = d.deck.snapshot.folder
+            scope.launch {
+                val saved = container.decks.moveToFolder(listOf(d.deck.deckId), folder)
+                val message = if (saved == null) "Took ${d.deck.snapshot.name} out of its folder" else "Moved ${d.deck.snapshot.name} to $saved"
+                state.notify(message, "Undo") { scope.launch { container.decks.moveToFolder(listOf(d.deck.deckId), previous) } }
+            }
+        }
+        LibraryDialog.NewFolder -> NewFolderDialog(
+            decks = list.orEmpty(),
+            preselected = if (folderFilter == FolderFilter.Unfiled) list.orEmpty().filter { it.snapshot.folder == null }.map { it.deckId }.toSet() else emptySet(),
+            onDismiss = { dialog = null },
+        ) { name, ids ->
+            dialog = null
+            scope.launch {
+                val saved = container.decks.moveToFolder(ids, name)
+                folderFilter = saved?.let { FolderFilter.Named(it) } ?: FolderFilter.All
+            }
+        }
+        is LibraryDialog.RenameFolder -> TextPromptDialog("Rename folder", "Folder name", d.folder, confirm = "Rename", onDismiss = { dialog = null }) { name ->
+            dialog = null
+            scope.launch { container.decks.renameFolder(d.folder, name)?.let { folderFilter = FolderFilter.Named(it) } }
+        }
         is LibraryDialog.Export -> ExportDialog(
             title = d.deck.snapshot.name,
             text = DeckListFormat.export(d.deck.snapshot, cards),
@@ -216,6 +324,171 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
     }
 }
 
+/** Desktop folder list beside the decks (UX rule N4). */
+@Composable
+private fun FolderRail(
+    total: Int,
+    folders: List<Pair<String, Int>>,
+    unfiled: Int,
+    selected: FolderFilter,
+    onSelect: (FolderFilter) -> Unit,
+    onNewFolder: () -> Unit,
+) {
+    Column(
+        Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 12.dp, top = 12.dp, end = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        HudHeader("Folders", Modifier.padding(start = 4.dp, bottom = 6.dp))
+        FolderItem("All decks", total, selected == FolderFilter.All) { onSelect(FolderFilter.All) }
+        folders.forEach { (name, count) ->
+            FolderItem(name, count, selected == FolderFilter.Named(name)) { onSelect(FolderFilter.Named(name)) }
+        }
+        if (folders.isNotEmpty() && unfiled > 0) {
+            FolderItem("No folder", unfiled, selected == FolderFilter.Unfiled) { onSelect(FolderFilter.Unfiled) }
+        }
+        TextButton(onClick = onNewFolder, modifier = Modifier.padding(top = 4.dp)) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("New folder")
+        }
+        if (folders.isEmpty()) {
+            Text(
+                "Group decks by event, color or anything else. Folders sync with your decks.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FolderItem(label: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+    NavigationDrawerItem(
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        badge = { Text("$count", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)) },
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.height(48.dp),
+    )
+}
+
+/** Phone folder row: the same choices as the desktop list, as chips under the search. */
+@Composable
+private fun FolderChips(
+    folders: List<Pair<String, Int>>,
+    unfiled: Int,
+    selected: FolderFilter,
+    onSelect: (FolderFilter) -> Unit,
+    onNewFolder: () -> Unit,
+) {
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (folders.isNotEmpty()) {
+            FilterChip(selected = selected == FolderFilter.All, onClick = { onSelect(FolderFilter.All) }, label = { Text("All decks") })
+            folders.forEach { (name, count) ->
+                FilterChip(
+                    selected = selected == FolderFilter.Named(name), onClick = { onSelect(FolderFilter.Named(name)) },
+                    label = { Text("$name · $count") },
+                )
+            }
+            if (unfiled > 0) {
+                FilterChip(selected = selected == FolderFilter.Unfiled, onClick = { onSelect(FolderFilter.Unfiled) }, label = { Text("No folder") })
+            }
+        }
+        AssistChip(
+            onClick = onNewFolder, label = { Text("New folder") },
+            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+        )
+    }
+}
+
+/** Name a folder and pick its decks in one step, since a folder exists only while it holds a deck. */
+@Composable
+private fun NewFolderDialog(
+    decks: List<DeckSummary>,
+    preselected: Set<String>,
+    onDismiss: () -> Unit,
+    onCreate: (String, List<String>) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var chosen by remember { mutableStateOf(preselected) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New folder") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Folder name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text("Decks to put in it", style = MaterialTheme.typography.labelLarge)
+                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                    decks.sortedBy { it.snapshot.name.lowercase() }.forEach { deck ->
+                        val checked = deck.deckId in chosen
+                        Row(
+                            Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox) {
+                                chosen = if (it) chosen + deck.deckId else chosen - deck.deckId
+                            },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(deck.snapshot.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                deck.snapshot.folder?.let {
+                                    Text("Now in $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                if (chosen.isEmpty()) {
+                    Text("Pick at least one deck. A folder shows while it holds a deck.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onCreate(name.trim(), chosen.toList()) }, enabled = name.isNotBlank() && chosen.isNotEmpty()) { Text("Create") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Pick a folder already in use, or type a new one (UX rule C4). */
+@Composable
+private fun MoveToFolderDialog(current: String?, folders: List<String>, onDismiss: () -> Unit, onMove: (String?) -> Unit) {
+    // null is "No folder" and "" is the typed new folder; anything else names an existing folder.
+    var choice by remember { mutableStateOf(current) }
+    var typed by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Move to folder") },
+        text = {
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                (listOf("No folder" to null) + folders.map { it to it } + ("New folder" to "")).forEach { (label, value) ->
+                    Row(
+                        Modifier.fillMaxWidth().selectable(choice == value, role = Role.RadioButton) { choice = value },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(choice == value, onClick = null, modifier = Modifier.padding(12.dp))
+                        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (choice == "") {
+                    OutlinedTextField(
+                        typed, { typed = it }, label = { Text("Folder name") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 4.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onMove(if (choice == "") typed else choice) }, enabled = choice != "" || typed.isNotBlank()) { Text("Move") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
 @Composable
 private fun DeckRow(
     modifier: Modifier,
@@ -223,10 +496,12 @@ private fun DeckRow(
     legal: Boolean,
     colors: Set<CardColor>,
     ruleset: Ruleset,
-    cover: app.lockon.model.Card?,
+    cover: DeckCover?,
+    showFolder: Boolean,
     onOpen: () -> Unit,
     onRename: () -> Unit,
     onTags: () -> Unit,
+    onMove: () -> Unit,
     onDuplicate: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
@@ -246,7 +521,7 @@ private fun DeckRow(
                 val bands = colors.sortedBy { it.ordinal }.ifEmpty { listOf(null) }
                 bands.forEach { Box(Modifier.weight(1f).fillMaxWidth().background(cardColor(it))) }
             }
-        if (cover != null) CardImage(cover, Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp).width(56.dp))
+        if (cover != null) CardImage(cover.card, Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp).width(56.dp), cover.printingId)
         else CardBack(Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp).width(56.dp))
         Row(Modifier.weight(1f).padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -266,9 +541,12 @@ private fun DeckRow(
                         style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
                     )
                 }
-                val tags = deck.snapshot.tags.joinToString(" · ")
                 Text(
-                    listOf(tags, "Edited ${formatTimestamp(deck.updatedAt)}").filter { it.isNotBlank() }.joinToString("  —  "),
+                    listOfNotNull(
+                        deck.snapshot.folder?.takeIf { showFolder },
+                        deck.snapshot.tags.joinToString(" · ").ifBlank { null },
+                        "Edited ${formatTimestamp(deck.updatedAt)}",
+                    ).joinToString("  —  "),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -277,6 +555,7 @@ private fun DeckRow(
                 IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Deck actions") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
+                    DropdownMenuItem(text = { Text("Move to folder") }, onClick = { menu = false; onMove() })
                     DropdownMenuItem(text = { Text("Edit tags") }, onClick = { menu = false; onTags() })
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; onDuplicate() })
                     DropdownMenuItem(text = { Text("Export deck list") }, onClick = { menu = false; onExport() })
