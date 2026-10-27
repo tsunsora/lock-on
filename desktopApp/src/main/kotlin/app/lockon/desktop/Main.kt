@@ -35,13 +35,9 @@ fun main() {
         Room.databaseBuilder<LockOnDatabase>(name = File(AppDirs.data, LockOnDatabase.FILE_NAME).absolutePath),
     )
     val hostName = runCatching { InetAddress.getLocalHost().hostName }.getOrNull()?.takeIf { it.isNotBlank() } ?: "Desktop"
-    // Installing an update now closes the window the normal way, so it is saved first.
-    var closeWindow: () -> Unit = {}
-    val updates = WindowsUpdateInstaller(requestExit = { closeWindow() })
-    val container = runBlocking { AppContainer.create(database, defaultDeviceName = hostName, updateInstaller = updates) }
+    val container = runBlocking { AppContainer.create(database, defaultDeviceName = hostName) }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val sync = DesktopSyncController(container, appScope).also { it.start() }
-    container.updater?.start(appScope)
     val state = AppState(appScope)
 
     val saved = WindowMemory.load()
@@ -51,7 +47,6 @@ fun main() {
             position = saved.position,
             size = saved.size,
         )
-        closeWindow = { WindowMemory.save(windowState); exitApplication() }
         Window(
             // The window closes at once; the sync server and LAN announcement shut down after it.
             onCloseRequest = { WindowMemory.save(windowState); exitApplication() },
@@ -63,8 +58,6 @@ fun main() {
         }
     }
     sync.stop()
-    // With automatic updates on, a downloaded update installs as Lock On closes.
-    container.updater?.let { runBlocking { it.installOnExit() } }
     exitProcess(0)
 }
 

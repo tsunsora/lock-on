@@ -11,7 +11,6 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
 
 class LockOnApplication : Application() {
     /** Outlives activities, so saves and syncs finish across rotation and leaving the screen. */
@@ -29,9 +28,8 @@ class LockOnApplication : Application() {
                 Room.databaseBuilder<LockOnDatabase>(this@LockOnApplication, getDatabasePath(LockOnDatabase.FILE_NAME).absolutePath),
             )
             val name = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() } ?: Build.MODEL
-            AppContainer.create(database, defaultDeviceName = name, updateInstaller = AndroidUpdateInstaller(this@LockOnApplication))
+            AppContainer.create(database, defaultDeviceName = name)
         }
-        appScope.launch { container.await().updater?.start(appScope) }
         sync = appScope.async { AndroidSyncController(this@LockOnApplication, container.await(), SecretStore(this@LockOnApplication), appScope) }
     }
 }
