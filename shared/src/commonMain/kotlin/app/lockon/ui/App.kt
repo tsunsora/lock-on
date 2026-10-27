@@ -109,7 +109,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -230,7 +229,7 @@ fun LockOnApp(
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     Box(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
-                        // Going deeper slides forward, coming back slides back, and switching tabs
+                        // Going deeper drifts forward, coming back drifts back, and switching tabs
                         // fades through, so motion always says where you went (UX rule V5).
                         val reduce = LocalReduceMotion.current
                         AnimatedContent(
@@ -243,13 +242,12 @@ fun LockOnApp(
                                     reduce -> fadeIn(tween(90)) togetherWith fadeOut(tween(90))
                                     to != from -> {
                                         val dir = if (to > from) 1 else -1
-                                        (slideInHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) { dir * it / 6 } +
-                                            fadeIn(tween(Motion.MEDIUM))) togetherWith
-                                            (slideOutHorizontally(tween(Motion.MEDIUM, easing = Motion.emphasizedAccelerate)) { -dir * it / 10 } +
+                                        (slideInHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) { dir * it / 20 } +
+                                            fadeIn(tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2))) togetherWith
+                                            (slideOutHorizontally(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { -dir * it / 30 } +
                                                 fadeOut(tween(Motion.SHORT)))
                                     }
-                                    else -> (fadeIn(tween(Motion.MEDIUM, delayMillis = 60)) + scaleIn(tween(Motion.MEDIUM, delayMillis = 60), initialScale = 0.97f)) togetherWith
-                                        fadeOut(tween(Motion.SHORT / 2))
+                                    else -> fadeIn(tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2)) togetherWith fadeOut(tween(Motion.SHORT))
                                 }
                             },
                             label = "navigation",

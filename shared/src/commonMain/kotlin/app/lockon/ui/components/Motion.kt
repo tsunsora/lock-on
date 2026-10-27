@@ -62,15 +62,17 @@ import kotlinx.coroutines.delay
 
 /**
  * The motion system (UX rule V5). Durations and easings follow Material 3's emphasized curves.
- * Everything here checks [LocalReduceMotion] and becomes an instant change or a short fade.
+ * Motion is quiet: short distances, small scales, no bounce or overshoot, so it confirms a change
+ * without drawing the eye away from the cards. Everything here checks [LocalReduceMotion] and
+ * becomes an instant change or a short fade.
  */
 object Motion {
-    const val SHORT = 150
-    const val MEDIUM = 220
-    const val LONG = 320
+    const val SHORT = 120
+    const val MEDIUM = 200
+    const val LONG = 280
     /** The Lock On moment is the one longer, signature animation. It plays once per state change. */
-    const val SIGNATURE = 650
-    const val STAGGER = 45
+    const val SIGNATURE = 480
+    const val STAGGER = 30
 
     val emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
     val emphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
@@ -96,9 +98,9 @@ fun RollingNumber(value: Int, style: TextStyle, color: Color = Color.Unspecified
                 ContentTransform(fadeIn(snap()), fadeOut(snap()))
             } else {
                 val up = targetState > initialState
-                (slideInVertically(tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate)) { if (up) it else -it } +
+                (slideInVertically(tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate)) { if (up) it / 2 else -it / 2 } +
                     fadeIn(tween(Motion.SHORT))) togetherWith
-                    (slideOutVertically(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { if (up) -it else it } +
+                    (slideOutVertically(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { if (up) -it / 2 else it / 2 } +
                         fadeOut(tween(Motion.SHORT))) using SizeTransform(clip = true)
             }
         },
@@ -130,15 +132,15 @@ fun LockIndicator(locked: Boolean, modifier: Modifier = Modifier, size: Dp = 40.
         val c = center
         val r = this.size.minDimension * 0.22f
         val stroke = this.size.minDimension * 0.07f
-        // The reticle turns a quarter turn as it locks.
-        rotate(degrees = (1f - p) * 45f, pivot = c) {
+        // The reticle settles with a slight turn as it locks.
+        rotate(degrees = (1f - p) * 15f, pivot = c) {
             drawCircle(color, radius = r, center = c, style = Stroke(stroke))
             listOf(Offset(0f, -1f), Offset(0f, 1f), Offset(-1f, 0f), Offset(1f, 0f)).forEach { d ->
                 drawLine(color, c + d * (r * 0.55f), c + d * (r * 1.25f), stroke, StrokeCap.Round)
             }
         }
         // Brackets start wide and close on the target.
-        val spread = this.size.minDimension * (0.5f - 0.12f * p)
+        val spread = this.size.minDimension * (0.44f - 0.06f * p)
         val arm = this.size.minDimension * 0.14f
         listOf(Offset(-1f, -1f), Offset(1f, -1f), Offset(-1f, 1f), Offset(1f, 1f)).forEach { d ->
             val corner = c + Offset(d.x * spread, d.y * spread)
@@ -155,7 +157,7 @@ fun ReticleSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp, color: Color
     val reduce = LocalReduceMotion.current
     val angle = if (reduce) 0f else {
         val t = rememberInfiniteTransition(label = "spinner")
-        t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "angle").value
+        t.animateFloat(0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "angle").value
     }
     Canvas(modifier.size(size)) {
         val stroke = this.size.minDimension * 0.12f
@@ -167,16 +169,16 @@ fun ReticleSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp, color: Color
     }
 }
 
-/** Presses sink slightly, so taps on tiles and cards feel physical. */
+/** Presses sink a hair, so taps on tiles and cards register. */
 fun Modifier.pressScale(interaction: MutableInteractionSource): Modifier = composed {
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, motion(Motion.SHORT), label = "press")
+    val scale by animateFloatAsState(if (pressed) 0.985f else 1f, motion(Motion.SHORT), label = "press")
     graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
 /**
- * Plays once when [key] first appears: rises and fades in, [index] steps after the first. Used to
- * deal cards; a new key deals again.
+ * Plays once when [key] first appears: fades in and settles up a short way, [index] steps after the
+ * first. Used to deal cards; a new key deals again.
  */
 fun Modifier.dealIn(key: Any, index: Int): Modifier = composed {
     val reduce = LocalReduceMotion.current
@@ -184,13 +186,12 @@ fun Modifier.dealIn(key: Any, index: Int): Modifier = composed {
     LaunchedEffect(key) {
         // The stagger is the tween's own delay, timed by the frame clock. A separate delay() can
         // resume on another thread and deadlock against the renderer's frame lock.
-        if (!reduce) progress.animateTo(1f, tween(Motion.LONG, index * Motion.STAGGER * 2, Motion.emphasizedDecelerate))
+        if (!reduce) progress.animateTo(1f, tween(Motion.LONG, index * Motion.STAGGER, Motion.emphasizedDecelerate))
     }
     graphicsLayer {
         val p = progress.value
         alpha = p
-        translationY = (1f - p) * 48.dp.toPx()
-        rotationZ = (1f - p) * -4f
+        translationY = (1f - p) * 12.dp.toPx()
     }
 }
 

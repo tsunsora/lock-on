@@ -1,6 +1,7 @@
 package app.lockon.ui.components
 import androidx.compose.ui.draw.drawBehind
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.ui.graphics.graphicsLayer
@@ -234,7 +235,7 @@ fun CardTile(
         Box(
             Modifier.fillMaxWidth()
                 .hoverLift(press, glow = if (count > 0) scheme.primary else lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape,
-                    resting = if (count > 0) 0.35f else 0f, tilt = 7f)
+                    resting = if (count > 0) 0.35f else 0f)
                 .flashOnChange(count, scheme.primary, scheme.error, CardShape)
                 .border(BorderStroke(2.dp, outline), CardShape)
                 .clip(CardShape)
@@ -325,6 +326,7 @@ fun DeckStrip(
     val art = card?.let { LocalArtwork.current.urlFor(it.cardNumber, printingId) }
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val zoom by animateFloatAsState(if (hovered) 1.03f else 1f, motion(Motion.LONG), label = "strip-art")
     val base = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest
     Box(
         modifier.fillMaxWidth().height(if (compact) 48.dp else 58.dp)
@@ -338,7 +340,7 @@ fun DeckStrip(
         Box(Modifier.align(Alignment.CenterEnd).fillMaxWidth(0.7f).fillMaxHeight()) {
             CardArtwork(
                 art, contentDescription = null, contentScale = ContentScale.Crop, alignment = BiasAlignment(0f, -0.42f),
-                modifier = Modifier.fillMaxSize().graphicsLayer { val s = if (hovered) 1.06f else 1f; scaleX = s; scaleY = s },
+                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom },
             ) {
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(color.copy(alpha = 0.12f), color.copy(alpha = 0.5f)))))
             }
@@ -546,7 +548,7 @@ private fun effectText(text: String) = buildAnnotatedString {
 }
 
 /**
- * − ×count + on a dark plate, for deck strips and the details dialog: 48 dp targets, a springy
+ * − ×count + on a dark plate, for deck strips and the details dialog: 48 dp targets, a rolling
  * count and, with a [limit], copy pips under it.
  */
 @Composable
@@ -593,7 +595,7 @@ fun DeckCard(
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.fillMaxWidth()
-                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, lift = 4.dp, tilt = 5f)
+                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, lift = 2.dp)
                 .flashOnChange(quantity, scheme.primary, scheme.error, CardShape)
                 .clip(CardShape)
                 .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
