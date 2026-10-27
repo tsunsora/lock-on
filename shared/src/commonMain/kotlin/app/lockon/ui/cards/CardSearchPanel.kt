@@ -55,6 +55,7 @@ import app.lockon.model.Card
 import app.lockon.model.CardColor
 import app.lockon.model.CardQuery
 import app.lockon.model.CardType
+import app.lockon.model.ReleaseOrder
 import app.lockon.ui.components.CardTile
 import app.lockon.ui.components.CompactStepper
 import app.lockon.ui.components.CardRow
@@ -67,7 +68,7 @@ import app.lockon.ui.components.PillSearchField
 import androidx.compose.foundation.layout.width
 
 enum class CardSort(val label: String, val comparator: Comparator<Card>) {
-    NUMBER("Number", compareBy { it.cardNumber }),
+    NUMBER("Number", compareBy(ReleaseOrder.comparator) { it.cardNumber }),
     LEVEL("Level", compareBy<Card>({ it.level ?: 99 }, { it.cost ?: 99 }, { it.cardNumber })),
     COST("Cost", compareBy<Card>({ it.cost ?: 99 }, { it.level ?: 99 }, { it.cardNumber })),
     NAME("Name", compareBy { it.name.lowercase() }),

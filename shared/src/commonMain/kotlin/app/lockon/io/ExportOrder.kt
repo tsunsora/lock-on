@@ -3,6 +3,7 @@ package app.lockon.io
 import app.lockon.model.Card
 import app.lockon.model.CardType
 import app.lockon.model.DeckEntry
+import app.lockon.model.ReleaseOrder
 
 /**
  * How an exported deck orders its cards. The list, image and print sheet all use the one chosen in
@@ -23,7 +24,7 @@ enum class ExportOrder(val label: String) {
         return when (this) {
             LEVEL -> byLevel
             COST -> compareBy<DeckEntry>({ card(it)?.cost ?: 99 }, { card(it)?.level ?: 99 }, { it.cardNumber })
-            NUMBER -> compareBy { it.cardNumber }
+            NUMBER -> compareBy(ReleaseOrder.comparator) { it.cardNumber }
             NAME -> compareBy<DeckEntry>({ card(it)?.name?.lowercase() ?: "￿" }, { it.cardNumber })
             COUNT -> compareByDescending<DeckEntry> { it.quantity }.then(byLevel)
         }
