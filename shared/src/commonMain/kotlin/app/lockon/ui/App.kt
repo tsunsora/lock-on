@@ -88,6 +88,7 @@ import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
 import app.lockon.ui.decks.DeckLibraryScreen
 import app.lockon.ui.sync.SyncScreen
+import app.lockon.ui.update.AppUpdateCard
 import app.lockon.ui.theme.LockOnTheme
 
 private fun Tab.icon(): ImageVector = when (this) {
@@ -223,7 +224,7 @@ fun LockOnApp(
                                         Tab.DECKS -> DeckLibraryScreen(container, state, files)
                                         Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
                                         Tab.SYNC -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                            Box(Modifier.widthIn(max = 980.dp)) { SyncScreen(sync, container.identity.deviceName) }
+                                            Box(Modifier.widthIn(max = 980.dp)) { SyncScreen(sync, container.identity.deviceName) { AppUpdateCard(container.updater, state.appScope) } }
                                         }
                                     }
                                 }

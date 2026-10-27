@@ -12,12 +12,15 @@ plugins {
 
 val roomVersion = "2.8.4"
 val appVersion = providers.gradleProperty("lockon.version").get()
+val updateFeed = providers.gradleProperty("lockon.updateFeed").orElse("").get()
 
 // Writes the app version into shared code so every screen and the sync hello can show it.
 val generateBuildInfo by tasks.registering {
     val outDir = layout.buildDirectory.dir("generated/buildinfo/commonMain/kotlin")
     val version = appVersion
+    val feed = updateFeed
     inputs.property("version", version)
+    inputs.property("updateFeed", feed)
     outputs.dir(outDir)
     doLast {
         val file = outDir.get().file("app/lockon/BuildInfo.kt").asFile
@@ -29,6 +32,7 @@ val generateBuildInfo by tasks.registering {
                 "/** Generated from gradle.properties. */",
                 "object BuildInfo {",
                 "    const val VERSION = \"$version\"",
+                "    const val UPDATE_FEED = \"$feed\"",
                 "}",
                 "",
             ).joinToString(System.lineSeparator()),
@@ -68,6 +72,8 @@ kotlin {
             api("io.ktor:ktor-client-core:$ktorVersion")
             implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
             implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+            // Streams app updates to disk.
+            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
             // Card artwork: loads printing artworkUrls with memory and disk caching.
             implementation("io.coil-kt.coil3:coil-compose:3.4.0")
             implementation("io.coil-kt.coil3:coil-network-ktor3:3.4.0")

@@ -21,7 +21,29 @@ That builds both files into `dist/`, which git ignores:
 | `LockOn-<version>-windows.msi` | Windows installer with its own Java runtime. It installs for the current user, so it needs no administrator prompt, and lets you pick the folder. It adds Start-menu and desktop shortcuts. |
 | `LockOn-<version>-android.apk` | Android release build, for sideloading. |
 
+It also writes `lock-on-update.json`, the update feed installed apps read. It lists the version, the first paragraph under this version's heading in [CHANGELOG.md](CHANGELOG.md) as release notes, and the SHA-256 of each file.
+
 The first MSI build downloads the WiX toolset automatically.
+
+## Publish an update
+
+Installed apps check `lockon.updateFeed` in [gradle.properties](gradle.properties) once a day while they're open. It points at the **latest** GitHub release of this repo, so:
+
+1. Bump `lockon.version` and `lockon.versionCode`, and add a changelog heading for the version.
+2. Run `./gradlew releaseArtifacts`.
+3. Create a GitHub release tagged `v<version>` and attach all three files from `dist/`: the MSI, the APK and `lock-on-update.json`.
+4. Publish it. Drafts and pre-releases aren't "latest", so apps don't see them until then.
+
+What people see:
+
+- **Windows:** the update downloads in the background and installs when they close Lock On. **Sync → Restart and update** installs it right away. Either way the MSI runs with a progress bar and no questions, into the folder Lock On is already in, and keeps their decks. The install log is in `%APPDATA%\LockOn\updates\install.log`.
+- **Android:** the update downloads on Wi-Fi, then **Sync → Install update** hands it to Android. The first time, Android asks them to allow installs from Lock On and to confirm. On Android 12 and later, updates after that usually install without asking.
+
+Both can turn off **Update automatically** under Sync, and then updates only download when they tap **Download**. Each download is checked against the SHA-256 in the feed before it's used.
+
+The feed has to be readable without signing in. While this repo is private, the check fails quietly. Either make the repo public, or publish releases somewhere public (for example a separate releases-only repo) and point `lockon.updateFeed` at its `lock-on-update.json`. File names in the feed are resolved next to the feed, so the three files must sit together.
+
+Android only installs an update signed with the same key as the installed app, which is one more reason to set up the release key (below) before anyone installs a release.
 
 ## Version
 
@@ -69,4 +91,5 @@ Automated tests cover rules, parsing, revisions, sync, the HTTP routes and the a
 - [ ] Delete a deck on one device. It shouldn't come back after syncing.
 - [ ] Open Lock On twice on Windows. The second launch should say it's already open.
 - [ ] Install the new MSI over the old one, and check that decks are kept. Repeat with the APK.
+- [ ] Publish a test release with a higher version. On Windows, check that **Restart and update** reopens Lock On on the new version, in a folder other than the default too. On Android, check that **Install update** asks once and then reopens on the new version.
 - [ ] Desktop logs are in `%APPDATA%\LockOn\lock-on.log`.

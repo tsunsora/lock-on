@@ -28,4 +28,32 @@ tasks.register<Copy>("releaseArtifacts") {
         rename { "LockOn-$lockOnVersion-android.apk" }
     }
     into(layout.projectDirectory.dir("dist"))
+
+    // The update feed installed apps read (lockon.updateFeed). Publish it with the two files.
+    val dist = layout.projectDirectory.dir("dist").asFile
+    val changelog = layout.projectDirectory.file("CHANGELOG.md").asFile
+    doLast {
+        fun entry(name: String): String {
+            val file = File(dist, name)
+            val sha = java.security.MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
+            return """{ "file": "$name", "sha256": "$sha", "size": ${file.length()} }"""
+        }
+        // The first paragraph under this version's heading in the changelog, shown before updating.
+        val notes = changelog.takeIf { it.exists() }?.readLines()
+            ?.dropWhile { !it.startsWith("## $lockOnVersion") }?.drop(1)
+            ?.dropWhile { it.isBlank() }?.takeWhile { it.isNotBlank() && !it.startsWith("#") }
+            ?.joinToString(" ")?.trim()?.takeIf { it.isNotEmpty() }
+        fun quoted(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        File(dist, "lock-on-update.json").writeText(
+            listOfNotNull(
+                "{",
+                "  \"version\": ${quoted(lockOnVersion)},",
+                notes?.let { "  \"notes\": ${quoted(it)}," },
+                "  \"windows\": ${entry("LockOn-$lockOnVersion-windows.msi")},",
+                "  \"android\": ${entry("LockOn-$lockOnVersion-android.apk")}",
+                "}",
+                "",
+            ).joinToString("\n"),
+        )
+    }
 }
