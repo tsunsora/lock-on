@@ -122,6 +122,7 @@ private sealed interface LibraryDialog {
     data class Tags(val deck: DeckSummary) : LibraryDialog
     data class Move(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
+    data class Delete(val deck: DeckSummary) : LibraryDialog
     data object NewFolder : LibraryDialog
     data class RenameFolder(val folder: String) : LibraryDialog
     data object Import : LibraryDialog
@@ -294,15 +295,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                         onMove = { dialog = LibraryDialog.Move(deck) },
                                         onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated.") } },
                                         onExport = { dialog = LibraryDialog.Export(deck) },
-                                        onDelete = {
-                                            // Undo instead of "Are you sure?" (UX rule C2).
-                                            scope.launch {
-                                                container.decks.delete(deck.deckId)
-                                                state.notify("Deleted ${deck.snapshot.name}", "Undo") {
-                                                    scope.launch { container.decks.restore(deck.deckId, deck.snapshot) }
-                                                }
-                                            }
-                                        },
+                                        onDelete = { dialog = LibraryDialog.Delete(deck) },
                                     )
                                 }
                                 // On desktop, an empty slot after the last deck starts a new one, as in a game's deck list.
@@ -372,6 +365,24 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dialog = null
             scope.launch { container.decks.renameFolder(d.folder, name)?.let { folderFilter = FolderFilter.Named(it) } }
         }
+        // Asks first, and still offers Undo afterwards.
+        is LibraryDialog.Delete -> GameDialog(
+            onDismissRequest = { dialog = null },
+            title = "Delete ${d.deck.snapshot.name}?",
+            text = { Text("Are you sure you want to delete this deck?") },
+            confirmButton = {
+                GameButton("Delete", compact = true, onClick = {
+                    dialog = null
+                    scope.launch {
+                        container.decks.delete(d.deck.deckId)
+                        state.notify("Deleted ${d.deck.snapshot.name}", "Undo") {
+                            scope.launch { container.decks.restore(d.deck.deckId, d.deck.snapshot) }
+                        }
+                    }
+                })
+            },
+            dismissButton = { GameButton("Cancel", onClick = { dialog = null }, style = GameButtonStyle.GHOST, compact = true) },
+        )
         is LibraryDialog.Export -> DeckExportDialog(d.deck.snapshot, cards, ruleset, files, state, onDismiss = { dialog = null })
         LibraryDialog.Import -> ImportDialog(container, files, state, onDismiss = { dialog = null })
     }
