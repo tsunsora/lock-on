@@ -14,6 +14,8 @@ A **Gundam Card Game deck builder** for **Windows and Android**. Build decks, te
 - **Fast deck building:** one tap per copy, live search and filters, and **Max** and **Off-color** tags that show the rules as you build.
 - **Deck analysis:** legality messages that name the problem, level and cost curves, Burst and Blocker counts, and Unit–Pilot link pairs.
 - **Test hands:** the official setup of draw 5, redraw once, set 6 shields, then draw each turn.
+- **Deck folders, a match log and version history:** group decks into folders, record wins and losses per deck, and compare or restore earlier versions.
+- **Share decks:** export a text list, a deck image, or a printable deck registration sheet.
 - **Sync without an account:** phones and computers on the same Wi-Fi find each other, and edits reach the other device within seconds.
 - **Automatic updates:** new versions download in the background and install with a restart or a tap.
 - **A cockpit look:** Material 3 with a mobile-suit colour scheme, dark and light themes, and motion that follows your system's reduced-motion setting.
@@ -51,8 +53,15 @@ Requires **Android 8.0 or newer**.
 - **Considering:** park cards you're weighing up in a separate list. It never counts toward deck size, colors or legality, and it syncs and exports with the deck.
 - **Drafts are fine:** nothing blocks a save. An incomplete or illegal deck saves as a *Draft*, and the analysis says what's missing.
 - **Organize:** duplicate, rename, tag, search and filter decks. Deleting a deck offers **Undo** instead of asking first.
+- **Folders:** the desktop shows a folder list beside your decks, and phones show folder chips. Create a folder and pick its decks in one step, use **Move to folder** from a deck's menu, and rename or remove a folder. Removing a folder only takes its decks out. Folders sync.
+- **Deck cover:** open a card's details in the editor and choose **Use as deck cover**. Otherwise the deck shows its highest-level Unit.
 
-Wide windows show search, the deck and analysis side by side. On phones they become tabs: **Deck**, **Add cards**, **Analysis** and **Test**.
+Wide windows show search, the deck and a side panel side by side. The side panel has **Analysis**, **Test**, **Matches** and **Versions** tabs. On phones these are all tabs: **Deck**, **Add cards**, **Analysis**, **Test**, **Matches** and **Versions**.
+
+### Track results and versions
+
+- **Matches:** log each game as a win, loss or draw in one tap, with an optional opponent, turn order and note. The tab shows your record, win rate, results going first and second, and results by opponent. The library shows each deck's record.
+- **Versions:** every version of a deck, with what changed. Open an older one to compare it with the deck now and restore its cards. Your edits join the current version until you choose **Keep as a version**, it syncs, or the deck sits for 30 minutes.
 
 ### Keep the card list current
 
@@ -73,6 +82,8 @@ Only decks sync. Each device keeps its own card list. If the same deck is edited
 ### Import, export and back up
 
 Decks import and export as plain-text lists, by pasting, copying or using a file. A JSON backup saves every deck at once.
+
+A deck's **Export** dialog also saves a 1080-pixel-wide **image** of the deck (PNG), and a **print sheet**: a deck registration sheet saved as a web page that you can print from any browser.
 
 ### Keyboard shortcuts
 

@@ -16,12 +16,14 @@ flowchart LR
     D -->|New deck| E
     D -->|Import| IMP{{Import sheet}}
     IMP -->|deck list| E
-    D -->|deck menu| DM{{Rename / Tags / Duplicate / Export / Delete}}
+    D -->|deck menu| DM{{Rename / Move to folder / Tags / Duplicate / Export / Delete}}
     DM -->|Delete| UNDO([Snackbar: Undo])
+    D -->|New folder| NF{{Name a folder and pick its decks}}
     D -->|"Needs review" deck| X[Compare versions]
 
     E -->|card body| CD{{Card details}}
-    E -->|Export| EXP{{Export sheet}}
+    E -->|Export| EXP{{Export: List / Image / Print sheet}}
+    E -->|Versions: older version| VC{{Compare with now, restore cards}}
     E -->|conflict banner| X
     X -->|Keep a version| E
 
@@ -39,12 +41,17 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 
 ### Decks (top level)
 - **Purpose:** find a deck and start working on it.
-- **Shows:** each deck as a tile with its cover card (its highest-level Unit, or a card back for an empty deck), a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50 · Resource n/10`, tags, and when it was last edited. On desktop the tiles form a grid.
+- **Shows:** each deck as a tile with its cover card (the one picked in the editor, else its highest-level Unit, or a card back for an empty deck), a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50 · Resource n/10`, its folder, tags, win/loss record, and when it was last edited. On desktop the tiles form a grid.
+- **Folders:** a list beside the decks on desktop (**All decks**, each folder with its count, **No folder**, **New folder**), a chip row on phones. A folder is a filter, not a screen (N2).
+  - **New folder** names the folder and picks its decks in one step, since a folder shows only while it holds a deck.
+  - An open folder shows **Rename** and **Remove folder**. Removing only takes its decks out, with Undo.
+  - **New deck** inside a folder puts the deck in it.
+  - Folders sync with the decks.
 - **Actions:**
   - Bottom right: **New deck**.
   - Top: **Import** and **Back up all**.
-  - Search decks by name, and filter by tag.
-  - Each tile's menu: Rename, Edit tags, Duplicate, Export deck list, Delete (with Undo).
+  - Search decks by name, and filter by folder and tag.
+  - Each tile's menu: Rename, Move to folder (pick a folder in use, or type a new one), Edit tags, Duplicate (keeps folder and cover, not matches), Export, Delete (with Undo).
 - **Empty state:** explains the three ways to get a deck: create one, import one, or pair a device.
 
 ### Deck editor (level 2)
@@ -52,7 +59,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - name (tap to rename), color pips, legality tag, `Main n/50 · Resource n/10`
   - **Export**
   - a conflict banner when one exists
-- **Panes**, shown side by side on wide windows and as tabs on phones (**Deck · Add cards · Analysis · Test**):
+- **Panes**, shown side by side on wide windows and as tabs on phones (**Deck · Add cards · Analysis · Test · Matches · Versions**). On wide windows the third pane holds Analysis, Test, Matches and Versions as tabs:
   1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color.
      - **Deck colors only** narrows the list to the deck's colors.
@@ -61,6 +68,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - **Considering** comes after Resources: cards you're weighing up, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − (drops one).
      - Card details offer **Consider**, **Move 1 to Considering** or **Move 1 to deck**, depending on where the card already is.
      - In the card list, a card that is only being considered is tagged **Considering**.
+     - Card details also offer **Use as deck cover**.
      - Notes go at the end.
   3. **Analysis:**
      - legality messages first
@@ -72,6 +80,16 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - **Draw** adds one card per turn.
      - **New game** shuffles again.
      - Stats show how many Units of level 2 or lower are in hand.
+  5. **Matches (win/loss log):**
+     - record, win rate, and results going first and second
+     - **Log a match:** an optional opponent (picked from earlier opponents or typed), turn order and note, then **Win**, **Loss** or **Draw** logs it in one tap
+     - results by opponent, then every game, newest first, each removable with Undo
+     - Matches sync. When a conflict is settled, games logged on every device are kept.
+  6. **Versions:**
+     - Every version newest first, with time, device, counts and what changed (`+3 −1 cards · renamed`).
+     - Edits join the current version until you choose **Keep as a version**, it syncs, or the deck sits for 30 minutes.
+     - Opening an older version lists its card differences from now, and **Restore these cards** brings them back with Undo. Name, notes, folder and matches stay as they are.
+- **Export dialog:** **List** (copy or save the text list), **Image** (a 1080-pixel-wide picture of the deck with its cover, colors, legality and every card with its count, saved as PNG), and **Print sheet** (a deck registration sheet saved as a web page to print from any browser).
 - **Leaving:** back or the navigation bar, which saves first.
 
 ### Compare versions (level 2)

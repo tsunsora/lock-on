@@ -14,6 +14,11 @@ First release for Android and Windows.
   - level and cost curves, and type and color counts
 - **Test hand** using the official setup: draw 5, redraw once, set 6 shields, then draw.
 - Deck library with tags, search, duplicate, rename, and delete with **Undo**.
+- **Deck folders**: a folder list beside the decks on desktop and folder chips on phones. Move decks between folders, create a folder with its decks in one step, and rename or remove folders. Folders sync.
+- Pick any card as a deck's **cover**.
+- **Match log** per deck: wins, losses and draws with optional opponent, turn order and notes, and a record with win rate, going first and second, and results by opponent.
+- **Version history**: every version of a deck with what changed, a comparison with the deck now, and restoring an older version's cards.
+- Export a deck as an **image** (PNG) or a printable **deck registration sheet**, as well as a text list.
 - Import and export plain-text deck lists, and a JSON backup of all decks.
 - **Download the latest card database** in one tap: the official card list via gcg-api, with official card images, converted on the device. Check for updates at any time, and a weekly quiet check notes when a newer list is out.
 - Install a card catalog from a file or a link, check the link for updates, and go back to the sample at any time. A preview before each install lists any cards your decks use that are missing from the new catalog.
