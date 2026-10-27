@@ -76,6 +76,7 @@ import app.lockon.model.DeckSummary
 import app.lockon.platform.FileBridge
 import app.lockon.platform.formatTimestamp
 import app.lockon.rules.DeckValidator
+import app.lockon.rules.MatchStats
 import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import app.lockon.ui.components.Badge
@@ -541,13 +542,16 @@ private fun DeckRow(
                         style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
                     )
                 }
+                val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
                 Text(
                     listOfNotNull(
                         deck.snapshot.folder?.takeIf { showFolder },
                         deck.snapshot.tags.joinToString(" · ").ifBlank { null },
+                        record.winRate?.let { "${record.score} · $it%" },
                         "Edited ${formatTimestamp(deck.updatedAt)}",
                     ).joinToString("  —  "),
-                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(4.dp))

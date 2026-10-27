@@ -28,7 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +56,10 @@ import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.Ruleset
 import app.lockon.model.DeckSnapshot
+import app.lockon.model.MatchRecord
+import app.lockon.data.DeckRepository
+import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import app.lockon.platform.FileBridge
 import app.lockon.rules.DeckValidator
 import app.lockon.ui.AppState
@@ -94,6 +98,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val cards by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
+    val allDecks by container.decks.decks.collectAsState(initial = emptyList())
 
     // The editor works on a local draft and autosaves it. Changes that arrive by sync replace the
     // draft only when nothing local is waiting to be saved.
@@ -233,6 +238,26 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }
         val test: @Composable (Modifier) -> Unit = { modifier -> SampleHandPanel(deck, cards, modifier) }
+        // Opponents named on any deck, most played first.
+        val opponents = remember(allDecks) {
+            allDecks.flatMap { d -> d.snapshot.matches.map { it.opponent.trim() } }.filter { it.isNotEmpty() }
+                .groupBy { it.lowercase() }.values.sortedByDescending { it.size }.map { it.last() }
+        }
+        val matchLog: @Composable (Modifier) -> Unit = { modifier ->
+            MatchLogPanel(
+                deck.matches, opponents, modifier,
+                onLog = { result, opponent, wentFirst, notes ->
+                    val match = MatchRecord(Uuid.random().toString(), Clock.System.now().toEpochMilliseconds(), result, opponent, wentFirst, notes)
+                    draft = deck.copy(matches = deck.matches + match)
+                },
+                onDelete = { match ->
+                    draft = deck.copy(matches = deck.matches - match)
+                    state.notify("Removed a ${match.result.label.lowercase()}", "Undo") {
+                        draft = draft?.let { it.copy(matches = DeckRepository.mergeMatches(it.matches + match)) }
+                    }
+                },
+            )
+        }
 
         if (wide) {
             Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -241,19 +266,23 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 Panel(Modifier.weight(0.85f).widthIn(min = 300.dp).fillMaxSize()) {
                     var side by rememberSaveable { mutableStateOf(0) }
                     Column {
-                        PrimaryTabRow(selectedTabIndex = side) {
-                            listOf("Analysis", "Test hand").forEachIndexed { i, label ->
-                                Tab(selected = side == i, onClick = { side = i }, text = { Text(label) })
+                        PrimaryScrollableTabRow(selectedTabIndex = side, edgePadding = 0.dp) {
+                            listOf("Analysis", "Test hand", "Matches").forEachIndexed { i, label ->
+                                Tab(selected = side == i, onClick = { side = i }, text = { Text(label, maxLines = 1) })
                             }
                         }
-                        if (side == 0) analysis(Modifier.fillMaxSize()) else test(Modifier.fillMaxSize())
+                        when (side) {
+                            0 -> analysis(Modifier.fillMaxSize())
+                            1 -> test(Modifier.fillMaxSize())
+                            else -> matchLog(Modifier.fillMaxSize())
+                        }
                     }
                 }
             }
         } else {
             var tab by rememberSaveable(deckId) { mutableStateOf(startTab) }
-            PrimaryTabRow(selectedTabIndex = tab) {
-                listOf("Deck", "Add cards", "Analysis", "Test").forEachIndexed { i, label ->
+            PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
+                listOf("Deck", "Add cards", "Analysis", "Test", "Matches").forEachIndexed { i, label ->
                     Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1) })
                 }
             }
@@ -261,7 +290,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 0 -> deckList(Modifier.fillMaxSize())
                 1 -> search(Modifier.fillMaxSize())
                 2 -> analysis(Modifier.fillMaxSize())
-                else -> test(Modifier.fillMaxSize())
+                3 -> test(Modifier.fillMaxSize())
+                else -> matchLog(Modifier.fillMaxSize())
             }
         }
     }
