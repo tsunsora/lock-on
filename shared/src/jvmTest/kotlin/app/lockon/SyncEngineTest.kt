@@ -79,13 +79,13 @@ class SyncEngineTest {
         assertFalse(phone.decks.decks.first().single().hasConflict)
     }
 
-    @Test fun consideredCardsSyncWithTheDeck() = runTest {
+    @Test fun sideDeckCardsSyncWithTheDeck() = runTest {
         pair()
         val id = phone.decks.create(DeckSnapshot(name = "Maybe list"))
-        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.withQuantity("SMP-013", DeckSection.CONSIDERING, 2))
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.withQuantity("SMP-013", DeckSection.SIDE, 2))
         sync()
-        assertEquals(2, desktop.decks.currentSnapshot(id)!!.quantityOf("SMP-013", DeckSection.CONSIDERING))
-        assertEquals(2, desktop.decks.decks.first().single().snapshot.quantityOf("SMP-013", DeckSection.CONSIDERING))
+        assertEquals(2, desktop.decks.currentSnapshot(id)!!.quantityOf("SMP-013", DeckSection.SIDE))
+        assertEquals(2, desktop.decks.decks.first().single().snapshot.quantityOf("SMP-013", DeckSection.SIDE))
     }
 
     @Test fun phonesReachEachOtherThroughTheDesktop() = runTest {

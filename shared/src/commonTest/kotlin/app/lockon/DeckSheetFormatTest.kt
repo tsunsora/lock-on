@@ -24,7 +24,7 @@ class DeckSheetFormatTest {
             name = "Mine & Yours",
             entries = listOf(
                 DeckEntry("T-002", 2), DeckEntry("T-001", 4), DeckEntry("T-010", 10, DeckSection.RESOURCE),
-                DeckEntry("T-001", 1, DeckSection.CONSIDERING),
+                DeckEntry("T-001", 1, DeckSection.SIDE),
             ),
         ),
         cards, Ruleset("std", "Standard", "EN", ""), date = "26 Oct 2026",
@@ -37,7 +37,7 @@ class DeckSheetFormatTest {
         assertTrue("Blue, Red" in html)
     }
 
-    @Test fun escapesNamesAndLeavesOutConsidering() {
+    @Test fun escapesNamesAndLeavesOutTheSideDeck() {
         assertTrue("Strike &lt;Custom&gt;" in html)
         assertTrue("Mine &amp; Yours" in html)
         assertFalse("<td class=\"n\">1</td><td class=\"no\">T-001" in html)

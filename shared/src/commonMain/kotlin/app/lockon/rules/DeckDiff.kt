@@ -16,7 +16,7 @@ object DeckDiff {
 
     /** A short line such as "+3 −1 cards · renamed · 2 matches logged". */
     fun summary(before: DeckSnapshot, after: DeckSnapshot): String {
-        val played = cards(before, after).filter { it.section != DeckSection.CONSIDERING }
+        val played = cards(before, after).filter { it.section != DeckSection.SIDE }
         val added = played.sumOf { (it.after - it.before).coerceAtLeast(0) }
         val removed = played.sumOf { (it.before - it.after).coerceAtLeast(0) }
         val logged = after.matches.size - before.matches.size
@@ -27,7 +27,7 @@ object DeckDiff {
                 removed > 0 -> "−$removed ${if (removed == 1) "card" else "cards"}"
                 else -> null
             },
-            "considering changed".takeIf { cards(before, after).any { it.section == DeckSection.CONSIDERING } },
+            "side deck changed".takeIf { cards(before, after).any { it.section == DeckSection.SIDE } },
             "renamed".takeIf { before.name != after.name },
             "notes edited".takeIf { before.notes != after.notes },
             "tags changed".takeIf { before.tags != after.tags },

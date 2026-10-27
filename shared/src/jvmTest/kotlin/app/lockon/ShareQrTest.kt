@@ -23,7 +23,7 @@ class ShareQrTest {
         name = "Blue Red Aggro · ü",
         entries = cards.keys.sorted().take(12).map { DeckEntry(it, 4) } + DeckEntry(cards.keys.sorted()[12], 2) +
             DeckEntry(cards.keys.sorted().last(), 10, DeckSection.RESOURCE) +
-            DeckEntry(cards.keys.sorted()[13], 1, DeckSection.CONSIDERING),
+            DeckEntry(cards.keys.sorted()[13], 1, DeckSection.SIDE),
     )
 
     @Test fun theQrScansBackToADeckThatImports() {
@@ -41,8 +41,8 @@ class ShareQrTest {
         assertEquals(text, read)
         val imported = DeckListFormat.parse(read, cards).snapshot
         assertEquals(deck.name, imported.name)
-        assertEquals(deck.entries.filter { it.section != DeckSection.CONSIDERING }.toSet(), imported.entries.toSet(),
-            "the QR carries the main and resource decks, not Considering")
+        assertEquals(deck.entries.filter { it.section != DeckSection.SIDE }.toSet(), imported.entries.toSet(),
+            "the QR carries the main and resource decks, not the side deck")
     }
 
     @Test fun everyOrderReadsBackToTheSameDeck() {

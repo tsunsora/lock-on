@@ -61,13 +61,14 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - a conflict banner when one exists
 - **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar (**Deck · Add · Analysis · Test · More**, with Matches and Versions under More):
   1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
-     - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color.
+     - **Add to: Deck · Side deck** above the list picks where + and dropped cards go.
+     - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color. Adding to the side deck, the counts are side deck copies, and a card already in the deck is tagged **Deck n**.
      - **Deck colors only** narrows the list to the deck's colors.
      - Sort by number, level, cost or name.
   2. **Deck:** grouped by type (Units, Pilots, Commands, then Bases), each with a HUD header and count, sorted by level and then cost, with − / + on every row.
-     - **Considering** comes after the deck: cards you're weighing up, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − (drops one).
-     - Card details offer **Consider**, **Move 1 to Considering** or **Move 1 to deck**, depending on where the card already is.
-     - In the card list, a card that is only being considered is tagged **Considering**.
+     - The **Side deck** comes after the deck, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − / +.
+     - Card details have a side deck − / +, and **Move 1 to side deck** or **Move 1 to deck**, depending on where the card already is.
+     - In the card list, a card with side deck copies is tagged **Side n**.
      - Card details also offer **Use as deck cover**.
      - Notes go at the end.
   3. **Analysis:**
@@ -152,8 +153,8 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
    1. The deck tile shows **Needs review**.
    2. Open **Compare versions** → **Keep this version** → back in the editor.
 5. **Remove a deck by mistake:** Delete → **Undo** in the snackbar.
-6. **Not sure about a card:**
-   1. Open the card → **Consider**, or **Move 1 to Considering** if it's already in the deck.
-   2. It waits under Considering without affecting legality.
-   3. **To deck** brings a copy back in.
-   4. Exported lists carry a `// Considering` section.
+6. **Build a side deck:**
+   1. Set the card list to **Add to: Side deck**, then + or drag cards in. Or open a card → side deck +, or **Move 1 to side deck** if it's already in the deck.
+   2. It waits under Side deck without affecting legality.
+   3. **To deck** brings a copy into the deck.
+   4. Exported lists carry a `// Side deck` section; older lists with `// Considering` read back into it.

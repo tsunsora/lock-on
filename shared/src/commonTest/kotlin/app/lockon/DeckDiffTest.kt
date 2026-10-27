@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 class DeckDiffTest {
     private val before = DeckSnapshot(
         name = "Wing",
-        entries = listOf(DeckEntry("SMP-001", 4), DeckEntry("SMP-002", 2), DeckEntry("SMP-014", 1, DeckSection.CONSIDERING)),
+        entries = listOf(DeckEntry("SMP-001", 4), DeckEntry("SMP-002", 2), DeckEntry("SMP-014", 1, DeckSection.SIDE)),
     )
 
     @Test fun listsEveryChangedCount() {
@@ -29,8 +29,8 @@ class DeckDiffTest {
         val after = before.copy(
             name = "Wing Zero", folder = "Locals",
             matches = listOf(MatchRecord("m", 1, MatchResult.WIN)),
-        ).move("SMP-002", DeckSection.MAIN, DeckSection.CONSIDERING)
-        assertEquals("−1 card · considering changed · renamed · moved to Locals · 1 match logged", DeckDiff.summary(before, after))
+        ).move("SMP-002", DeckSection.MAIN, DeckSection.SIDE)
+        assertEquals("−1 card · side deck changed · renamed · moved to Locals · 1 match logged", DeckDiff.summary(before, after))
         assertEquals("No changes", DeckDiff.summary(before, before))
     }
 }

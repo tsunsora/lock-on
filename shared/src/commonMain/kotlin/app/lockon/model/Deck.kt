@@ -1,15 +1,26 @@
 package app.lockon.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 enum class DeckSection(val label: String) {
     MAIN("Main deck"),
     RESOURCE("Resource deck"),
-    /** Cards someone is weighing up. Never counted toward deck size, colors or legality. */
-    CONSIDERING("Considering");
+    /**
+     * Cards kept beside the deck. Never counted toward deck size, colors or legality. Stored and
+     * synced under its old name, so decks from before the side deck keep those cards.
+     */
+    @SerialName("CONSIDERING")
+    SIDE("Side deck");
+
+    /** The name kept in the database, unchanged from before the rename. */
+    val storedName: String get() = if (this == SIDE) "CONSIDERING" else name
 
     companion object {
+        /** Reads a stored section name, including the side deck's old name. */
+        fun fromStored(name: String) = if (name == "CONSIDERING") SIDE else valueOf(name)
+
         /** Where a card is played: resources in the resource deck, everything else in the main deck. */
         fun playedIn(card: Card) = if (card.type.isResource) RESOURCE else MAIN
     }

@@ -40,7 +40,7 @@ The desktop hosts HTTPS on port **53340** (or the next free port). Phones start 
    - Phones browse for it only while the app is in the foreground. A discovered desktop is just a hint; trust still comes from pairing.
    - While open, the phone holds `GET /v1/sync/wait?after=<cursor>` open, and the desktop answers within 25 seconds, as soon as it has new revisions. Local edits trigger a sync about 2 seconds after they settle.
    - Failures back off from 5 to 60 seconds and show as "Waiting for the desktop", not as errors.
-4. **Data format.** Deck snapshots are at data format **3**: format 2 added the Considering section, and format 3 added folders, cover cards and the match log. Both sides must use the same format to sync; otherwise the phone shows which device to update. An older app would drop the newer fields the next time it saved a deck.
+4. **Data format.** Deck snapshots are at data format **3**: format 2 added the side deck (stored and synced as `CONSIDERING`, its first name), and format 3 added folders, cover cards and the match log. Both sides must use the same format to sync; otherwise the phone shows which device to update. An older app would drop the newer fields the next time it saved a deck.
 
 ## Key files
 

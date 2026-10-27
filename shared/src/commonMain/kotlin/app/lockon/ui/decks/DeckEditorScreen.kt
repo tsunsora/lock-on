@@ -110,7 +110,6 @@ import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.CardThumb
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.Panel
-import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.theme.SuitColors
 import app.lockon.ui.theme.cardColor
@@ -224,12 +223,16 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         draft = current.withQuantity(card.cardNumber, section, (current.quantityOf(card.cardNumber, section) + delta).coerceAtLeast(0))
     }
 
-    fun move(card: GameCard, toConsidering: Boolean) {
+    fun move(card: GameCard, toSide: Boolean) {
         val current = draft ?: return
         val played = DeckSection.playedIn(card)
-        draft = if (toConsidering) current.move(card.cardNumber, played, DeckSection.CONSIDERING)
-        else current.move(card.cardNumber, DeckSection.CONSIDERING, played)
+        draft = if (toSide) current.move(card.cardNumber, played, DeckSection.SIDE)
+        else current.move(card.cardNumber, DeckSection.SIDE, played)
     }
+
+    // Where the card list's + and dropped cards go: the deck, or the side deck beside it.
+    val addToSide = rememberSaveable(deckId) { mutableStateOf(false) }
+    fun addTarget(card: GameCard) = if (addToSide.value) DeckSection.SIDE else DeckSection.playedIn(card)
 
     // Main-deck colors, kept as one object while they stay the same so the card list can skip
     // recomposing when a change doesn't touch them.
@@ -322,8 +325,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
                 onCardClick = { detail = it },
                 onChange = { card, delta -> change(card, delta) },
-                onRemoveConsidering = { change(it, -1, DeckSection.CONSIDERING) },
-                onMoveToDeck = { move(it, toConsidering = false) },
+                onSideChange = { card, delta -> change(card, delta, DeckSection.SIDE) },
+                onMoveToDeck = { move(it, toSide = false) },
                 onNotes = { notes -> draft = draft?.copy(notes = notes) },
             )
         }
@@ -338,24 +341,31 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         // One set of controls for the editor's life. They read the counts through state, so a change
         // recomposes only the cards whose numbers or tags moved, not the whole card list.
         // Wide windows show the card list and the deck side by side, so a card can be dragged across.
-        val cardDrag = remember(deckId) { CardDrag { card -> change(card, 1) } }
+        val cardDrag = remember(deckId) { CardDrag { card -> change(card, 1, addTarget(card)) } }
         val controls = remember(deckId, ruleset, wide) {
             fun copies(card: GameCard, section: DeckSection = DeckSection.playedIn(card)) = countsNow.value[section]?.get(card.cardNumber) ?: 0
             DeckControls(
-                quantity = { card -> copies(card) },
+                quantity = { card -> copies(card, addTarget(card)) },
                 // Rule limits shown where you act (UX rule S3), before anything goes wrong.
-                tag = { card -> FitTags(card, copies(card), copies(card, DeckSection.CONSIDERING), colorsNowState.value, ruleset) },
-                change = { card, delta -> change(card, delta) },
-                limit = { card -> copyLimit(card, ruleset) },
+                tag = { card -> FitTags(card, copies(card), copies(card, DeckSection.SIDE), addToSide.value, colorsNowState.value, ruleset) },
+                change = { card, delta -> change(card, delta, addTarget(card)) },
+                // The side deck is never checked, so its counts show no limit.
+                limit = { card -> if (addToSide.value) null else copyLimit(card, ruleset) },
                 drag = if (wide) cardDrag else null,
             )
         }
         val search: @Composable (Modifier) -> Unit = { modifier ->
-            CardSearchPanel(
-                addable, onCardClick = { detail = it }, modifier = modifier,
-                focusRequests = state.searchFocusRequests, deckColors = deckColors, wide = wide,
-                controls = controls,
-            )
+            Column(modifier) {
+                Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Add to", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PillTabs(listOf("Deck", "Side deck"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, Modifier.weight(1f))
+                }
+                CardSearchPanel(
+                    addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
+                    focusRequests = state.searchFocusRequests, deckColors = deckColors, wide = wide,
+                    controls = controls,
+                )
+            }
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }
         val test: @Composable (Modifier) -> Unit = { modifier -> SampleHandPanel(deck, cards, modifier) }
@@ -464,7 +474,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
 
     detail?.let { card ->
         val section = DeckSection.playedIn(card)
-        val considering = deck.quantityOf(card.cardNumber, DeckSection.CONSIDERING)
+        val side = deck.quantityOf(card.cardNumber, DeckSection.SIDE)
         val cardPrintings = printings[card.cardNumber].orEmpty()
         CardDetailDialog(card, cardPrintings, onDismiss = { detail = null }) {
             Column(horizontalAlignment = Alignment.End) {
@@ -481,19 +491,15 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                 }
                 QuantityStepper(deck.quantityOf(card.cardNumber, section), onMinus = { change(card, -1) }, onPlus = { change(card, 1) })
-                // Considering is a scratch list; moving keeps the total and never checks rules (UX rule S4).
+                // The side deck sits beside the deck; moving keeps the total and never checks rules (UX rule S4).
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        "Considering $considering",
-                        style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    when {
-                        considering > 0 -> GameButton("Move 1 to deck", onClick = { move(card, toConsidering = false) }, style = GameButtonStyle.GHOST, compact = true)
-                        deck.quantityOf(card.cardNumber, section) > 0 ->
-                            GameButton("Move 1 to Considering", onClick = { move(card, toConsidering = true) }, style = GameButtonStyle.GHOST, compact = true)
-                        else -> GameButton("Consider", onClick = { change(card, 1, DeckSection.CONSIDERING) }, style = GameButtonStyle.GHOST, compact = true)
-                    }
+                    Text("Side deck", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
+                }
+                when {
+                    side > 0 -> GameButton("Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
+                    deck.quantityOf(card.cardNumber, section) > 0 ->
+                        GameButton("Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
                 }
                 // The library shows the deck by this card instead of its highest-level Unit.
                 if (deck.quantityOf(card.cardNumber, section) > 0 || deck.coverCard == card.cardNumber) {
@@ -526,7 +532,7 @@ private fun DeckList(
     onOpenAnalysis: () -> Unit,
     onCardClick: (GameCard) -> Unit,
     onChange: (GameCard, Int) -> Unit,
-    onRemoveConsidering: (GameCard) -> Unit,
+    onSideChange: (GameCard, Int) -> Unit,
     onMoveToDeck: (GameCard) -> Unit,
     onNotes: (String) -> Unit,
 ) {
@@ -622,33 +628,33 @@ private fun DeckList(
                 }
             }
         }
-        val considering = deck.entries.filter { it.section == DeckSection.CONSIDERING }
+        val side = deck.entries.filter { it.section == DeckSection.SIDE }
             .sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
-        item(key = "considering-header") {
+        item(key = "side-header") {
             SectionHeader(
-                "Considering", Modifier.padding(start = 6.dp, end = 6.dp, top = 24.dp),
-                readout = "${considering.sumOf { it.quantity }}",
+                "Side deck", Modifier.padding(start = 6.dp, end = 6.dp, top = 24.dp),
+                readout = "${side.sumOf { it.quantity }}",
             )
             Text(
-                if (considering.isEmpty()) "Cards you're weighing up. Open a card and choose Consider to park it here."
+                if (side.isEmpty()) "Cards kept beside the deck. Set the card list to Add to: Side deck, then add cards with +${if (compact) " or by dragging" else ""}."
                 else "Not counted toward the deck or its legality.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
             )
         }
-        items(considering, key = { "considering-${it.cardNumber}" }) { entry ->
+        items(side, key = { "side-${it.cardNumber}" }) { entry ->
             val card = cards[entry.cardNumber]
             DeckStrip(
                 card, entry.quantity, entry.printingId, onClick = { card?.let(onCardClick) }, modifier = Modifier.animateItem().alpha(0.82f),
-                subtitle = "${entry.cardNumber}  ·  ×${entry.quantity}", compact = compact,
+                subtitle = listOfNotNull(card?.level?.let { "Lv.$it" }, entry.cardNumber).joinToString("  ·  "), compact = compact,
             ) {
                 if (card != null) {
-                    // One tap per copy (UX rule S1): move one into the deck, or drop one.
+                    // One tap per copy (UX rule S1): move one into the deck, or change the side deck's count.
                     GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true)
-                    IconButton(onClick = { onRemoveConsidering(card) }) {
-                        Text("−", style = MaterialTheme.typography.titleLarge)
-                    }
+                    PlateStepper(entry.quantity, card.name, onMinus = { onSideChange(card, -1) }, onPlus = { onSideChange(card, 1) })
+                } else {
+                    Text("×${entry.quantity}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 12.dp))
                 }
             }
         }
@@ -669,17 +675,21 @@ private fun DeckList(
     }
 }
 
-/** "Max" at the copy limit and "Off-color" when a card would add a third color (UX rule S3). */
+/**
+ * "Max" at the copy limit and "Off-color" when a card would add a third color (UX rule S3), and the
+ * count in whichever of the deck and side deck the card list isn't adding to.
+ */
 @Composable
-private fun FitTags(card: GameCard, quantity: Int, considering: Int, deckColors: Set<CardColor>, ruleset: Ruleset) {
+private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Boolean, deckColors: Set<CardColor>, ruleset: Ruleset) {
     val c = MaterialTheme.colorScheme
     val limit = ruleset.restricted[card.cardNumber] ?: if (card.type.isResource) ruleset.resourceMaxCopies else ruleset.maxCopies
     when {
         card.cardNumber in ruleset.banned -> Badge("Banned", c.errorContainer, c.onErrorContainer)
+        addingToSide -> if (quantity > 0) Badge("Deck $quantity", c.secondaryContainer, c.onSecondaryContainer)
         limit != null && quantity >= limit -> Badge("Max", c.primaryContainer, c.onPrimaryContainer)
         card.colors.isNotEmpty() && (deckColors + card.colors).size > ruleset.maxColors ->
             Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
-        quantity == 0 && considering > 0 -> Badge("Considering", c.secondaryContainer, c.onSecondaryContainer)
+        side > 0 -> Badge("Side $side", c.secondaryContainer, c.onSecondaryContainer)
     }
 }
 

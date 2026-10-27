@@ -66,7 +66,7 @@ class ScreenshotTest {
             name = "Blue Red Aggro", tags = listOf("tournament"), folder = "Store championship",
             entries = (1..11).map { DeckEntry("SMP-%03d".format(it), 4) } + DeckEntry("SMP-013", 2) +
                 DeckEntry("SMP-019", 6, DeckSection.RESOURCE) + DeckEntry("SMP-020", 4, DeckSection.RESOURCE) +
-                DeckEntry("SMP-014", 2, DeckSection.CONSIDERING) + DeckEntry("SMP-016", 1, DeckSection.CONSIDERING),
+                DeckEntry("SMP-014", 2, DeckSection.SIDE) + DeckEntry("SMP-016", 1, DeckSection.SIDE),
         )
         container.decks.create(first).also { id ->
             // Two kept versions, so the history has something to compare.
@@ -142,7 +142,7 @@ class ScreenshotTest {
         shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-cards", 600, 1260) { select(Tab.CARDS) }
         shoot("phone-add-cards", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
-        shoot("phone-considering", 600, 3200) { open(Screen.DeckEditor(deckId)) }
+        shoot("phone-side-deck", 600, 3200) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-test-hand", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 3)) }
         shoot("phone-matches", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         shoot("phone-versions", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 5)) }

@@ -129,7 +129,7 @@ private fun VersionCard(
                     if (diffs.isEmpty() && other.name == snapshot.name) Text("Same cards as the other version.", style = MaterialTheme.typography.bodySmall)
                     diffs.forEach { (key, mine, theirs) ->
                         val (number, section) = key
-                        val where = if (section == DeckSection.CONSIDERING) " (considering)" else ""
+                        val where = if (section == DeckSection.SIDE) " (side deck)" else ""
                         Text(
                             "${cards[number]?.name ?: number}$where: $mine here, $theirs in the other",
                             style = MaterialTheme.typography.bodySmall,

@@ -14,7 +14,7 @@ import app.lockon.model.DeckSnapshot
  * 4 SMP-001 Vanguard Frame
  * // Resource deck (10)
  * 10 SMP-020 Standard Resource
- * // Considering (2)
+ * // Side deck (2)
  * 2 SMP-013 Scorched Earth
  * ```
  */
@@ -24,13 +24,13 @@ object DeckListFormat {
     /**
      * The deck as text. With an [order] the cards are sorted and the main deck gets a `// Units (32)`
      * line before each type; [parse] ignores those lines, so the list still reads back. [compact]
-     * leaves out names, tags, type lines and Considering, for a QR code.
+     * leaves out names, tags, type lines and the side deck, for a QR code.
      */
     fun export(deck: DeckSnapshot, cards: Map<String, Card>, order: ExportOrder? = null, compact: Boolean = false): String = buildString {
         appendLine("# ${deck.name}")
         if (deck.tags.isNotEmpty() && !compact) appendLine("// Tags: ${deck.tags.joinToString(", ")}")
         for (section in DeckSection.entries) {
-            if (compact && section == DeckSection.CONSIDERING) continue
+            if (compact && section == DeckSection.SIDE) continue
             val entries = deck.entries.filter { it.section == section }
             if (entries.isEmpty()) continue
             if (!compact) appendLine()
@@ -66,8 +66,8 @@ object DeckListFormat {
                 val header = line.removePrefix("//").removeSuffix(":").trim().lowercase()
                 when {
                     header.startsWith("resource") -> section = DeckSection.RESOURCE
-                    header.startsWith("consider") || header.startsWith("maybe") || header.startsWith("side") ->
-                        section = DeckSection.CONSIDERING
+                    header.startsWith("side") || header.startsWith("consider") || header.startsWith("maybe") ->
+                        section = DeckSection.SIDE
                     header.startsWith("main") || header.startsWith("deck") -> section = DeckSection.MAIN
                 }
                 continue
@@ -88,7 +88,7 @@ object DeckListFormat {
             if (cardNumber !in cards) problems += "Line ${index + 1}: $cardNumber is not in the card catalog."
             // A resource card listed under the main deck header still belongs in the resource deck.
             val target = when {
-                section == DeckSection.CONSIDERING -> section
+                section == DeckSection.SIDE -> section
                 cards[cardNumber]?.type?.isResource == true -> DeckSection.RESOURCE
                 else -> section
             }

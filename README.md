@@ -50,7 +50,7 @@ Requires **Android 8.0 or newer**.
 
 - **Add and remove:** tap **+** or **−** on any card in the search results or the deck list. Tap the card itself for details and every printing.
 - **Follow the rules as you go:** cards show how many copies are in the deck, **Max** at their copy limit, and **Off-color** when they would add a third color. **Deck colors only** hides the rest.
-- **Considering:** park cards you're weighing up in a separate list. It never counts toward deck size, colors or legality, and it syncs and exports with the deck.
+- **Side deck:** keep cards beside the deck. Switch the card list to **Add to: Side deck** and add them like any other card. It never counts toward deck size, colors or legality, and it syncs and exports with the deck.
 - **Drafts are fine:** nothing blocks a save. An incomplete or illegal deck saves as a *Draft*, and the analysis says what's missing.
 - **Organize:** duplicate, rename, tag, search and filter decks. Deleting a deck offers **Undo** instead of asking first.
 - **Folders:** the desktop shows a folder list beside your decks, and phones show folder chips. Create a folder and pick its decks in one step, use **Move to folder** from a deck's menu, and rename or remove a folder. Removing a folder only takes its decks out. Folders sync.

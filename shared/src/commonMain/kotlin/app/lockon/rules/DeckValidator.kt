@@ -31,8 +31,8 @@ object DeckValidator {
         if (main != ruleset.mainDeckSize) error("Main deck has $main of ${ruleset.mainDeckSize} cards.")
 
         // Copies are counted by card number, so alternate art never adds extra copies.
-        // Considering cards are a scratch list and are never checked.
-        val playing = deck.entries.filter { it.section != DeckSection.CONSIDERING }
+        // Side deck cards sit beside the deck and are never checked.
+        val playing = deck.entries.filter { it.section != DeckSection.SIDE }
         val totals = playing.groupBy { it.cardNumber to it.section }.mapValues { (_, e) -> e.sumOf { it.quantity } }
         for ((key, quantity) in totals) {
             val (number, section) = key

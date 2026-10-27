@@ -322,7 +322,7 @@ class DeckRepository(
         decksDao.insertEntries(
             snapshot.entries.filter { it.quantity > 0 }
                 .groupBy { it.section to it.cardNumber }
-                .map { (key, e) -> DeckEntryEntity(deckId, key.first.name, key.second, e.first().printingId, e.sumOf { it.quantity }) },
+                .map { (key, e) -> DeckEntryEntity(deckId, key.first.storedName, key.second, e.first().printingId, e.sumOf { it.quantity }) },
         )
     }
 
@@ -335,7 +335,7 @@ class DeckRepository(
             coverCard = coverCard,
             matches = runCatching { json.decodeFromString(matchSerializer, matches) }.getOrDefault(emptyList()),
             entries = entries.map {
-                DeckEntry(it.cardNumber, it.quantity, DeckSection.valueOf(it.section), it.printingId)
+                DeckEntry(it.cardNumber, it.quantity, DeckSection.fromStored(it.section), it.printingId)
             }.sortedWith(compareBy({ it.section }, { it.cardNumber })),
             deleted = deleted,
         ),

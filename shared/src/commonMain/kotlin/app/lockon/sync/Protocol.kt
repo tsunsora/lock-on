@@ -14,7 +14,7 @@ object SyncProtocol {
     const val MIN_PROTOCOL_VERSION = 1
     /**
      * Version of [DeckSnapshot] inside revisions. A device refuses revisions newer than it understands.
-     * 2 added the Considering section; a version-1 app would drop those cards on its next save.
+     * 2 added the side deck (first called Considering); a version-1 app would drop those cards on its next save.
      * 3 added folders, cover cards and the match log, which a version-2 app would drop the same way.
      */
     const val DATA_FORMAT_VERSION = 3
