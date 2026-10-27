@@ -1,4 +1,27 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.DeckGlance
+import app.lockon.io.ExportOrder
+import app.lockon.platform.encodeShareQr
+import app.lockon.rules.DeckAnalysis
+import app.lockon.ui.components.MiniCurve
+import app.lockon.ui.components.QrCodeView
+import app.lockon.ui.components.CenteredGlyph
+import app.lockon.ui.components.PillChip
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.sp
+import app.lockon.ui.theme.LockOnShapes
+import app.lockon.ui.components.Gold
+import app.lockon.ui.components.Sparkle
+import app.lockon.ui.components.ProgressGauge
+import app.lockon.ui.components.GlassPanel
+import app.lockon.ui.components.glass
+import app.lockon.ui.components.SkyBackground
+import app.lockon.ui.components.PillTabs
+import app.lockon.ui.components.GameDialog
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -60,20 +83,25 @@ import app.lockon.ui.AppState
 import app.lockon.ui.components.Badge
 import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.ColorPips
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.LockOnMark
-import app.lockon.ui.components.TricolorStripe
 import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 
-/** Saved deck images are this many pixels wide on every device, whatever its screen density. */
-private const val IMAGE_WIDTH_PX = 1080
+/**
+ * Saved deck images are this many pixels wide on every device, whatever its screen density. With
+ * five cards a row each card comes out about 375 px wide, over half the 600 px source art, so names,
+ * stats and effect text stay readable.
+ */
+private const val IMAGE_WIDTH_PX = 2160
 private val IMAGE_WIDTH = 540.dp
+private const val CARDS_PER_ROW = 5
 
 /** Every way out of the app for one deck: the text list, a shareable image, and a printable sheet. */
 @Suppress("DEPRECATION") // LocalClipboard needs ClipEntry, which differs per platform.
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DeckExportDialog(
     deck: DeckSnapshot,
@@ -85,18 +113,31 @@ fun DeckExportDialog(
     startTab: Int = 0,
 ) {
     var tab by rememberSaveable { mutableStateOf(startTab) }
-    val text = remember(deck, cards) { DeckListFormat.export(deck, cards) }
+    // One order for every format, so the list, image and sheet match.
+    var order by rememberSaveable { mutableStateOf(ExportOrder.LEVEL) }
+    val text = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
     val baseName = deck.name.filter { it.isLetterOrDigit() || it in " -_" }.trim().ifBlank { "deck" }
     val clipboard = LocalClipboardManager.current
     val layer = rememberGraphicsLayer()
-    AlertDialog(
+    GameDialog(
         onDismissRequest = onDismiss,
-        title = { Text(deck.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        title = deck.name,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                PrimaryTabRow(selectedTabIndex = tab) {
-                    listOf("List", "Image", "Print sheet").forEachIndexed { i, label ->
-                        Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1) })
+                PillTabs(listOf("List", "Image", "Print sheet"), tab, { tab = it }, fill = true)
+                // What each format is for, so the choice is easy.
+                Text(
+                    when (tab) {
+                        0 -> "Plain text for chats, forums and other deck builders. Lock On reads it back under Decks › Import."
+                        1 -> "A picture to post or send. It shows the main deck, its curve and a QR code that holds the full list."
+                        else -> "For events that ask for a written deck list."
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Order", style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 2.dp))
+                    ExportOrder.entries.forEach { option ->
+                        PillChip(selected = order == option, onClick = { order = option }, label = { Text(option.label) })
                     }
                 }
                 when (tab) {
@@ -107,7 +148,7 @@ fun DeckExportDialog(
                         )
                     }
                     1 -> Box(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                        CaptureAtFixedWidth(layer) { DeckImage(deck, cards, ruleset) }
+                        CaptureAtFixedWidth(layer) { DeckImage(deck, cards, ruleset, order) }
                     }
                     else -> Text(
                         "A deck registration sheet with blanks for your name and event, then every card in the main and " +
@@ -122,28 +163,28 @@ fun DeckExportDialog(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (tab) {
                     0 -> {
-                        TextButton(onClick = {
+                        GameButton("Copy", onClick = {
                             clipboard.setText(AnnotatedString(text))
                             state.notify("Deck list copied.")
-                        }) { Text("Copy") }
-                        TextButton(onClick = {
+                        }, style = GameButtonStyle.SECONDARY, compact = true)
+                        GameButton("Save file", onClick = {
                             state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) state.notify("Deck list saved.") }
-                        }) { Text("Save file") }
+                        }, compact = true)
                     }
-                    1 -> TextButton(onClick = {
+                    1 -> GameButton("Save image", onClick = {
                         state.appScope.launch {
                             val png = encodePng(layer.toImageBitmap())
                             if (files.saveBytes("$baseName.png", "image/png", png)) state.notify("Deck image saved.")
                         }
-                    }) { Text("Save image") }
-                    else -> TextButton(onClick = {
-                        val html = DeckSheetFormat.html(deck, cards, ruleset, formatDate(Clock.System.now().toEpochMilliseconds()))
+                    }, compact = true)
+                    else -> GameButton("Save sheet", onClick = {
+                        val html = DeckSheetFormat.html(deck, cards, ruleset, formatDate(Clock.System.now().toEpochMilliseconds()), order)
                         state.appScope.launch { if (files.saveText("$baseName sheet.html", "text/html", html)) state.notify("Print sheet saved.") }
-                    }) { Text("Save sheet") }
+                    }, compact = true)
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        dismissButton = { GameButton("Close", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
     )
 }
 
@@ -175,54 +216,89 @@ private fun CaptureAtFixedWidth(layer: GraphicsLayer, content: @Composable () ->
 
 /** The picture people share: name, colors and legality, then every card with its count. */
 @Composable
-private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Ruleset) {
+private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Ruleset, order: ExportOrder) {
     val scheme = MaterialTheme.colorScheme
     val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck, cards, ruleset).isLegal }
-    val colors = deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
-    val order = compareBy<DeckEntry>(
-        { cards[it.cardNumber]?.type?.let(CardType.entries::indexOf) ?: CardType.entries.size },
-        { cards[it.cardNumber]?.level ?: 99 }, { cards[it.cardNumber]?.cost ?: 99 }, { it.cardNumber },
-    )
-    Column(Modifier.width(IMAGE_WIDTH).background(scheme.surface)) {
-        TricolorStripe()
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    val main = deck.entries.filter { it.section == DeckSection.MAIN }
+    val colors = main.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+    val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
+    // The QR holds the whole deck as a compact list (main and resource), so a scan rebuilds it exactly.
+    val qr = remember(deck, cards) { runCatching { encodeShareQr(DeckListFormat.export(deck, cards, ExportOrder.NUMBER, compact = true)) }.getOrNull() }
+    // The same sky and glass as the app, so a shared deck looks like Lock On (UX rule V1).
+    SkyBackground(Modifier.width(IMAGE_WIDTH)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().glass(LockOnShapes.panel, strong = true).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
                 deckCover(deck, cards)?.let { CardImage(it.card, Modifier.width(64.dp), it.printingId) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(deck.name, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(deck.name, style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         ColorPips(colors)
                         if (legal) Badge("Legal · ${ruleset.name}", scheme.secondaryContainer, scheme.onSecondaryContainer)
                         else Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant)
                     }
+                    ProgressGauge("Main deck", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth(0.6f), compact = true)
                 }
             }
-            for (section in listOf(DeckSection.MAIN, DeckSection.RESOURCE)) {
-                val entries = deck.entries.filter { it.section == section }.sortedWith(order)
-                if (entries.isEmpty()) continue
-                HudHeader(section.label, readout = "${entries.sumOf { it.quantity }}")
-                entries.chunked(6).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { entry ->
-                            Box(Modifier.weight(1f)) {
-                                CardImage(cards[entry.cardNumber], Modifier.fillMaxWidth(), entry.printingId)
-                                Text(
-                                    "×${entry.quantity}",
-                                    style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-                                    color = scheme.onPrimary,
-                                    modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp)
-                                        .clip(MaterialTheme.shapes.extraSmall).background(scheme.primary).padding(horizontal = 6.dp),
-                                )
+            // At a glance: what a reader would otherwise count by hand.
+            if (stats.levelCurve.isNotEmpty()) {
+                DeckGlance(stats, Modifier.glass(LockOnShapes.tile).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp))
+            }
+            GlassPanel(Modifier.fillMaxWidth(), title = "Main deck", readout = "${main.sumOf { it.quantity }}") {
+                Column(Modifier.padding(start = 8.dp, end = 8.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for ((label, group) in order.groups(main, cards)) {
+                        Text("$label · ${group.sumOf { it.quantity }}", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                        group.chunked(CARDS_PER_ROW).forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                row.forEach { entry ->
+                                    // The count sits under the card, so cost and AP/HP stay visible (UX rule V4a).
+                                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        CardImage(cards[entry.cardNumber], Modifier.fillMaxWidth(), entry.printingId)
+                                        Text(
+                                            "×${entry.quantity}",
+                                            style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                                            color = scheme.onPrimary,
+                                            modifier = Modifier.clip(LockOnShapes.button).background(scheme.primary).padding(horizontal = 12.dp, vertical = 1.dp),
+                                        )
+                                    }
+                                }
+                                repeat(CARDS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
-                        repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LockOnMark(size = 18.dp)
-                Text("Built with Lock On", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+            // Sharing: the QR and how to use it, for someone who only has this picture.
+            Row(
+                Modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                if (qr != null) QrCodeView(qr, Modifier.size(124.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Get this deck", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
+                    HelpStep("1", "Scan the code with a phone camera. It holds the deck list as text.")
+                    HelpStep("2", "Copy the text, then in Lock On open Decks › ⋮ › Import and paste it.")
+                    HelpStep("3", "Other builders that read \"4 GD01-001\" lines take it too.")
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                LockOnMark(size = 18.dp, reticleColor = scheme.onSurface)
+                Spacer(Modifier.width(6.dp))
+                Text("Built with Lock On", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+                Sparkle(Modifier.padding(start = 6.dp), size = 10.dp, color = Gold)
             }
         }
+    }
+}
+
+@Composable
+private fun HelpStep(number: String, text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.padding(top = 1.dp).size(18.dp).clip(LockOnShapes.button).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))) {
+            CenteredGlyph(number, MaterialTheme.colorScheme.primary, 11.sp)
+        }
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

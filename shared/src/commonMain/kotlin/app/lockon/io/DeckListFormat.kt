@@ -21,17 +21,26 @@ import app.lockon.model.DeckSnapshot
 object DeckListFormat {
     data class ParseResult(val snapshot: DeckSnapshot, val problems: List<String>)
 
-    fun export(deck: DeckSnapshot, cards: Map<String, Card>): String = buildString {
+    /**
+     * The deck as text. With an [order] the cards are sorted and the main deck gets a `// Units (32)`
+     * line before each type; [parse] ignores those lines, so the list still reads back. [compact]
+     * leaves out names, tags, type lines and Considering, for a QR code.
+     */
+    fun export(deck: DeckSnapshot, cards: Map<String, Card>, order: ExportOrder? = null, compact: Boolean = false): String = buildString {
         appendLine("# ${deck.name}")
-        if (deck.tags.isNotEmpty()) appendLine("// Tags: ${deck.tags.joinToString(", ")}")
+        if (deck.tags.isNotEmpty() && !compact) appendLine("// Tags: ${deck.tags.joinToString(", ")}")
         for (section in DeckSection.entries) {
+            if (compact && section == DeckSection.CONSIDERING) continue
             val entries = deck.entries.filter { it.section == section }
             if (entries.isEmpty()) continue
-            appendLine()
+            if (!compact) appendLine()
             appendLine("// ${section.label} (${entries.sumOf { it.quantity }})")
-            for (entry in entries) {
-                val name = cards[entry.cardNumber]?.name
-                appendLine(listOfNotNull("${entry.quantity}", entry.cardNumber, name).joinToString(" "))
+            for ((label, group) in order?.groups(entries, cards) ?: listOf(null to entries)) {
+                if (label != null && !compact && section == DeckSection.MAIN) appendLine("// $label (${group.sumOf { it.quantity }})")
+                for (entry in group) {
+                    val name = cards[entry.cardNumber]?.name?.takeUnless { compact }
+                    appendLine(listOfNotNull("${entry.quantity}", entry.cardNumber, name).joinToString(" "))
+                }
             }
         }
     }.trimEnd() + "\n"

@@ -1,4 +1,11 @@
 package app.lockon.ui.sync
+import app.lockon.ui.components.LocalNavClearance
+import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.PillSwitch
+import app.lockon.ui.components.GameDialog
+import app.lockon.ui.components.GlassCard
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -57,7 +64,7 @@ import app.lockon.ui.theme.TabularNumbers
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Spacer
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.sync.AutoSyncState
 import app.lockon.sync.NearbyDevice
 import androidx.compose.foundation.background
@@ -83,17 +90,18 @@ fun SyncScreen(
     val liveClients by ((controller as? HostSyncController)?.liveClients ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
 
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("This device: $deviceName", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Settings opens with sync; the device name is in the screen header.
+        SectionHeader("Sync")
         StatusLine(status)
         val pairedIds = devices.map { it.deviceId }.toSet()
         when (controller) {
             is HostSyncController -> HostSection(controller, pairedIds)
             is ClientSyncController -> ClientSection(controller, pairedIds)
         }
-        Text("Paired devices", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("Paired devices")
         if (devices.isEmpty()) {
             Text(
                 if (controller is HostSyncController) "No phones paired yet." else "No computer paired yet.",
@@ -120,12 +128,12 @@ fun SyncScreen(
     }
 
     forgetting?.let { device ->
-        AlertDialog(
+        GameDialog(
             onDismissRequest = { forgetting = null },
-            title = { Text("Forget ${device.name}?") },
+            title = "Forget ${device.name}?",
             text = { Text("It will need to pair again before it can sync. Decks on both devices stay as they are.") },
-            confirmButton = { TextButton(onClick = { controller.forget(device.deviceId); forgetting = null }) { Text("Forget") } },
-            dismissButton = { TextButton(onClick = { forgetting = null }) { Text("Cancel") } },
+            confirmButton = { GameButton("Forget", onClick = { controller.forget(device.deviceId); forgetting = null }, compact = true) },
+            dismissButton = { GameButton("Cancel", onClick = { forgetting = null }, style = GameButtonStyle.GHOST, compact = true) },
         )
     }
 }
@@ -156,9 +164,9 @@ private fun NearbyCard(
     emptyHint: String,
     rowAction: @Composable (NearbyDevice) -> Unit,
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            HudHeader(title, readout = if (devices.isEmpty()) null else "${devices.size}") {
+            SectionHeader(title, readout = if (devices.isEmpty()) null else "${devices.size}") {
                 Spacer(Modifier.width(8.dp))
                 ReticleSpinner(size = 16.dp, color = MaterialTheme.colorScheme.outline)
             }
@@ -216,17 +224,16 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>) {
             phone.deviceId in paired -> Unit
             phone.deviceId in invited -> Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Waiting for the phone…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { controller.cancelInvite(phone.deviceId) }) { Text("Cancel") }
+                GameButton("Cancel", onClick = { controller.cancelInvite(phone.deviceId) }, style = GameButtonStyle.GHOST, compact = true)
             }
-            else -> Button(onClick = { controller.invite(phone) }, enabled = phone.compatible) { Text("Connect") }
+            else -> GameButton("Connect", onClick = { controller.invite(phone) }, enabled = phone.compatible)
         }
     }
 
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Other ways to connect", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { showQr = !showQr }) { Text(if (showQr) "Hide" else "QR code or address") }
+            SectionHeader("Other ways to connect") {
+                GameButton(if (showQr) "Hide" else "QR code or address", onClick = { showQr = !showQr }, style = GameButtonStyle.GHOST, compact = true)
             }
             val current = info
             when {
@@ -237,7 +244,7 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 else -> {
-                    Text("In Lock On on your phone, open Sync and scan this code.", style = MaterialTheme.typography.bodyMedium)
+                    Text("In Lock On on your phone, open Settings and scan this code.", style = MaterialTheme.typography.bodyMedium)
                     // Details wrap under the QR code in a narrow window instead of squeezing beside it.
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         current.qr?.let { QrCodeView(it, Modifier.size(220.dp)) }
@@ -247,7 +254,7 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>) {
                                 Text("Address", style = MaterialTheme.typography.labelMedium)
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     current.addresses.forEach { a ->
-                                        FilterChip(selected = a == current.addresses.first(), onClick = { controller.selectAddress(a) }, label = { Text(a) })
+                                        PillChip(selected = a == current.addresses.first(), onClick = { controller.selectAddress(a) }, label = { Text(a) })
                                     }
                                 }
                             } else {
@@ -258,7 +265,7 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>) {
                             val seconds = ((current.codeExpiresAt - now) / 1000).coerceAtLeast(0)
                             Text("Code changes in ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            OutlinedButton(onClick = controller::newPairingCode) { Text("New code") }
+                            GameButton("New code", onClick = controller::newPairingCode, style = GameButtonStyle.SECONDARY)
                         }
                     }
                 }
@@ -271,9 +278,9 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>) {
     }
 
     prompt?.let { p ->
-        AlertDialog(
+        GameDialog(
             onDismissRequest = {},
-            title = { Text(if (p.invited) "${p.deviceName} accepted" else "${p.deviceName} wants to connect") },
+            title = if (p.invited) "${p.deviceName} accepted" else "${p.deviceName} wants to connect",
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Pair only if ${p.deviceName} shows this same number:")
@@ -282,8 +289,8 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>) {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            confirmButton = { Button(onClick = { controller.answerPairing(p.requestId, true) }) { Text("Pair") } },
-            dismissButton = { TextButton(onClick = { controller.answerPairing(p.requestId, false) }) { Text("Decline") } },
+            confirmButton = { GameButton("Pair", onClick = { controller.answerPairing(p.requestId, true) }) },
+            dismissButton = { GameButton("Decline", onClick = { controller.answerPairing(p.requestId, false) }, style = GameButtonStyle.GHOST, compact = true) },
         )
     }
 }
@@ -315,10 +322,7 @@ private fun ClientSection(controller: ClientSyncController, paired: Set<String>)
         paired = paired,
         emptyHint = "Open Lock On on your computer on the same Wi-Fi and it appears here.",
     ) { desktop ->
-        Button(
-            onClick = { controller.pair(PairingInvite(desktop.host, desktop.port, "", desktop.fingerprint, desktop.name)) },
-            enabled = desktop.compatible && !status.working,
-        ) { Text("Connect") }
+        GameButton("Connect", onClick = { controller.pair(PairingInvite(desktop.host, desktop.port, "", desktop.fingerprint, desktop.name)) }, enabled = desktop.compatible && !status.working)
     }
 
     if (paired.isNotEmpty()) {
@@ -330,48 +334,44 @@ private fun ClientSection(controller: ClientSyncController, paired: Set<String>)
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Switch(checked = autoSync, onCheckedChange = controller::setAutoSync)
+            PillSwitch(checked = autoSync, onCheckedChange = controller::setAutoSync)
         }
     }
 
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Other ways to connect", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { other = !other }) { Text(if (other) "Hide" else "Show") }
+            SectionHeader("Other ways to connect") {
+                GameButton(if (other) "Hide" else "Show", onClick = { other = !other }, style = GameButtonStyle.GHOST, compact = true)
             }
             if (other) {
-                Text("If your computer doesn't appear above, scan the QR code under Sync on the computer, or type its address.",
+                Text("If your computer doesn't appear above, scan the QR code under Settings on the computer, or type its address.",
                     style = MaterialTheme.typography.bodyMedium)
-                if (controller.canScanQr) Button(onClick = controller::scanQr, enabled = !status.working) { Text("Scan QR code") }
+                if (controller.canScanQr) GameButton("Scan QR code", onClick = controller::scanQr, enabled = !status.working)
                 OutlinedTextField(host, { host = it.trim() }, label = { Text("Computer address") }, singleLine = true,
                     placeholder = { Text("192.168.1.20") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(port, { port = it.filter(Char::isDigit) }, label = { Text("Port") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(code, { code = it.trim().uppercase() }, label = { Text("Pairing code (optional)") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth())
-                OutlinedButton(
-                    onClick = { controller.pair(PairingInvite(host, port.toIntOrNull() ?: SyncProtocol.DEFAULT_PORT, code, fingerprint = null)) },
-                    enabled = host.isNotBlank() && !status.working,
-                ) { Text("Connect") }
+                GameButton("Connect", onClick = { controller.pair(PairingInvite(host, port.toIntOrNull() ?: SyncProtocol.DEFAULT_PORT, code, fingerprint = null)) }, style = GameButtonStyle.SECONDARY, enabled = host.isNotBlank() && !status.working)
             }
         }
     }
 
     invite?.let { i ->
-        AlertDialog(
+        GameDialog(
             onDismissRequest = { controller.answerInvite(false) },
-            title = { Text("${i.offer.hostName} wants to connect") },
+            title = "${i.offer.hostName} wants to connect",
             text = { Text("Connect to sync your decks with this computer? You'll confirm a number on both screens next.") },
-            confirmButton = { Button(onClick = { controller.answerInvite(true) }) { Text("Connect") } },
-            dismissButton = { TextButton(onClick = { controller.answerInvite(false) }) { Text("Not now") } },
+            confirmButton = { GameButton("Connect", onClick = { controller.answerInvite(true) }) },
+            dismissButton = { GameButton("Not now", onClick = { controller.answerInvite(false) }, style = GameButtonStyle.GHOST, compact = true) },
         )
     }
 
     verification?.let { v ->
-        AlertDialog(
+        GameDialog(
             onDismissRequest = {},
-            title = { Text("Confirm on your computer") },
+            title = "Confirm on your computer",
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Pair on the computer only if it shows this same number:")
@@ -386,7 +386,7 @@ private fun ClientSection(controller: ClientSyncController, paired: Set<String>)
 /** @param live auto-sync label and whether it is healthy, or null when auto-sync isn't running for this device. */
 @Composable
 private fun DeviceCard(device: PairedDevice, working: Boolean, live: Pair<String, Boolean>?, onSync: (() -> Unit)?, onForget: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    GlassCard {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium)
@@ -408,8 +408,8 @@ private fun DeviceCard(device: PairedDevice, working: Boolean, live: Pair<String
                 device.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             }
             Column(horizontalAlignment = Alignment.End) {
-                if (onSync != null) Button(onClick = onSync, enabled = !working) { Text("Sync now") }
-                TextButton(onClick = onForget) { Text("Forget") }
+                if (onSync != null) GameButton("Sync now", onClick = onSync, enabled = !working)
+                GameButton("Forget", onClick = onForget, style = GameButtonStyle.GHOST, compact = true)
             }
         }
     }

@@ -7,7 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 
-enum class Tab(val label: String) { DECKS("Decks"), CARDS("Cards"), SYNC("Sync") }
+enum class Tab(val label: String) { DECKS("Decks"), CARDS("Cards"), SETTINGS("Settings") }
 
 sealed interface Screen {
     /** [startTab] is the phone tab to open on: 0 Deck, 1 Add cards, 2 Analysis, 3 Test, 4 Matches, 5 Versions. */

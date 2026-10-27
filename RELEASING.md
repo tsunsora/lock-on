@@ -39,7 +39,7 @@ What people see:
 - **Windows:** the update downloads in the background and installs when they close Lock On. **Sync → Restart and update** installs it right away. Either way the MSI runs with a progress bar and no questions, into the folder Lock On is already in, and keeps their decks. The install log is in `%APPDATA%\LockOn\updates\install.log`.
 - **Android:** the update downloads on Wi-Fi, then **Sync → Install update** hands it to Android. The first time, Android asks them to allow installs from Lock On and to confirm. On Android 12 and later, updates after that usually install without asking.
 
-Both can turn off **Update automatically** under Sync, and then updates only download when they tap **Download**. Each download is checked against the SHA-256 in the feed before it's used.
+Both can turn off **Update automatically** under Settings, and then updates only download when they tap **Download**. Each download is checked against the SHA-256 in the feed before it's used.
 
 The feed has to be readable without signing in. While this repo is private, the check fails quietly. Either make the repo public, or publish releases somewhere public (for example a separate releases-only repo) and point `lockon.updateFeed` at its `lock-on-update.json`. File names in the feed are resolved next to the feed, so the three files must sit together.
 
@@ -47,7 +47,7 @@ Android only installs an update signed with the same key as the installed app, w
 
 ## Version
 
-Change `lockon.version` (and bump `lockon.versionCode` for Android) in [gradle.properties](gradle.properties). Everything else reads from there: the Android version name and code, the installer version, the version shown on the Sync screen, and the version each device reports during sync.
+Change `lockon.version` (and bump `lockon.versionCode` for Android) in [gradle.properties](gradle.properties). Everything else reads from there: the Android version name and code, the installer version, the version shown in Settings, and the version each device reports during sync.
 
 Installer formats need a major version above zero, which is why the first release is `1.0.0`. Keep `upgradeUuid` in [desktopApp/build.gradle.kts](desktopApp/build.gradle.kts) unchanged forever, so a new MSI upgrades an old install in place.
 

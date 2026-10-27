@@ -37,6 +37,10 @@ import app.lockon.ui.components.CardDetailContent
 import app.lockon.ui.components.CardDetailDialog
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.Panel
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
+import app.lockon.ui.components.ScreenHeader
+import androidx.compose.ui.unit.sp
 import app.lockon.ui.components.motion
 
 @Composable
@@ -50,23 +54,25 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
     var managing by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                info?.let { "${it.name} · v${it.version}" }.orEmpty(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+        // In the band beside the floating navigation on wide windows (UX rule N5).
+        ScreenHeader(if (wide) "Card database" else "Cards", subtitle = info?.let { "${it.name} · v${it.version}" }) {
             // A found update is a quiet label here, never a pop-up (UX rule C1).
-            TextButton(onClick = { managing = true }) { Text(update ?: "Catalog") }
+            GameButton(update ?: "Catalog", onClick = { managing = true }, style = GameButtonStyle.SECONDARY, compact = true)
         }
-        Row(Modifier.fillMaxSize()) {
-            CardSearchPanel(
-                cards.values, onCardClick = { selected = if (wide && selected == it) null else it },
-                modifier = Modifier.weight(1f).fillMaxSize(),
-                focusRequests = state.searchFocusRequests, selected = selected?.cardNumber, wide = wide,
-            )
+        Row(Modifier.fillMaxSize().padding(start = if (wide) 10.dp else 0.dp, top = if (wide) 8.dp else 0.dp)) {
+            val search: @Composable (Modifier) -> Unit = { m ->
+                CardSearchPanel(
+                    cards.values, onCardClick = { selected = if (wide && selected == it) null else it },
+                    modifier = m, focusRequests = state.searchFocusRequests, selected = selected?.cardNumber, wide = wide,
+                )
+            }
+            if (wide) {
+                Panel(Modifier.weight(1f).fillMaxHeight().padding(end = 10.dp, bottom = 10.dp)) {
+                    search(Modifier.fillMaxSize())
+                }
+            } else {
+                search(Modifier.weight(1f).fillMaxSize())
+            }
             if (wide) {
                 AnimatedVisibility(
                     visible = selected != null,
@@ -78,8 +84,8 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
                         Panel(Modifier.width(460.dp).fillMaxHeight().padding(end = 12.dp, bottom = 12.dp)) {
                             Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(card.name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f),
-                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(card.name, style = MaterialTheme.typography.headlineSmall,
+                                        modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                                     IconButton(onClick = { selected = null }) { Icon(Icons.Default.Close, contentDescription = "Close details") }
                                 }
                                 CardDetailContent(card, printings[card.cardNumber].orEmpty(), Modifier.padding(end = 12.dp, top = 8.dp, bottom = 12.dp))

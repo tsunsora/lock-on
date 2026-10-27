@@ -85,9 +85,9 @@ class RealDataScreenshotTest {
             override suspend fun openText(mimeTypes: List<String>): String? = null
         }
 
-        fun shoot(name: String, w: Int, h: Int, density: Float, setup: AppState.() -> Unit) {
+        fun shoot(name: String, w: Int, h: Int, density: Float, dark: Boolean = true, setup: AppState.() -> Unit) {
             val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
-            ImageComposeScene(w, h, Density(density)) { LockOnApp(container, state, sync, files, imageCacheDir = cache, dark = true) }.use { scene ->
+            ImageComposeScene(w, h, Density(density)) { LockOnApp(container, state, sync, files, imageCacheDir = cache, dark = dark) }.use { scene ->
                 var image = scene.render()
                 // Images arrive from the network on first run; give them time, advancing the frame clock.
                 repeat(60) { frame -> Thread.sleep(150); image = scene.render((frame + 1) * 100_000_000L) }
@@ -96,12 +96,47 @@ class RealDataScreenshotTest {
         }
 
         shoot("desktop-editor", 2576, 1456, 1.25f) { open(Screen.DeckEditor(deckId)) }
+        shoot("light-desktop-editor", 2576, 1456, 1.25f, dark = false) { open(Screen.DeckEditor(deckId)) }
+        shoot("light-desktop-library", 2576, 1456, 1.25f, dark = false) { select(Tab.DECKS) }
+        shoot("light-phone-deck", 1080, 2400, 2.75f, dark = false) { open(Screen.DeckEditor(deckId)) }
         shoot("desktop-editor-empty", 2576, 1456, 1.25f) { open(Screen.DeckEditor(emptyId)) }
         shoot("desktop-library", 2576, 1456, 1.25f) { select(Tab.DECKS) }
         shoot("desktop-cards", 2576, 1456, 1.25f) { select(Tab.CARDS) }
         shoot("phone-add-cards", 1080, 2400, 2.75f) { open(Screen.DeckEditor(deckId, startTab = 1)) }
         shoot("phone-deck", 1080, 2400, 2.75f) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-library", 1080, 2400, 2.75f) { select(Tab.DECKS) }
+
+        // The PNG that Save image writes from the Export dialog, with the real card images.
+        // The image follows the app's theme, so export it in both.
+        for (dark in listOf(true, false)) {
+        val saved = java.util.concurrent.CompletableFuture<ByteArray>()
+        val capturing = object : FileBridge {
+            override suspend fun saveText(suggestedName: String, mimeType: String, content: String) = false
+            override suspend fun saveBytes(suggestedName: String, mimeType: String, content: ByteArray): Boolean {
+                saved.complete(content); return true
+            }
+            override suspend fun openText(mimeTypes: List<String>): String? = null
+        }
+        val deck = container.decks.currentSnapshot(deckId)!!
+        ImageComposeScene(1200, 1400, Density(1.5f)) {
+            LockOnTheme(dark = dark) {
+                ArtworkProvider(container, cache) {
+                    app.lockon.ui.decks.DeckExportDialog(
+                        deck, container.catalog.cards.value, container.catalog.ruleset.value, capturing,
+                        AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = 1,
+                    )
+                }
+            }
+        }.use { scene ->
+            // Give the card images time to load before saving.
+            repeat(40) { frame -> Thread.sleep(150); scene.render((frame + 1) * 100_000_000L) }
+            val button = androidx.compose.ui.geometry.Offset(900f, 1196f)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
+            repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 41) * 100_000_000L) }
+            File(out, if (dark) "exported-deck-image.png" else "exported-deck-image-light.png").writeBytes(saved.get(10, java.util.concurrent.TimeUnit.SECONDS))
+        }
+        }
 
         // Details at side-panel width and at dialog width.
         val gundam = container.catalog.cards.value.getValue("GD01-001")

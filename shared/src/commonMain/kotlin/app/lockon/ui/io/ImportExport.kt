@@ -1,4 +1,7 @@
 package app.lockon.ui.io
+import app.lockon.ui.components.GameDialog
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -54,9 +57,9 @@ fun ImportDialog(container: AppContainer, files: FileBridge, state: AppState, on
         }
     }
 
-    AlertDialog(
+    GameDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Import") },
+        title = "Import",
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Paste a deck list or a Lock On backup, or open a file.", style = MaterialTheme.typography.bodySmall)
@@ -66,13 +69,13 @@ fun ImportDialog(container: AppContainer, files: FileBridge, state: AppState, on
                     placeholder = { Text("# Deck name\n4 SMP-001\n10 SMP-019") },
                     textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 )
-                OutlinedButton(onClick = {
+                GameButton("Open file", onClick = {
                     scope.launch { files.openText(listOf("text/plain", "application/json"))?.let { text = it } }
-                }) { Text("Open file") }
+                }, style = GameButtonStyle.SECONDARY)
                 problems.take(6).forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
         },
-        confirmButton = { TextButton(onClick = ::import, enabled = text.isNotBlank()) { Text("Import") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { GameButton("Import", onClick = ::import, enabled = text.isNotBlank(), compact = true) },
+        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
     )
 }

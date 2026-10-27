@@ -79,8 +79,15 @@ kotlin {
             implementation("io.coil-kt.coil3:coil-network-ktor3:3.4.0")
         }
         // Plain HTTPS downloads (catalog updates) use the system trust store, unlike sync.
-        androidMain.dependencies { implementation("io.ktor:ktor-client-okhttp:$ktorVersion") }
-        jvmMain.dependencies { implementation("io.ktor:ktor-client-okhttp:$ktorVersion") }
+        // zxing draws the deck image's share QR code; both platforms already ship it for pairing.
+        androidMain.dependencies {
+            implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
+            implementation("com.google.zxing:core:3.5.3")
+        }
+        jvmMain.dependencies {
+            implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
+            implementation("com.google.zxing:core:3.5.3")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")

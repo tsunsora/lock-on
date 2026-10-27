@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
@@ -40,7 +41,14 @@ val LocalArtwork = staticCompositionLocalOf { ArtworkSource(enabled = false, pri
  * nothing jumps while images arrive and a broken link simply leaves the placeholder.
  */
 @Composable
-fun CardArtwork(url: String?, contentDescription: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, fallback: @Composable () -> Unit) {
+fun CardArtwork(
+    url: String?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    alignment: Alignment = Alignment.Center,
+    fallback: @Composable () -> Unit,
+) {
     var failed by remember(url) { mutableStateOf(false) }
     Box(modifier) {
         fallback()
@@ -49,6 +57,7 @@ fun CardArtwork(url: String?, contentDescription: String?, modifier: Modifier = 
                 model = url,
                 contentDescription = contentDescription,
                 contentScale = contentScale,
+                alignment = alignment,
                 onError = { failed = true },
                 // High-quality filtering: card images are scaled a lot, and the default looks jagged.
                 filterQuality = FilterQuality.High,

@@ -1,7 +1,6 @@
 package app.lockon.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -9,104 +8,114 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import app.lockon.resources.Res
-import app.lockon.resources.rajdhani_bold
-import app.lockon.resources.rajdhani_semibold
-import org.jetbrains.compose.resources.Font
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.font.FontVariation
 import app.lockon.model.CardColor
+import app.lockon.resources.Res
+import app.lockon.resources.quicksand
+import org.jetbrains.compose.resources.Font
 
 /**
- * Material 3 colour roles built from a mobile-suit tricolour (UX rule V3):
- * primary is the V-fin yellow used for actions, secondary is armour blue for good states,
- * tertiary is chest red for emphasis. Dark mode is the cockpit; light mode is white armour.
+ * Sky glass (UX rule V3): a bright anime-game palette. Light mode is a clear sky with frosted white
+ * glass; dark mode is a soft twilight, never black. Primary is teal, for actions and the selected
+ * state. Secondary is sky blue, for information and charts. Tertiary is soft gold, for celebration:
+ * a legal deck, a full gauge, the Lock On moment.
  */
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFFFC94D),
-    onPrimary = Color(0xFF3D2E00),
-    primaryContainer = Color(0xFF584400),
-    onPrimaryContainer = Color(0xFFFFE08F),
-    secondary = Color(0xFFAFC6FF),
-    onSecondary = Color(0xFF0F2F66),
-    secondaryContainer = Color(0xFF26437F),
-    onSecondaryContainer = Color(0xFFD9E2FF),
-    tertiary = Color(0xFFFFB3AC),
-    onTertiary = Color(0xFF680006),
-    tertiaryContainer = Color(0xFF8C1D18),
-    onTertiaryContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF0D1320),
-    onBackground = Color(0xFFE2E6F0),
-    surface = Color(0xFF0D1320),
-    onSurface = Color(0xFFE2E6F0),
-    surfaceVariant = Color(0xFF2A3446),
-    onSurfaceVariant = Color(0xFFBCC5D6),
-    surfaceContainerLowest = Color(0xFF080D17),
-    surfaceContainerLow = Color(0xFF121A28),
-    surfaceContainer = Color(0xFF162030),
-    surfaceContainerHigh = Color(0xFF1C2738),
-    surfaceContainerHighest = Color(0xFF233044),
-    outline = Color(0xFF8690A3),
-    outlineVariant = Color(0xFF3A4558),
-)
-
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF745B00),
+    primary = Color(0xFF0B8794),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE08F),
-    onPrimaryContainer = Color(0xFF241A00),
-    secondary = Color(0xFF2A5BB8),
+    primaryContainer = Color(0xFFC6F1F3),
+    onPrimaryContainer = Color(0xFF00373D),
+    secondary = Color(0xFF2F6FD6),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFD9E2FF),
-    onSecondaryContainer = Color(0xFF001A43),
-    tertiary = Color(0xFFB3261E),
+    secondaryContainer = Color(0xFFDCE8FF),
+    onSecondaryContainer = Color(0xFF0B2A5C),
+    tertiary = Color(0xFF9A6200),
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFFFDAD6),
-    onTertiaryContainer = Color(0xFF410002),
-    background = Color(0xFFF7F8FC),
-    onBackground = Color(0xFF1A1C22),
-    surface = Color(0xFFF7F8FC),
-    onSurface = Color(0xFF1A1C22),
-    surfaceVariant = Color(0xFFE0E3EC),
-    onSurfaceVariant = Color(0xFF444955),
+    tertiaryContainer = Color(0xFFFFE6B0),
+    onTertiaryContainer = Color(0xFF3A2500),
+    background = Color(0xFFE6F2FA),
+    onBackground = Color(0xFF1C2742),
+    surface = Color(0xFFF7FBFF),
+    onSurface = Color(0xFF1C2742),
+    surfaceVariant = Color(0xFFE2EBF5),
+    onSurfaceVariant = Color(0xFF4F5B74),
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFF1F3F9),
-    surfaceContainer = Color(0xFFEBEEF5),
-    surfaceContainerHigh = Color(0xFFE5E8F0),
-    surfaceContainerHighest = Color(0xFFDFE3EB),
-    outline = Color(0xFF757A86),
-    outlineVariant = Color(0xFFC4C8D2),
+    surfaceContainerLow = Color(0xFFF4F9FE),
+    surfaceContainer = Color(0xFFEDF4FB),
+    surfaceContainerHigh = Color(0xFFE6EEF8),
+    surfaceContainerHighest = Color(0xFFDDE7F3),
+    outline = Color(0xFF7D8BA5),
+    outlineVariant = Color(0xFFC9D6E6),
+    error = Color(0xFFC62E3D),
+    errorContainer = Color(0xFFFFDDE0),
+    onErrorContainer = Color(0xFF5A0011),
 )
 
-/** Fixed mobile-suit colours for decoration (tricolour stripe, V-fin, caution stripes). */
+private val DarkColors = darkColorScheme(
+    primary = Color(0xFF5EE0E6),
+    onPrimary = Color(0xFF00323A),
+    primaryContainer = Color(0xFF0F4E57),
+    onPrimaryContainer = Color(0xFFC0F6F8),
+    secondary = Color(0xFF93B9FF),
+    onSecondary = Color(0xFF0B2A5C),
+    secondaryContainer = Color(0xFF29467F),
+    onSecondaryContainer = Color(0xFFDCE8FF),
+    tertiary = Color(0xFFFFCA70),
+    onTertiary = Color(0xFF402A00),
+    tertiaryContainer = Color(0xFF5C4100),
+    onTertiaryContainer = Color(0xFFFFE6B0),
+    background = Color(0xFF151C36),
+    onBackground = Color(0xFFEEF3FF),
+    surface = Color(0xFF1B2342),
+    onSurface = Color(0xFFEEF3FF),
+    surfaceVariant = Color(0xFF2C365C),
+    onSurfaceVariant = Color(0xFFB4BFD8),
+    surfaceContainerLowest = Color(0xFF10162C),
+    surfaceContainerLow = Color(0xFF19213E),
+    surfaceContainer = Color(0xFF1F2849),
+    surfaceContainerHigh = Color(0xFF263056),
+    surfaceContainerHighest = Color(0xFF2E3963),
+    outline = Color(0xFF8290B0),
+    outlineVariant = Color(0xFF3A4672),
+    error = Color(0xFFFF8E97),
+    errorContainer = Color(0xFF6E1222),
+    onErrorContainer = Color(0xFFFFDDE0),
+)
+
+/** Fixed colours for decoration that reads the same in both themes. */
 object SuitColors {
-    val armorBlue = Color(0xFF2A5BB8)
-    val armorWhite = Color(0xFFE9ECF2)
-    val chestRed = Color(0xFFD3352B)
-    val vFinYellow = Color(0xFFFFC94D)
-    val cautionBlack = Color(0xFF1A1C22)
+    val armorBlue = Color(0xFF3F7FE6)
+    val armorWhite = Color(0xFFF3F7FC)
+    val chestRed = Color(0xFFE5484D)
+    /** Soft gold for celebration: sparkles, a legal deck, the Lock On moment. */
+    val vFinYellow = Color(0xFFFFC34D)
+    val cautionBlack = Color(0xFF1C2742)
+    val teal = Color(0xFF2CC9D0)
+    val sky = Color(0xFF8ED3F5)
+    val blush = Color(0xFFF7B8D2)
 }
 
-/**
- * Armour-plate cut corners for large surfaces only: cards, panels and card faces (UX rule V1).
- * Small controls keep Material's rounded shapes.
- */
+/** Soft, rounded shapes everywhere (UX rule V1): panels, tiles and pills. */
 object LockOnShapes {
-    val panel = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp)
-    val tile = CutCornerShape(topStart = 10.dp, bottomEnd = 10.dp)
-    val thumb = CutCornerShape(topStart = 6.dp)
+    val panel = RoundedCornerShape(22.dp)
+    val tile = RoundedCornerShape(16.dp)
+    val thumb = RoundedCornerShape(8.dp)
+    /** Buttons, chips, tabs, search fields and stamps. */
+    val button = RoundedCornerShape(percent = 50)
 }
 
 private val MaterialShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(8.dp),
-    // Material cards and similar containers become armour plates.
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
     medium = LockOnShapes.tile,
-    large = RoundedCornerShape(16.dp),
+    large = LockOnShapes.panel,
     extraLarge = RoundedCornerShape(28.dp),
 )
 
@@ -114,26 +123,37 @@ private val MaterialShapes = Shapes(
 val TabularNumbers = TextStyle(fontFeatureSettings = "tnum")
 
 /**
- * Rajdhani (SIL OFL, licenses/Rajdhani-OFL.txt) gives headings, labels and numbers a cockpit-display
- * feel. Body text stays the platform font for long-form readability. Rajdhani runs small, so its
- * sizes are nudged up.
+ * Friendly rounded type in mixed case, like a game's menus (UX rule V2a). Quicksand (SIL OFL,
+ * licenses/Quicksand-OFL.txt) sets headings, labels and numbers in bold; body text stays the
+ * platform sans for long-form readability.
  */
+@OptIn(ExperimentalTextApi::class)
 @Composable
 private fun lockOnTypography(): Typography {
-    val hud = FontFamily(Font(Res.font.rajdhani_semibold, FontWeight.SemiBold), Font(Res.font.rajdhani_bold, FontWeight.Bold))
     val base = Typography()
-    fun TextStyle.hud(weight: FontWeight, grow: Int) =
-        copy(fontFamily = hud, fontWeight = weight, fontSize = (fontSize.value + grow).sp, letterSpacing = 0.3.sp)
+    val rounded = FontFamily(
+        Font(Res.font.quicksand, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+        Font(Res.font.quicksand, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+        Font(Res.font.quicksand, FontWeight.ExtraBold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    )
+    fun TextStyle.game(weight: FontWeight, grow: Float = 0f, tracking: Double = 0.0) =
+        copy(fontFamily = rounded, fontWeight = weight, fontSize = (fontSize.value + grow).sp, letterSpacing = tracking.sp)
     return base.copy(
-        displaySmall = base.displaySmall.hud(FontWeight.Bold, 2),
-        headlineLarge = base.headlineLarge.hud(FontWeight.Bold, 2),
-        headlineMedium = base.headlineMedium.hud(FontWeight.Bold, 2),
-        headlineSmall = base.headlineSmall.hud(FontWeight.Bold, 2),
-        titleLarge = base.titleLarge.hud(FontWeight.Bold, 2),
-        titleMedium = base.titleMedium.hud(FontWeight.Bold, 2),
-        titleSmall = base.titleSmall.hud(FontWeight.SemiBold, 2),
-        labelLarge = base.labelLarge.hud(FontWeight.SemiBold, 2),
-        labelMedium = base.labelMedium.hud(FontWeight.SemiBold, 1),
+        displayLarge = base.displayLarge.game(FontWeight.ExtraBold),
+        displayMedium = base.displayMedium.game(FontWeight.ExtraBold),
+        displaySmall = base.displaySmall.game(FontWeight.ExtraBold),
+        headlineLarge = base.headlineLarge.game(FontWeight.ExtraBold),
+        headlineMedium = base.headlineMedium.game(FontWeight.ExtraBold, -2f),
+        headlineSmall = base.headlineSmall.game(FontWeight.ExtraBold, -1f),
+        titleLarge = base.titleLarge.game(FontWeight.ExtraBold, -1f),
+        titleMedium = base.titleMedium.game(FontWeight.Bold),
+        titleSmall = base.titleSmall.game(FontWeight.Bold),
+        labelLarge = base.labelLarge.game(FontWeight.Bold, tracking = 0.2),
+        labelMedium = base.labelMedium.game(FontWeight.Bold, tracking = 0.2),
+        labelSmall = base.labelSmall.game(FontWeight.Bold, tracking = 0.2),
+        bodyLarge = base.bodyLarge.copy(fontFamily = FontFamily.SansSerif),
+        bodyMedium = base.bodyMedium.copy(fontFamily = FontFamily.SansSerif),
+        bodySmall = base.bodySmall.copy(fontFamily = FontFamily.SansSerif),
     )
 }
 

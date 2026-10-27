@@ -1,4 +1,8 @@
 package app.lockon.ui.update
+import app.lockon.ui.components.PillSwitch
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
+import app.lockon.ui.components.GlassCard
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lockon.BuildInfo
 import app.lockon.platform.formatTimestamp
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.ReticleSpinner
 import app.lockon.update.AppUpdater
 import app.lockon.update.UpdatePlatform
@@ -36,9 +40,9 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun AppUpdateCard(updater: AppUpdater?, scope: CoroutineScope) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            HudHeader("Lock On", readout = BuildInfo.VERSION)
+            SectionHeader("Lock On", readout = BuildInfo.VERSION)
             if (updater == null || !updater.enabled) {
                 Text("This build doesn't check for updates.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -101,14 +105,12 @@ private fun UpdateBody(updater: AppUpdater, scope: CoroutineScope) {
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         when (state) {
-            is UpdateState.Available -> if (canInstall) Button(onClick = { scope.launch { updater.downloadNow() } }) { Text("Download") }
-            is UpdateState.Ready -> Button(onClick = { scope.launch { updater.installNow() } }) {
-                Text(if (windows) "Restart and update" else "Install update")
-            }
+            is UpdateState.Available -> if (canInstall) GameButton("Download", onClick = { scope.launch { updater.downloadNow() } })
+            is UpdateState.Ready -> GameButton(if (windows) "Restart and update" else "Install update", onClick = { scope.launch { updater.installNow() } })
             else -> Unit
         }
         val idle = state is UpdateState.Idle || state is UpdateState.UpToDate || state is UpdateState.Failed || state is UpdateState.Available
-        if (idle) OutlinedButton(onClick = { scope.launch { updater.checkNow() } }) { Text("Check for updates") }
+        if (idle) GameButton("Check for updates", onClick = { scope.launch { updater.checkNow() } }, style = GameButtonStyle.SECONDARY)
     }
 
     if (canInstall) {
@@ -121,7 +123,7 @@ private fun UpdateBody(updater: AppUpdater, scope: CoroutineScope) {
                     style = MaterialTheme.typography.bodySmall, color = muted,
                 )
             }
-            Switch(checked = automatic, onCheckedChange = { on -> scope.launch { updater.setAutomatic(on) } })
+            PillSwitch(checked = automatic, onCheckedChange = { on -> scope.launch { updater.setAutomatic(on) } })
         }
     }
 }

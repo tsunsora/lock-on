@@ -1,4 +1,12 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.LocalNavClearance
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawWithContent
+import app.lockon.ui.components.PillChip
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -52,6 +60,11 @@ import app.lockon.ui.components.CompactStepper
 import app.lockon.ui.components.CardRow
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.theme.TabularNumbers
+import app.lockon.ui.theme.cardColor
+import app.lockon.ui.theme.onCardColor
+import app.lockon.ui.components.ColorOrbToggle
+import app.lockon.ui.components.PillSearchField
+import androidx.compose.foundation.layout.width
 
 enum class CardSort(val label: String, val comparator: Comparator<Card>) {
     NUMBER("Number", compareBy { it.cardNumber }),
@@ -65,6 +78,8 @@ class DeckControls(
     val quantity: (Card) -> Int,
     val tag: @Composable (Card) -> Unit,
     val change: (Card, Int) -> Unit,
+    /** The copy limit shown as pips under the count; null when the card has none. */
+    val limit: (Card) -> Int? = { null },
 )
 
 /**
@@ -106,66 +121,89 @@ fun CardSearchPanel(
     val costs = remember(cards) { cards.mapNotNull { it.cost }.distinct().sorted() }
     val sets = remember(cards) { cards.map { it.setCode }.distinct().sorted() }
 
-    Column(modifier) {
-        OutlinedTextField(
-            value = query.text,
-            onValueChange = { query = query.copy(text = it) },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).focusRequester(focus),
-            placeholder = { Text(if (query.isEmpty) "Search ${cards.size} cards" else "Name, card number, or text") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                if (!query.isEmpty) IconButton(onClick = { query = CardQuery() }) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear search and filters")
+    @Composable
+    fun ViewControls() {
+        PillChip(selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") })
+        Box {
+            PillChip(selected = false, onClick = { sortMenu = true }, label = { Text("Sort: ${sort.label}") })
+            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                CardSort.entries.forEach { option ->
+                    DropdownMenuItem(text = { Text(option.label) }, onClick = { sort = option; sortMenu = false })
                 }
-            },
-            singleLine = true,
-        )
-        // Wide panes wrap the quick filters so all are visible; phones scroll one row to keep results in view.
-        val chipModifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 12.dp)
-        else Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp)
-        FlowRow(
-            chipModifier,
+            }
+        }
+        PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "List" else "Grid") })
+    }
+
+    // Filters set beyond the quick row, so a closed Filters chip still says something is on.
+    val hiddenFilters = query.levels.size + query.costs.size + query.setCodes.size + (if (query.trait.isBlank()) 0 else 1) +
+        (if (!wide && sort != CardSort.NUMBER) 1 else 0)
+    Column(modifier) {
+        // Two rows instead of a field and wrapped chips: the search with its count and view
+        // controls, then colours as orbs and types as chips (UX rules N4, S5). On phones the view
+        // controls move into Filters, so the quick row starts with every colour in reach.
+        Row(
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // Results, filters, sort and view share the chip row, so no separate toolbar is needed.
-            Text(
-                "${results.size}", style = MaterialTheme.typography.titleSmall.merge(TabularNumbers),
-                color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 2.dp),
+            PillSearchField(
+                query.text, { query = query.copy(text = it) },
+                placeholder = if (query.isEmpty) "Search ${cards.size} cards" else "Name, card number, or text",
+                modifier = Modifier.weight(1f).focusRequester(focus),
+                onClear = if (query.isEmpty) null else ({ query = CardQuery() }),
             )
-            FilterChip(selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") })
-            Box {
-                FilterChip(selected = false, onClick = { sortMenu = true }, label = { Text("Sort: ${sort.label}") })
-                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                    CardSort.entries.forEach { option ->
-                        DropdownMenuItem(text = { Text(option.label) }, onClick = { sort = option; sortMenu = false })
+            Text(
+                "${results.size}", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
+                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 4.dp),
+            )
+            if (wide) ViewControls()
+            else PillChip(selected = showMore, onClick = { showMore = !showMore },
+                label = { Text(if (hiddenFilters > 0) "Filters · $hiddenFilters" else "Filters") })
+        }
+        // Phones scroll this row, and its far edge fades out to show there is more.
+        val rowModifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)
+        else Modifier.fillMaxWidth()
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = size.width - 40.dp.toPx(), endX = size.width),
+                    blendMode = BlendMode.DstOut)
+            }
+            .horizontalScroll(rememberScrollState()).padding(start = 6.dp, end = 32.dp, top = 2.dp, bottom = 2.dp)
+        FlowRow(rowModifier, horizontalArrangement = Arrangement.spacedBy(if (wide) 4.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            CardColor.entries.forEach { color ->
+                Box(Modifier.align(Alignment.CenterVertically)) {
+                    ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors, target = if (wide) 38.dp else 48.dp) {
+                        query = query.copy(colors = query.colors.toggle(color))
                     }
                 }
             }
-            FilterChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "List" else "Grid") })
-            if (deckColors != null && deckColors.isNotEmpty()) {
-                FilterChip(
-                    selected = deckColorsOnly,
-                    onClick = { deckColorsOnly = !deckColorsOnly },
-                    label = { Text("Deck colors only") },
-                )
-            }
-            CardColor.entries.forEach { color ->
-                FilterChip(
-                    selected = color in query.colors,
-                    onClick = { query = query.copy(colors = query.colors.toggle(color)) },
-                    label = { Text(color.label) },
-                )
-            }
+            Spacer(Modifier.width(6.dp))
             CardType.entries.forEach { type ->
-                FilterChip(
+                PillChip(
                     selected = type in query.types,
                     onClick = { query = query.copy(types = query.types.toggle(type)) },
                     label = { Text(type.label) },
+                    modifier = Modifier.align(Alignment.CenterVertically).padding(end = if (wide) 0.dp else 4.dp),
+                )
+            }
+            if (deckColors != null && deckColors.isNotEmpty()) {
+                PillChip(
+                    selected = deckColorsOnly,
+                    onClick = { deckColorsOnly = !deckColorsOnly },
+                    label = { Text("Deck colors only") },
+                    modifier = Modifier.align(Alignment.CenterVertically),
                 )
             }
         }
         if (showMore) {
             Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (!wide) {
+                    // On phones sort order and view live here, keeping the quick row for filters.
+                    ChipLine("Sort", CardSort.entries.map { it.label }, setOf(sort.label)) { label -> sort = CardSort.entries.first { it.label == label } }
+                    ChipLine("View", listOf("Grid", "List"), setOf(if (grid) "Grid" else "List")) { grid = it == "Grid" }
+                }
                 ChipLine("Level", levels, query.levels) { query = query.copy(levels = query.levels.toggle(it)) }
                 ChipLine("Cost", costs, query.costs) { query = query.copy(costs = query.costs.toggle(it)) }
                 ChipLine("Set", sets, query.setCodes) { query = query.copy(setCodes = query.setCodes.toggle(it)) }
@@ -178,14 +216,14 @@ fun CardSearchPanel(
                 )
             }
         }
-        HorizontalDivider(Modifier.padding(top = 8.dp))
+        HorizontalDivider(Modifier.padding(top = 4.dp))
         when {
             results.isEmpty() -> EmptyState("No cards match", "Try fewer filters or a shorter search.")
             grid -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(if (wide) 160.dp else 104.dp),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(if (wide) 16.dp else 10.dp),
-                verticalArrangement = Arrangement.spacedBy(if (wide) 18.dp else 12.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 20.dp + LocalNavClearance.current),
+                horizontalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
+                verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 10.dp),
             ) {
                 items(results, key = { it.cardNumber }) { card ->
                     CardTile(
@@ -197,10 +235,11 @@ fun CardSearchPanel(
                         onMinus = controls?.let { c -> { c.change(card, -1) } },
                         onPlus = controls?.let { c -> { c.change(card, 1) } },
                         selected = card.cardNumber == selected,
+                        limit = controls?.limit?.invoke(card),
                     )
                 }
             }
-            else -> LazyColumn(Modifier.fillMaxWidth()) {
+            else -> LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = LocalNavClearance.current)) {
                 items(results, key = { it.cardNumber }) { card ->
                     CardRow(card, Modifier.animateItem(), onClick = { onCardClick(card) }, trailing = {
                         if (controls != null) {
@@ -223,7 +262,7 @@ private fun <T> ChipLine(label: String, values: List<T>, selected: Set<T>, onTog
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.Center) {
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 4.dp))
         values.forEach { value ->
-            FilterChip(selected = value in selected, onClick = { onToggle(value) }, label = { Text("$value") })
+            PillChip(selected = value in selected, onClick = { onToggle(value) }, label = { Text("$value") })
         }
     }
 }

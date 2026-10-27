@@ -106,30 +106,9 @@ fun RollingNumber(value: Int, style: TextStyle, color: Color = Color.Unspecified
     ) { Text("$it", style = style, color = color) }
 }
 
-/**
- * A HUD gauge: label, count over the limit, and a bar that fills toward the limit. The bar is
- * armour blue when exactly full, V-fin yellow while filling, and the error colour when over.
- */
+/** A deck gauge; drawn as a [ProgressGauge] in the HUD style. */
 @Composable
-fun DeckGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
-    val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
-    val color = when {
-        count == limit -> scheme.secondary
-        count > limit -> scheme.error
-        else -> scheme.primary
-    }
-    Column(modifier.widthIn(min = 104.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            RollingNumber(count, MaterialTheme.typography.titleMedium, color)
-            Text("/$limit", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-        }
-        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(scheme.surfaceVariant)) {
-            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(color))
-        }
-    }
-}
+fun DeckGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier) = ProgressGauge(label, count, limit, modifier)
 
 /**
  * The Lock On moment: when a deck becomes legal, four brackets close in on the reticle and it turns
@@ -203,10 +182,9 @@ fun Modifier.dealIn(key: Any, index: Int): Modifier = composed {
     val reduce = LocalReduceMotion.current
     val progress = remember(key) { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(key) {
-        if (!reduce) {
-            delay((index * Motion.STAGGER * 2).toLong())
-            progress.animateTo(1f, tween(Motion.LONG, easing = Motion.emphasizedDecelerate))
-        }
+        // The stagger is the tween's own delay, timed by the frame clock. A separate delay() can
+        // resume on another thread and deadlock against the renderer's frame lock.
+        if (!reduce) progress.animateTo(1f, tween(Motion.LONG, index * Motion.STAGGER * 2, Motion.emphasizedDecelerate))
     }
     graphicsLayer {
         val p = progress.value

@@ -18,3 +18,6 @@ expect fun formatDate(epochMillis: Long): String
 
 /** PNG bytes of a rendered image, for saving deck images. */
 expect fun encodePng(image: ImageBitmap): ByteArray
+
+/** A QR code for [text], as UTF-8 with medium error correction. Both platforms use zxing. */
+expect fun encodeShareQr(text: String): app.lockon.sync.QrMatrix

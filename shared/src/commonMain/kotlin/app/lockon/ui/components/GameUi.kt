@@ -1,0 +1,999 @@
+package app.lockon.ui.components
+import androidx.compose.ui.text.drawText
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
+
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.lockon.ui.theme.LockOnShapes
+import app.lockon.ui.theme.SuitColors
+import app.lockon.ui.theme.TabularNumbers
+
+// The sky-glass layer (UX rules V1, V8, V9): a bright sky backdrop, frosted glass panels, pill
+// buttons, chips and tabs, round orbs and medallions, and the hover and add-card feedback that makes
+// building feel lively. Every animation respects reduced motion.
+
+/** True on the twilight (dark) theme; glass and glows are tuned per theme. */
+@Composable
+@ReadOnlyComposable
+fun isTwilight(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+/** The action and selection colour: teal. Lit pills use it with [OnAccent] text. */
+val Accent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
+val OnAccent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onPrimary
+
+/** Soft gold for celebration only: a full gauge, a legal deck, sparkles, the Lock On moment. */
+val Gold = SuitColors.vFinYellow
+
+/** Frosted glass for the current theme: its fill, a stronger fill for small controls, and the rim. */
+data class GlassColors(val fill: Color, val strong: Color, val rim: Color, val rimLow: Color, val shade: Color)
+
+@Composable
+@ReadOnlyComposable
+fun glassColors(): GlassColors = if (isTwilight()) {
+    GlassColors(Color.White.copy(alpha = 0.07f), Color(0xFF2A3562).copy(alpha = 0.94f), Color.White.copy(alpha = 0.26f), Color.White.copy(alpha = 0.06f), Color(0xFF060B1E))
+} else {
+    GlassColors(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.9f), Color.White, Color(0xFFBFD2E6), Color(0xFF6A88B0))
+}
+
+/** A four-pointed sparkle, the sky theme's signature mark. */
+private fun DrawScope.sparkle(center: Offset, radius: Float, color: Color) {
+    val x = center.x
+    val y = center.y
+    val path = Path().apply {
+        moveTo(x, y - radius)
+        cubicTo(x, y, x, y, x + radius, y)
+        cubicTo(x, y, x, y, x, y + radius)
+        cubicTo(x, y, x, y, x - radius, y)
+        cubicTo(x, y, x, y, x, y - radius)
+        close()
+    }
+    drawPath(path, color)
+}
+
+/** A sparkle as a composable, for headings and celebration. */
+@Composable
+fun Sparkle(modifier: Modifier = Modifier, size: Dp = 12.dp, color: Color = Accent) {
+    Canvas(modifier.size(size)) { sparkle(center, this.size.minDimension / 2, color) }
+}
+
+/**
+ * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light,
+ * floating bokeh and a few sparkles. Twilight swaps the light for stars. It is static: nothing loops.
+ */
+@Composable
+fun SkyBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val twilight = isTwilight()
+    Box(
+        modifier.background(MaterialTheme.colorScheme.background).drawBehind {
+            val w = size.width
+            val h = size.height
+            val m = size.maxDimension
+            if (twilight) {
+                drawRect(Brush.verticalGradient(listOf(Color(0xFF26346A), Color(0xFF19213F), Color(0xFF11172E))))
+                drawRect(Brush.radialGradient(listOf(Color(0xFF3FC6D4).copy(alpha = 0.22f), Color.Transparent), Offset(w * 0.86f, h * 0.02f), m * 0.5f))
+                drawRect(Brush.radialGradient(listOf(Color(0xFF8E6BE8).copy(alpha = 0.2f), Color.Transparent), Offset(w * 0.06f, h * 0.95f), m * 0.5f))
+            } else {
+                drawRect(Brush.verticalGradient(listOf(Color(0xFFB7DEF5), Color(0xFFDDEFFA), Color(0xFFF5FAFE))))
+                drawRect(Brush.radialGradient(listOf(Color(0xFF7FE3E8).copy(alpha = 0.45f), Color.Transparent), Offset(w * 0.86f, h * 0.02f), m * 0.5f))
+                drawRect(Brush.radialGradient(listOf(SuitColors.blush.copy(alpha = 0.35f), Color.Transparent), Offset(w * 0.04f, h * 0.96f), m * 0.45f))
+                drawRect(Brush.radialGradient(listOf(Gold.copy(alpha = 0.18f), Color.Transparent), Offset(w * 0.62f, h * 1.05f), m * 0.4f))
+            }
+            // A soft beam of light falling diagonally across the sky.
+            val beam = Path().apply {
+                moveTo(w * 0.50f, 0f); lineTo(w * 0.66f, 0f); lineTo(w * 0.40f, h); lineTo(w * 0.12f, h); close()
+            }
+            drawPath(beam, Brush.horizontalGradient(
+                listOf(Color.Transparent, Color.White.copy(alpha = if (twilight) 0.05f else 0.32f), Color.Transparent),
+                startX = w * 0.12f, endX = w * 0.66f,
+            ))
+            // Bokeh and sparkles at fixed places, so every frame and screenshot is the same.
+            val bokeh = listOf(
+                Triple(0.08f, 0.18f, 0.05f), Triple(0.22f, 0.62f, 0.03f), Triple(0.47f, 0.3f, 0.025f), Triple(0.71f, 0.72f, 0.045f),
+                Triple(0.9f, 0.4f, 0.03f), Triple(0.35f, 0.9f, 0.04f), Triple(0.6f, 0.12f, 0.02f), Triple(0.95f, 0.88f, 0.035f),
+            )
+            bokeh.forEachIndexed { i, (fx, fy, fr) ->
+                val c = Offset(w * fx, h * fy)
+                val r = m * fr
+                // At twilight the bokeh is a faint glow; rings would read as holes in the night sky.
+                if (twilight) drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.05f), Color.Transparent), c, r), r, c)
+                else {
+                    drawCircle(Color.White.copy(alpha = 0.28f), r, c)
+                    if (i % 2 == 0) drawCircle(Color.White.copy(alpha = 0.5f), r, c, style = Stroke(1.5f))
+                }
+            }
+            if (twilight) {
+                var seed = 7L
+                repeat(70) {
+                    seed = (seed * 1103515245 + 12345) and 0x7fffffff
+                    val x = (seed % 10000) / 10000f * w
+                    seed = (seed * 1103515245 + 12345) and 0x7fffffff
+                    val y = (seed % 10000) / 10000f * h
+                    drawCircle(Color.White.copy(alpha = 0.25f + (it % 4) * 0.1f), 1.2f + (it % 3), Offset(x, y))
+                }
+            }
+            listOf(Triple(0.18f, 0.1f, 9f), Triple(0.78f, 0.22f, 7f), Triple(0.56f, 0.82f, 8f), Triple(0.04f, 0.55f, 6f), Triple(0.93f, 0.62f, 10f))
+                .forEachIndexed { i, (fx, fy, r) ->
+                    sparkle(Offset(w * fx, h * fy), r.dp.toPx(), (if (i % 2 == 0) Color.White else Gold).copy(alpha = if (twilight) 0.55f else 0.85f))
+                }
+        },
+        content = content,
+    )
+}
+
+/** A frosted glass surface: translucent fill, a bright rim fading downward, clipped to [shape]. */
+@Composable
+fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false): Modifier {
+    val g = glassColors()
+    // Frosted: a touch brighter at the top, so the sky shows through more toward the bottom.
+    val fill = if (strong) SolidColor(g.strong) else Brush.verticalGradient(listOf(g.fill, g.fill.copy(alpha = g.fill.alpha * 0.7f)))
+    return clip(shape)
+        .background(fill)
+        .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+}
+
+/** The glass rim on its own, for surfaces that draw their own fill (art banners, dialogs). */
+@Composable
+fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel): Modifier {
+    val g = glassColors()
+    return border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+}
+
+/** A large glass panel with an optional title row (UX rule V1). */
+@Composable
+fun GlassPanel(
+    modifier: Modifier = Modifier,
+    title: String? = null,
+    readout: String? = null,
+    accent: Color = Accent,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier.glass()) {
+        if (title != null) PanelTitle(title, readout, accent)
+        content()
+    }
+}
+
+/** A panel's title row: a sparkle, the title, and the count in a tinted pill. */
+@Composable
+fun PanelTitle(title: String, readout: String? = null, accent: Color = Accent, trailing: @Composable () -> Unit = {}) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().height(42.dp).padding(start = 16.dp, end = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Sparkle(color = accent, size = 12.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, color = scheme.onSurface, modifier = Modifier.weight(1f))
+        trailing()
+        if (readout != null) CountPill(readout, accent)
+    }
+}
+
+/** A number in a soft tinted pill, for panel and section counts. */
+@Composable
+fun CountPill(text: String, color: Color = Accent) {
+    Text(
+        text, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = color,
+        modifier = Modifier.clip(LockOnShapes.button).background(color.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 3.dp),
+    )
+}
+
+/** A pill shape, for tabs, stamps and gauges. */
+val PillShape: Shape = LockOnShapes.button
+
+enum class GameButtonStyle { PRIMARY, SECONDARY, GHOST }
+
+/**
+ * A game button: a pill. Primary is a glossy teal pill with a soft glow; secondary is a white glass
+ * pill with a teal rim; ghost is teal text. Hover brightens, press squishes.
+ */
+@Composable
+fun GameButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    style: GameButtonStyle = GameButtonStyle.PRIMARY,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+    large: Boolean = false,
+    compact: Boolean = false,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val g = glassColors()
+    val accent = Accent
+    val onAccent = OnAccent
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val lift by animateFloatAsState(if (hovered && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-hover")
+    val squish by animateFloatAsState(if (pressed) 0.95f else 1f, motion(Motion.SHORT), label = "button-press")
+    val shape = LockOnShapes.button
+    val fill: Brush
+    val content: Color
+    val rim: Color
+    when {
+        !enabled -> { fill = SolidColor(scheme.onSurface.copy(alpha = 0.06f)); content = scheme.outline; rim = Color.Transparent }
+        style == GameButtonStyle.PRIMARY -> {
+            fill = Brush.verticalGradient(listOf(lighten(accent, 0.22f + 0.12f * lift), accent))
+            content = onAccent; rim = lighten(accent, 0.45f)
+        }
+        style == GameButtonStyle.SECONDARY -> {
+            fill = SolidColor(if (hovered) lighten(g.strong, 0.06f) else g.strong)
+            content = accent; rim = accent.copy(alpha = 0.55f + 0.35f * lift)
+        }
+        else -> { fill = SolidColor(accent.copy(alpha = 0.10f * lift)); content = accent; rim = Color.Transparent }
+    }
+    Box(
+        modifier
+            .heightIn(min = if (large) 54.dp else if (compact) 38.dp else 44.dp)
+            .graphicsLayer {
+                scaleX = squish; scaleY = squish
+                if (style == GameButtonStyle.PRIMARY && enabled) {
+                    this.shape = shape
+                    shadowElevation = (4f + 8f * lift) * density
+                    ambientShadowColor = accent; spotShadowColor = accent
+                }
+            }
+            .clip(shape)
+            .background(fill)
+            .border(BorderStroke(1.dp, rim), shape)
+            .hoverable(interaction, enabled)
+            .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = if (large) 26.dp else if (compact) 14.dp else 20.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (icon != null) Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(if (large) 22.dp else 18.dp))
+            // Two lines at most, centred, so a long label wraps instead of being cut off.
+            Text(
+                text, color = content, maxLines = 2, textAlign = TextAlign.Center,
+                style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+/**
+ * Pill tabs on a glass track: the selected tab is a teal pill. They scroll when the track is
+ * narrower than its tabs, or share the width equally with [fill].
+ */
+@Composable
+fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, fill: Boolean = false) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = Accent
+    val onAccent = OnAccent
+    val track = if (fill) Modifier.fillMaxWidth() else Modifier.horizontalScroll(rememberScrollState())
+    Box(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        Row(track.glass(LockOnShapes.button, strong = true).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            labels.forEachIndexed { i, label ->
+                val isSelected = i == selected
+                val interaction = remember { MutableInteractionSource() }
+                val hovered by interaction.collectIsHoveredAsState()
+                val bg by animateColorAsState(
+                    when {
+                        isSelected -> accent
+                        hovered -> scheme.onSurface.copy(alpha = 0.07f)
+                        else -> Color.Transparent
+                    },
+                    motion(Motion.SHORT), label = "tab",
+                )
+                Box(
+                    (if (fill) Modifier.weight(1f) else Modifier).height(36.dp).clip(LockOnShapes.button).background(bg)
+                        .hoverable(interaction)
+                        .selectable(isSelected, interaction, indication = null, role = Role.Tab) { onSelect(i) }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(label, maxLines = 1, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+                        color = if (isSelected) onAccent else scheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A deck gauge (UX rule I1): label, count over limit, and a rounded bar. Teal while filling, gold
+ * with a sparkle when exactly full, red when over.
+ */
+@Composable
+fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false) {
+    val scheme = MaterialTheme.colorScheme
+    val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
+    val full = count == limit
+    val over = count > limit
+    val accent = Accent
+    val numberColor = when {
+        over -> scheme.error
+        full -> if (isTwilight()) Gold else scheme.tertiary
+        else -> scheme.onSurface
+    }
+    val fillBrush = when {
+        over -> SolidColor(scheme.error)
+        full -> Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
+        else -> Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
+    }
+    val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
+    Column(modifier.widthIn(min = 110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(bottom = 2.dp))
+            RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
+                numberColor, Modifier.bumpOnIncrease(count))
+            Text("/$limit", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
+        }
+        Canvas(Modifier.fillMaxWidth().height(if (compact) 6.dp else 8.dp)) {
+            val r = CornerRadius(size.height / 2)
+            drawRoundRect(track, cornerRadius = r)
+            if (fraction > 0f) drawRoundRect(fillBrush, size = Size(size.width * fraction, size.height), cornerRadius = r)
+            if (full) sparkle(Offset(size.width - size.height * 0.2f, size.height / 2), size.height * 1.3f, Color.White)
+        }
+    }
+}
+
+/** A round cost orb in the card's colour, glossy like a game's element orb. */
+@Composable
+fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modifier, size: Dp = 30.dp, text: String? = null) {
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val r = this.size.minDimension / 2
+            drawCircle(Brush.radialGradient(listOf(lighten(color, 0.45f), color, darken(color, 0.25f)), Offset(r * 0.7f, r * 0.6f), r * 1.4f), r)
+            drawCircle(Color.White.copy(alpha = 0.9f), r - 1.dp.toPx(), style = Stroke(1.6.dp.toPx()))
+            drawCircle(Color.White.copy(alpha = 0.35f), r * 0.3f, Offset(r * 0.68f, r * 0.55f))
+        }
+        CenteredGlyph(text ?: value?.toString() ?: "–", onColor, (size.value * 0.46f).sp)
+    }
+}
+
+/**
+ * Copies as dots (Runeterra-style pips): teal for each copy, gold when the limit is reached, red
+ * beyond it. The count itself is always shown beside them as a number (UX rule I4).
+ */
+@Composable
+fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.dp) {
+    val scheme = MaterialTheme.colorScheme
+    val total = maxOf(limit, count).coerceAtMost(6)
+    val lit = if (count == limit) (if (isTwilight()) Gold else scheme.tertiary) else Accent
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(total) { i ->
+            val on = i < count
+            val color = if (i >= limit) scheme.error else if (on) lit else scheme.onSurface.copy(alpha = 0.22f)
+            Canvas(Modifier.size(pip)) {
+                if (on) drawCircle(color) else drawCircle(color, style = Stroke(1.dp.toPx()))
+            }
+        }
+    }
+}
+
+/**
+ * Hover lift for cards and tiles on desktop: rises, grows a touch, glows in its colour and, with
+ * [tilt], leans toward the pointer. Press squishes it. Phones never hover, so they only get the press.
+ */
+fun Modifier.hoverLift(
+    interaction: MutableInteractionSource,
+    glow: Color,
+    shape: Shape,
+    lift: Dp = 6.dp,
+    resting: Float = 0f,
+    tilt: Float = 0f,
+): Modifier = composed {
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val reduce = LocalReduceMotion.current
+    val t by animateFloatAsState(if (hovered) 1f else 0f, motion(Motion.SHORT), label = "hover-lift")
+    val press by animateFloatAsState(if (pressed) 0.96f else 1f, motion(Motion.SHORT), label = "press")
+    var pointer by remember { mutableStateOf(Offset.Unspecified) }
+    var area by remember { mutableStateOf(IntSize.Zero) }
+    val aim = if (tilt == 0f || reduce || !hovered || pointer == Offset.Unspecified || area.width == 0) Offset.Zero
+    else Offset(pointer.x / area.width - 0.5f, pointer.y / area.height - 0.5f) * 2f
+    val tiltX by animateFloatAsState(-aim.y * tilt, motion(Motion.SHORT), label = "tilt-x")
+    val tiltY by animateFloatAsState(aim.x * tilt, motion(Motion.SHORT), label = "tilt-y")
+    val tracking = if (tilt == 0f) Modifier else Modifier.onSizeChanged { area = it }.pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                pointer = if (event.type == PointerEventType.Exit) Offset.Unspecified else event.changes.first().position
+            }
+        }
+    }
+    then(tracking).hoverable(interaction).graphicsLayer {
+        val s = (1f + 0.035f * t) * press
+        scaleX = s; scaleY = s
+        rotationX = tiltX; rotationY = tiltY
+        cameraDistance = 14f * density
+        translationY = -lift.toPx() * t
+        this.shape = shape
+        shadowElevation = 18.dp.toPx() * maxOf(t, resting)
+        ambientShadowColor = glow; spotShadowColor = glow
+    }
+}
+
+/** A springy bump when [value] grows, so an added copy registers (UX rule V5: what changed). */
+fun Modifier.bumpOnIncrease(value: Int): Modifier = composed {
+    val reduce = LocalReduceMotion.current
+    val scale = remember { Animatable(1f) }
+    var last by remember { mutableStateOf(value) }
+    LaunchedEffect(value) {
+        if (!reduce && value > last) {
+            scale.snapTo(1.3f)
+            scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 700f))
+        }
+        last = value
+    }
+    graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+}
+
+/**
+ * A flash over a card when a copy is added (or a red one when removed), fading in about half a
+ * second. Drawn over the content, so it never moves anything.
+ */
+fun Modifier.flashOnChange(value: Int, add: Color, remove: Color, shape: Shape): Modifier = composed {
+    val reduce = LocalReduceMotion.current
+    val flash = remember { Animatable(0f) }
+    var last by remember { mutableStateOf(value) }
+    var tint by remember { mutableStateOf(add) }
+    LaunchedEffect(value) {
+        if (!reduce && value != last) {
+            tint = if (value > last) add else remove
+            flash.snapTo(1f)
+            flash.animateTo(0f, tween(520, easing = Motion.emphasizedDecelerate))
+        }
+        last = value
+    }
+    drawWithContent {
+        drawContent()
+        val a = flash.value
+        if (a > 0f) {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            drawOutline(outline, tint.copy(alpha = 0.3f * a))
+            drawOutline(outline, tint.copy(alpha = a), style = Stroke(3.dp.toPx()))
+        }
+    }
+}
+
+/** Provides [color] as the content colour, for icons inside custom plates. */
+@Composable
+fun WithContentColor(color: Color, content: @Composable () -> Unit) = CompositionLocalProvider(LocalContentColor provides color, content = content)
+
+fun lighten(color: Color, amount: Float) = Color(
+    red = color.red + (1f - color.red) * amount,
+    green = color.green + (1f - color.green) * amount,
+    blue = color.blue + (1f - color.blue) * amount,
+    alpha = color.alpha,
+)
+
+fun darken(color: Color, amount: Float) = Color(
+    red = color.red * (1f - amount), green = color.green * (1f - amount), blue = color.blue * (1f - amount), alpha = color.alpha,
+)
+
+/** A smaller glass card for grouped content such as a device or the update status. */
+@Composable
+fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile), content = content)
+}
+
+/**
+ * The Lock On moment: when [locked] turns true, a white shine crosses the content like light on a
+ * new card, gold sparkles pop behind it, and the rim glows gold. It plays only on the change, never
+ * when a legal deck opens (UX rule V5).
+ */
+fun Modifier.shineSweep(locked: Boolean, shape: Shape = RectangleShape): Modifier = composed {
+    val reduce = LocalReduceMotion.current
+    val sweep = remember { Animatable(1f) }
+    var last by remember { mutableStateOf(locked) }
+    LaunchedEffect(locked) {
+        if (locked && !last && !reduce) {
+            sweep.snapTo(0f)
+            sweep.animateTo(1f, tween(Motion.SIGNATURE + 250, easing = Motion.emphasized))
+        }
+        last = locked
+    }
+    drawWithContent {
+        drawContent()
+        val p = sweep.value
+        if (p < 1f) {
+            val x = -size.width * 0.3f + size.width * 1.6f * p
+            val band = size.width * 0.16f
+            drawRect(
+                Brush.linearGradient(
+                    listOf(Color.Transparent, Color.White.copy(alpha = 0.55f), Gold.copy(alpha = 0.35f), Color.Transparent),
+                    start = Offset(x - band, 0f), end = Offset(x + band, size.height * 0.5f),
+                ),
+            )
+            val pop = 1f - p
+            listOf(Offset(0.12f, 0.3f), Offset(0.3f, 0.75f), Offset(0.55f, 0.25f), Offset(0.8f, 0.7f), Offset(0.93f, 0.3f)).forEach { f ->
+                val c = Offset(size.width * f.x, size.height * f.y)
+                if (c.x < x + band) sparkle(c, 9.dp.toPx() * pop, Gold.copy(alpha = pop))
+            }
+            drawOutline(shape.createOutline(size, layoutDirection, this), Gold.copy(alpha = pop * 0.9f), style = Stroke(3.dp.toPx()))
+        }
+    }
+}
+
+/**
+ * The band at the top of wide windows that the floating navigation shares with each screen's own
+ * header (UX rule N5). [start] and [end] are taken by the player card and the icon tray; a screen
+ * lays its header out between them, so no row is spent on navigation alone. Phones get an empty band.
+ */
+data class TopBand(val height: Dp = 0.dp, val start: Dp = 0.dp, val end: Dp = 0.dp)
+
+val LocalTopBand = compositionLocalOf { TopBand() }
+
+/** Pads a header row into the space the floating navigation leaves free. */
+@Composable
+fun Modifier.clearOfNav(): Modifier {
+    val band = LocalTopBand.current
+    return padding(start = band.start, end = band.end).heightIn(min = band.height)
+}
+
+/**
+ * A screen's title row: a big friendly heading with an optional subtitle and actions at the right.
+ * On wide windows it sits in the band between the player card and the icon tray.
+ */
+@Composable
+fun ScreenHeader(title: String, modifier: Modifier = Modifier, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
+    val wide = LocalTopBand.current.height > 0.dp
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier.fillMaxWidth().clearOfNav()
+            .padding(start = 16.dp, end = if (wide) 8.dp else 12.dp, top = if (wide) 0.dp else 10.dp, bottom = if (wide) 0.dp else 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = scheme.onBackground, modifier = Modifier.weight(1f, fill = false))
+                Sparkle(Modifier.padding(start = 8.dp, bottom = 10.dp), size = 14.dp, color = Gold)
+            }
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        actions()
+    }
+}
+
+/** A compact search field on a glass pill: 44 dp tall, with a search icon, placeholder and clear button. */
+@Composable
+fun PillSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    onClear: (() -> Unit)? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val g = glassColors()
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val shape = LockOnShapes.button
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        interactionSource = interaction,
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),
+        cursorBrush = SolidColor(scheme.primary),
+        modifier = modifier.height(44.dp),
+        decorationBox = { field ->
+            Row(
+                Modifier.fillMaxSize().clip(shape).background(g.strong)
+                    .border(BorderStroke(if (focused) 1.6.dp else 1.dp, if (focused) scheme.primary else g.rimLow), shape)
+                    .padding(start = 14.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Default.Search, contentDescription = null, tint = if (focused) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Box(Modifier.weight(1f)) {
+                    if (value.isEmpty()) Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant, maxLines = 1)
+                    field()
+                }
+                if (onClear != null) {
+                    IconButton(onClick = onClear, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear search and filters", tint = scheme.onSurfaceVariant)
+                    }
+                }
+            }
+        },
+    )
+}
+
+/**
+ * A colour filter as a small orb with the colour's initial (UX rule I4): bright with a teal ring
+ * when on, softened when off. Five of these take the room of two text chips.
+ */
+@Composable
+fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolean, target: Dp = 38.dp, onToggle: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val ring = Accent
+    Box(
+        Modifier.size(target).hoverable(interaction)
+            .toggleable(selected, interaction, indication = null, role = Role.Checkbox) { onToggle() }
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.graphicsLayer { alpha = if (selected || hovered) 1f else 0.6f }) {
+            CostOrb(null, color, onColor, size = 28.dp, text = label.take(1))
+        }
+        if (selected) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawCircle(ring, radius = 18.dp.toPx(), style = Stroke(2.5.dp.toPx()))
+            }
+        }
+    }
+}
+
+/**
+ * A dialog on a rounded card: Material's dialog behaviour with the glass rim, a friendly title
+ * after a sparkle, and [GameButton] actions.
+ */
+@Composable
+fun GameDialog(
+    onDismissRequest: () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    dismissButton: (@Composable () -> Unit)? = null,
+    title: String? = null,
+    text: (@Composable () -> Unit)? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        confirmButton = confirmButton,
+        dismissButton = dismissButton,
+        modifier = modifier.glassFrame(MaterialTheme.shapes.extraLarge),
+        containerColor = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
+        title = title?.let {
+            {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Sparkle(size = 16.dp, color = Accent)
+                    Spacer(Modifier.width(10.dp))
+                    Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        },
+        text = text,
+    )
+}
+
+/** An on/off switch as a pill track with a round knob: teal when on. A 48 dp target. */
+@Composable
+fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = Accent
+    val position by animateFloatAsState(if (checked) 1f else 0f, motion(Motion.SHORT), label = "switch")
+    Box(
+        modifier.size(width = 60.dp, height = 48.dp)
+            .then(
+                if (onCheckedChange != null) Modifier.toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                else Modifier,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(width = 52.dp, height = 30.dp).clip(LockOnShapes.button)
+                .background(if (checked) Brush.verticalGradient(listOf(lighten(accent, 0.25f), accent)) else SolidColor(scheme.onSurface.copy(alpha = 0.12f))),
+        ) {
+            Box(
+                Modifier.padding(3.dp).size(24.dp)
+                    .graphicsLayer { translationX = position * 22.dp.toPx(); shape = CircleShape; shadowElevation = 2.dp.toPx() }
+                    .clip(CircleShape)
+                    .background(if (enabled) Color.White else scheme.outline),
+            )
+        }
+    }
+}
+
+/** One choice among a few, as pills on a glass track; the chosen one is teal. */
+@Composable
+fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = Accent
+    val onAccent = OnAccent
+    Row(
+        modifier.height(44.dp).glass(LockOnShapes.button, strong = true).padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        options.forEachIndexed { i, label ->
+            val isSelected = i == selected
+            val bg by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "segment")
+            Box(
+                Modifier.weight(1f).fillMaxHeight().clip(LockOnShapes.button).background(bg)
+                    .selectable(isSelected, role = Role.RadioButton) { onSelect(i) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = if (isSelected) onAccent else scheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** A filter or choice chip as a pill: white glass, teal when selected, like every other selected pill (UX rule V3). */
+@Composable
+fun PillChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: (@Composable () -> Unit)? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val g = glassColors()
+    FilterChip(
+        selected = selected, onClick = onClick, label = label, modifier = modifier, leadingIcon = leadingIcon,
+        shape = LockOnShapes.button,
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = g.strong,
+            labelColor = scheme.onSurface,
+            selectedContainerColor = Accent,
+            selectedLabelColor = OnAccent,
+            selectedLeadingIconColor = OnAccent,
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true, selected = selected,
+            borderColor = g.rimLow, selectedBorderColor = lighten(Accent, 0.4f),
+        ),
+    )
+}
+
+/** One destination in a [PillNavBar]: its label and icon. */
+class BottomItem(val label: String, val icon: @Composable () -> Unit)
+
+/**
+ * How far content must keep clear of the bottom on phones, because the floating nav bar sits over
+ * it. Scrolling lists add it to their bottom padding so their last item can scroll above the bar.
+ */
+val LocalNavClearance = compositionLocalOf { 0.dp }
+
+/** The nav bar's height, without its margin and the system's gesture area. */
+val PillNavHeight = 60.dp
+
+/** The room to leave under content for the floating nav bar: its height, its margin and a little air. */
+@Composable
+fun navClearance(): Dp {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val gesture = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
+    return PillNavHeight + 12.dp + gesture + 12.dp
+}
+
+/** AnymeX's springy settle: a quick overshoot, then rest. */
+private val PillSpring = spring<Float>(dampingRatio = 0.62f, stiffness = 420f)
+
+/**
+ * Navigation as a floating pill (UX rules N5, V9), after AnymeX's "Dynamic Pill" bar: a
+ * translucent glass capsule with a hairline rim and soft shadow, floating above the bottom edge on
+ * phones. The selected destination expands into a teal pill with its icon and label; the others
+ * shrink to icons, which still carry their label for screen readers (I5).
+ *
+ * With [labels] every item shows its label, for wide windows where there is room.
+ */
+@Composable
+fun PillNavBar(
+    items: List<BottomItem>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    labels: Boolean = false,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = Accent
+    val onAccent = OnAccent
+    val twilight = isTwilight()
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(36.dp)
+    val reduce = LocalReduceMotion.current
+    Row(
+        modifier
+            .graphicsLayer { this.shape = shape; shadowElevation = 16.dp.toPx(); ambientShadowColor = Color.Black.copy(alpha = 0.3f); spotShadowColor = Color.Black.copy(alpha = 0.3f) }
+            .clip(shape)
+            // Somewhat transparent: colour and shape show through, but there is no backdrop blur on
+            // every platform, so it stays opaque enough that text underneath never competes.
+            .background(if (twilight) scheme.surfaceContainerHigh.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.9f))
+            .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
+            .height(PillNavHeight)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEachIndexed { i, item ->
+            val isSelected = i == selected
+            // The selected item takes more of the bar, so its label has room (AnymeX's 2.4 : 1).
+            val share by animateFloatAsState(if (labels || !isSelected) 1f else 2.4f, if (reduce) snap() else PillSpring, label = "pill-share")
+            val fill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
+            val content = if (isSelected) onAccent else scheme.onSurface.copy(alpha = 0.62f)
+            Box(
+                // With every label showing, items take their own width; otherwise they share the bar.
+                (if (labels) Modifier else Modifier.weight(share)).fillMaxHeight()
+                    .selectable(isSelected, role = Role.Tab, interactionSource = null, indication = null) { onSelect(i) }
+                    .semantics { contentDescription = item.label },
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    Modifier.clip(LockOnShapes.button).background(fill)
+                        .padding(horizontal = if (isSelected) 18.dp else 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CompositionLocalProvider(LocalContentColor provides content) {
+                        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { item.icon() }
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = labels || isSelected,
+                        enter = if (reduce) androidx.compose.animation.EnterTransition.None
+                        else androidx.compose.animation.expandHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) +
+                            androidx.compose.animation.fadeIn(tween(Motion.MEDIUM)),
+                        exit = if (reduce) androidx.compose.animation.ExitTransition.None
+                        else androidx.compose.animation.shrinkHorizontally(tween(Motion.MEDIUM)) + androidx.compose.animation.fadeOut(tween(Motion.SHORT)),
+                    ) {
+                        Text(item.label, style = MaterialTheme.typography.labelLarge, color = content, maxLines = 1,
+                            modifier = Modifier.padding(start = 8.dp).clearAndSetSemantics {})
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A [PillNavBar] floating at the bottom centre of a phone screen, clear of the system's gesture area. */
+@Composable
+fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, onSelect: (Int) -> Unit) {
+    BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)) {
+        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(minOf(maxWidth * 0.88f, 440.dp)))
+    }
+}
+
+/** Small drawn icons for the editor's sections, which Material's core icon set lacks. */
+object GameIcons {
+    private fun icon(name: String, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit) =
+        ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(
+            androidx.compose.ui.graphics.vector.PathData(block), fill = SolidColor(Color.Black),
+        ).build()
+
+    /** Two stacked cards: the deck. */
+    val Deck: ImageVector = icon("Deck") {
+        moveTo(8f, 3f); lineTo(19f, 3f); quadTo(21f, 3f, 21f, 5f); lineTo(21f, 17f); quadTo(21f, 19f, 19f, 19f); lineTo(18f, 19f)
+        lineTo(18f, 7f); quadTo(18f, 5f, 16f, 5f); lineTo(6f, 5f); quadTo(6f, 3f, 8f, 3f); close()
+        moveTo(5f, 7f); lineTo(14f, 7f); quadTo(16f, 7f, 16f, 9f); lineTo(16f, 19f); quadTo(16f, 21f, 14f, 21f); lineTo(5f, 21f)
+        quadTo(3f, 21f, 3f, 19f); lineTo(3f, 9f); quadTo(3f, 7f, 5f, 7f); close()
+    }
+
+    /** Three rising bars: the analysis. */
+    val Curve: ImageVector = icon("Curve") {
+        moveTo(3f, 13f); lineTo(7f, 13f); lineTo(7f, 21f); lineTo(3f, 21f); close()
+        moveTo(10f, 8f); lineTo(14f, 8f); lineTo(14f, 21f); lineTo(10f, 21f); close()
+        moveTo(17f, 3f); lineTo(21f, 3f); lineTo(21f, 21f); lineTo(17f, 21f); close()
+    }
+
+    /** A fanned hand of cards: the test hand. */
+    val Hand: ImageVector = icon("Hand") {
+        moveTo(2.2f, 8.6f); lineTo(8.4f, 6.4f); lineTo(12.6f, 18.2f); lineTo(6.4f, 20.4f); close()
+        moveTo(9.5f, 4f); lineTo(14.5f, 4f); lineTo(14.5f, 17f); lineTo(9.5f, 17f); close()
+        moveTo(15.6f, 6.4f); lineTo(21.8f, 8.6f); lineTo(17.6f, 20.4f); lineTo(11.4f, 18.2f); close()
+    }
+}
+
+/**
+ * Draws [text] optically centred in its box: by the letters' cap height, not the line box, so a
+ * capital or a digit sits in the middle of a circle instead of riding high.
+ */
+@Composable
+fun CenteredGlyph(text: String, color: Color, fontSize: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers).copy(fontSize = fontSize, color = color, lineHeight = fontSize)
+    Canvas(modifier.fillMaxSize()) {
+        val layout = measurer.measure(text, style)
+        // Quicksand's capitals and figures stand 0.70 em tall.
+        val cap = fontSize.toPx() * 0.70f
+        drawText(layout, topLeft = Offset((size.width - layout.size.width) / 2f, size.height / 2f + cap / 2f - layout.firstBaseline))
+    }
+}
+
+/**
+ * A card colour as a small flat dot with its initial centred in it (UX rule I4): no gloss, rim or
+ * shadow, so several sit quietly beside a deck name. White gets a hairline so it shows on white glass.
+ */
+@Composable
+fun ColorDot(color: Color, onColor: Color, letter: String, modifier: Modifier = Modifier, size: Dp = 18.dp, outlined: Boolean = false) {
+    val line = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+    Box(modifier.size(size).clip(CircleShape).background(color).then(if (outlined) Modifier.border(1.dp, line, CircleShape) else Modifier)) {
+        CenteredGlyph(letter, onColor, (size.value * 0.56f).sp)
+    }
+}

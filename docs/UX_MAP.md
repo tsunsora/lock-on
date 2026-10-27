@@ -6,7 +6,7 @@ How screens connect, what each one is for, and what you can do there. The rules 
 
 ```mermaid
 flowchart LR
-    subgraph Top["Top level (top bar on desktop, bottom bar on phones)"]
+    subgraph Top["Top level (floating tray on desktop, floating dock on phones)"]
         D[Decks]
         C[Cards]
         S[Sync]
@@ -59,7 +59,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - name (tap to rename), color pips, legality tag, `Main n/50 · Resource n/10`
   - **Export**
   - a conflict banner when one exists
-- **Panes**, shown side by side on wide windows and as tabs on phones (**Deck · Add cards · Analysis · Test · Matches · Versions**). On wide windows the third pane holds Analysis, Test, Matches and Versions as tabs:
+- **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar (**Deck · Add · Analysis · Test · More**, with Matches and Versions under More):
   1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color.
      - **Deck colors only** narrows the list to the deck's colors.
@@ -89,8 +89,8 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - Every version newest first, with time, device, counts and what changed (`+3 −1 cards · renamed`).
      - Edits join the current version until you choose **Keep as a version**, it syncs, or the deck sits for 30 minutes.
      - Opening an older version lists its card differences from now, and **Restore these cards** brings them back with Undo. Name, notes, folder and matches stay as they are.
-- **Export dialog:** **List** (copy or save the text list), **Image** (a 1080-pixel-wide picture of the deck with its cover, colors, legality and every card with its count, saved as PNG), and **Print sheet** (a deck registration sheet saved as a web page to print from any browser).
-- **Leaving:** back or the navigation bar, which saves first.
+- **Export dialog:** **List** (copy or save the text list), **Image** (a 2160-pixel-wide picture of the main deck, five cards a row, with its cover, colors, legality, curve, type counts and a QR code holding the list, saved as PNG), and **Print sheet** (a deck registration sheet saved as a web page to print from any browser).
+- **Leaving:** back or the navigation, which saves first.
 
 ### Compare versions (level 2)
 - **Purpose:** settle a deck that was edited on two devices before they synced.
@@ -142,8 +142,8 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
    3. The computer shows a 6-digit number, and so does the phone. If they match, click **Pair**.
    4. Sync starts at once and stays automatic while both are open.
    - Fallback when discovery is blocked:
-   1. Desktop: **Sync**, which shows the QR code.
-   2. Phone: **Sync** → **Scan QR code**.
+   1. Desktop: **Settings**, which shows the QR code.
+   2. Phone: **Settings** → **Scan QR code**.
    3. Desktop: confirm the codes match → **Pair**.
    4. The phone syncs right away.
    5. With both open, edits on either device appear on the other within seconds. **Sync now** is there when auto-sync is off.

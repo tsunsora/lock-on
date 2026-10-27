@@ -1,4 +1,8 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.PillSwitch
+import app.lockon.ui.components.GameDialog
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,7 +42,7 @@ import app.lockon.data.CatalogOrigin
 import app.lockon.platform.FileBridge
 import app.lockon.platform.formatTimestamp
 import app.lockon.ui.AppState
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.ReticleSpinner
 import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.launch
@@ -72,9 +76,9 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
         }
     }
 
-    AlertDialog(
+    GameDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (preview == null) "Card catalog" else "Install this catalog?") },
+        title = if (preview == null) "Card catalog" else "Install this catalog?",
         text = {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val pending = preview
@@ -82,7 +86,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     PreviewSummary(pending)
                 } else {
                     info?.let { current ->
-                        HudHeader("Installed", readout = "${current.cardCount} cards")
+                        SectionHeader("Installed", readout = "${current.cardCount} cards")
                         Text(current.name, style = MaterialTheme.typography.titleMedium)
                         Text(
                             listOfNotNull(
@@ -98,7 +102,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         }
                     }
                     HorizontalDivider()
-                    HudHeader("Official card list")
+                    SectionHeader("Official card list")
                     val official = info?.origin == CatalogOrigin.GCG_API
                     Text(
                         if (official) "Updated weekly from the official card list. Check whenever a new set is out."
@@ -108,24 +112,20 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         when (val result = check) {
                             is CatalogUpdater.UpdateCheck.Available ->
-                                Button(onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy) {
-                                    Text("Download update")
-                                }
+                                GameButton("Download update", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy)
                             else -> if (official) {
-                                Button(onClick = {
+                                GameButton("Check for updates", onClick = {
                                     busy = true; problem = null
                                     scope.launch {
                                         try { check = container.catalogUpdater.checkCardDatabase() } catch (e: CatalogException) { problem = e.message }
                                         busy = false
                                     }
-                                }, enabled = !busy) { Text("Check for updates") }
+                                }, enabled = !busy)
                                 if (result is CatalogUpdater.UpdateCheck.UpToDate) {
                                     Text("Up to date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
                                 }
                             } else {
-                                Button(onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy) {
-                                    Text("Download the latest card database")
-                                }
+                                GameButton("Download card database", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy)
                             }
                         }
                         if (busy) ReticleSpinner(size = 20.dp)
@@ -147,10 +147,10 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Switch(checked = showArtwork, onCheckedChange = { scope.launch { container.catalog.setShowArtwork(it) } })
+                        PillSwitch(checked = showArtwork, onCheckedChange = { scope.launch { container.catalog.setShowArtwork(it) } })
                     }
                     HorizontalDivider()
-                    HudHeader("Other sources")
+                    SectionHeader("Other sources")
                     Text(
                         "Paste the link to a Lock On catalog file. Lock On remembers it, so checking for updates later is one tap.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -163,23 +163,21 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Button(onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy) {
-                            Text(if (url == info?.updateUrl) "Check for update" else "Download")
-                        }
-                        OutlinedButton(onClick = {
+                        GameButton(if (url == info?.updateUrl) "Check for update" else "Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy)
+                        GameButton("Import file", onClick = {
                             attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
-                        }, enabled = !busy) { Text("Import file") }
+                        }, style = GameButtonStyle.SECONDARY, enabled = !busy)
                         if (busy) ReticleSpinner(size = 20.dp)
                     }
                     if (info?.origin != CatalogOrigin.BUNDLED) {
-                        TextButton(onClick = {
+                        GameButton("Go back to the sample catalog", onClick = {
                             busy = true
                             scope.launch {
                                 container.restoreSampleCatalog()
                                 busy = false
                                 state.notify("Sample catalog restored.")
                             }
-                        }, enabled = !busy) { Text("Go back to the sample catalog") }
+                        }, style = GameButtonStyle.GHOST, enabled = !busy, compact = true)
                     }
                 }
                 problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
@@ -188,7 +186,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
         confirmButton = {
             val pending = preview
             if (pending != null) {
-                TextButton(enabled = !busy, onClick = {
+                GameButton(if (pending.isUpdate) "Update" else "Replace catalog", onClick = {
                     busy = true
                     scope.launch {
                         container.catalogUpdater.install(pending)
@@ -196,13 +194,13 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         state.notify("Installed ${pending.checked.file.name} (${pending.checked.file.cards.size} cards).")
                         onDismiss()
                     }
-                }) { Text(if (pending.isUpdate) "Update" else "Replace catalog") }
+                }, enabled = !busy, compact = true)
             } else {
-                TextButton(onClick = onDismiss) { Text("Close") }
+                GameButton("Close", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true)
             }
         },
         dismissButton = {
-            if (preview != null) TextButton(onClick = { preview = null }) { Text("Back") }
+            if (preview != null) GameButton("Back", onClick = { preview = null }, style = GameButtonStyle.GHOST, compact = true)
         },
     )
 }

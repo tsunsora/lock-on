@@ -1,4 +1,9 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LocalNavClearance
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.BoxWithConstraints
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +42,7 @@ import app.lockon.ui.components.Motion
 import app.lockon.ui.components.dealIn
 import app.lockon.ui.components.motion
 import app.lockon.ui.components.EmptyState
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.theme.TabularNumbers
 
 /** Practice opening hands with the official redraw and shield rules. */
@@ -61,8 +66,12 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     val earlyUnits = handCards.count { it?.type == CardType.UNIT && (it.level ?: 99) <= 2 }
 
     Column(modifier) {
-    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HudHeader("Hand", readout = "${game.hand.size}")
+    BoxWithConstraints(Modifier.weight(1f)) {
+    // Up to 132 dp a card, but always three across, so a phone shows the whole 5-card hand.
+    val handWidth = minOf(132.dp, (maxWidth - 32.dp - 16.dp) / 3)
+    val shieldWidth = minOf(100.dp, (maxWidth - 32.dp - 16.dp) / 3)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader("Hand", readout = "${game.hand.size}")
         Text(
             when {
                 !game.shieldsPlaced && game.canRedraw -> "Opening hand. Keep it, or redraw once: the hand goes to the bottom and you draw 5 new cards."
@@ -80,12 +89,12 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             handCards.forEachIndexed { i, card ->
                 val stagger = if (i < SampleHand.HAND_SIZE) i else 0
-                CardFace(card, Modifier.width(132.dp).dealIn("$dealId-$i", stagger).clickable(enabled = card != null) { detail = card })
+                CardFace(card, Modifier.width(handWidth).dealIn("$dealId-$i", stagger).clickable(enabled = card != null) { detail = card })
             }
         }
         if (game.shieldsPlaced) {
-            HudHeader("Shields", readout = "${game.shields.size}") {
-                TextButton(onClick = { revealShields = !revealShields }) { Text(if (revealShields) "Hide" else "Reveal") }
+            SectionHeader("Shields", readout = "${game.shields.size}") {
+                GameButton(if (revealShields) "Hide" else "Reveal", onClick = { revealShields = !revealShields }, style = GameButtonStyle.GHOST, compact = true)
             }
             val bursts = game.shields.count { cards[it]?.displayText?.contains("Burst】") == true }
             if (revealShields) {
@@ -93,21 +102,22 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 game.shields.forEachIndexed { i, number ->
-                    FlippingShield(cards[number], revealed = revealShields, index = i, modifier = Modifier.width(100.dp).dealIn("$dealId-shield-$i", i))
+                    FlippingShield(cards[number], revealed = revealShields, index = i, modifier = Modifier.width(shieldWidth).dealIn("$dealId-shield-$i", i))
                 }
             }
         }
     }
+    }
     // Actions stay pinned in the thumb zone instead of scrolling away under the cards (UX rule R3).
     HorizontalDivider()
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp + LocalNavClearance.current), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!game.shieldsPlaced) {
-            Button(onClick = { game = game.keep() }) { Text("Keep") }
-            OutlinedButton(onClick = { game = game.redraw(); dealId++ }, enabled = game.canRedraw) { Text("Redraw") }
+            GameButton("Keep", onClick = { game = game.keep() })
+            GameButton("Redraw", onClick = { game = game.redraw(); dealId++ }, style = GameButtonStyle.SECONDARY, enabled = game.canRedraw)
         } else {
-            Button(onClick = { game = game.draw() }, enabled = game.canDraw) { Text("Draw") }
+            GameButton("Draw", onClick = { game = game.draw() }, enabled = game.canDraw)
         }
-        TextButton(onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }) { Text("New game") }
+        GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, style = GameButtonStyle.GHOST, compact = true)
     }
     }
     detail?.let { CardDetailDialog(it, emptyList(), onDismiss = { detail = null }) }

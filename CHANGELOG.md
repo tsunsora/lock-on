@@ -18,11 +18,11 @@ First release for Android and Windows.
 - Pick any card as a deck's **cover**.
 - **Match log** per deck: wins, losses and draws with optional opponent, turn order and notes, and a record with win rate, going first and second, and results by opponent.
 - **Version history**: every version of a deck with what changed, a comparison with the deck now, and restoring an older version's cards.
-- Export a deck as an **image** (PNG) or a printable **deck registration sheet**, as well as a text list.
+- Export a deck as an **image** (PNG) or a printable **deck registration sheet**, as well as a text list, ordered by level, cost, card number, name or copies, with Units first, then Pilots, Commands and Bases. The image shows the main deck, its curve and type counts, and a QR code holding the deck list, with steps for importing it.
 - Import and export plain-text deck lists, and a JSON backup of all decks.
 - **Download the latest card database** in one tap: the official card list via gcg-api, with official card images, converted on the device. Check for updates at any time, and a weekly quiet check notes when a newer list is out.
 - Install a card catalog from a file or a link, check the link for updates, and go back to the sample at any time. A preview before each install lists any cards your decks use that are missing from the new catalog.
-- **App updates**: a daily check while Lock On is open. Windows downloads in the background and installs on close or with **Restart and update**. Android downloads on Wi-Fi and installs with one tap. Each download is verified, and automatic updating can be turned off under Sync.
+- **App updates**: a daily check while Lock On is open. Windows downloads in the background and installs on close or with **Restart and update**. Android downloads on Wi-Fi and installs with one tap. Each download is verified, and automatic updating can be turned off under Settings.
 - Card artwork from catalog links in lists, grids, test hands and card details, cached per device. In card details, tap a printing to see its art. It can be turned off in the Catalog dialog.
 
 **Sync, with no account or server**
@@ -38,7 +38,7 @@ First release for Android and Windows.
   - dealt test hands, flipping shields, growing charts, and a reticle spinner while syncing
   - all of it respects the system's "Remove animations" setting
 - Rajdhani display type for headings and numbers, and a branded launch screen.
-- Material 3, with a mobile-suit color scheme in dark and light themes, the Lock On V-fin mark, and armor-plate panels.
+- A bright, game-style look inspired by anime game home screens: frosted glass panels over a sky (or starry twilight) backdrop, rounded Quicksand type, pill buttons and tabs, and floating navigation: a player card with deck and card counts, and a translucent pill nav bar whose selected tab expands with its label. **Settings** gathers sync, the card database and app updates. Hearthstone-style card strips in the deck list, deck boxes in the library, copy pips, deck gauges that turn gold when full, and a level curve beside the deck. Cards lift and lean toward the pointer on hover, flash when a copy is added or removed, and a shine with gold sparkles marks the moment a deck becomes legal. Built on Material 3.
 - Phones navigate from a bottom bar; the desktop has a top bar with multi-pane editing.
 
 **Desktop**

@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.GameButton
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -137,9 +138,7 @@ private fun VersionCard(
                     }
                 }
             }
-            Button(onClick = onKeep, modifier = Modifier.padding(top = 8.dp)) {
-                Text(if (snapshot.deleted) "Delete the deck" else "Keep this version")
-            }
+            GameButton(if (snapshot.deleted) "Delete the deck" else "Keep this version", onClick = onKeep, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }

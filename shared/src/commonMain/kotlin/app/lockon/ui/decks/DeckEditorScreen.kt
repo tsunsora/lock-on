@@ -1,4 +1,24 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.DeckGlance
+import app.lockon.ui.components.FloatingPillNav
+import app.lockon.ui.components.LocalNavClearance
+import app.lockon.ui.components.navClearance
+import androidx.compose.foundation.layout.BoxScope
+import app.lockon.ui.components.BottomItem
+import app.lockon.ui.components.GameIcons
+import app.lockon.ui.components.ProgressGauge
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.size
+import app.lockon.ui.components.DeckCard
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
+import app.lockon.ui.components.glassColors
+import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.shineSweep
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -79,13 +99,44 @@ import app.lockon.ui.components.LockIndicator
 import app.lockon.ui.components.RollingNumber
 import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.ColorPips
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.CardDetailDialog
 import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.CardThumb
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.Panel
 import app.lockon.ui.theme.TabularNumbers
+import app.lockon.ui.theme.LockOnShapes
+import app.lockon.ui.theme.SuitColors
+import app.lockon.ui.theme.cardColor
+import app.lockon.ui.components.CardArtwork
+import app.lockon.ui.components.CardBack
+import app.lockon.ui.components.DeckStrip
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
+import app.lockon.ui.components.PillTabs
+import app.lockon.ui.components.LocalArtwork
+import app.lockon.ui.components.MiniCurve
+import app.lockon.ui.components.PlateStepper
+import app.lockon.ui.components.glassFrame
+import app.lockon.ui.components.isTwilight
+import app.lockon.rules.DeckAnalysis
+import app.lockon.rules.DeckLegality
+import app.lockon.rules.DeckStats
+import app.lockon.ui.components.glass
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.BiasAlignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.layout.BoxWithConstraints
+import app.lockon.ui.components.clearOfNav
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -126,7 +177,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val deck = draft
     if (summary == null && deck == null) {
         EmptyState("Deck not found", "It may have been deleted on another device.") {
-            TextButton(onClick = state::goBack) { Text("Back") }
+            GameButton("Back", onClick = state::goBack, style = GameButtonStyle.GHOST, compact = true)
         }
         return
     }
@@ -154,47 +205,67 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
 
     Column(Modifier.fillMaxSize()) {
-        // Header: who the deck is on the left, its health grouped on the right (UX rule I2).
-        Row(
-            Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = if (wide) 4.dp else 0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
-            if (wide) {
-                val cover = remember(deck, cards) { deckCover(deck, cards) }
-                if (cover != null) CardImage(cover.card, Modifier.padding(end = 12.dp).width(40.dp), cover.printingId)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(deck.name, style = if (wide) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false))
-                    IconButton(onClick = { renaming = true }) { Icon(Icons.Default.Edit, contentDescription = "Rename deck") }
+        // Header: a hero banner with the cover art behind it. Who the deck is sits on the left, its
+        // health is grouped on the right (UX rule I2).
+        val cover = remember(deck, cards) { deckCover(deck, cards) }
+        val deckColorsNow = deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+        DeckBanner(cover, wide, legality.isLegal) {
+            // On wide windows the whole header sits in the band between the floating navigation
+            // plates, so the editor spends no extra row on it (UX rule N5).
+            BoxWithConstraints(Modifier.fillMaxWidth().clearOfNav()) {
+            val roomy = maxWidth >= 1000.dp
+            Row(
+                Modifier.fillMaxWidth().padding(start = 4.dp, end = if (wide) 8.dp else 16.dp, top = if (wide) 0.dp else 6.dp, bottom = if (wide) 0.dp else 2.dp)
+                    .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
+                if (wide && roomy) {
+                    if (cover != null) CardImage(cover.card, Modifier.padding(end = 12.dp).width(40.dp), cover.printingId)
+                    else CardBack(Modifier.padding(end = 12.dp).width(40.dp))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val c = MaterialTheme.colorScheme
-                    ColorPips(deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet())
-                    if (legality.isLegal) Badge("Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
-                    else Badge("Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // On phones the name itself opens Rename, which saves a button in a tight header.
+                        Text(deck.name, style = if (wide) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                                .then(if (wide) Modifier else Modifier.clickable(onClickLabel = "Rename deck") { renaming = true }))
+                        if (wide) IconButton(onClick = { renaming = true }) { Icon(Icons.Default.Edit, contentDescription = "Rename deck") }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val c = MaterialTheme.colorScheme
+                        ColorPips(deckColorsNow)
+                        // A tight band keeps the state and drops the detail; Analysis has the rest.
+                        val tight = wide && !roomy
+                        if (legality.isLegal) Badge(if (tight) "Legal" else "Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
+                        else Badge(if (tight) "Draft" else "Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
+                    }
+                }
+                if (wide) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(if (roomy) 20.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 128.dp))
+                        DeckGauge(if (roomy) "Resource" else "Res.", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.width(if (roomy) 160.dp else 112.dp))
+                        // Narrower bands keep the reticle and drop its caption; the legality stamp says it in words (I4).
+                        if (roomy) {
+                            LockReadout(legality.isLegal)
+                            GameButton("Export", onClick = { exporting = true }, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
+                        } else {
+                            LockIndicator(locked = legality.isLegal, size = 44.dp)
+                            IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck") }
+                        }
+                    }
+                } else {
+                    // Phones keep only Export here; the legality stamp says Legal or Draft in words (I4).
+                    IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck") }
                 }
             }
-            if (wide) {
-                Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    DeckGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(170.dp))
-                    DeckGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.width(150.dp))
-                    LockIndicator(locked = legality.isLegal, size = 48.dp)
-                    OutlinedButton(onClick = { exporting = true }) { Text("Export") }
-                }
-            } else {
-                LockIndicator(locked = legality.isLegal)
-                // A labelled icon on phones leaves room for the deck name (UX rule I5).
-                IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck") }
             }
-        }
-        if (!wide) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                DeckGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1.2f))
-                DeckGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.weight(1f))
+            if (!wide) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ProgressGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1.2f), compact = true)
+                    ProgressGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.weight(1f), compact = true)
+                }
             }
         }
         if (summary?.hasConflict == true) {
@@ -206,14 +277,18 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     CautionStripes(Modifier.width(10.dp).fillMaxHeight())
                     Text("This deck was changed on two devices. Both versions are kept.", Modifier.weight(1f).padding(12.dp),
                         color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { state.open(Screen.Conflict(deckId)) }) { Text("Compare") }
+                    GameButton("Compare", onClick = { state.open(Screen.Conflict(deckId)) }, style = GameButtonStyle.GHOST, compact = true)
                 }
             }
         }
 
+        // The wide deck panel's tab (Deck, Analysis, Test, Matches, Versions); phones use their own tab row.
+        var deckTab by rememberSaveable(deckId) { mutableStateOf(0) }
+        var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
         val deckList: @Composable (Modifier) -> Unit = { modifier ->
             DeckList(
-                deck, cards, modifier,
+                deck, cards, ruleset, legality, modifier, compact = wide,
+                onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
                 onCardClick = { detail = it },
                 onChange = { card, delta -> change(card, delta) },
                 onRemoveConsidering = { change(it, -1, DeckSection.CONSIDERING) },
@@ -236,6 +311,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                             deck.quantityOf(card.cardNumber, DeckSection.CONSIDERING), deckColors, ruleset)
                     },
                     change = { card, delta -> change(card, delta) },
+                    limit = { card -> copyLimit(card, ruleset) },
                 ),
             )
         }
@@ -283,41 +359,35 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
 
         if (wide) {
-            Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Panel(Modifier.weight(1.5f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
-                Panel(Modifier.weight(1f).widthIn(min = 320.dp).fillMaxSize()) { deckList(Modifier.fillMaxSize()) }
-                Panel(Modifier.weight(0.95f).widthIn(min = 300.dp).fillMaxSize()) {
-                    var side by rememberSaveable { mutableStateOf(0) }
+            // Two areas, so most of the window is cards and the deck being built (UX rule N4): the card
+            // list, and one deck panel whose tabs hold the analysis, test hand, matches and versions.
+            Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Panel(Modifier.weight(1.6f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
+                Panel(Modifier.weight(1f).widthIn(min = 380.dp).fillMaxSize()) {
                     Column {
-                        // Tabs take their label's width, so all four fit the pane; narrower windows scroll them.
-                        PrimaryScrollableTabRow(selectedTabIndex = side, edgePadding = 0.dp, minTabWidth = 0.dp) {
-                            listOf("Analysis", "Test", "Matches", "Versions").forEachIndexed { i, label ->
-                                Tab(selected = side == i, onClick = { side = i }, text = { Text(label, maxLines = 1) })
-                            }
-                        }
-                        when (side) {
-                            0 -> analysis(Modifier.fillMaxSize())
-                            1 -> test(Modifier.fillMaxSize())
-                            2 -> matchLog(Modifier.fillMaxSize())
+                        PillTabs(listOf("Deck", "Analysis", "Test", "Matches", "Versions"), deckTab, { deckTab = it }, fill = true)
+                        when (deckTab) {
+                            0 -> deckList(Modifier.fillMaxSize())
+                            1 -> analysis(Modifier.fillMaxSize())
+                            2 -> test(Modifier.fillMaxSize())
+                            3 -> matchLog(Modifier.fillMaxSize())
                             else -> versions(Modifier.fillMaxSize())
                         }
                     }
                 }
             }
         } else {
-            var tab by rememberSaveable(deckId) { mutableStateOf(startTab) }
-            PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
-                listOf("Deck", "Add cards", "Analysis", "Test", "Matches", "Versions").forEachIndexed { i, label ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1) })
+            // The sections float in a pill over the content, which scrolls underneath it.
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (phoneTab) {
+                    0 -> deckList(Modifier.fillMaxSize())
+                    1 -> search(Modifier.fillMaxSize())
+                    2 -> analysis(Modifier.fillMaxSize())
+                    3 -> test(Modifier.fillMaxSize())
+                    4 -> matchLog(Modifier.fillMaxSize())
+                    else -> versions(Modifier.fillMaxSize())
                 }
-            }
-            when (tab) {
-                0 -> deckList(Modifier.fillMaxSize())
-                1 -> search(Modifier.fillMaxSize())
-                2 -> analysis(Modifier.fillMaxSize())
-                3 -> test(Modifier.fillMaxSize())
-                4 -> matchLog(Modifier.fillMaxSize())
-                else -> versions(Modifier.fillMaxSize())
+                EditorNav(phoneTab) { phoneTab = it }
             }
         }
     }
@@ -332,7 +402,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     val preferred = deck.entries.firstOrNull { it.cardNumber == card.cardNumber && it.section == section }?.printingId
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         cardPrintings.forEach { p ->
-                            FilterChip(
+                            PillChip(
                                 selected = (preferred ?: cardPrintings.first().printingId) == p.printingId,
                                 onClick = { draft = deck.withQuantity(card.cardNumber, section, deck.quantityOf(card.cardNumber, section), p.printingId) },
                                 label = { Text(p.label) },
@@ -349,18 +419,16 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     when {
-                        considering > 0 -> TextButton(onClick = { move(card, toConsidering = false) }) { Text("Move 1 to deck") }
+                        considering > 0 -> GameButton("Move 1 to deck", onClick = { move(card, toConsidering = false) }, style = GameButtonStyle.GHOST, compact = true)
                         deck.quantityOf(card.cardNumber, section) > 0 ->
-                            TextButton(onClick = { move(card, toConsidering = true) }) { Text("Move 1 to Considering") }
-                        else -> TextButton(onClick = { change(card, 1, DeckSection.CONSIDERING) }) { Text("Consider") }
+                            GameButton("Move 1 to Considering", onClick = { move(card, toConsidering = true) }, style = GameButtonStyle.GHOST, compact = true)
+                        else -> GameButton("Consider", onClick = { change(card, 1, DeckSection.CONSIDERING) }, style = GameButtonStyle.GHOST, compact = true)
                     }
                 }
                 // The library shows the deck by this card instead of its highest-level Unit.
                 if (deck.quantityOf(card.cardNumber, section) > 0 || deck.coverCard == card.cardNumber) {
                     val isCover = deck.coverCard == card.cardNumber
-                    TextButton(onClick = { draft = deck.copy(coverCard = if (isCover) null else card.cardNumber) }) {
-                        Text(if (isCover) "Stop using as deck cover" else "Use as deck cover")
-                    }
+                    GameButton(if (isCover) "Stop using as deck cover" else "Use as deck cover", onClick = { draft = deck.copy(coverCard = if (isCover) null else card.cardNumber) }, style = GameButtonStyle.GHOST, compact = true)
                 }
             }
         }
@@ -380,7 +448,12 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
 private fun DeckList(
     deck: DeckSnapshot,
     cards: Map<String, GameCard>,
+    ruleset: Ruleset,
+    legality: DeckLegality,
     modifier: Modifier,
+    /** Slimmer strips for wide windows. */
+    compact: Boolean,
+    onOpenAnalysis: () -> Unit,
     onCardClick: (GameCard) -> Unit,
     onChange: (GameCard, Int) -> Unit,
     onRemoveConsidering: (GameCard) -> Unit,
@@ -397,9 +470,19 @@ private fun DeckList(
         byType.filter { it.second.isNotEmpty() } +
             ("Resources" to deck.entries.filter { it.section == DeckSection.RESOURCE }.sortedWith(order))
     }
-    LazyColumn(modifier) {
-        item(key = "main-total") {
-            HudHeader("Main deck", Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), readout = "${deck.count(DeckSection.MAIN)}")
+    val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
+    var cardView by rememberSaveable { mutableStateOf(true) }
+    val gap = if (compact) 8.dp else 6.dp
+    BoxWithConstraints(modifier) {
+    val columns = ((maxWidth - 16.dp + gap) / ((if (compact) 104.dp else 120.dp) + gap)).toInt().coerceAtLeast(2)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
+        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        if (deck.entries.isNotEmpty()) {
+            // The numbers that matter while building ride at the top of the list, as in game deck
+            // builders; the full analysis is one tap away.
+            item(key = "stats") {
+                DeckStatsStrip(stats, legality, onOpenAnalysis, cardView, { cardView = it }, compact, Modifier.padding(bottom = 4.dp))
+            }
         }
         if (deck.entries.isEmpty()) {
             item(key = "empty-deck") {
@@ -429,12 +512,8 @@ private fun DeckList(
         }
         for ((label, entries) in groups) {
             item(key = "header-$label") {
-                Text(
-                    "$label · ${entries.sumOf { it.quantity }}",
-                    style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-                    color = if (label == "Resources") MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 16.dp, top = if (label == "Resources") 20.dp else 12.dp, bottom = 2.dp),
-                )
+                SectionHeader(label, Modifier.padding(start = 6.dp, end = 6.dp, top = if (label == "Resources") 12.dp else 6.dp, bottom = 2.dp),
+                    readout = "${entries.sumOf { it.quantity }}")
             }
             if (label == "Resources" && entries.isEmpty()) {
                 item(key = "empty-resource") {
@@ -446,24 +525,39 @@ private fun DeckList(
                     )
                 }
             }
-            items(entries, key = { "${it.section}-${it.cardNumber}" }) { entry ->
-                val card = cards[entry.cardNumber]
-                Row(
-                    Modifier.animateItem().fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CardThumb(card)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(card?.name ?: "Unknown card", maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyLarge)
-                        Text(entry.cardNumber, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (cardView) {
+                // Whole cards, small, a row at a time so the list stays lazy (UX rule V4a).
+                items(entries.chunked(columns), key = { row -> "row-${row.first().section}-${row.first().cardNumber}" }) { row ->
+                    Row(Modifier.animateItem().fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        row.forEach { entry ->
+                            val card = cards[entry.cardNumber]
+                            if (card != null) {
+                                DeckCard(
+                                    card, entry.quantity, entry.printingId, onClick = { onCardClick(card) },
+                                    onMinus = { onChange(card, -1) }, onPlus = { onChange(card, 1) },
+                                    modifier = Modifier.weight(1f), limit = copyLimit(card, ruleset), target = if (compact) 40.dp else 48.dp,
+                                )
+                            } else {
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CardImage(null, Modifier.fillMaxWidth())
+                                    Text("×${entry.quantity}", style = MaterialTheme.typography.titleMedium)
+                                }
+                            }
+                        }
+                        repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                     }
+                }
+            } else items(entries, key = { "${it.section}-${it.cardNumber}" }) { entry ->
+                val card = cards[entry.cardNumber]
+                DeckStrip(
+                    card, entry.quantity, entry.printingId, onClick = { card?.let(onCardClick) }, modifier = Modifier.animateItem(),
+                    subtitle = listOfNotNull(card?.level?.let { "Lv.$it" }, entry.cardNumber).joinToString("  ·  "), compact = compact,
+                ) {
                     if (card != null) {
-                        QuantityStepper(entry.quantity, onMinus = { onChange(card, -1) }, onPlus = { onChange(card, 1) })
+                        PlateStepper(entry.quantity, card.name, onMinus = { onChange(card, -1) }, onPlus = { onChange(card, 1) },
+                            limit = copyLimit(card, ruleset))
                     } else {
-                        Text("×${entry.quantity}")
+                        Text("×${entry.quantity}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 12.dp))
                     }
                 }
             }
@@ -471,8 +565,8 @@ private fun DeckList(
         val considering = deck.entries.filter { it.section == DeckSection.CONSIDERING }
             .sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
         item(key = "considering-header") {
-            HudHeader(
-                "Considering", Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp),
+            SectionHeader(
+                "Considering", Modifier.padding(start = 6.dp, end = 6.dp, top = 24.dp),
                 readout = "${considering.sumOf { it.quantity }}",
             )
             Text(
@@ -480,26 +574,18 @@ private fun DeckList(
                 else "Not counted toward the deck or its legality.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
             )
         }
         items(considering, key = { "considering-${it.cardNumber}" }) { entry ->
             val card = cards[entry.cardNumber]
-            Row(
-                Modifier.animateItem().fillMaxWidth().clickable(enabled = card != null) { card?.let(onCardClick) }
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            DeckStrip(
+                card, entry.quantity, entry.printingId, onClick = { card?.let(onCardClick) }, modifier = Modifier.animateItem().alpha(0.82f),
+                subtitle = "${entry.cardNumber}  ·  ×${entry.quantity}", compact = compact,
             ) {
-                CardThumb(card)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(card?.name ?: "Unknown card", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
-                    Text("${entry.cardNumber} · ×${entry.quantity}", style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
                 if (card != null) {
                     // One tap per copy (UX rule S1): move one into the deck, or drop one.
-                    TextButton(onClick = { onMoveToDeck(card) }) { Text("To deck") }
+                    GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true)
                     IconButton(onClick = { onRemoveConsidering(card) }) {
                         Text("−", style = MaterialTheme.typography.titleLarge)
                     }
@@ -509,16 +595,17 @@ private fun DeckList(
         item(key = "notes") {
             var editing by remember { mutableStateOf(false) }
             if (deck.notes.isBlank() && !editing) {
-                TextButton(onClick = { editing = true }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) { Text("Add notes") }
+                GameButton("Add notes", onClick = { editing = true }, style = GameButtonStyle.GHOST, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), compact = true)
             } else {
                 OutlinedTextField(
                     value = deck.notes, onValueChange = onNotes,
                     label = { Text("Notes") },
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(6.dp),
                     minLines = 3,
                 )
             }
         }
+    }
     }
 }
 
@@ -537,21 +624,119 @@ private fun FitTags(card: GameCard, quantity: Int, considering: Int, deckColors:
 }
 
 @Composable
-fun QuantityStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
-    val haptics = LocalHapticFeedback.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }, enabled = quantity > 0) {
-            Text("−", style = MaterialTheme.typography.titleLarge)
+fun QuantityStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) = PlateStepper(quantity, "copy", onMinus, onPlus)
+
+/** The copy limit for a card under [ruleset]: restricted, resource or the normal maximum. */
+private fun copyLimit(card: GameCard, ruleset: Ruleset): Int? =
+    ruleset.restricted[card.cardNumber] ?: if (card.type.isResource) ruleset.resourceMaxCopies else ruleset.maxCopies
+
+/** The editor's hero banner: the deck's cover art fades in behind the header from the right. */
+@Composable
+private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, content: @Composable () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val art = cover?.let { LocalArtwork.current.urlFor(it.card.cardNumber, it.printingId) }
+    val color = cardColor(cover?.card?.colors?.firstOrNull())
+    val glassFill = glassColors().fill
+    // A frosted strip the full width of the window, so the sky shows through it and the floating
+    // navigation sits over its ends. The cover art fades in from the right through an alpha mask.
+    Box(Modifier.fillMaxWidth().clipToBounds().background(glassFill).shineSweep(locked)) {
+        Box(Modifier.matchParentSize()) {
+            Box(
+                Modifier.align(Alignment.CenterEnd).fillMaxWidth(0.62f).fillMaxHeight()
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f))), blendMode = BlendMode.DstIn)
+                    },
+            ) {
+                CardArtwork(art, null, Modifier.fillMaxSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f)) {
+                    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, color.copy(alpha = 0.5f)))))
+                }
+            }
+            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(1.dp).background(
+                Brush.horizontalGradient(listOf(scheme.primary.copy(alpha = 0.6f), scheme.primary.copy(alpha = 0f))),
+            ))
         }
-        Box(Modifier.widthIn(min = 20.dp), contentAlignment = Alignment.Center) {
-            RollingNumber(
-                quantity,
-                style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
-                color = if (quantity > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        Column { content() }
+    }
+}
+
+/**
+ * A compact summary at the top of the deck list: the level curve beside the counts by type, Burst
+ * and Blocker, and the first legality problem in words (UX rule I3) with a link to the full analysis.
+ */
+@Composable
+private fun DeckStatsStrip(
+    stats: DeckStats,
+    legality: DeckLegality,
+    onOpenAnalysis: () -> Unit,
+    cardView: Boolean,
+    onCardView: (Boolean) -> Unit,
+    /** Wide windows: the curve sits beside the counts. Phones stack a shorter curve over one line of counts. */
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 6.dp)) {
+        // Phones keep the cards in view with a shorter curve.
+        DeckGlance(stats, curveHeight = if (compact) 80.dp else 64.dp)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+            val first = legality.errors.firstOrNull()
+            Text(
+                when {
+                    first == null -> "Meets every construction rule."
+                    legality.errors.size == 1 -> first.text
+                    else -> "${first.text} (+${legality.errors.size - 1} more)"
+                },
+                style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                color = if (first == null) scheme.secondary else scheme.error, modifier = Modifier.weight(1f),
             )
+            // How the deck below is shown: small whole cards, or denser strips.
+            GameButton(if (cardView) "List view" else "Card view", onClick = { onCardView(!cardView) }, style = GameButtonStyle.GHOST, compact = true)
+            GameButton("Analysis", onClick = onOpenAnalysis, style = GameButtonStyle.GHOST, compact = true)
         }
-        IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }) {
-            Icon(Icons.Default.Add, contentDescription = "Add one")
+    }
+}
+
+/**
+ * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3): Deck, Add,
+ * Analysis and Test, with Matches and Versions under More so the bar keeps to five items.
+ */
+@Composable
+private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
+    var more by remember { mutableStateOf(false) }
+    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+        FloatingPillNav(
+            listOf(
+                BottomItem("Deck") { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                BottomItem("Add") { Icon(Icons.Default.Add, contentDescription = null) },
+                BottomItem("Analysis") { Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                BottomItem("Test") { Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                BottomItem(when (tab) { 4 -> "Matches"; 5 -> "Versions"; else -> "More" }) { Icon(Icons.Default.MoreVert, contentDescription = null) },
+            ),
+            selected = minOf(tab, 4),
+            onSelect = { if (it == 4) more = true else onSelect(it) },
+        )
+        // Anchored over the right end of the pill, where More sits, so the menu opens above it.
+        Box(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.2f)) {
+            DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                DropdownMenuItem(text = { Text("Matches") }, onClick = { more = false; onSelect(4) })
+                DropdownMenuItem(text = { Text("Versions") }, onClick = { more = false; onSelect(5) })
+            }
+        }
+    }
+}
+
+/** The Lock On reticle with its state in words beside it, so the signature moment reads clearly. */
+@Composable
+private fun LockReadout(locked: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        LockIndicator(locked = locked, size = 52.dp)
+        Column(Modifier.padding(start = 4.dp)) {
+            Text(if (locked) "Locked on!" else "Not ready", style = MaterialTheme.typography.titleMedium,
+                color = if (!locked) MaterialTheme.colorScheme.onSurfaceVariant else if (isTwilight()) SuitColors.vFinYellow else MaterialTheme.colorScheme.primary)
+            Text(if (locked) "Tournament legal" else "Saved as a draft", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

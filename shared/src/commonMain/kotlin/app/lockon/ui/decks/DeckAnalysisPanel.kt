@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LocalNavClearance
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,15 +22,16 @@ import app.lockon.rules.DeckAnalysis
 import app.lockon.rules.DeckLegality
 import app.lockon.rules.Severity
 import app.lockon.ui.components.BarChart
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.theme.cardColor
 
 @Composable
 fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: DeckLegality, modifier: Modifier = Modifier) {
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
-    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            HudHeader("Legality")
+            SectionHeader("Legality")
             if (legality.messages.isEmpty()) {
                 Text("This deck meets every construction rule.", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary)
@@ -48,7 +50,7 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         }
         HorizontalDivider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            HudHeader("Gundam readouts")
+            SectionHeader("Gundam readouts")
             CountLine("Burst cards (can trigger from shields)", stats.burstCount)
             CountLine("Blockers", stats.blockerCount)
             if (stats.linkPairs.isEmpty()) {
@@ -66,16 +68,17 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         BarChart("Cost curve (main deck)", stats.costCurve, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f))
         HorizontalDivider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            HudHeader("Card types")
+            SectionHeader("Card types")
             CardType.entries.forEach { type ->
                 CountLine(type.label, stats.typeCounts[type] ?: 0)
             }
         }
         if (stats.colorCounts.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                HudHeader("Colors")
+                SectionHeader("Colors")
                 stats.colorCounts.forEach { (color, count) ->
-                    CountLine(color.label, count, accent = cardColor(color))
+                    // White would vanish on the light sky, so it keeps the text colour; its name says which it is (I4).
+                    CountLine(color.label, count, accent = if (color == app.lockon.model.CardColor.WHITE) null else cardColor(color))
                 }
             }
         }

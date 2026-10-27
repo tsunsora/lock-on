@@ -1,6 +1,7 @@
 package app.lockon.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.aspectRatio
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lockon.model.Card
 import app.lockon.model.Printing
 import app.lockon.sync.QrMatrix
@@ -97,7 +99,7 @@ fun CardRow(
 @Composable
 fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.secondary) {
     Column(modifier) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        SectionHeader(title)
         Spacer(Modifier.height(8.dp))
         if (bars.isEmpty()) {
             Text("No main-deck cards yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -111,13 +113,19 @@ fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Mod
                 val target = if (shown) (count.toFloat() / max).coerceAtLeast(0.02f) else 0.02f
                 val grow by animateFloatAsState(target, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "bar")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                    Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelSmall)
+                    Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = color)
+                    // Bars are lit columns: a bright cap over a fading body, cut like armour.
                     Box(
                         Modifier.fillMaxWidth().fillMaxHeight(fraction = grow * 0.8f)
-                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                            .background(if (count > 0) color else MaterialTheme.colorScheme.outlineVariant),
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                            .background(
+                                if (count > 0) Brush.verticalGradient(listOf(color, color.copy(alpha = 0.35f)))
+                                else Brush.verticalGradient(listOf(MaterialTheme.colorScheme.outlineVariant, MaterialTheme.colorScheme.outlineVariant)),
+                            )
+                            .drawBehind { if (count > 0) drawRect(Color.White.copy(alpha = 0.7f), size = Size(size.width, 2.dp.toPx())) },
                     )
-                    Text("$label", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                    Text("$label", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -140,9 +148,12 @@ fun QrCodeView(matrix: QrMatrix, modifier: Modifier = Modifier) {
 fun Badge(text: String, background: Color, foreground: Color, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
         color = foreground,
-        modifier = modifier.clip(MaterialTheme.shapes.extraSmall).background(background).padding(horizontal = 8.dp, vertical = 2.dp),
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier.clip(PillShape).background(background).padding(horizontal = 10.dp, vertical = 3.dp),
     )
 }
 
@@ -164,49 +175,39 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actio
     }
 }
 
+/** A large glass panel over the sky; see [GlassPanel]. */
 @Composable
-fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Surface(
-        modifier = modifier.heightIn(min = 0.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, LockOnShapes.panel)
-            .panelLines(MaterialTheme.colorScheme.outlineVariant, vents = false),
-        shape = LockOnShapes.panel,
-        color = MaterialTheme.colorScheme.surface,
-        content = content,
-    )
+fun Panel(modifier: Modifier = Modifier, title: String? = null, readout: String? = null, content: @Composable () -> Unit) {
+    GlassPanel(modifier, title = title, readout = readout, content = content)
 }
 
-/** Section header in the HUD style (UX rule V2): amber tick, uppercase label, optional readout. */
+/**
+ * Section header (UX rule V2): a sparkle, the label in friendly bold type, a soft rule fading out,
+ * and the count in a tinted pill when the section has one.
+ */
 @Composable
-fun HudHeader(label: String, modifier: Modifier = Modifier, readout: String? = null, trailing: @Composable () -> Unit = {}) {
+fun SectionHeader(label: String, modifier: Modifier = Modifier, readout: String? = null, trailing: @Composable () -> Unit = {}) {
+    val scheme = MaterialTheme.colorScheme
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(width = 3.dp, height = 14.dp).background(MaterialTheme.colorScheme.primary))
-        Spacer(Modifier.width(8.dp))
-        Text(
-            label.uppercase(),
-            style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Sparkle(size = 11.dp, color = scheme.primary)
+        Spacer(Modifier.width(7.dp))
+        Text(label, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+        Box(
+            Modifier.weight(1f).padding(horizontal = 10.dp).height(1.dp)
+                .background(Brush.horizontalGradient(listOf(scheme.outlineVariant, Color.Transparent))),
         )
-        Spacer(Modifier.weight(1f))
-        if (readout != null) {
-            Text(readout, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurface)
-        }
+        if (readout != null) CountPill(readout)
         trailing()
     }
 }
 
-/** Small color squares with initials, so color is never the only signal (UX rule I4). */
+/** Small flat colour dots with initials, so colour is never the only signal (UX rule I4). */
 @Composable
-fun ColorPips(colors: Collection<app.lockon.model.CardColor>, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+fun ColorPips(colors: Collection<app.lockon.model.CardColor>, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 18.dp) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         colors.sortedBy { it.ordinal }.forEach { color ->
-            Box(
-                Modifier.size(18.dp).clip(LockOnShapes.thumb).background(cardColor(color)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(color.label.take(1), style = MaterialTheme.typography.labelSmall, color = app.lockon.ui.theme.onCardColor(color),
-                    fontWeight = FontWeight.Bold)
-            }
+            ColorDot(cardColor(color), app.lockon.ui.theme.onCardColor(color), color.label.take(1), size = size,
+                outlined = color == app.lockon.model.CardColor.WHITE)
         }
     }
 }
@@ -238,5 +239,77 @@ fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = fal
     Column(modifier) {
         if (faceDown) CardBack(Modifier.fillMaxWidth()) else CardImage(card, Modifier.fillMaxWidth())
         footer()
+    }
+}
+
+/**
+ * A compact level curve for the top of the deck list: one lit column per level with its count,
+ * like the curve a game deck builder keeps under the deck.
+ */
+@Composable
+fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true) {
+    val scheme = MaterialTheme.colorScheme
+    val max = bars.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
+    Column(modifier.fillMaxWidth()) {
+        if (caption) Text("Level curve", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+            bars.forEachIndexed { index, (level, count) ->
+                val grow by animateFloatAsState(count.toFloat() / max, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "curve")
+                Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                    Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.primary)
+                    Box(
+                        // The bar gets the room left after its count and label, so heights compare honestly.
+                        Modifier.fillMaxWidth(0.72f).weight(1f, fill = false).fillMaxHeight(fraction = grow.coerceAtLeast(0.06f))
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                            .background(Brush.verticalGradient(listOf(scheme.primary, scheme.primary.copy(alpha = 0.25f)))),
+                    )
+                    Text("Lv$level", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A deck at a glance: a title row, the level curve across the full width, and the counts by type,
+ * Burst and Blockers as one row of even tiles. Zero counts are dimmed so the cards that are there
+ * stand out. Used by the editor's stats strip and the exported deck image.
+ */
+@Composable
+fun DeckGlance(stats: app.lockon.rules.DeckStats, modifier: Modifier = Modifier, curveHeight: androidx.compose.ui.unit.Dp = 88.dp) {
+    val scheme = MaterialTheme.colorScheme
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Level curve", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, modifier = Modifier.weight(1f))
+            Text("${stats.mainCount} cards", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant)
+        }
+        if (stats.levelCurve.isNotEmpty()) MiniCurve(stats.levelCurve, Modifier.fillMaxWidth(), height = curveHeight, caption = false)
+        Box(Modifier.fillMaxWidth().height(1.dp).background(scheme.outlineVariant.copy(alpha = 0.6f)))
+        val counts = listOf(
+            "Units" to (stats.typeCounts[app.lockon.model.CardType.UNIT] ?: 0),
+            "Pilots" to (stats.typeCounts[app.lockon.model.CardType.PILOT] ?: 0),
+            "Commands" to (stats.typeCounts[app.lockon.model.CardType.COMMAND] ?: 0),
+            "Bases" to (stats.typeCounts[app.lockon.model.CardType.BASE] ?: 0),
+            "Burst" to stats.burstCount,
+            "Blockers" to stats.blockerCount,
+        )
+        // Each tile takes its label's width and the gaps are shared, so "Commands" fits on a phone.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            counts.forEachIndexed { i, (label, n) ->
+                val dim = n == 0
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "$n", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
+                        color = when {
+                            dim -> scheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            i >= 4 -> scheme.primary
+                            else -> scheme.onSurface
+                        },
+                    )
+                    Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false,
+                        color = scheme.onSurfaceVariant.copy(alpha = if (dim) 0.6f else 1f))
+                }
+            }
+        }
     }
 }

@@ -18,7 +18,7 @@ A **Gundam Card Game deck builder** for **Windows and Android**. Build decks, te
 - **Share decks:** export a text list, a deck image, or a printable deck registration sheet.
 - **Sync without an account:** phones and computers on the same Wi-Fi find each other, and edits reach the other device within seconds.
 - **Automatic updates:** new versions download in the background and install with a restart or a tap.
-- **A cockpit look:** Material 3 with a mobile-suit colour scheme, dark and light themes, and motion that follows your system's reduced-motion setting.
+- **A bright game look:** frosted glass panels over a sky backdrop, a floating player card and a translucent pill nav bar, card-strip deck lists, deck boxes, copy pips and gauges, with hover lift and add-card feedback. Light sky and twilight themes; motion follows your system's reduced-motion setting.
 
 ## Install and start building
 
@@ -42,7 +42,7 @@ Requires **Android 8.0 or newer**.
 
 1. Open **Cards → Catalog** and choose **Download the latest card database**. Until you do, Lock On shows 20 fictional sample cards.
 2. In **Decks**, create a deck and add cards from the search panel.
-3. To sync, open Lock On on your phone and computer on the same Wi-Fi, then go to **Sync**.
+3. To sync, open Lock On on your phone and computer on the same Wi-Fi, then go to **Settings**.
 
 ## Everyday use
 
@@ -56,7 +56,7 @@ Requires **Android 8.0 or newer**.
 - **Folders:** the desktop shows a folder list beside your decks, and phones show folder chips. Create a folder and pick its decks in one step, use **Move to folder** from a deck's menu, and rename or remove a folder. Removing a folder only takes its decks out. Folders sync.
 - **Deck cover:** open a card's details in the editor and choose **Use as deck cover**. Otherwise the deck shows its highest-level Unit.
 
-Wide windows show search, the deck and a side panel side by side. The side panel has **Analysis**, **Test**, **Matches** and **Versions** tabs. On phones these are all tabs: **Deck**, **Add cards**, **Analysis**, **Test**, **Matches** and **Versions**.
+Wide windows give most of the space to the card list and the deck. The deck panel has **Deck**, **Analysis**, **Test**, **Matches** and **Versions** tabs, and the Deck tab opens with a summary of the curve, card types and any legality problem. The deck shows its cards small and whole, or as a denser list. On phones they sit in a bottom bar: **Deck**, **Add**, **Analysis**, **Test**, and **More** for Matches and Versions.
 
 ### Track results and versions
 
@@ -71,7 +71,7 @@ You can also install a catalog from a file or an `https://` link. Every install 
 
 ### Sync your devices
 
-1. Open Lock On on a phone and a computer on the same Wi-Fi. Each appears in the other's **Nearby** list under **Sync**.
+1. Open Lock On on a phone and a computer on the same Wi-Fi. Each appears in the other's **Nearby** list under **Settings**.
 2. Tap **Connect** on either one.
 3. Check that both screens show the same 6-digit number, then confirm.
 
@@ -83,7 +83,7 @@ Only decks sync. Each device keeps its own card list. If the same deck is edited
 
 Decks import and export as plain-text lists, by pasting, copying or using a file. A JSON backup saves every deck at once.
 
-A deck's **Export** dialog also saves a 1080-pixel-wide **image** of the deck (PNG), and a **print sheet**: a deck registration sheet saved as a web page that you can print from any browser.
+A deck's **Export** dialog also saves a 2160-pixel-wide **image** of the deck (PNG), five cards to a row so each card is readable, and a **print sheet**: a deck registration sheet saved as a web page that you can print from any browser. The image shows the main deck with each card's count under it, the level curve and type counts, and a QR code that holds the whole deck list: anyone can scan it with a phone camera and paste the text into **Import**. Choose the card order for all three formats: by level (the default), cost, card number, name or copies. Every order lists all the Units first, then Pilots, Commands and Bases.
 
 ### Keyboard shortcuts
 
@@ -102,12 +102,12 @@ No account, ads or tracking. The internet is used only to download the card list
 
 ## Updates
 
-Lock On checks for a new version once a day while it's open. The version and update status are at the bottom of **Sync**.
+Lock On checks for a new version once a day while it's open. The version and update status are at the bottom of **Settings**.
 
 - **Windows:** the update downloads in the background and installs when you close Lock On. Choose **Restart and update** to install it right away. The installer shows a progress bar, keeps your folder and decks, and reopens Lock On.
-- **Android:** the update downloads on Wi-Fi. Tap **Install update** under Sync. The first time, Android asks you to allow installs from Lock On.
+- **Android:** the update downloads on Wi-Fi. Tap **Install update** under Settings. The first time, Android asks you to allow installs from Lock On.
 
-Turn off **Update automatically** under Sync to download updates only when you choose. Each download is checked against the checksum published with the release before it's installed.
+Turn off **Update automatically** under Settings to download updates only when you choose. Each download is checked against the checksum published with the release before it's installed.
 
 ## Development
 
@@ -154,7 +154,7 @@ An unofficial fan project, unaffiliated with Bandai. Gundam, card text and card 
 
 Card data comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai.
 
-The Rajdhani font by the Indian Type Foundry uses the SIL Open Font License 1.1; see the [font notice](licenses/Rajdhani-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license. The Lock On mark and other decorations are original drawings.
+The Quicksand font by the Quicksand Project Authors uses the SIL Open Font License 1.1; see the [font notice](licenses/Quicksand-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license. The Lock On mark and other decorations are original drawings.
 
 ## Visitors
 

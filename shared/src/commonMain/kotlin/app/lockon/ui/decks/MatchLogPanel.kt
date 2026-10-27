@@ -1,4 +1,8 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LocalNavClearance
+import app.lockon.ui.components.PillSegmented
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -42,7 +46,7 @@ import app.lockon.platform.formatTimestamp
 import app.lockon.rules.MatchStats
 import app.lockon.rules.Record
 import app.lockon.ui.components.Badge
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.theme.TabularNumbers
 
 /**
@@ -64,10 +68,10 @@ fun MatchLogPanel(
     // 0 = not recorded, 1 = went first, 2 = went second.
     var turn by rememberSaveable { mutableStateOf(0) }
 
-    LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(modifier, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavClearance.current), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "record") {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                HudHeader("Record", readout = if (stats.overall.games == 0) null else stats.overall.score)
+                SectionHeader("Record", readout = if (stats.overall.games == 0) null else stats.overall.score)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Readout("Win rate", stats.overall.winRate?.let { "$it%" } ?: "—")
                     Readout("Games", "${stats.overall.games}")
@@ -78,7 +82,7 @@ fun MatchLogPanel(
         }
         item(key = "log") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                HudHeader("Log a match")
+                SectionHeader("Log a match")
                 OutlinedTextField(
                     opponent, { opponent = it }, label = { Text("Opponent's deck (optional)") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -90,29 +94,23 @@ fun MatchLogPanel(
                         picks.forEach { SuggestionChip(onClick = { opponent = it }, label = { Text(it) }) }
                     }
                 }
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("Not noted", "Went first", "Went second").forEachIndexed { i, label ->
-                        SegmentedButton(selected = turn == i, onClick = { turn = i }, shape = SegmentedButtonDefaults.itemShape(i, 3)) {
-                            Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
+                PillSegmented(listOf("Not noted", "Went first", "Went second"), turn, { turn = it }, Modifier.fillMaxWidth())
                 OutlinedTextField(notes, { notes = it }, label = { Text("Notes (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     fun log(result: MatchResult) {
                         onLog(result, opponent.trim(), when (turn) { 1 -> true; 2 -> false; else -> null }, notes.trim())
                         opponent = ""; notes = ""; turn = 0
                     }
-                    Button(onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f)) { Text("Win") }
-                    FilledTonalButton(onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f)) { Text("Loss") }
-                    OutlinedButton(onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f)) { Text("Draw") }
+                    GameButton("Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f))
+                    GameButton("Loss", onClick = { log(MatchResult.LOSS) }, style = GameButtonStyle.SECONDARY, modifier = Modifier.weight(1f))
+                    GameButton("Draw", onClick = { log(MatchResult.DRAW) }, style = GameButtonStyle.SECONDARY, modifier = Modifier.weight(1f))
                 }
             }
         }
         if (stats.byOpponent.isNotEmpty()) {
             item(key = "opponents") {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    HudHeader("By opponent")
+                    SectionHeader("By opponent")
                     stats.byOpponent.forEach { (name, record) ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
@@ -123,7 +121,7 @@ fun MatchLogPanel(
             }
         }
         item(key = "games-header") {
-            HudHeader("Games", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), readout = "${matches.size}")
+            SectionHeader("Games", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), readout = "${matches.size}")
             if (matches.isEmpty()) {
                 Text(
                     "No games logged yet. Results sync with the deck, and a match logged on each of two devices is kept on both.",

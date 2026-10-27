@@ -22,3 +22,14 @@ actual fun formatDate(epochMillis: Long): String =
 actual fun encodePng(image: ImageBitmap): ByteArray =
     Image.makeFromBitmap(image.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)?.bytes
         ?: error("Could not encode the image.")
+
+actual fun encodeShareQr(text: String): app.lockon.sync.QrMatrix {
+    val hints = mapOf(
+        com.google.zxing.EncodeHintType.MARGIN to 0,
+        com.google.zxing.EncodeHintType.CHARACTER_SET to "UTF-8",
+        com.google.zxing.EncodeHintType.ERROR_CORRECTION to com.google.zxing.qrcode.decoder.ErrorCorrectionLevel.M,
+    )
+    val matrix = com.google.zxing.qrcode.QRCodeWriter().encode(text, com.google.zxing.BarcodeFormat.QR_CODE, 0, 0, hints)
+    val size = matrix.width
+    return app.lockon.sync.QrMatrix(size, BooleanArray(size * size) { matrix[it % size, it / size] })
+}

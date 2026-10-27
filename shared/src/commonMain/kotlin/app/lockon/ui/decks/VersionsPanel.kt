@@ -1,4 +1,8 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LocalNavClearance
+import app.lockon.ui.components.GameDialog
+import app.lockon.ui.components.GameButton
+import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,7 +34,7 @@ import app.lockon.model.DeckSnapshot
 import app.lockon.model.DeckVersion
 import app.lockon.platform.formatTimestamp
 import app.lockon.rules.DeckDiff
-import app.lockon.ui.components.HudHeader
+import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.theme.TabularNumbers
 
 /**
@@ -48,16 +52,16 @@ fun VersionsPanel(
     onRestore: (DeckVersion) -> Unit,
 ) {
     var comparing by remember { mutableStateOf<DeckVersion?>(null) }
-    LazyColumn(modifier) {
+    LazyColumn(modifier, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavClearance.current)) {
         item(key = "keep") {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                HudHeader("Versions", readout = "${versions.size}")
+                SectionHeader("Versions", readout = "${versions.size}")
                 Text(
                     "Changes join the current version until you keep it, it syncs to another device, or the deck sits for " +
                         "${DeckRepository.VERSION_IDLE_MS / 60_000} minutes. Open an older version to compare it or bring its cards back.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                FilledTonalButton(onClick = onKeep) { Text("Keep as a version") }
+                GameButton("Keep as a version", onClick = onKeep, style = GameButtonStyle.SECONDARY)
             }
         }
         itemsIndexed(versions, key = { _, v -> v.revisionId }) { index, version ->
@@ -87,9 +91,9 @@ fun VersionsPanel(
 
     comparing?.let { version ->
         val changes = remember(version, current) { DeckDiff.cards(version.snapshot, current) }
-        AlertDialog(
+        GameDialog(
             onDismissRequest = { comparing = null },
-            title = { Text("Version from ${formatTimestamp(version.createdAt)}") },
+            title = "Version from ${formatTimestamp(version.createdAt)}",
             text = {
                 Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (changes.isEmpty()) Text("It has the same cards as the deck now.")
@@ -115,9 +119,9 @@ fun VersionsPanel(
                 }
             },
             confirmButton = {
-                if (changes.isNotEmpty()) TextButton(onClick = { comparing = null; onRestore(version) }) { Text("Restore these cards") }
+                if (changes.isNotEmpty()) GameButton("Restore these cards", onClick = { comparing = null; onRestore(version) }, compact = true)
             },
-            dismissButton = { TextButton(onClick = { comparing = null }) { Text("Close") } },
+            dismissButton = { GameButton("Close", onClick = { comparing = null }, style = GameButtonStyle.GHOST, compact = true) },
         )
     }
 }

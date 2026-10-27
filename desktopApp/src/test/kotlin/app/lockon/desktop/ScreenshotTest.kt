@@ -1,4 +1,11 @@
 package app.lockon.desktop
+import androidx.compose.foundation.background
+import app.lockon.ui.components.shineSweep
+
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
 
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
@@ -130,7 +137,7 @@ class ScreenshotTest {
     @Test fun renderScreens() {
         shoot("desktop-library", 1980, 1290) { select(Tab.DECKS) }
         shoot("desktop-editor", 1980, 1290) { open(Screen.DeckEditor(deckId)) }
-        shoot("desktop-sync", 1980, 1290) { select(Tab.SYNC) }
+        shoot("desktop-sync", 1980, 1290) { select(Tab.SETTINGS) }
         shoot("phone-library", 600, 1260) { select(Tab.DECKS) }
         shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-cards", 600, 1260) { select(Tab.CARDS) }
@@ -141,9 +148,15 @@ class ScreenshotTest {
         shoot("phone-versions", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 5)) }
         shoot("light-desktop-editor", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId)) }
         shoot("light-phone-library", 600, 1260, dark = false) { select(Tab.DECKS) }
+        shoot("light-phone-sync", 600, 1260, dark = false, controller = client) { select(Tab.SETTINGS) }
+        shoot("light-phone-matches", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("phone-analysis", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 2)) }
+        shoot("light-phone-editor", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId)) }
+        shoot("light-phone-cards", 600, 1260, dark = false) { select(Tab.CARDS) }
+        shoot("light-phone-add-cards", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 1)) }
         sync.status.value = SyncStatus(message = "Could not reach the desktop. Check that Lock On is open on it.", isError = true)
-        shoot("phone-sync-error", 600, 1260) { select(Tab.SYNC) }
-        shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("phone-sync-error", 600, 1260) { select(Tab.SETTINGS) }
+        shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SETTINGS) }
         sync.status.value = SyncStatus(message = "Ready for phones on port 53340.")
         // The Catalog dialog, drawn on its own because it opens from a button.
         ImageComposeScene(600, 1260, Density(1.5f)) {
@@ -156,6 +169,22 @@ class ScreenshotTest {
             var image = scene.render()
             repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "phone-catalog.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
+        // The export dialog at phone width, on its List tab.
+        run {
+            val d = runBlocking { container.decks.currentSnapshot(deckId)!! }
+            ImageComposeScene(600, 1260, Density(1.5f)) {
+                app.lockon.ui.theme.LockOnTheme(dark = true) {
+                    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                        app.lockon.ui.decks.DeckExportDialog(d, container.catalog.cards.value, container.catalog.ruleset.value, files,
+                            AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = 0)
+                    }
+                }
+            }.use { scene ->
+                var image = scene.render()
+                repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+                File(out, "phone-export.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
         }
         // The export dialog's Image tab, drawn on its own for the same reason.
         val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
@@ -196,13 +225,13 @@ class ScreenshotTest {
             }
         }.use { scene ->
             repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 1) * 100_000_000L) }
-            val button = androidx.compose.ui.geometry.Offset(905f, 1113f)
+            val button = androidx.compose.ui.geometry.Offset(900f, 1196f)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
             repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 6) * 100_000_000L) }
             val image = org.jetbrains.skia.Image.makeFromEncoded(saved.get(10, java.util.concurrent.TimeUnit.SECONDS))
-            kotlin.test.assertEquals(1080, image.width)
-            assertTrue(image.height > 1080, "the whole deck is in the image, not just what the dialog shows")
+            kotlin.test.assertEquals(2160, image.width)
+            assertTrue(image.height > 2160, "the whole deck is in the image, not just what the dialog shows")
         }
     }
 
@@ -224,6 +253,84 @@ class ScreenshotTest {
         }
         javax.imageio.ImageIO.write(image, "png", file)
         return "file:///" + file.absolutePath.replace('\\', '/')
+    }
+
+    /**
+     * Game feedback on one card tile, laid out on its own so the positions below follow from the
+     * tile's size and not from the app around it: the pointer rests on the card so it lifts and
+     * tilts, then + adds a copy and the card flashes. Frames are caught mid-animation.
+     */
+    @Test fun renderFeedback() {
+        val card = container.catalog.cards.value.getValue("SMP-001")
+        val copies = androidx.compose.runtime.mutableStateOf(0)
+        // 240 dp wide at 1.5×: the card is 240 × 88/63 dp tall, then a 6 dp gap and the 48 dp control plate.
+        val width = 240f * 1.5f
+        val cardHeight = 240f * 88f / 63f * 1.5f
+        val margin = 40f * 1.5f
+        ImageComposeScene((width + margin * 2).toInt(), (cardHeight + 54f * 1.5f + margin * 2).toInt(), Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                app.lockon.ui.components.SkyBackground(androidx.compose.ui.Modifier.fillMaxSize()) {
+                    app.lockon.ui.components.CardTile(
+                        card, onClick = {}, modifier = androidx.compose.ui.Modifier.padding(40.dp).width(240.dp),
+                        quantity = copies.value, onMinus = { copies.value-- }, onPlus = { copies.value++ }, limit = 4,
+                    )
+                }
+            }
+        }.use { scene ->
+            var time = 0L
+            fun frames(n: Int) = repeat(n) { Thread.sleep(40); time += 16_000_000L; scene.render(time) }
+            frames(10)
+            // The card's upper-left quarter, so the tilt leans that way.
+            val aim = androidx.compose.ui.geometry.Offset(margin + width * 0.25f, margin + cardHeight * 0.25f)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter, aim)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, aim + androidx.compose.ui.geometry.Offset(4f, 4f))
+            frames(20)
+            File(out, "desktop-hover.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            // + is the 48 dp target at the right end of the control plate.
+            val plus = androidx.compose.ui.geometry.Offset(margin + width - 24f * 1.5f, margin + cardHeight + (6f + 24f) * 1.5f)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, plus)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, plus)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, plus)
+            frames(4)
+            File(out, "desktop-add-flash.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
+        kotlin.test.assertEquals(1, copies.value, "+ under the card adds one copy")
+    }
+
+    /**
+     * The Lock On moment on a banner-sized plate: the deck turns legal, and a frame is caught while
+     * the light band crosses the plate and the brackets close on the reticle.
+     */
+    @Test fun renderLockSweep() {
+        val locked = androidx.compose.runtime.mutableStateOf(false)
+        ImageComposeScene(1200, 240, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                app.lockon.ui.components.SkyBackground(androidx.compose.ui.Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.layout.Row(
+                        androidx.compose.ui.Modifier.fillMaxSize()
+                            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerLow)
+                            .then(androidx.compose.ui.Modifier.shineSweep(locked.value))
+                            .padding(24.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        app.lockon.ui.components.LockIndicator(locked.value, size = 80.dp)
+                        androidx.compose.material3.Text(if (locked.value) "LOCKED ON" else "NOT READY",
+                            style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+                            modifier = androidx.compose.ui.Modifier.padding(start = 16.dp))
+                    }
+                }
+            }
+        }.use { scene ->
+            var time = 0L
+            fun frames(n: Int) = repeat(n) { Thread.sleep(30); time += 16_000_000L; scene.render(time) }
+            frames(10)
+            locked.value = true
+            frames(18)
+            File(out, "desktop-lock-sweep.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            frames(60)
+            File(out, "desktop-lock-sweep-end.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
     }
 
     @Test fun renderArtwork() = runBlocking {

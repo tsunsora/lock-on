@@ -1,7 +1,6 @@
 package app.lockon.io
 
 import app.lockon.model.Card
-import app.lockon.model.CardType
 import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
@@ -13,7 +12,7 @@ import app.lockon.model.Ruleset
  * no platform needs its own PDF code.
  */
 object DeckSheetFormat {
-    fun html(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Ruleset, date: String): String {
+    fun html(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Ruleset, date: String, order: ExportOrder = ExportOrder.LEVEL): String {
         val colors = deck.entries.filter { it.section == DeckSection.MAIN }
             .flatMap { cards[it.cardNumber]?.colors.orEmpty() }.distinct().sortedBy { it.ordinal }.joinToString(", ") { it.label }
         return buildString {
@@ -23,18 +22,14 @@ object DeckSheetFormat {
             listOf("Player name" to "", "Player ID" to "", "Event" to "", "Date" to "", "Deck name" to deck.name, "Colors" to colors)
                 .forEach { (label, value) -> append("<div class=\"field\"><span>$label</span>${escape(value)}</div>") }
             append("</div>\n")
-            section("Main deck", deck.entries.filter { it.section == DeckSection.MAIN }, cards, ruleset.mainDeckSize)
-            section("Resource deck", deck.entries.filter { it.section == DeckSection.RESOURCE }, cards, ruleset.resourceDeckSize)
+            section("Main deck", deck.entries.filter { it.section == DeckSection.MAIN }, cards, ruleset.mainDeckSize, order)
+            section("Resource deck", deck.entries.filter { it.section == DeckSection.RESOURCE }, cards, ruleset.resourceDeckSize, order)
             append("<p class=\"foot\">Made with Lock On on ${escape(date)}. Check which sheet your event asks for.</p>\n</body></html>\n")
         }
     }
 
-    private fun StringBuilder.section(title: String, entries: List<DeckEntry>, cards: Map<String, Card>, size: Int) {
-        val typeOrder = CardType.entries
-        val sorted = entries.sortedWith(
-            compareBy<DeckEntry>({ cards[it.cardNumber]?.type?.let(typeOrder::indexOf) ?: typeOrder.size },
-                { cards[it.cardNumber]?.level ?: 99 }, { cards[it.cardNumber]?.cost ?: 99 }, { it.cardNumber }),
-        )
+    private fun StringBuilder.section(title: String, entries: List<DeckEntry>, cards: Map<String, Card>, size: Int, order: ExportOrder) {
+        val sorted = entries.sortedWith(order.comparator(cards))
         append("<table><caption>$title</caption>")
         append("<thead><tr><th class=\"n\">Qty</th><th class=\"no\">Card no.</th><th>Name</th><th>Type</th><th class=\"n\">Lv</th></tr></thead><tbody>")
         for (entry in sorted) {
