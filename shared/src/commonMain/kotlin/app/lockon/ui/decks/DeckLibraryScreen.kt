@@ -142,7 +142,7 @@ private sealed interface FolderFilter {
 
 @Composable
 fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridge) {
-    val decks by container.decks.decks.collectAsState(initial = null)
+    val decks by container.decks.liveDecks.collectAsState(initial = null)
     val cards by container.catalog.cards.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
     var dialog by remember { mutableStateOf<LibraryDialog?>(null) }

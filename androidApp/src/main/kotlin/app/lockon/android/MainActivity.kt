@@ -66,6 +66,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val app = application as LockOnApplication
+        // Card images used to sit in the cache folder; they now live in files for offline use.
+        kotlin.concurrent.thread(isDaemon = true) { cacheDir.resolve("artwork").deleteRecursively() }
         setContent {
             val container by produceState<AppContainer?>(null) { value = app.container.await() }
             val sync by produceState<AndroidSyncController?>(null) {
@@ -85,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = state.canGoBack) { state.goBack() }
                 LockOnApp(
                     c, state, s, files,
-                    imageCacheDir = cacheDir.resolve("artwork").absolutePath,
+                    artworkDir = filesDir.resolve("artwork").absolutePath,
                     reduceMotion = remember { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f },
                 )
             }

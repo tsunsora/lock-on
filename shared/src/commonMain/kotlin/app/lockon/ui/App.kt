@@ -113,12 +113,17 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import app.lockon.ui.components.ArtworkSource
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.components.artworkImageLoader
+import app.lockon.ui.components.artworkHttpClient
+import app.lockon.ui.components.LocalArtworkStore
+import app.lockon.data.ArtworkStore
 import coil3.compose.setSingletonImageLoaderFactory
 import app.lockon.ui.components.TricolorStripe
 import app.lockon.ui.decks.ConflictScreen
@@ -157,19 +162,20 @@ fun LockOnApp(
     state: AppState,
     sync: SyncController,
     files: FileBridge,
-    /** Folder for cached card images; images never sync and can be deleted at any time. */
-    imageCacheDir: String,
+    /** Folder where card images are kept for offline use; they never sync. */
+    artworkDir: String,
     dark: Boolean? = null,
     /** From the system's "remove animations" setting; turns motion into instant changes. */
     reduceMotion: Boolean = false,
 ) {
     CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
-    ArtworkProvider(container, imageCacheDir) {
+    ArtworkProvider(container, artworkDir) {
     LockOnTheme(dark ?: isSystemInDarkTheme()) {
         val snackbars = remember { SnackbarHostState() }
         val syncStatus by sync.status.collectAsState()
-        val deckCount = container.decks.decks.collectAsState(initial = emptyList()).value.size
-        val cardCount = container.catalog.cards.collectAsState().value.size
+        // Only the counts, so saving a deck or loading cards doesn't recompose the whole app.
+        val deckCount by remember { container.decks.liveDecks.map { it.size }.distinctUntilChanged() }.collectAsState(initial = 0)
+        val cardCount by remember { container.catalog.cards.map { it.size }.distinctUntilChanged() }.collectAsState(initial = container.catalog.cards.value.size)
         val rootFocus = remember { FocusRequester() }
         LaunchedEffect(state.notice) {
             val notice = state.notice ?: return@LaunchedEffect
@@ -308,14 +314,19 @@ private fun depthOf(destination: Any): Int = when (destination) {
     else -> 0
 }
 
-/** Sets up the image loader and tells every card view where its artwork is. */
+/**
+ * Sets up the image loader and tells every card view where its artwork is. With artwork on, every
+ * card image not yet on this device downloads in the background, once, so cards work offline.
+ */
 @Composable
-fun ArtworkProvider(container: AppContainer, imageCacheDir: String, content: @Composable () -> Unit) {
-    setSingletonImageLoaderFactory { context -> artworkImageLoader(context, imageCacheDir) }
+fun ArtworkProvider(container: AppContainer, artworkDir: String, content: @Composable () -> Unit) {
+    val store = remember(artworkDir) { ArtworkStore(artworkDir, ::artworkHttpClient) }
+    setSingletonImageLoaderFactory { context -> artworkImageLoader(context, store) }
     val printings by container.catalog.printings.collectAsState()
     val showArtwork by container.catalog.showArtwork.collectAsState()
     val artwork = remember(printings, showArtwork) { ArtworkSource(showArtwork, printings) }
-    CompositionLocalProvider(LocalArtwork provides artwork, content = content)
+    LaunchedEffect(store, printings, showArtwork) { if (showArtwork) store.downloadAll(printings.values.flatten()) }
+    CompositionLocalProvider(LocalArtwork provides artwork, LocalArtworkStore provides store, content = content)
 }
 
 /**

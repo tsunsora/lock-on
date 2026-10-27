@@ -34,6 +34,8 @@ fun main() {
     val database = LockOnDatabase.build(
         Room.databaseBuilder<LockOnDatabase>(name = File(AppDirs.data, LockOnDatabase.FILE_NAME).absolutePath),
     )
+    // Card images used to sit in a cache; they now live in "artwork" for offline use.
+    kotlin.concurrent.thread(isDaemon = true) { File(AppDirs.data, "artwork-cache").deleteRecursively() }
     val hostName = runCatching { InetAddress.getLocalHost().hostName }.getOrNull()?.takeIf { it.isNotBlank() } ?: "Desktop"
     // Installing an update now closes the window the normal way, so it is saved first.
     var closeWindow: () -> Unit = {}
@@ -59,7 +61,7 @@ fun main() {
             icon = painterResource("lock-on-window.png"),
             state = windowState,
         ) {
-            LockOnApp(container, state, sync, DesktopFileBridge(window), imageCacheDir = File(AppDirs.data, "artwork-cache").absolutePath)
+            LockOnApp(container, state, sync, DesktopFileBridge(window), artworkDir = File(AppDirs.data, "artwork").absolutePath)
         }
     }
     sync.stop()

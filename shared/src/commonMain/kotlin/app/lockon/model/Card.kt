@@ -84,8 +84,10 @@ data class CardQuery(
         if (trait.isNotBlank() && card.traits.none { it.contains(trait.trim(), ignoreCase = true) }) return false
         val needle = text.trim()
         if (needle.isNotEmpty()) {
-            val haystacks = listOf(card.name, card.cardNumber, card.displayText, card.traits.joinToString(" "))
-            if (haystacks.none { it.contains(needle, ignoreCase = true) }) return false
+            // Checked one at a time, so most cards are settled without building the trait line.
+            val found = card.name.contains(needle, ignoreCase = true) || card.cardNumber.contains(needle, ignoreCase = true) ||
+                card.displayText.contains(needle, ignoreCase = true) || card.traits.joinToString(" ").contains(needle, ignoreCase = true)
+            if (!found) return false
         }
         return true
     }

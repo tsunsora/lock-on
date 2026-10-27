@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 /** Shows every independent version of a deck side by side and lets the person keep one. */
 @Composable
 fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wide: Boolean) {
-    val summary by container.decks.deck(deckId).collectAsState(initial = null)
+    val summary by container.decks.liveDeck(deckId).collectAsState(initial = null)
     val cards by container.catalog.cards.collectAsState()
     val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
     var versions by remember { mutableStateOf<List<DeckVersion>>(emptyList()) }

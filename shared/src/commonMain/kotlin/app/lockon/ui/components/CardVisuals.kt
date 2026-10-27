@@ -119,10 +119,10 @@ private const val HOVER_PREVIEW_DELAY_MS = 350L
  */
 @Composable
 fun CardHoverPreview(card: Card, printingId: String?, hovered: Boolean) {
+    // Nothing is kept for cards the pointer isn't on, which is nearly all of a grid.
+    if (!hovered) return
     var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(hovered) {
-        if (hovered) { delay(HOVER_PREVIEW_DELAY_MS); shown = true } else shown = false
-    }
+    LaunchedEffect(Unit) { delay(HOVER_PREVIEW_DELAY_MS); shown = true }
     if (!shown) return
     val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
     Popup(popupPositionProvider = remember(gap) { BesideAnchor(gap) }, properties = PopupProperties(focusable = false)) {

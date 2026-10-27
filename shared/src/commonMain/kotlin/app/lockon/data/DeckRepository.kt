@@ -18,8 +18,14 @@ import app.lockon.sync.RevisionGraph
 import app.lockon.sync.SyncProtocol
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
@@ -46,6 +52,17 @@ class DeckRepository(
             val byDeck = entries.groupBy { it.deckId }
             decks.map { it.toSummary(byDeck[it.deckId].orEmpty()) }
         }
+
+    /**
+     * [decks] for screens: one read per change shared by every screen, decoded off the main thread.
+     * It can trail a write by a moment, so code that reads straight after writing uses [decks].
+     */
+    val liveDecks: Flow<List<DeckSummary>> =
+        decks.shareIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.WhileSubscribed(5_000), replay = 1)
+
+    /** One deck from [liveDecks]; it emits only when that deck changes. */
+    fun liveDeck(deckId: String): Flow<DeckSummary?> =
+        liveDecks.map { list -> list.firstOrNull { it.deckId == deckId } }.distinctUntilChanged()
 
     /** Highest local revision seq. It rises on every save and every received revision. */
     val latestSeq: Flow<Long> = revisions.observeMaxSeq()

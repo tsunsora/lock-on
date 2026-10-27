@@ -1,4 +1,5 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.LocalArtworkStore
 import app.lockon.ui.components.PillSwitch
 import app.lockon.ui.components.GameDialog
 import app.lockon.ui.components.GameButton
@@ -143,9 +144,20 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         Column(Modifier.weight(1f)) {
                             Text("Show card artwork", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "Images come from the catalog's links and are cached on this device. They never sync.",
+                                "Images come from the catalog's links. Each downloads once and stays on this device, so cards show offline. They never sync.",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            val images = LocalArtworkStore.current?.status?.collectAsState()?.value
+                            if (showArtwork && images != null && images.total > 0) {
+                                Text(
+                                    when {
+                                        images.complete -> "All ${images.total} card images are saved for offline use."
+                                        images.downloading -> "Saving card images for offline use: ${images.saved} of ${images.total}"
+                                        else -> "${images.saved} of ${images.total} card images saved. The rest download next time Lock On is online."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
                         }
                         PillSwitch(checked = showArtwork, onCheckedChange = { scope.launch { container.catalog.setShowArtwork(it) } })
                     }

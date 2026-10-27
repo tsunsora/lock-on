@@ -145,11 +145,11 @@ private const val AUTOSAVE_DELAY_MS = 400L
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge, deckId: String, wide: Boolean, startTab: Int = 0) {
-    val summary by container.decks.deck(deckId).collectAsState(initial = null)
+    val summary by container.decks.liveDeck(deckId).collectAsState(initial = null)
     val cards by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
-    val allDecks by container.decks.decks.collectAsState(initial = emptyList())
+    val allDecks by container.decks.liveDecks.collectAsState(initial = emptyList())
     val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
     var history by remember(deckId) { mutableStateOf<List<DeckVersion>>(emptyList()) }
     LaunchedEffect(summary) { history = container.decks.history(deckId) }

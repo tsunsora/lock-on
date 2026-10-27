@@ -126,7 +126,7 @@ class ScreenshotTest {
 
     private fun shoot(name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync, setup: AppState.() -> Unit) {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
-        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, imageCacheDir = File("build/artwork-cache").absolutePath, dark = dark) }.use { scene ->
+        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark) }.use { scene ->
             var image = scene.render()
             // Let Room flows settle, and advance the frame clock so animations reach their end state.
             repeat(15) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
@@ -304,7 +304,7 @@ class ScreenshotTest {
      */
     @Test fun renderHoverPreview() {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply { open(Screen.DeckEditor(deckId)) }
-        ImageComposeScene(1980, 1290, Density(1.5f)) { LockOnApp(container, state, sync, files, imageCacheDir = File("build/artwork-cache").absolutePath, dark = true) }.use { scene ->
+        ImageComposeScene(1980, 1290, Density(1.5f)) { LockOnApp(container, state, sync, files, artworkDir = File("build/artwork-cache").absolutePath, dark = true) }.use { scene ->
             var time = 0L
             fun frames(n: Int) = repeat(n) { Thread.sleep(40); time += 16_000_000L; scene.render(time) }
             fun restOn(name: String, x: Float, y: Float) {

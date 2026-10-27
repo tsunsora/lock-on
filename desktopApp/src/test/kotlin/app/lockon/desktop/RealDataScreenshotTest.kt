@@ -87,7 +87,7 @@ class RealDataScreenshotTest {
 
         fun shoot(name: String, w: Int, h: Int, density: Float, dark: Boolean = true, setup: AppState.() -> Unit) {
             val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
-            ImageComposeScene(w, h, Density(density)) { LockOnApp(container, state, sync, files, imageCacheDir = cache, dark = dark) }.use { scene ->
+            ImageComposeScene(w, h, Density(density)) { LockOnApp(container, state, sync, files, artworkDir = cache, dark = dark) }.use { scene ->
                 var image = scene.render()
                 // Images arrive from the network on first run; give them time, advancing the frame clock.
                 repeat(60) { frame -> Thread.sleep(150); image = scene.render((frame + 1) * 100_000_000L) }
