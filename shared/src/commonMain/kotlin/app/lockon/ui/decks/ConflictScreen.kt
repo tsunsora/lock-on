@@ -91,7 +91,7 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
     }
 }
 
-private fun deviceLabel(originId: String, localId: String, devices: List<PairedDevice>): String =
+internal fun deviceLabel(originId: String, localId: String, devices: List<PairedDevice>): String =
     if (originId == localId) "This device" else devices.firstOrNull { it.deviceId == originId }?.name ?: "Another device"
 
 @Composable

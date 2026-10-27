@@ -65,6 +65,10 @@ class DeckLibraryTest {
         decks.save(id, decks.currentSnapshot(id)!!.withQuantity("SMP-002", DeckSection.MAIN, 4))
         assertEquals(2, decks.history(id).size)
 
+        decks.keepVersion(id, decks.currentSnapshot(id)!!)
+        decks.keepVersion(id, decks.currentSnapshot(id)!!)
+        assertEquals(2, decks.history(id).size, "keeping an unchanged deck adds no version")
+
         clock += DeckRepository.VERSION_IDLE_MS
         decks.save(id, decks.currentSnapshot(id)!!.copy(notes = "after a break"))
         val history = decks.history(id)

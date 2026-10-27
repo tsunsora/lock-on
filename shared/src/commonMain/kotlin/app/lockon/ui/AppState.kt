@@ -10,7 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 enum class Tab(val label: String) { DECKS("Decks"), CARDS("Cards"), SYNC("Sync") }
 
 sealed interface Screen {
-    /** [startTab] is the phone tab to open on: 0 Deck, 1 Add cards, 2 Analysis, 3 Test, 4 Matches. */
+    /** [startTab] is the phone tab to open on: 0 Deck, 1 Add cards, 2 Analysis, 3 Test, 4 Matches, 5 Versions. */
     data class DeckEditor(val deckId: String, val startTab: Int = 0) : Screen
     data class Conflict(val deckId: String) : Screen
 }

@@ -249,6 +249,8 @@ class DeckRepository(
     private suspend fun saveInTransaction(deckId: String, snapshot: DeckSnapshot) {
         val deck = decksDao.deck(deckId) ?: error("Deck $deckId does not exist.")
         val head = revisions.revision(deck.headRevisionId)
+        // Saving what is already there changes nothing, so keeping a version twice adds no empty version.
+        if (head != null && !deck.hasConflict && decode(head.snapshotJson) == snapshot) return
         val amended = head != null && !deck.hasConflict && head.originDeviceId == localDeviceId && !head.shared &&
             now() - head.createdAt < VERSION_IDLE_MS &&
             revisions.amend(head.seq, encode(snapshot), snapshot.deleted, now()) == 1

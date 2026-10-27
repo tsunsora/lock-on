@@ -56,7 +56,9 @@ import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.Ruleset
 import app.lockon.model.DeckSnapshot
+import app.lockon.model.DeckVersion
 import app.lockon.model.MatchRecord
+import app.lockon.platform.formatTimestamp
 import app.lockon.data.DeckRepository
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -99,6 +101,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val printings by container.catalog.printings.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
     val allDecks by container.decks.decks.collectAsState(initial = emptyList())
+    val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
+    var history by remember(deckId) { mutableStateOf<List<DeckVersion>>(emptyList()) }
+    LaunchedEffect(summary) { history = container.decks.history(deckId) }
 
     // The editor works on a local draft and autosaves it. Changes that arrive by sync replace the
     // draft only when nothing local is waiting to be saved.
@@ -258,6 +263,26 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 },
             )
         }
+        val versions: @Composable (Modifier) -> Unit = { modifier ->
+            VersionsPanel(
+                history, deck, cards, { deviceLabel(it, container.identity.deviceId, devices) }, modifier,
+                onKeep = {
+                    val keeping = deck
+                    saved = keeping
+                    state.appScope.launch {
+                        container.decks.keepVersion(deckId, keeping)
+                        state.notify("Version kept. Your next change starts a new one.")
+                    }
+                },
+                onRestore = { version ->
+                    val before = deck.entries
+                    draft = deck.copy(entries = version.snapshot.entries)
+                    state.notify("Restored the cards from ${formatTimestamp(version.createdAt)}", "Undo") {
+                        draft = draft?.copy(entries = before)
+                    }
+                },
+            )
+        }
 
         if (wide) {
             Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -267,14 +292,15 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     var side by rememberSaveable { mutableStateOf(0) }
                     Column {
                         PrimaryScrollableTabRow(selectedTabIndex = side, edgePadding = 0.dp) {
-                            listOf("Analysis", "Test hand", "Matches").forEachIndexed { i, label ->
+                            listOf("Analysis", "Test hand", "Matches", "Versions").forEachIndexed { i, label ->
                                 Tab(selected = side == i, onClick = { side = i }, text = { Text(label, maxLines = 1) })
                             }
                         }
                         when (side) {
                             0 -> analysis(Modifier.fillMaxSize())
                             1 -> test(Modifier.fillMaxSize())
-                            else -> matchLog(Modifier.fillMaxSize())
+                            2 -> matchLog(Modifier.fillMaxSize())
+                            else -> versions(Modifier.fillMaxSize())
                         }
                     }
                 }
@@ -282,7 +308,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         } else {
             var tab by rememberSaveable(deckId) { mutableStateOf(startTab) }
             PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
-                listOf("Deck", "Add cards", "Analysis", "Test", "Matches").forEachIndexed { i, label ->
+                listOf("Deck", "Add cards", "Analysis", "Test", "Matches", "Versions").forEachIndexed { i, label ->
                     Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1) })
                 }
             }
@@ -291,7 +317,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 1 -> search(Modifier.fillMaxSize())
                 2 -> analysis(Modifier.fillMaxSize())
                 3 -> test(Modifier.fillMaxSize())
-                else -> matchLog(Modifier.fillMaxSize())
+                4 -> matchLog(Modifier.fillMaxSize())
+                else -> versions(Modifier.fillMaxSize())
             }
         }
     }
