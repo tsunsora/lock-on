@@ -3,6 +3,7 @@ package app.lockon.platform
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import java.io.ByteArrayOutputStream
 import java.time.Instant
 import java.time.ZoneId
@@ -24,6 +25,9 @@ actual fun encodePng(image: ImageBitmap): ByteArray {
     val bitmap = image.asAndroidBitmap().let { if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it }
     return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
 }
+
+actual fun imageBitmapOf(pixels: IntArray, width: Int, height: Int): ImageBitmap =
+    Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888).asImageBitmap()
 
 actual fun encodeShareQr(text: String): app.lockon.sync.QrMatrix {
     val hints = mapOf(

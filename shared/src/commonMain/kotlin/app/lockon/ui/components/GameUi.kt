@@ -93,12 +93,23 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.theme.SuitColors
 import app.lockon.ui.theme.TabularNumbers
+import app.lockon.platform.imageBitmapOf
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 // The sky-glass layer (UX rules V1, V8, V9): a bright sky backdrop, frosted glass panels, pill
 // buttons, chips and tabs, round orbs and medallions, and the hover and add-card feedback that makes
@@ -148,50 +159,46 @@ fun Sparkle(modifier: Modifier = Modifier, size: Dp = 12.dp, color: Color = Acce
     Canvas(modifier.size(size)) { sparkle(center, this.size.minDimension / 2, color) }
 }
 
+/** A painted sky and the theme it was painted for. */
+private class SkyPaint(val image: ImageBitmap, val twilight: Boolean)
+
 /**
  * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light,
  * floating bokeh and a few sparkles. Twilight swaps the light for stars. It is static: nothing loops.
+ * The smooth parts are painted per pixel by [paintSky] so they never band.
  */
 @Composable
 fun SkyBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     val twilight = isTwilight()
+    var area by remember { mutableStateOf(IntSize.Zero) }
+    // Painting takes a few dozen milliseconds, so it runs off the main thread. While a window is being
+    // resized the last sky stretches to fit, and the sky repaints once the size settles.
+    val sky by produceState<SkyPaint?>(null, area, twilight) {
+        if (area.width <= 0 || area.height <= 0) return@produceState
+        if (value?.twilight == twilight) delay(80)
+        val scale = minOf(1f, 4096f / maxOf(area.width, area.height))
+        val pw = (area.width * scale).roundToInt().coerceAtLeast(1)
+        val ph = (area.height * scale).roundToInt().coerceAtLeast(1)
+        value = withContext(Dispatchers.Default) { SkyPaint(imageBitmapOf(paintSky(pw, ph, twilight), pw, ph), twilight) }
+    }
     Box(
-        modifier.background(MaterialTheme.colorScheme.background).drawBehind {
+        modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
             val w = size.width
             val h = size.height
             val m = size.maxDimension
-            if (twilight) {
-                drawRect(Brush.verticalGradient(listOf(Color(0xFF26346A), Color(0xFF19213F), Color(0xFF11172E))))
-                drawRect(Brush.radialGradient(listOf(Color(0xFF3FC6D4).copy(alpha = 0.22f), Color.Transparent), Offset(w * 0.86f, h * 0.02f), m * 0.5f))
-                drawRect(Brush.radialGradient(listOf(Color(0xFF8E6BE8).copy(alpha = 0.2f), Color.Transparent), Offset(w * 0.06f, h * 0.95f), m * 0.5f))
+            val painted = sky?.takeIf { it.twilight == twilight }
+            if (painted != null) {
+                drawImage(painted.image, dstSize = IntSize(ceil(w).toInt(), ceil(h).toInt()), filterQuality = FilterQuality.Low)
             } else {
-                drawRect(Brush.verticalGradient(listOf(Color(0xFFB7DEF5), Color(0xFFDDEFFA), Color(0xFFF5FAFE))))
-                drawRect(Brush.radialGradient(listOf(Color(0xFF7FE3E8).copy(alpha = 0.45f), Color.Transparent), Offset(w * 0.86f, h * 0.02f), m * 0.5f))
-                drawRect(Brush.radialGradient(listOf(SuitColors.blush.copy(alpha = 0.35f), Color.Transparent), Offset(w * 0.04f, h * 0.96f), m * 0.45f))
-                drawRect(Brush.radialGradient(listOf(Gold.copy(alpha = 0.18f), Color.Transparent), Offset(w * 0.62f, h * 1.05f), m * 0.4f))
+                drawRect(Brush.verticalGradient(if (twilight) TwilightSky else DaySky))
             }
-            // A soft beam of light falling diagonally across the sky.
-            val beam = Path().apply {
-                moveTo(w * 0.50f, 0f); lineTo(w * 0.66f, 0f); lineTo(w * 0.40f, h); lineTo(w * 0.12f, h); close()
-            }
-            drawPath(beam, Brush.horizontalGradient(
-                listOf(Color.Transparent, Color.White.copy(alpha = if (twilight) 0.05f else 0.32f), Color.Transparent),
-                startX = w * 0.12f, endX = w * 0.66f,
-            ))
-            // Bokeh and sparkles at fixed places, so every frame and screenshot is the same.
-            val bokeh = listOf(
-                Triple(0.08f, 0.18f, 0.05f), Triple(0.22f, 0.62f, 0.03f), Triple(0.47f, 0.3f, 0.025f), Triple(0.71f, 0.72f, 0.045f),
-                Triple(0.9f, 0.4f, 0.03f), Triple(0.35f, 0.9f, 0.04f), Triple(0.6f, 0.12f, 0.02f), Triple(0.95f, 0.88f, 0.035f),
-            )
-            bokeh.forEachIndexed { i, (fx, fy, fr) ->
-                val c = Offset(w * fx, h * fy)
-                val r = m * fr
-                // At twilight the bokeh is a faint glow; rings would read as holes in the night sky.
-                if (twilight) drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.05f), Color.Transparent), c, r), r, c)
-                else {
-                    drawCircle(Color.White.copy(alpha = 0.28f), r, c)
-                    if (i % 2 == 0) drawCircle(Color.White.copy(alpha = 0.5f), r, c, style = Stroke(1.5f))
-                }
+            // Bokeh and sparkles at fixed places, so every frame and screenshot is the same. Twilight's
+            // bokeh are glows, painted with the sky.
+            if (!twilight) SkyBokeh.forEachIndexed { i, b ->
+                val c = Offset(w * b.x, h * b.y)
+                val r = m * b.radius
+                drawCircle(Color.White.copy(alpha = 0.28f), r, c)
+                if (i % 2 == 0) drawCircle(Color.White.copy(alpha = 0.5f), r, c, style = Stroke(1.5f))
             }
             if (twilight) {
                 var seed = 7L
@@ -670,11 +677,12 @@ fun PillSearchField(
 }
 
 /**
- * A colour filter as a small orb with the colour's initial (UX rule I4): bright with a teal ring
- * when on, softened when off. Five of these take the room of two text chips.
+ * A colour filter as a flat [ColorDot] with the colour's initial (UX rule I4), matching the deck
+ * export: bright with a teal ring when on, softened when off. Five of these take the room of two
+ * text chips.
  */
 @Composable
-fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolean, target: Dp = 38.dp, onToggle: () -> Unit) {
+fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolean, target: Dp = 38.dp, outlined: Boolean = false, onToggle: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val ring = Accent
@@ -685,7 +693,7 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.graphicsLayer { alpha = if (selected || hovered) 1f else 0.6f }) {
-            CostOrb(null, color, onColor, size = 28.dp, text = label.take(1))
+            ColorDot(color, onColor, label.take(1), size = 28.dp, outlined = outlined)
         }
         if (selected) {
             Canvas(Modifier.fillMaxSize()) {

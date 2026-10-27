@@ -177,7 +177,8 @@ fun CardSearchPanel(
         FlowRow(rowModifier, horizontalArrangement = Arrangement.spacedBy(if (wide) 4.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             CardColor.entries.forEach { color ->
                 Box(Modifier.align(Alignment.CenterVertically)) {
-                    ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors, target = if (wide) 38.dp else 48.dp) {
+                    ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors, target = if (wide) 38.dp else 48.dp,
+                        outlined = color == CardColor.WHITE) {
                         query = query.copy(colors = query.colors.toggle(color))
                     }
                 }

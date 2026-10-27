@@ -2,8 +2,12 @@ package app.lockon.platform
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
+import org.jetbrains.skia.ImageInfo
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -22,6 +26,17 @@ actual fun formatDate(epochMillis: Long): String =
 actual fun encodePng(image: ImageBitmap): ByteArray =
     Image.makeFromBitmap(image.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)?.bytes
         ?: error("Could not encode the image.")
+
+actual fun imageBitmapOf(pixels: IntArray, width: Int, height: Int): ImageBitmap {
+    // Skia wants bytes; BGRA on little-endian is the int's bytes in memory order.
+    val bytes = ByteArray(pixels.size * 4)
+    pixels.forEachIndexed { i, p ->
+        bytes[i * 4] = p.toByte(); bytes[i * 4 + 1] = (p shr 8).toByte()
+        bytes[i * 4 + 2] = (p shr 16).toByte(); bytes[i * 4 + 3] = (p ushr 24).toByte()
+    }
+    val info = ImageInfo(width, height, ColorType.BGRA_8888, ColorAlphaType.OPAQUE)
+    return Image.makeRaster(info, bytes, width * 4).toComposeImageBitmap()
+}
 
 actual fun encodeShareQr(text: String): app.lockon.sync.QrMatrix {
     val hints = mapOf(
