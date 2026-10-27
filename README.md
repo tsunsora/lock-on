@@ -1,159 +1,152 @@
+<p align="center">
+  <img src="desktopApp/icons/lock-on.png" width="88" alt="Lock On app icon">
+</p>
+
 # Lock On
 
-A Gundam Card Game deck builder for Android and Windows (macOS and Linux later). The two apps work on their own and sync decks directly over your local network: no account, no cloud server.
+A **Gundam Card Game deck builder** for **Windows and Android**. Build decks, test opening hands, and keep your phone and computer in sync over your own Wi-Fi. No account or cloud server is required.
 
-## What's in this first milestone
+[**Download for Windows and Android**](https://github.com/tsunsora/lock-on/releases/latest) · [Changelog](CHANGELOG.md) · [Report an issue](https://github.com/tsunsora/lock-on/issues)
 
-- **Card browser**: search by name, card number or text, filter by color, type, level, cost, set and trait, sort, and switch between list and grid views. Card details show corrected text and every printing.
-- **Deck editor**: add and remove cards with one tap, set the preferred printing, write notes. It saves automatically. Cards are tagged **Max** at their copy limit and **Off-color** when they would add a third color, and **Deck colors only** hides the rest. The deck is grouped by type. Wide windows show search, the deck and analysis side by side; phones use tabs (Deck, Add cards, Analysis, Test).
-- **Considering list**: park cards you're weighing up in a separate section that never counts toward deck size, colors or legality. Move copies in and out with one tap. It syncs and exports with the deck (`// Considering`; `Maybe:` and `Sideboard` headers also import into it).
-- **Test hand**: practice opening hands with the official setup: draw 5, redraw once to the bottom, set 6 shields, then draw each turn.
-- **Deck library**: create, duplicate, rename, tag, search and filter decks. Deleting shows **Undo** instead of asking first.
-- **Deck analysis**: legality messages, Burst and Blocker counts, Unit–Pilot link pairs, level and cost curves, and card-type and color counts. An incomplete deck saves as a *Draft*.
-- **Sync, LocalSend-style**:
-  - Open Lock On on a phone and a computer on the same Wi-Fi, and each appears in the other's **Nearby** list.
-  - Tap **Connect** on either one, then check that both screens show the same 6-digit number and confirm. No account, QR code or typing.
-  - QR codes and typed addresses remain as fallbacks, and the screen shows paired devices, the last successful sync, and **Sync now**.
-  - Phones reach each other through a paired computer.
-  - **Nearby desktops**: phones find Lock On desktops on the same network and pair with just the code, no address to type.
-  - **Auto-sync while open**: with both apps open on the same network, edits reach the other device within seconds, and a paired desktop that changes IP address is followed automatically. It runs only while the phone app is on screen. Nothing runs in the background.
-- **Import and export**: plain-text deck lists (paste, copy or file) and a versioned JSON backup.
-- **Download the latest card database**: one tap in **Cards → Catalog** downloads the full official card list from [gcg-api](https://gcgapi.com) (about 1,200 cards and 2,000 printings, refreshed weekly) straight to that device and converts it there, with official card images. **Check for updates** reads only a small version file, and a weekly background check shows a quiet *Card database update available* in the Cards tab. Nothing installs itself.
-- **Card catalog updates**: install a catalog from a file or an `https://` link, and later check that link for a newer version. Every install shows a preview first, including any cards your decks use that the new catalog lacks. Decks are never changed. The format is in [docs/CATALOG_FORMAT.md](docs/CATALOG_FORMAT.md), with a CSV converter in `scripts/`.
-- **App updates**: Lock On checks for a new version once a day while it's open. On Windows it downloads in the background and installs when you close the app, or right away with **Restart and update**. On Android it downloads on Wi-Fi and installs with one tap. The version and updates are at the bottom of **Sync**, and **Update automatically** can be turned off there. See [RELEASING.md](RELEASING.md#publish-an-update).
-- **Card artwork**: when a catalog's printings include `artworkUrl` links, card lists, grids, test hands and card details show the images. They're cached on each device, never synced, and can be turned off under **Cards → Catalog**. Until an image loads, or if its link breaks, the colour placeholder stays.
+## At a glance
 
-Until the official card list is downloaded, the built-in catalog holds **20 fictional sample cards** (`SMP-001`…`SMP-020`). They follow the shape of Gundam Card Game data but contain no official text or artwork. Before importing the real catalog, find a data source you are allowed to use, and get permission to distribute card text and art. The official site has no public API.
+- **The full card list:** one tap downloads every official card and printing, with card images, and a weekly check notes when a newer list is out.
+- **Fast deck building:** one tap per copy, live search and filters, and **Max** and **Off-color** tags that show the rules as you build.
+- **Deck analysis:** legality messages that name the problem, level and cost curves, Burst and Blocker counts, and Unit–Pilot link pairs.
+- **Test hands:** the official setup of draw 5, redraw once, set 6 shields, then draw each turn.
+- **Sync without an account:** phones and computers on the same Wi-Fi find each other, and edits reach the other device within seconds.
+- **Automatic updates:** new versions download in the background and install with a restart or a tap.
+- **A cockpit look:** Material 3 with a mobile-suit colour scheme, dark and light themes, and motion that follows your system's reduced-motion setting.
 
-## UX
+## Install and start building
 
-Motion is part of the design: screen transitions, gliding lists, rolling counts, deck gauges, the **Lock On** moment when a deck becomes legal, dealt test hands and flipping shields, with haptics on phones. All of it follows the system's "Remove animations" setting. `./gradlew :desktopApp:test` followed by `python scripts/frames_to_gif.py` renders GIF previews to `desktopApp/build/screenshots/`.
+### Windows
 
-- [docs/UX_MAP.md](docs/UX_MAP.md): every screen, what it shows, and how they connect.
-- [docs/UX_RULES.md](docs/UX_RULES.md): the rules every screen follows, with the research behind them. Inspiration came from Stella Sora and Aniimo, and from comparing other Gundam Card Game builders (ExBurst, GNDM TCG Dex, TCG Stacked).
+1. Open the [latest release](https://github.com/tsunsora/lock-on/releases/latest) and download `LockOn-VERSION-windows.msi`.
+2. Run it. It installs for your user account only, so no administrator prompt appears, and lets you choose the folder.
+3. Launch **Lock On** from the Start menu or desktop shortcut.
 
-Desktop shortcuts: `Ctrl+F` searches cards, and `Esc` goes back.
+The installer bundles its own Java runtime. It isn't code-signed yet, so Windows SmartScreen may say *"Windows protected your PC"*. Choose **More info → Run anyway**. On first launch, allow Lock On through Windows Firewall on **Private networks** so your phone can sync with it.
 
-## Project layout
+### Android
 
-| Module | Contents |
+Requires **Android 8.0 or newer**.
+
+1. On your phone, download `LockOn-VERSION-android.apk` from the [latest release](https://github.com/tsunsora/lock-on/releases/latest).
+2. Open it, and allow your browser or file manager to install apps when Android asks.
+3. Open **Lock On**.
+
+### First steps
+
+1. Open **Cards → Catalog** and choose **Download the latest card database**. Until you do, Lock On shows 20 fictional sample cards.
+2. In **Decks**, create a deck and add cards from the search panel.
+3. To sync, open Lock On on your phone and computer on the same Wi-Fi, then go to **Sync**.
+
+## Everyday use
+
+### Build a deck
+
+- **Add and remove:** tap **+** or **−** on any card in the search results or the deck list. Tap the card itself for details and every printing.
+- **Follow the rules as you go:** cards show how many copies are in the deck, **Max** at their copy limit, and **Off-color** when they would add a third color. **Deck colors only** hides the rest.
+- **Considering:** park cards you're weighing up in a separate list. It never counts toward deck size, colors or legality, and it syncs and exports with the deck.
+- **Drafts are fine:** nothing blocks a save. An incomplete or illegal deck saves as a *Draft*, and the analysis says what's missing.
+- **Organize:** duplicate, rename, tag, search and filter decks. Deleting a deck offers **Undo** instead of asking first.
+
+Wide windows show search, the deck and analysis side by side. On phones they become tabs: **Deck**, **Add cards**, **Analysis** and **Test**.
+
+### Keep the card list current
+
+**Cards → Catalog** downloads the official card list from [gcg-api](https://gcgapi.com), about 1,200 cards and 2,000 printings, and converts it on your device. **Check for updates** reads only a small version file, and a weekly background check shows a quiet *Card database update available* in the Cards tab. Card images are cached on each device and can be turned off in the same dialog.
+
+You can also install a catalog from a file or an `https://` link. Every install shows a preview first, including any cards your decks use that the new catalog lacks. Decks are never changed. The format is in [docs/CATALOG_FORMAT.md](docs/CATALOG_FORMAT.md), with a CSV converter in `scripts/`.
+
+### Sync your devices
+
+1. Open Lock On on a phone and a computer on the same Wi-Fi. Each appears in the other's **Nearby** list under **Sync**.
+2. Tap **Connect** on either one.
+3. Check that both screens show the same 6-digit number, then confirm.
+
+From then on, edits sync within seconds while both apps are open, and the phone follows a computer that changes address. Nothing runs in the background. Phones reach each other through a paired computer. If devices can't see each other, pair by QR code or by typing the computer's address instead.
+
+Only decks sync. Each device keeps its own card list. If the same deck is edited on two devices before they sync, both versions are kept and the deck is marked **Needs review** so you can choose. Deleted decks never come back.
+
+### Import, export and back up
+
+Decks import and export as plain-text lists, by pasting, copying or using a file. A JSON backup saves every deck at once.
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
 | --- | --- |
-| `shared` | Kotlin Multiplatform (Android + JVM): models, rules, Room database, repositories, sync engine, Ktor sync client, and all Compose screens |
-| `androidApp` | Android entry point, QR scanner, certificate-pinned OkHttp client, Keystore-encrypted token storage, file pickers |
-| `desktopApp` | Desktop entry point, embedded HTTPS Ktor server, TLS identity, pairing confirmation, QR rendering |
+| `Ctrl+F` | Search cards |
+| `Esc` | Go back |
 
-Key files:
+## Your data
 
-- Construction rules: [DeckValidator.kt](shared/src/commonMain/kotlin/app/lockon/rules/DeckValidator.kt), with rulesets in [rulesets.json](shared/src/commonMain/composeResources/files/rulesets/rulesets.json)
-- Revisions and conflicts: [DeckRepository.kt](shared/src/commonMain/kotlin/app/lockon/data/DeckRepository.kt), [RevisionGraph.kt](shared/src/commonMain/kotlin/app/lockon/sync/RevisionGraph.kt)
-- Sync protocol: [Protocol.kt](shared/src/commonMain/kotlin/app/lockon/sync/Protocol.kt), [SyncEngine.kt](shared/src/commonMain/kotlin/app/lockon/sync/SyncEngine.kt), [SyncServer.kt](desktopApp/src/main/kotlin/app/lockon/desktop/SyncServer.kt)
+Everything stays on your devices. Desktop data lives in `%APPDATA%\LockOn` on Windows, and logs are in `%APPDATA%\LockOn\lock-on.log`. Updates keep your decks, and so does uninstalling on Windows. Uninstalling on Android deletes them, so sync or back up first.
 
-## Data model
+Sync uses HTTPS between your own devices, with each device's certificate checked when you pair. Pairing also needs your confirmation on the computer. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how decks are stored and synced.
 
-The card catalog (`cards`, `printings`) is installed per device from a versioned JSON file and is never synced. Personal data is stored as **deck revisions**:
+No account, ads or tracking. The internet is used only to download the card list and card images, and to check for app updates.
 
-- Every save writes a revision: a full deck snapshot with a UUID, its parent revision IDs, and the device that made it.
-- The `decks` and `deck_entries` tables are a cache, rebuilt from the deck's *head* revisions (revisions that nothing supersedes).
-- One head means the deck is resolved. Two or more heads mean two devices edited independently. Both versions are kept, the deck is flagged **Needs review**, and a comparison screen lets you keep one. Your choice is saved as a merge revision whose parents are all the heads.
-- Deleting a deck writes a deletion revision. A device that still has an older copy receives that deletion as a newer revision, so it cannot restore the deck. A deletion that crosses an unsynced edit becomes a conflict, so the edit is not lost.
-- Revisions are ordered by their parent links, never by timestamps, so clock differences between devices do not matter.
-- Autosaves fold into the latest revision until that revision leaves the device. After that, revisions are immutable.
+## Updates
 
-Ruleset checks: a 50-card main deck, a 10-card resource deck, at most two colors, and at most four copies per card number, with alternate art counting toward the same card number. Resource cards are unlimited unless the ruleset sets `resourceMaxCopies`. Rulesets can also ban cards, restrict cards to fewer copies, and ban combinations of cards.
+Lock On checks for a new version once a day while it's open. The version and update status are at the bottom of **Sync**.
 
-## Sync protocol (v1)
+- **Windows:** the update downloads in the background and installs when you close Lock On. Choose **Restart and update** to install it right away. The installer shows a progress bar, keeps your folder and decks, and reopens Lock On.
+- **Android:** the update downloads on Wi-Fi. Tap **Install update** under Sync. The first time, Android asks you to allow installs from Lock On.
 
-The desktop hosts HTTPS on port **53340** (or the next free port). Phones start every exchange.
+Turn off **Update automatically** under Sync to download updates only when you choose. Each download is checked against the checksum published with the release before it's installed.
 
-1. **Pairing, LocalSend-style.**
-   - Every device announces itself over DNS-SD with a role (`desktop` or `phone`).
-   - **Tap a nearby computer** on the phone: the phone sends a pair request with a random nonce and no code.
-   - **Invite a nearby phone** on the computer: the phone holds `GET /v1/invites?device=<id>` open while it's nearby, shows *"… wants to connect"*, and on Connect sends the same request carrying the invitation ID.
-   - Either way the computer asks its owner to confirm. Both screens show a 6-digit number taken from SHA-256 of the computer's certificate fingerprint (as each side sees it) plus the nonce. An impostor's request, or an interception with another certificate, shows a different number, so comparing the two screens authenticates both sides, like Bluetooth's numeric comparison.
-   - A device that was just declined waits a minute before it can ask again.
-   - The original flow below still works.
-1. **Pairing by QR code or address.** The desktop shows a QR code: `lockon://pair?host=…&port=…&code=…&fp=<sha256 of its certificate>`. The phone connects, and its TLS client accepts only that exact certificate. The phone sends the 6-character code, and the desktop asks you to confirm, showing a verification code that the phone also shows. When you confirm, the phone receives a random token. The desktop stores only the token's SHA-256 hash. The phone stores the token encrypted with an Android Keystore key and pins the certificate fingerprint.
-   - Codes expire after 10 minutes, rotate after each pairing, and rotate after 5 wrong guesses.
-   - Manual entry (address, port, code) works without the fingerprint. The phone trusts the first certificate it sees, but only after you compare the verification code on both screens.
-2. **Sync.** `GET /v1/hello` checks protocol and data-format compatibility first. Then the phone pushes the revisions the desktop hasn't seen (`POST /v1/sync/push`) and pulls new revisions from the desktop (`GET /v1/sync/pull?after=<cursor>`), 200 at a time.
-   - Each device keeps per-peer cursors in its own insertion order.
-   - Every batch is applied in one database transaction, together with its cursor update. Revision IDs are unique, so a retried or replayed batch is ignored.
-   - An interrupted sync resumes where it stopped.
-   - The database file itself is never transferred, and card images are never part of sync.
-3. **Discovery and live sync.**
-   - The desktop advertises `_lockon._tcp` over DNS-SD (mDNS) with its device ID, name, certificate fingerprint, and protocol and data versions.
-   - Phones browse for it only while the app is in the foreground. A discovered desktop is just a hint; trust still comes from pairing.
-   - While open, the phone holds `GET /v1/sync/wait?after=<cursor>` open, and the desktop answers within 25 seconds, as soon as it has new revisions. Local edits trigger a sync about 2 seconds after they settle.
-   - Failures back off from 5 to 60 seconds and show as "Waiting for the desktop", not as errors.
-4. **Data format.** Deck snapshots are at data format **2**, which added the Considering section. Both sides must use the same format to sync; otherwise the phone shows which device to update. A format-1 app would drop considered cards the next time it saved a deck.
+## Development
 
-## Building
+Use **JDK 21** (with `jpackage`, for the Windows installer) and the **Android SDK** with platform 36. Point `sdk.dir` in `local.properties` at the SDK.
 
-You need JDK 17 or later and the Android SDK (platform 36). On this machine both come from `energy-tracker/.tools`, and `local.properties` points `sdk.dir` there.
-
-```bash
-export JAVA_HOME=/e/Coding/energy-tracker/.tools/jdk
-```
-
-Run the desktop app:
-
-```bash
+```sh
+git clone https://github.com/tsunsora/lock-on.git
+cd lock-on
 ./gradlew :desktopApp:run
 ```
 
-Build the Android debug APK (output: `androidApp/build/outputs/apk/debug/androidApp-debug.apk`):
+| Command | Result |
+| --- | --- |
+| `./gradlew :desktopApp:run` | Run the desktop app |
+| `./gradlew :androidApp:assembleDebug` | Debug APK in `androidApp/build/outputs/apk/debug/` |
+| `./gradlew :shared:jvmTest :desktopApp:test` | All tests. Desktop tests also render screenshots to `desktopApp/build/screenshots/` |
+| `python scripts/frames_to_gif.py` | GIF previews of the animations, after the desktop tests |
+| `./gradlew releaseArtifacts` | Windows MSI, release APK and update feed in `dist/` |
 
-```bash
-./gradlew :androidApp:assembleDebug
-```
+To test sync against yourself, run a second desktop profile with its own data folder:
 
-Run all tests:
-
-```bash
-./gradlew :shared:jvmTest :desktopApp:test
-```
-
-Build the Windows installer and the release APK into `dist/` (see [RELEASING.md](RELEASING.md) for signing and the device checklist):
-
-```bash
-./gradlew releaseArtifacts
-```
-
-Running a second desktop profile, for example to test sync against yourself, uses a separate data folder:
-
-```bash
+```sh
 ./gradlew :desktopApp:run -Plockon.dataDir=/path/to/profile
 ```
 
-Desktop data lives in `%APPDATA%\LockOn` on Windows, `~/Library/Application Support/LockOn` on macOS, and `~/.local/share/lock-on` on Linux. Deleting `tls.p12` and `tls.key` there gives the desktop a new identity, and every phone must pair again.
+Tests cover the construction rules, deck-list parsing, the revision graph, end-to-end sync between two databases, pairing and sync through the real HTTP routes, and the updater. [RELEASING.md](RELEASING.md) covers versioning, Android signing, publishing a release, and the checklist for real devices.
 
-`desktopApp:test` also renders the main screens to `desktopApp/build/screenshots/` for layout review.
+## Project guide
 
-## Testing checklist for real devices
+| Path | Contents |
+| --- | --- |
+| [`shared/`](shared/) | Kotlin Multiplatform for Android and desktop: models, rules, Room database, sync engine, updater, and every Compose screen |
+| [`androidApp/`](androidApp/) | Android entry point, QR scanner, certificate-pinned sync client, Keystore-encrypted token storage, and update installer |
+| [`desktopApp/`](desktopApp/) | Desktop entry point, HTTPS sync server, TLS identity, pairing confirmation, and update installer |
+| [`docs/`](docs/) | [Architecture](docs/ARCHITECTURE.md), [UX map](docs/UX_MAP.md), [UX rules](docs/UX_RULES.md) and the [catalog format](docs/CATALOG_FORMAT.md) |
+| [`scripts/`](scripts/) | Catalog converter, icon and GIF helpers |
+| [`licenses/`](licenses/) | Bundled font notice |
 
-Covered by automated tests:
+Kotlin **2.3.21**, Compose Multiplatform **1.10.3**, AGP **8.13.2** and Gradle **8.14.3** are pinned.
 
-- the construction rules and deck-list parsing
-- the revision graph
-- end-to-end sync between two databases: round trips, folding autosaves, concurrent edits, delete against edit, interrupted pulls, replayed batches, and incompatible versions
-- pairing and sync through the real HTTP routes, including wrong codes, declined pairing and invalid tokens
+## Credits
 
-Still to do by hand:
+An unofficial fan project, unaffiliated with Bandai. Gundam, card text and card images are copyright Bandai. Card images load from Bandai's site and aren't included in Lock On.
 
-- Pair a real phone with the desktop on Wi-Fi, by QR code and by manual entry.
-- Sync, edit on the desktop, and sync back.
-- Allow the Windows Defender Firewall prompt on first launch, using **Private networks**. Then test with the firewall blocking Lock On to see the error message.
-- Turn off Wi-Fi in the middle of a sync, then sync again.
-- Change the desktop's IP address (another network), then re-scan the QR code. Re-pairing keeps the sync progress.
+Card data comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai.
 
-## Third-party assets
+The Rajdhani font by the Indian Type Foundry uses the SIL Open Font License 1.1; see the [font notice](licenses/Rajdhani-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license. The Lock On mark and other decorations are original drawings.
 
-- Card data, when downloaded, comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai. Gundam, card text and card images are copyright Bandai, and images load from Bandai's site.
+## Visitors
 
-- Rajdhani font by the Indian Type Foundry, under the SIL Open Font License 1.1 ([licenses/Rajdhani-OFL.txt](licenses/Rajdhani-OFL.txt)).
+[![Lock On visitor counter](https://count.getloli.com/@tsunsora-lock-on?theme=rule34&padding=8&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)](https://count.getloli.com/)
 
-## Next milestones
-
-- The current banned and restricted list as a ruleset (gcg-api doesn't include it).
-- A release signing key, code-signed installers, and shrunk builds (see [RELEASING.md](RELEASING.md)).
-- Database migration tests once the schema changes (`shared/schemas` holds the exported Room schema).
+Powered by [Moe Counter](https://github.com/journey-ad/Moe-Counter). This counts README image requests, not unique visitors; GitHub image caching can affect the total.

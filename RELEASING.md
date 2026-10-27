@@ -89,6 +89,9 @@ Automated tests cover rules, parsing, revisions, sync, the HTTP routes and the a
 - [ ] Close the desktop app. The phone should show *Waiting for the desktop* with no error. Reopen it, and sync should resume by itself.
 - [ ] Edit the same deck on both devices while they can't reach each other. Reconnect, and you should get **Needs review**.
 - [ ] Delete a deck on one device. It shouldn't come back after syncing.
+- [ ] Turn off Wi-Fi in the middle of a sync, then sync again.
+- [ ] Block Lock On in Windows Firewall and check the phone's error message says what to do.
+- [ ] Move the desktop to another network so its address changes, then pair again by QR code. Sync should pick up where it left off.
 - [ ] Open Lock On twice on Windows. The second launch should say it's already open.
 - [ ] Install the new MSI over the old one, and check that decks are kept. Repeat with the APK.
 - [ ] Publish a test release with a higher version. On Windows, check that **Restart and update** reopens Lock On on the new version, in a folder other than the default too. On Android, check that **Install update** asks once and then reopens on the new version.
