@@ -76,6 +76,7 @@ import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.HudHeader
 import app.lockon.ui.components.CardDetailDialog
+import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.CardThumb
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.Panel
@@ -151,6 +152,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
+            if (wide) {
+                val cover = remember(deck, cards) { deckCover(deck, cards) }
+                if (cover != null) CardImage(cover.card, Modifier.padding(end = 12.dp).width(40.dp), cover.printingId)
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(deck.name, style = if (wide) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
@@ -292,6 +297,13 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         deck.quantityOf(card.cardNumber, section) > 0 ->
                             TextButton(onClick = { move(card, toConsidering = true) }) { Text("Move 1 to Considering") }
                         else -> TextButton(onClick = { change(card, 1, DeckSection.CONSIDERING) }) { Text("Consider") }
+                    }
+                }
+                // The library shows the deck by this card instead of its highest-level Unit.
+                if (deck.quantityOf(card.cardNumber, section) > 0 || deck.coverCard == card.cardNumber) {
+                    val isCover = deck.coverCard == card.cardNumber
+                    TextButton(onClick = { draft = deck.copy(coverCard = if (isCover) null else card.cardNumber) }) {
+                        Text(if (isCover) "Stop using as deck cover" else "Use as deck cover")
                     }
                 }
             }
