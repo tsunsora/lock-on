@@ -48,3 +48,6 @@ actual fun encodeShareQr(text: String): app.lockon.sync.QrMatrix {
     val size = matrix.width
     return app.lockon.sync.QrMatrix(size, BooleanArray(size * size) { matrix[it % size, it / size] })
 }
+
+actual val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIcon =
+    androidx.compose.ui.input.pointer.PointerIcon(java.awt.Cursor(java.awt.Cursor.E_RESIZE_CURSOR))

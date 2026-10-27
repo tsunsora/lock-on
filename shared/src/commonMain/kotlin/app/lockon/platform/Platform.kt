@@ -24,3 +24,6 @@ expect fun imageBitmapOf(pixels: IntArray, width: Int, height: Int): ImageBitmap
 
 /** A QR code for [text], as UTF-8 with medium error correction. Both platforms use zxing. */
 expect fun encodeShareQr(text: String): app.lockon.sync.QrMatrix
+
+/** The pointer shown over a divider that resizes side by side areas. */
+expect val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIcon

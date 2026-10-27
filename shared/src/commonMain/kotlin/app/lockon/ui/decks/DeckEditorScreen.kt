@@ -144,8 +144,26 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.clearOfNav
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import app.lockon.data.db.MetaEntity
+import app.lockon.platform.resizeHorizontalPointer
 
 private const val AUTOSAVE_DELAY_MS = 400L
+
+/** The card list's share of the wide editor's width, until the person drags the divider. */
+private const val DEFAULT_SPLIT = 0.615f
+private const val KEY_EDITOR_SPLIT = "ui.deckEditor.split"
+private val SPLIT_HANDLE = 10.dp
+private val MIN_CARDS_WIDTH = 360.dp
+private val MIN_DECK_WIDTH = 380.dp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -295,6 +313,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         // The wide deck panel's tab (Deck, Analysis, Test, Matches, Versions); phones use their own tab row.
         var deckTab by rememberSaveable(deckId) { mutableStateOf(0) }
         var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
+        // Kept for every deck, so the editor opens the way the person last arranged it.
+        var split by remember { mutableStateOf(DEFAULT_SPLIT) }
+        LaunchedEffect(Unit) { container.database.metaDao().get(KEY_EDITOR_SPLIT)?.toFloatOrNull()?.let { split = it } }
         val deckList: @Composable (Modifier) -> Unit = { modifier ->
             DeckList(
                 deck, cards, ruleset, legality, modifier, compact = wide,
@@ -383,15 +404,32 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // Two areas, so most of the window is cards and the deck being built (UX rule N4): the card
             // list, and one deck panel whose tabs hold the analysis, test hand, matches and versions.
             Box(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Panel(Modifier.weight(1.6f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
+            BoxWithConstraints(Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp)) {
+            // The gap between the two areas is a handle: dragging it trades width between them.
+            val density = LocalDensity.current
+            val usable = (maxWidth - SPLIT_HANDLE).coerceAtLeast(0.dp)
+            fun clampSplit(f: Float): Float {
+                if (usable <= MIN_CARDS_WIDTH + MIN_DECK_WIDTH) return f
+                return f.coerceIn(MIN_CARDS_WIDTH / usable, 1f - MIN_DECK_WIDTH / usable)
+            }
+            val cardsWidth = usable * clampSplit(split)
+            Row(Modifier.fillMaxSize()) {
+                Panel(Modifier.width(cardsWidth).fillMaxHeight()) { search(Modifier.fillMaxSize()) }
+                SplitHandle(
+                    onDrag = { dx -> split = clampSplit((cardsWidth + with(density) { dx.toDp() }) / usable) },
+                    onDragEnd = { state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.toString())) } },
+                    onReset = {
+                        split = DEFAULT_SPLIT
+                        state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.toString())) }
+                    },
+                )
                 // The deck panel takes dropped cards, and its rim lights up while one is held over it.
                 val dropRim = when {
                     cardDrag.overTarget -> MaterialTheme.colorScheme.primary
                     cardDrag.card != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                     else -> Color.Transparent
                 }
-                Panel(Modifier.weight(1f).widthIn(min = 380.dp).fillMaxSize().cardDropTarget(cardDrag)
+                Panel(Modifier.weight(1f).fillMaxSize().cardDropTarget(cardDrag)
                     .border(BorderStroke(2.dp, dropRim), LockOnShapes.panel)) {
                     Column {
                         PillTabs(listOf("Deck", "Analysis", "Test", "Matches", "Versions"), deckTab, { deckTab = it }, fill = true)
@@ -404,6 +442,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         }
                     }
                 }
+            }
             }
             CardDragGhost(cardDrag, Modifier.matchParentSize())
             }
@@ -723,6 +762,39 @@ private fun DeckStatsStrip(
  * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3): Deck, Add,
  * Analysis and Test, with Matches and Versions under More so the bar keeps to five items.
  */
+/** The divider between the card list and the deck: drag to resize, double-click to reset. */
+@Composable
+private fun SplitHandle(onDrag: (Float) -> Unit, onDragEnd: () -> Unit, onReset: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    var dragging by remember { mutableStateOf(false) }
+    val drag by rememberUpdatedState(onDrag)
+    val end by rememberUpdatedState(onDragEnd)
+    val reset by rememberUpdatedState(onReset)
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        Modifier.width(SPLIT_HANDLE).fillMaxHeight()
+            .hoverable(interaction)
+            .pointerHoverIcon(resizeHorizontalPointer)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { dragging = true },
+                    onDragEnd = { dragging = false; end() },
+                    onDragCancel = { dragging = false; end() },
+                ) { change, dx -> change.consume(); drag(dx) }
+            }
+            .pointerInput(Unit) { detectTapGestures(onDoubleTap = { reset() }) },
+        contentAlignment = Alignment.Center,
+    ) {
+        val grip = when {
+            dragging -> scheme.primary
+            hovered -> scheme.primary.copy(alpha = 0.6f)
+            else -> scheme.onSurfaceVariant.copy(alpha = 0.25f)
+        }
+        Box(Modifier.width(4.dp).height(48.dp).clip(RoundedCornerShape(2.dp)).background(grip))
+    }
+}
+
 @Composable
 private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
     var more by remember { mutableStateOf(false) }
