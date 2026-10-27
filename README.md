@@ -10,7 +10,11 @@ A Gundam Card Game deck builder for Android and Windows (macOS and Linux later).
 - **Test hand**: practice opening hands with the official setup: draw 5, redraw once to the bottom, set 6 shields, then draw each turn.
 - **Deck library**: create, duplicate, rename, tag, search and filter decks. Deleting shows **Undo** instead of asking first.
 - **Deck analysis**: legality messages, Burst and Blocker counts, Unit–Pilot link pairs, level and cost curves, and card-type and color counts. An incomplete deck saves as a *Draft*.
-- **Sync**: desktop QR code pairing (with a manual address and code as a fallback), paired devices, last successful sync, and **Sync now**.
+- **Sync, LocalSend-style**:
+  - Open Lock On on a phone and a computer on the same Wi-Fi, and each appears in the other's **Nearby** list.
+  - Tap **Connect** on either one, then check that both screens show the same 6-digit number and confirm. No account, QR code or typing.
+  - QR codes and typed addresses remain as fallbacks, and the screen shows paired devices, the last successful sync, and **Sync now**.
+  - Phones reach each other through a paired computer.
   - **Nearby desktops**: phones find Lock On desktops on the same network and pair with just the code, no address to type.
   - **Auto-sync while open**: with both apps open on the same network, edits reach the other device within seconds, and a paired desktop that changes IP address is followed automatically. It runs only while the phone app is on screen. Nothing runs in the background.
 - **Import and export**: plain-text deck lists (paste, copy or file) and a versioned JSON backup.
@@ -60,7 +64,14 @@ Ruleset checks: a 50-card main deck, a 10-card resource deck, at most two colors
 
 The desktop hosts HTTPS on port **53340** (or the next free port). Phones start every exchange.
 
-1. **Pairing.** The desktop shows a QR code: `lockon://pair?host=…&port=…&code=…&fp=<sha256 of its certificate>`. The phone connects, and its TLS client accepts only that exact certificate. The phone sends the 6-character code, and the desktop asks you to confirm, showing a verification code that the phone also shows. When you confirm, the phone receives a random token. The desktop stores only the token's SHA-256 hash. The phone stores the token encrypted with an Android Keystore key and pins the certificate fingerprint.
+1. **Pairing, LocalSend-style.**
+   - Every device announces itself over DNS-SD with a role (`desktop` or `phone`).
+   - **Tap a nearby computer** on the phone: the phone sends a pair request with a random nonce and no code.
+   - **Invite a nearby phone** on the computer: the phone holds `GET /v1/invites?device=<id>` open while it's nearby, shows *"… wants to connect"*, and on Connect sends the same request carrying the invitation ID.
+   - Either way the computer asks its owner to confirm. Both screens show a 6-digit number taken from SHA-256 of the computer's certificate fingerprint (as each side sees it) plus the nonce. An impostor's request, or an interception with another certificate, shows a different number, so comparing the two screens authenticates both sides, like Bluetooth's numeric comparison.
+   - A device that was just declined waits a minute before it can ask again.
+   - The original flow below still works.
+1. **Pairing by QR code or address.** The desktop shows a QR code: `lockon://pair?host=…&port=…&code=…&fp=<sha256 of its certificate>`. The phone connects, and its TLS client accepts only that exact certificate. The phone sends the 6-character code, and the desktop asks you to confirm, showing a verification code that the phone also shows. When you confirm, the phone receives a random token. The desktop stores only the token's SHA-256 hash. The phone stores the token encrypted with an Android Keystore key and pins the certificate fingerprint.
    - Codes expire after 10 minutes, rotate after each pairing, and rotate after 5 wrong guesses.
    - Manual entry (address, port, code) works without the fingerprint. The phone trusts the first certificate it sees, but only after you compare the verification code on both screens.
 2. **Sync.** `GET /v1/hello` checks protocol and data-format compatibility first. Then the phone pushes the revisions the desktop hasn't seen (`POST /v1/sync/push`) and pulls new revisions from the desktop (`GET /v1/sync/pull?after=<cursor>`), 200 at a time.

@@ -67,6 +67,13 @@ fun Application.lockOnSync(
         get("/v1/hello") {
             call.respond(HelloResponse(deviceId = identity.deviceId, deviceName = identity.deviceName))
         }
+        // A phone with Lock On open holds this while it's nearby, so the desktop can invite it.
+        get("/v1/invites") {
+            val device = call.request.queryParameters["device"]?.takeIf { it.isNotBlank() }
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing device."))
+            val offer = pairing.awaitInvite(device, maxWaitMs)
+            if (offer == null) call.respond(HttpStatusCode.NoContent) else call.respond(offer)
+        }
         post("/v1/pair") {
             call.guard {
                 val request = call.receive<PairRequest>()

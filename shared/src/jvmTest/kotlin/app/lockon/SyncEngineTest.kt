@@ -88,6 +88,31 @@ class SyncEngineTest {
         assertEquals(2, desktop.decks.decks.first().single().snapshot.quantityOf("SMP-013", DeckSection.CONSIDERING))
     }
 
+    @Test fun phonesReachEachOtherThroughTheDesktop() = runTest {
+        pair()
+        // A second phone paired with the same desktop.
+        val phone2 = Device("phone2")
+        phone2.devices.savePairing("desktop", "Desktop", DeviceRole.HOST, "127.0.0.1", 53340, "fp")
+        desktop.devices.savePairing("phone2", "Phone 2", DeviceRole.CLIENT, tokenHash = "hash2")
+        val client2 = SyncClient(phone2.decks, phone2.devices)
+        val transport2 = object : SyncTransport {
+            override suspend fun hello() = HelloResponse(deviceId = "desktop", deviceName = "Desktop")
+            override suspend fun push(request: PushRequest) = host.push("phone2", request)
+            override suspend fun pull(after: Long, limit: Int) = host.pull("phone2", after, limit)
+        }
+
+        val id = phone.decks.create(DeckSnapshot(name = "Built on phone 1"))
+        sync()
+        client2.sync("desktop", transport2)
+        assertEquals("Built on phone 1", phone2.decks.currentSnapshot(id)?.name, "the desktop relays phone 1's deck")
+
+        phone2.decks.save(id, phone2.decks.currentSnapshot(id)!!.copy(name = "Edited on phone 2"))
+        client2.sync("desktop", transport2)
+        sync()
+        assertEquals("Edited on phone 2", phone.decks.currentSnapshot(id)?.name, "and phone 2's edit comes back")
+        phone2.db.close()
+    }
+
     @Test fun autosavesFoldUntilShared() = runTest {
         pair()
         val id = phone.decks.create(DeckSnapshot(name = "Draft"))

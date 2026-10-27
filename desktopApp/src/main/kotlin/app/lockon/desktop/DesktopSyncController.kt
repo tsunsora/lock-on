@@ -17,7 +17,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import app.lockon.sync.NearbyDevice
 import kotlinx.coroutines.launch
 
 /** The desktop hosts sync: it runs the HTTPS server and shows the pairing QR code. */
@@ -37,6 +41,20 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     override val hostInfo: StateFlow<HostInfo?> = _hostInfo.asStateFlow()
     override val pairingPrompt: StateFlow<PairingPrompt?> = pairing.prompt
     override val liveClients: StateFlow<Set<String>> = live.ids
+    // Phones only: other desktops can't pair with this one yet.
+    override val nearby: StateFlow<List<NearbyDevice>> = advertiser.nearby
+        .map { found -> found.values.filter { !it.isDesktop }.distinctBy { it.deviceId }.sortedBy { it.name } }
+        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+    override val invited: StateFlow<Set<String>> = pairing.invites
+        .map { invites -> invites.values.map { it.deviceId }.toSet() }
+        .stateIn(scope, SharingStarted.Eagerly, emptySet())
+
+    override fun invite(device: NearbyDevice) {
+        pairing.invite(device.deviceId, device.name)
+        _status.value = SyncStatus(message = "Invited ${device.name}. Accept on the phone, then confirm here.")
+    }
+
+    override fun cancelInvite(deviceId: String) = pairing.cancelInvite(deviceId)
 
     fun start() {
         scope.launch(Dispatchers.IO) {

@@ -107,6 +107,14 @@ class DiscoveryTest {
         assertEquals(true, found.compatible)
     }
 
+    @Test fun phonesAnnounceTheirRoleAndOldDesktopsDefaultToDesktop() {
+        val phone = Discovery.parse(Discovery.txt(identity, null, SyncProtocol.ROLE_PHONE), "192.168.1.52", 53340, "Pixel")!!
+        assertFalse(phone.isDesktop)
+        assertNull(phone.fingerprint)
+        val legacy = Discovery.txt(identity, fingerprint) - SyncProtocol.TXT_ROLE
+        assertEquals(true, Discovery.parse(legacy, "192.168.1.20", 53340, "x")!!.isDesktop)
+    }
+
     @Test fun otherServicesAndOtherDataFormatsAreFlagged() {
         assertNull(Discovery.parse(mapOf("name" to "Printer"), "192.168.1.30", 631, "Printer"))
         val older = Discovery.txt(identity, fingerprint) + (SyncProtocol.TXT_DATA_FORMAT to "1")

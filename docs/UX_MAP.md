@@ -94,13 +94,15 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 
 ### Sync (top level)
 - **Desktop:**
-  - a pairing card with the QR code, address, port, pairing code, verification code and code expiry
+  - **Nearby phones:** every phone with Lock On open on the network, each with **Connect** (an invitation the phone accepts) or *Waiting for the phone… Cancel*. Paired phones are marked.
+  - **Other ways to connect:** the QR code, address, port, pairing code and code expiry, shown by default only until a phone is paired
   - paired phones with their last successful sync, and *Connected now* while a phone's auto-sync is live
-  - a dialog to confirm a pairing request
+  - a dialog to confirm a pairing request: *"Pixel wants to connect"* or *"Pixel accepted"*, with the 6-digit number to compare
 - **Phone:**
   - **Auto-sync while Lock On is open** switch (on by default), once a desktop is paired
-  - **Nearby desktops** found on the network, each with **Pair**, which asks only for the pairing code
-  - **Scan QR code** and **Enter address**
+  - **Nearby computers** found on the network, each with **Connect** (no code to type; the computer confirms after comparing the 6-digit number)
+  - *"[Computer] wants to connect"* when a computer invites this phone, with **Connect** or **Not now**
+  - **Other ways to connect** (collapsed): **Scan QR code**, or address, port and an optional code
   - paired desktops with **Sync now**, last sync, the last manual-sync error, and a live line: *Live: changes sync automatically* or *Waiting for the desktop*
   - a verification code dialog while the desktop is confirming
 - **Always:** the line "Only decks sync. No account or cloud server."
@@ -116,7 +118,12 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 2. **Import a list from a friend:**
    1. Decks → **Import** → paste.
    2. The editor opens on the imported deck, with any unreadable lines reported.
-3. **Phone to desktop (first time):**
+3. **Phone to computer (first time), LocalSend-style:**
+   1. Open Lock On on both, on the same Wi-Fi. Each appears in the other's **Nearby** list.
+   2. Tap **Connect** on either device. If the computer started it, tap **Connect** on the phone too.
+   3. The computer shows a 6-digit number, and so does the phone. If they match, click **Pair**.
+   4. Sync starts at once and stays automatic while both are open.
+   - Fallback when discovery is blocked:
    1. Desktop: **Sync**, which shows the QR code.
    2. Phone: **Sync** → **Scan QR code**.
    3. Desktop: confirm the codes match → **Pair**.

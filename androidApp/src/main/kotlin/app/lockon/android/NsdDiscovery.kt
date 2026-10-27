@@ -5,7 +5,8 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import app.lockon.sync.Discovery
-import app.lockon.sync.NearbyDesktop
+import app.lockon.sync.LocalIdentity
+import app.lockon.sync.NearbyDevice
 import app.lockon.sync.SyncProtocol
 import java.net.Inet4Address
 import java.util.concurrent.Executors
@@ -16,15 +17,18 @@ import java.util.concurrent.Executors
  */
 class NsdDiscovery(
     context: Context,
-    private val onFound: (serviceName: String, desktop: NearbyDesktop) -> Unit,
+    private val onFound: (serviceName: String, desktop: NearbyDevice) -> Unit,
     private val onLost: (serviceName: String) -> Unit,
 ) {
     private val nsd = context.getSystemService(Context.NSD_SERVICE) as NsdManager
     private val executor = Executors.newSingleThreadExecutor()
     private var listener: NsdManager.DiscoveryListener? = null
     private val infoCallbacks = mutableListOf<NsdManager.ServiceInfoCallback>()
+    private var registration: NsdManager.RegistrationListener? = null
 
-    fun start() {
+    /** Discovers devices and, like LocalSend, announces this phone so desktops can invite it. */
+    fun start(identity: LocalIdentity) {
+        announce(identity)
         if (listener != null) return
         val l = object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) = Unit
@@ -39,7 +43,28 @@ class NsdDiscovery(
             .onFailure { listener = null }
     }
 
+    private fun announce(identity: LocalIdentity) {
+        if (registration != null) return
+        val info = NsdServiceInfo().apply {
+            serviceName = identity.deviceName.take(60)
+            serviceType = "${SyncProtocol.SERVICE_TYPE}."
+            // Phones don't accept connections; the port is required by DNS-SD but unused.
+            port = SyncProtocol.DEFAULT_PORT
+            Discovery.txt(identity, fingerprint = null, role = SyncProtocol.ROLE_PHONE).forEach { (k, v) -> setAttribute(k, v) }
+        }
+        val l = object : NsdManager.RegistrationListener {
+            override fun onServiceRegistered(info: NsdServiceInfo) = Unit
+            override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) { registration = null }
+            override fun onServiceUnregistered(info: NsdServiceInfo) = Unit
+            override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) = Unit
+        }
+        registration = l
+        runCatching { nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, l) }.onFailure { registration = null }
+    }
+
     fun stop() {
+        registration?.let { runCatching { nsd.unregisterService(it) } }
+        registration = null
         listener?.let { runCatching { nsd.stopServiceDiscovery(it) } }
         listener = null
         if (Build.VERSION.SDK_INT >= 34) synchronized(infoCallbacks) {

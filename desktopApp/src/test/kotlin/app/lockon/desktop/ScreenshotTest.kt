@@ -17,7 +17,7 @@ import app.lockon.sync.AutoSyncState
 import app.lockon.sync.ClientSyncController
 import app.lockon.sync.DeviceRole
 import app.lockon.sync.HostInfo
-import app.lockon.sync.NearbyDesktop
+import app.lockon.sync.NearbyDevice
 import app.lockon.sync.PairingInvite
 import app.lockon.sync.SyncController
 import app.lockon.sync.HostSyncController
@@ -69,6 +69,10 @@ class ScreenshotTest {
         override fun answerPairing(requestId: String, accept: Boolean) = Unit
         override fun newPairingCode() = Unit
         override fun selectAddress(address: String) = Unit
+        override val nearby = MutableStateFlow(listOf(app.lockon.sync.NearbyDevice("phone-2", "Pixel 9", "192.168.1.52", 53340, null, true, app.lockon.sync.SyncProtocol.ROLE_PHONE)))
+        override val invited = MutableStateFlow(emptySet<String>())
+        override fun invite(device: app.lockon.sync.NearbyDevice) = Unit
+        override fun cancelInvite(deviceId: String) = Unit
         override fun forget(deviceId: String) = Unit
     }
 
@@ -82,9 +86,11 @@ class ScreenshotTest {
         override val canScanQr = true
         override val autoSync = MutableStateFlow(true)
         override val autoStates = MutableStateFlow(mapOf("desk-1" to AutoSyncState.LIVE))
-        override val nearby = MutableStateFlow(listOf(NearbyDesktop("desk-2", "Studio iMac", "192.168.1.41", 53340, null, true)))
+        override val nearby = MutableStateFlow(listOf(NearbyDevice("desk-2", "Studio iMac", "192.168.1.41", 53340, null, true)))
         override val pendingVerification = MutableStateFlow<String?>(null)
         override fun setAutoSync(enabled: Boolean) = Unit
+        override val incomingInvite = MutableStateFlow<app.lockon.sync.IncomingInvite?>(null)
+        override fun answerInvite(accept: Boolean) = Unit
         override fun scanQr() = Unit
         override fun pair(invite: PairingInvite) = Unit
         override fun syncNow(deviceId: String) = Unit

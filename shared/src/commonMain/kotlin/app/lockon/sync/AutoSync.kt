@@ -95,25 +95,28 @@ class AutoSyncLoop(
 
 /** Builds and reads the TXT record a desktop advertises on the LAN. */
 object Discovery {
-    fun txt(identity: LocalIdentity, fingerprint: String): Map<String, String> = mapOf(
-        SyncProtocol.TXT_ID to identity.deviceId,
-        SyncProtocol.TXT_NAME to identity.deviceName.take(60),
-        SyncProtocol.TXT_FINGERPRINT to fingerprint,
-        SyncProtocol.TXT_PROTOCOL to SyncProtocol.PROTOCOL_VERSION.toString(),
-        SyncProtocol.TXT_DATA_FORMAT to SyncProtocol.DATA_FORMAT_VERSION.toString(),
-    )
+    fun txt(identity: LocalIdentity, fingerprint: String?, role: String = SyncProtocol.ROLE_DESKTOP): Map<String, String> = buildMap {
+        put(SyncProtocol.TXT_ID, identity.deviceId)
+        put(SyncProtocol.TXT_NAME, identity.deviceName.take(60))
+        fingerprint?.let { put(SyncProtocol.TXT_FINGERPRINT, it) }
+        put(SyncProtocol.TXT_PROTOCOL, SyncProtocol.PROTOCOL_VERSION.toString())
+        put(SyncProtocol.TXT_DATA_FORMAT, SyncProtocol.DATA_FORMAT_VERSION.toString())
+        put(SyncProtocol.TXT_ROLE, role)
+    }
 
-    fun parse(txt: Map<String, String>, host: String, port: Int, serviceName: String): NearbyDesktop? {
+    fun parse(txt: Map<String, String>, host: String, port: Int, serviceName: String): NearbyDevice? {
         val id = txt[SyncProtocol.TXT_ID]?.takeIf { it.isNotBlank() } ?: return null
         val protocol = txt[SyncProtocol.TXT_PROTOCOL]?.toIntOrNull() ?: return null
         val format = txt[SyncProtocol.TXT_DATA_FORMAT]?.toIntOrNull() ?: return null
-        return NearbyDesktop(
+        return NearbyDevice(
             deviceId = id,
             name = txt[SyncProtocol.TXT_NAME]?.takeIf { it.isNotBlank() } ?: serviceName,
             host = host,
             port = port,
             fingerprint = txt[SyncProtocol.TXT_FINGERPRINT]?.takeIf { it.length == 64 },
             compatible = protocol >= SyncProtocol.MIN_PROTOCOL_VERSION && format == SyncProtocol.DATA_FORMAT_VERSION,
+            // Announcements from before roles existed came only from desktops.
+            role = txt[SyncProtocol.TXT_ROLE]?.takeIf { it == SyncProtocol.ROLE_PHONE } ?: SyncProtocol.ROLE_DESKTOP,
         )
     }
 }

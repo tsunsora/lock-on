@@ -18,8 +18,11 @@ interface ClientSyncController : SyncController {
     /** Auto-sync state per paired desktop; absent while auto-sync is off or the app is in the background. */
     val autoStates: StateFlow<Map<String, AutoSyncState>>
     /** Desktops found on the local network that aren't paired yet. */
-    val nearby: StateFlow<List<NearbyDesktop>>
+    val nearby: StateFlow<List<NearbyDevice>>
     fun setAutoSync(enabled: Boolean)
+    /** A desktop asking this phone to connect; answered with [answerInvite]. */
+    val incomingInvite: StateFlow<IncomingInvite?>
+    fun answerInvite(accept: Boolean)
     /** Set while a pairing waits for the desktop. People compare this code with the desktop's. */
     val pendingVerification: StateFlow<String?>
     fun scanQr()
@@ -42,7 +45,8 @@ data class HostInfo(
     val error: String? = null,
 )
 
-data class PairingPrompt(val requestId: String, val deviceName: String, val verificationCode: String)
+/** A pairing request waiting on the desktop. [invited] when it answers an invitation from this desktop. */
+data class PairingPrompt(val requestId: String, val deviceName: String, val verificationCode: String, val invited: Boolean = false)
 
 interface HostSyncController : SyncController {
     val hostInfo: StateFlow<HostInfo?>
@@ -52,4 +56,13 @@ interface HostSyncController : SyncController {
     fun answerPairing(requestId: String, accept: Boolean)
     fun newPairingCode()
     fun selectAddress(address: String)
+    /** Phones with Lock On open on the same network, paired or not. */
+    val nearby: StateFlow<List<NearbyDevice>>
+    /** Phones this desktop has invited and is waiting on, by device ID. */
+    val invited: StateFlow<Set<String>>
+    fun invite(device: NearbyDevice)
+    fun cancelInvite(deviceId: String)
 }
+
+/** An invitation shown on a phone, with where the desktop is. */
+data class IncomingInvite(val offer: InviteOffer, val desktop: NearbyDevice)

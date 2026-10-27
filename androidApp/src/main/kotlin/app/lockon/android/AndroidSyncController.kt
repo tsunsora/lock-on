@@ -15,9 +15,14 @@ import app.lockon.sync.verificationCode
 import android.content.Context
 import app.lockon.sync.AutoSyncLoop
 import app.lockon.sync.AutoSyncState
-import app.lockon.sync.NearbyDesktop
+import app.lockon.sync.NearbyDevice
 import io.ktor.client.HttpClient
+import app.lockon.sync.IncomingInvite
+import app.lockon.sync.awaitInvite
+import app.lockon.sync.pairingCheckNumber
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -43,7 +48,9 @@ class AndroidSyncController(
     private val _verification = MutableStateFlow<String?>(null)
     private val _autoSync = MutableStateFlow(true)
     private val _autoStates = MutableStateFlow<Map<String, AutoSyncState>>(emptyMap())
-    private val _nearby = MutableStateFlow<Map<String, NearbyDesktop>>(emptyMap())
+    private val _nearby = MutableStateFlow<Map<String, NearbyDevice>>(emptyMap())
+    private val _incomingInvite = MutableStateFlow<IncomingInvite?>(null)
+    private val inviteWatchers = mutableMapOf<String, Job>()
     private val busy = Mutex()
     private var foregroundJob: Job? = null
     /** One pinned client per desktop for held-open wait requests, closed when the app leaves the foreground. */
@@ -61,7 +68,7 @@ class AndroidSyncController(
 
     private val discovery = NsdDiscovery(
         context,
-        onFound = { service, desktop -> scope.launch { onDesktopFound(service, desktop) } },
+        onFound = { service, device -> if (device.isDesktop) scope.launch { onDesktopFound(service, device) } },
         onLost = { service -> _nearby.update { it - service } },
     )
 
@@ -78,11 +85,57 @@ class AndroidSyncController(
     override val canScanQr: Boolean get() = scanner != null
     override val autoSync: StateFlow<Boolean> = _autoSync.asStateFlow()
     override val autoStates: StateFlow<Map<String, AutoSyncState>> = _autoStates.asStateFlow()
-    override val nearby: StateFlow<List<NearbyDesktop>> =
+    override val nearby: StateFlow<List<NearbyDevice>> =
         combine(_nearby, container.devices.pairedDevices) { found, paired ->
             val pairedIds = paired.map { it.deviceId }.toSet()
             found.values.filter { it.deviceId !in pairedIds }.distinctBy { it.deviceId }.sortedBy { it.name }
         }.stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    override val incomingInvite: StateFlow<IncomingInvite?> = _incomingInvite.asStateFlow()
+
+    override fun answerInvite(accept: Boolean) {
+        val invite = _incomingInvite.value ?: return
+        _incomingInvite.value = null
+        if (accept) {
+            val d = invite.desktop
+            pair(PairingInvite(d.host, d.port, pairingCode = "", fingerprint = d.fingerprint, name = d.name, inviteId = invite.offer.inviteId))
+        }
+        watchInvites(invite.desktop)
+    }
+
+    /** Keeps one held-open invite request per nearby, unpaired desktop while the app is visible. */
+    private fun watchInvites(desktop: NearbyDevice) {
+        if (!desktop.isDesktop || !desktop.compatible) return
+        synchronized(inviteWatchers) {
+            if (inviteWatchers[desktop.deviceId]?.isActive == true) return
+            inviteWatchers[desktop.deviceId] = scope.launch {
+                var backoff = 2_000L
+                while (true) {
+                    if (container.devices.device(desktop.deviceId) != null) return@launch
+                    try {
+                        val offer = pinnedHttpClient(desktop.fingerprint).use {
+                            awaitInvite(it, baseUrl(desktop.host, desktop.port), container.identity.deviceId)
+                        }
+                        backoff = 2_000L
+                        if (offer != null && offer.hostDeviceId == desktop.deviceId) {
+                            _incomingInvite.value = IncomingInvite(offer, desktop)
+                            return@launch
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        delay(backoff)
+                        backoff = (backoff * 2).coerceAtMost(60_000L)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopWatchingInvites() = synchronized(inviteWatchers) {
+        inviteWatchers.values.forEach { it.cancel() }
+        inviteWatchers.clear()
+    }
 
     override fun setAutoSync(enabled: Boolean) {
         _autoSync.value = enabled
@@ -96,10 +149,12 @@ class AndroidSyncController(
     fun setForeground(visible: Boolean) {
         if (visible) {
             if (foregroundJob?.isActive == true) return
-            discovery.start()
+            discovery.start(container.identity)
             foregroundJob = scope.launch { autoLoop.run() }
         } else {
             discovery.stop()
+            stopWatchingInvites()
+            _incomingInvite.value = null
             foregroundJob?.cancel()
             foregroundJob = null
             synchronized(waitClients) { waitClients.values.forEach { it.close() }; waitClients.clear() }
@@ -107,10 +162,11 @@ class AndroidSyncController(
         }
     }
 
-    private suspend fun onDesktopFound(service: String, desktop: NearbyDesktop) {
+    private suspend fun onDesktopFound(service: String, desktop: NearbyDevice) {
         val paired = container.devices.device(desktop.deviceId)
         if (paired == null) {
             _nearby.update { it + (service to desktop) }
+            watchInvites(desktop)
             return
         }
         // A paired desktop that moved (new Wi-Fi, new DHCP lease) is followed automatically.
@@ -156,16 +212,24 @@ class AndroidSyncController(
         scope.launch {
             if (!busy.tryLock()) return@launch
             try {
-                _status.value = SyncStatus(working = true, message = "Connecting to ${invite.host}…")
+                _status.value = SyncStatus(working = true, message = "Connecting to ${invite.name.ifBlank { invite.host }}…")
                 var seen: String? = null
+                // Both screens show the same number, made from the certificate this phone sees and a fresh nonce.
+                val nonce = Uuid.random().toString()
                 val client = pinnedHttpClient(invite.fingerprint) { fp ->
                     seen = fp
-                    _verification.value = verificationCode(fp)
+                    _verification.value = pairingCheckNumber(fp, nonce)
                 }
                 val response = client.use {
                     requestPairing(
                         it, baseUrl(invite.host, invite.port),
-                        PairRequest(invite.pairingCode, container.identity.deviceId, container.identity.deviceName),
+                        PairRequest(
+                            pairingCode = invite.pairingCode.ifBlank { null },
+                            deviceId = container.identity.deviceId,
+                            deviceName = container.identity.deviceName,
+                            nonce = nonce,
+                            inviteId = invite.inviteId,
+                        ),
                     )
                 }
                 val token = response.authToken

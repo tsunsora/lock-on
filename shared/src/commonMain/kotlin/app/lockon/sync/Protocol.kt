@@ -28,6 +28,9 @@ object SyncProtocol {
     const val TXT_FINGERPRINT = "fp"
     const val TXT_PROTOCOL = "pv"
     const val TXT_DATA_FORMAT = "df"
+    const val TXT_ROLE = "role"
+    const val ROLE_DESKTOP = "desktop"
+    const val ROLE_PHONE = "phone"
     /** Longest a phone's change-wait request is held open before the desktop answers "nothing new". */
     const val MAX_WAIT_SECONDS = 25
 
@@ -61,11 +64,20 @@ data class HelloResponse(
 
 @Serializable
 data class PairRequest(
-    val pairingCode: String,
+    /** From a QR code or typed by hand. Tapping a nearby desktop sends none; the desktop still asks. */
+    val pairingCode: String? = null,
     val deviceId: String,
     val deviceName: String,
     val protocolVersion: Int = SyncProtocol.PROTOCOL_VERSION,
+    /** Random per request. With the desktop's certificate it gives the number both screens show. */
+    val nonce: String? = null,
+    /** Set when answering an invitation the desktop sent to this phone. */
+    val inviteId: String? = null,
 )
+
+/** A desktop asking a phone to connect (LocalSend-style "send to this device"). */
+@Serializable
+data class InviteOffer(val inviteId: String, val hostDeviceId: String, val hostName: String)
 
 @Serializable
 data class PairResponse(
@@ -104,15 +116,19 @@ data class ErrorResponse(val message: String)
 @Serializable
 data class WaitResponse(val changed: Boolean)
 
-/** A Lock On desktop seen on the local network. Trust still comes from pairing, never from this. */
-data class NearbyDesktop(
+/** A Lock On device seen on the local network. Trust still comes from pairing, never from this. */
+data class NearbyDevice(
     val deviceId: String,
     val name: String,
     val host: String,
     val port: Int,
     val fingerprint: String?,
     val compatible: Boolean,
-)
+    /** [SyncProtocol.ROLE_DESKTOP] devices accept connections; phones only announce themselves. */
+    val role: String = SyncProtocol.ROLE_DESKTOP,
+) {
+    val isDesktop: Boolean get() = role == SyncProtocol.ROLE_DESKTOP
+}
 
 /** Contents of the desktop's pairing QR code. */
 data class PairingInvite(
@@ -122,6 +138,8 @@ data class PairingInvite(
     /** SHA-256 of the desktop's TLS certificate, hex. Null when typed in by hand. */
     val fingerprint: String?,
     val name: String = "",
+    /** Set when answering a desktop's invitation instead of scanning or typing a code. */
+    val inviteId: String? = null,
 ) {
     fun toUri(): String = buildString {
         append("${SyncProtocol.PAIRING_SCHEME}://pair?host=$host&port=$port&code=$pairingCode")
@@ -170,3 +188,17 @@ data class PairingInvite(
 /** Short code both screens show during pairing so people can confirm they reached the same desktop. */
 fun verificationCode(fingerprint: String): String =
     fingerprint.uppercase().filter { it.isLetterOrDigit() }.take(8).chunked(4).joinToString("-")
+
+/**
+ * The number both screens show while pairing, like Bluetooth's numeric comparison. It mixes the
+ * desktop's certificate (as each side sees it) with the phone's random [nonce], so an impostor's
+ * request or an interception produces a different number than the one on the person's phone.
+ */
+fun pairingCheckNumber(fingerprint: String, nonce: String): String {
+    val digest = sha256Hex("$fingerprint:$nonce".encodeToByteArray())
+    val n = digest.take(12).toLong(16) % 1_000_000
+    return n.toString().padStart(6, '0').let { "${it.take(3)} ${it.drop(3)}" }
+}
+
+/** SHA-256 as lowercase hex, from the platform's crypto. */
+expect fun sha256Hex(bytes: ByteArray): String
