@@ -87,17 +87,17 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
 - **V9. Navigation floats and fits the theme** (as on Stella Sora's home screen, N5).
   - **The player card** is the brand: the Lock On mark in a teal-ringed level badge, the name, and the deck and card counts in currency-style pills. They're plain counts, never badges or prompts (C1).
   - **The pill** (N5): destinations float in a translucent capsule, and the selected one is a teal pill with its label.
-- **V5. Motion explains and gives feedback.** Every animation answers *what changed*, *where did I go* or *what can I touch*. Timing lives in `Motion.kt`.
-  - **Timing:** 150 ms for small exits, 220 ms for most changes, 320 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 45 ms apart.
-  - **Navigation:** going deeper slides forward, coming back slides back, and switching tabs fades through.
+- **V5. Motion explains and gives feedback, quietly.** Every animation answers *what changed*, *where did I go* or *what can I touch*, and none of it competes with the cards. Short distances, small scales, no bounce, overshoot, tilt or sparkle. Timing lives in `Motion.kt`.
+  - **Timing:** 120 ms for small exits, 200 ms for most changes, 280 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 30 ms apart.
+  - **Navigation:** going deeper drifts a short way forward, coming back drifts back, and switching tabs fades through.
   - **Lists:** rows glide when cards are added, removed or regrouped.
-  - **Numbers:** they roll up when they grow and down when they shrink. A count that grows also bumps with a spring.
-  - **Adding and removing:** the card or strip flashes teal when a copy is added, and red when one is removed.
-  - **Hover (desktop):** cards rise, grow a touch, glow in their colour and lean toward the pointer. Strips push into their art. Buttons brighten.
+  - **Numbers:** they roll up a short way when they grow and down when they shrink. A count that grows also nudges up in size by a few percent.
+  - **Adding and removing:** the card or strip takes a faint teal tint and thin rim when a copy is added, and red when one is removed.
+  - **Hover (desktop):** cards rise a few pixels and cast a soft shadow tinted with their colour. Strips ease into their art. Buttons brighten a touch.
   - **Charts:** bars grow into place.
-  - **Test hand:** cards are dealt in, and shields flip over when revealed.
-  - **Touch:** tiles, cards and buttons squish slightly when pressed. Phones give a light tick on each +/−.
-  - **The Lock On moment:** when a deck becomes legal, the brackets close on the reticle and a white shine crosses the editor banner. Gold sparkles pop behind it, and the rim glows gold. On phones, a confirming haptic plays. It's the one signature animation, and it plays only on the change, never on opening a legal deck.
+  - **Test hand:** cards fade in and settle up a short way, and shields flip over when revealed.
+  - **Touch:** tiles, cards and buttons sink a hair when pressed. Phones give a light tick on each +/−.
+  - **The Lock On moment:** when a deck becomes legal, the brackets close on the reticle, a soft glint crosses the editor banner and its rim warms to gold, then fades. On phones, a confirming haptic plays. It's the one signature animation, and it plays only on the change, never on opening a legal deck.
   - **Loops:** nothing loops except progress, and progress uses the reticle spinner. The sky is static.
   - **Reduced motion:** with the system's "Remove animations" setting on, every animation becomes an instant change or a very short fade. Tilt, bumps, flashes and the shine are skipped.
 - **V6. Dark and light are equals.** Both themes use the same colour roles. Contrast is at least 4.5:1 for text and 3:1 for controls and tags, including text on glass over the sky.
@@ -142,7 +142,7 @@ No published UI teardown of these deck builders turned up, so where no source is
 - **Hearthstone (Blizzard)** is widely called the friendliest digital card game UI, built to feel like a tactile physical box ([GDC 2015, "Hearthstone: How to Create an Immersive User Interface"](https://gdcvault.com/play/1022036/Hearthstone-How-to-Create-an), [collection manager](https://hearthstone.wiki.gg/wiki/Collection)).
   - Taken into Lock On: deck-list card strips with a cost gem and an art crop, hover lift, and deck boxes.
 - **Marvel Snap (Second Dinner)** is praised for a clean mobile interface where every tap gets visual feedback ([MobileSyrup](https://mobilesyrup.com/2022/10/29/marvel-snap-mobile-game-review/), [GamersDecide](https://gamersdecide.com/articles/marvel-snap-review)).
-  - Taken into Lock On: press and hover feedback, add and remove flashes, and springy counts.
+  - Taken into Lock On: press and hover feedback, add and remove tints, and counts that nudge when they grow.
 - **Legends of Runeterra (Riot)** shows copies as pips and lets region colours drive a deck's identity ([patch 0.9.1](https://invenglobal.com/articles/10550/patch-091-speeds-up-animations-introduces-jinx-and-garen-themed-boards-to-legends-of-runeterra), [deck building](https://invenglobal.com/articles/9832/guide-how-do-you-build-a-deck-in-legends-of-runeterra)).
   - Taken into Lock On: copy pips, colour gems and colour edges, and the card inspect glow.
 - **Yu-Gi-Oh! Master Duel (Konami)** is praised for fast filtering across thousands of cards ([Seafoam Gaming](https://seafoamgaming.com/2022/02/07/yu-gi-oh-master-duel-ios-xbox-series-x-switch-eshop-review/)).

@@ -87,10 +87,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -98,7 +94,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lockon.ui.theme.LockOnShapes
@@ -282,7 +277,7 @@ enum class GameButtonStyle { PRIMARY, SECONDARY, GHOST }
 
 /**
  * A game button: a pill. Primary is a glossy teal pill with a soft glow; secondary is a white glass
- * pill with a teal rim; ghost is teal text. Hover brightens, press squishes.
+ * pill with a teal rim; ghost is teal text. Hover brightens a touch, press sinks a hair.
  */
 @Composable
 fun GameButton(
@@ -303,7 +298,7 @@ fun GameButton(
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedAsState()
     val lift by animateFloatAsState(if (hovered && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-hover")
-    val squish by animateFloatAsState(if (pressed) 0.95f else 1f, motion(Motion.SHORT), label = "button-press")
+    val squish by animateFloatAsState(if (pressed) 0.98f else 1f, motion(Motion.SHORT), label = "button-press")
     val shape = LockOnShapes.button
     val fill: Brush
     val content: Color
@@ -311,7 +306,7 @@ fun GameButton(
     when {
         !enabled -> { fill = SolidColor(scheme.onSurface.copy(alpha = 0.06f)); content = scheme.outline; rim = Color.Transparent }
         style == GameButtonStyle.PRIMARY -> {
-            fill = Brush.verticalGradient(listOf(lighten(accent, 0.22f + 0.12f * lift), accent))
+            fill = Brush.verticalGradient(listOf(lighten(accent, 0.22f + 0.06f * lift), lighten(accent, 0.04f * lift)))
             content = onAccent; rim = lighten(accent, 0.45f)
         }
         style == GameButtonStyle.SECONDARY -> {
@@ -327,7 +322,7 @@ fun GameButton(
                 scaleX = squish; scaleY = squish
                 if (style == GameButtonStyle.PRIMARY && enabled) {
                     this.shape = shape
-                    shadowElevation = (4f + 8f * lift) * density
+                    shadowElevation = (2f + 3f * lift) * density
                     ambientShadowColor = accent; spotShadowColor = accent
                 }
             }
@@ -464,57 +459,39 @@ fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.
 }
 
 /**
- * Hover lift for cards and tiles on desktop: rises, grows a touch, glows in its colour and, with
- * [tilt], leans toward the pointer. Press squishes it. Phones never hover, so they only get the press.
+ * Hover lift for cards and tiles on desktop: rises a little and casts a soft shadow tinted with its
+ * colour. Press sinks it a hair. Phones never hover, so they only get the press.
  */
 fun Modifier.hoverLift(
     interaction: MutableInteractionSource,
     glow: Color,
     shape: Shape,
-    lift: Dp = 6.dp,
+    lift: Dp = 3.dp,
     resting: Float = 0f,
-    tilt: Float = 0f,
 ): Modifier = composed {
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedAsState()
-    val reduce = LocalReduceMotion.current
-    val t by animateFloatAsState(if (hovered) 1f else 0f, motion(Motion.SHORT), label = "hover-lift")
-    val press by animateFloatAsState(if (pressed) 0.96f else 1f, motion(Motion.SHORT), label = "press")
-    var pointer by remember { mutableStateOf(Offset.Unspecified) }
-    var area by remember { mutableStateOf(IntSize.Zero) }
-    val aim = if (tilt == 0f || reduce || !hovered || pointer == Offset.Unspecified || area.width == 0) Offset.Zero
-    else Offset(pointer.x / area.width - 0.5f, pointer.y / area.height - 0.5f) * 2f
-    val tiltX by animateFloatAsState(-aim.y * tilt, motion(Motion.SHORT), label = "tilt-x")
-    val tiltY by animateFloatAsState(aim.x * tilt, motion(Motion.SHORT), label = "tilt-y")
-    val tracking = if (tilt == 0f) Modifier else Modifier.onSizeChanged { area = it }.pointerInput(Unit) {
-        awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                pointer = if (event.type == PointerEventType.Exit) Offset.Unspecified else event.changes.first().position
-            }
-        }
-    }
-    then(tracking).hoverable(interaction).graphicsLayer {
-        val s = (1f + 0.035f * t) * press
+    val t by animateFloatAsState(if (hovered) 1f else 0f, motion(Motion.MEDIUM), label = "hover-lift")
+    val press by animateFloatAsState(if (pressed) 0.985f else 1f, motion(Motion.SHORT), label = "press")
+    hoverable(interaction).graphicsLayer {
+        val s = (1f + 0.01f * t) * press
         scaleX = s; scaleY = s
-        rotationX = tiltX; rotationY = tiltY
-        cameraDistance = 14f * density
         translationY = -lift.toPx() * t
         this.shape = shape
-        shadowElevation = 18.dp.toPx() * maxOf(t, resting)
-        ambientShadowColor = glow; spotShadowColor = glow
+        shadowElevation = 8.dp.toPx() * maxOf(t, resting)
+        ambientShadowColor = glow.copy(alpha = 0.5f); spotShadowColor = glow.copy(alpha = 0.5f)
     }
 }
 
-/** A springy bump when [value] grows, so an added copy registers (UX rule V5: what changed). */
+/** A small nudge when [value] grows, so an added copy registers (UX rule V5: what changed). */
 fun Modifier.bumpOnIncrease(value: Int): Modifier = composed {
     val reduce = LocalReduceMotion.current
     val scale = remember { Animatable(1f) }
     var last by remember { mutableStateOf(value) }
     LaunchedEffect(value) {
         if (!reduce && value > last) {
-            scale.snapTo(1.3f)
-            scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 700f))
+            scale.snapTo(1.08f)
+            scale.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate))
         }
         last = value
     }
@@ -522,8 +499,8 @@ fun Modifier.bumpOnIncrease(value: Int): Modifier = composed {
 }
 
 /**
- * A flash over a card when a copy is added (or a red one when removed), fading in about half a
- * second. Drawn over the content, so it never moves anything.
+ * A faint tint over a card when a copy is added (or a red one when removed), fading in under half
+ * a second. Drawn over the content, so it never moves anything.
  */
 fun Modifier.flashOnChange(value: Int, add: Color, remove: Color, shape: Shape): Modifier = composed {
     val reduce = LocalReduceMotion.current
@@ -534,7 +511,7 @@ fun Modifier.flashOnChange(value: Int, add: Color, remove: Color, shape: Shape):
         if (!reduce && value != last) {
             tint = if (value > last) add else remove
             flash.snapTo(1f)
-            flash.animateTo(0f, tween(520, easing = Motion.emphasizedDecelerate))
+            flash.animateTo(0f, tween(420, easing = Motion.emphasizedDecelerate))
         }
         last = value
     }
@@ -543,8 +520,8 @@ fun Modifier.flashOnChange(value: Int, add: Color, remove: Color, shape: Shape):
         val a = flash.value
         if (a > 0f) {
             val outline = shape.createOutline(size, layoutDirection, this)
-            drawOutline(outline, tint.copy(alpha = 0.3f * a))
-            drawOutline(outline, tint.copy(alpha = a), style = Stroke(3.dp.toPx()))
+            drawOutline(outline, tint.copy(alpha = 0.12f * a))
+            drawOutline(outline, tint.copy(alpha = 0.7f * a), style = Stroke(1.5.dp.toPx()))
         }
     }
 }
@@ -571,9 +548,9 @@ fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
 }
 
 /**
- * The Lock On moment: when [locked] turns true, a white shine crosses the content like light on a
- * new card, gold sparkles pop behind it, and the rim glows gold. It plays only on the change, never
- * when a legal deck opens (UX rule V5).
+ * The Lock On moment: when [locked] turns true, a soft glint crosses the content like light on a
+ * new card and the rim warms to gold, then fades. It plays only on the change, never when a legal
+ * deck opens (UX rule V5).
  */
 fun Modifier.shineSweep(locked: Boolean, shape: Shape = RectangleShape): Modifier = composed {
     val reduce = LocalReduceMotion.current
@@ -582,7 +559,7 @@ fun Modifier.shineSweep(locked: Boolean, shape: Shape = RectangleShape): Modifie
     LaunchedEffect(locked) {
         if (locked && !last && !reduce) {
             sweep.snapTo(0f)
-            sweep.animateTo(1f, tween(Motion.SIGNATURE + 250, easing = Motion.emphasized))
+            sweep.animateTo(1f, tween(Motion.SIGNATURE * 2, easing = Motion.emphasized))
         }
         last = locked
     }
@@ -594,16 +571,11 @@ fun Modifier.shineSweep(locked: Boolean, shape: Shape = RectangleShape): Modifie
             val band = size.width * 0.16f
             drawRect(
                 Brush.linearGradient(
-                    listOf(Color.Transparent, Color.White.copy(alpha = 0.55f), Gold.copy(alpha = 0.35f), Color.Transparent),
+                    listOf(Color.Transparent, Color.White.copy(alpha = 0.22f), Gold.copy(alpha = 0.1f), Color.Transparent),
                     start = Offset(x - band, 0f), end = Offset(x + band, size.height * 0.5f),
                 ),
             )
-            val pop = 1f - p
-            listOf(Offset(0.12f, 0.3f), Offset(0.3f, 0.75f), Offset(0.55f, 0.25f), Offset(0.8f, 0.7f), Offset(0.93f, 0.3f)).forEach { f ->
-                val c = Offset(size.width * f.x, size.height * f.y)
-                if (c.x < x + band) sparkle(c, 9.dp.toPx() * pop, Gold.copy(alpha = pop))
-            }
-            drawOutline(shape.createOutline(size, layoutDirection, this), Gold.copy(alpha = pop * 0.9f), style = Stroke(3.dp.toPx()))
+            drawOutline(shape.createOutline(size, layoutDirection, this), Gold.copy(alpha = (1f - p) * 0.5f), style = Stroke(1.5.dp.toPx()))
         }
     }
 }
@@ -857,8 +829,8 @@ fun navClearance(): Dp {
     return PillNavHeight + 12.dp + gesture + 12.dp
 }
 
-/** AnymeX's springy settle: a quick overshoot, then rest. */
-private val PillSpring = spring<Float>(dampingRatio = 0.62f, stiffness = 420f)
+/** The pill's settle: quick, with no overshoot. */
+private val PillSpring = spring<Float>(dampingRatio = 1f, stiffness = 500f)
 
 /**
  * Navigation as a floating pill (UX rules N5, V9), after AnymeX's "Dynamic Pill" bar: a
@@ -918,8 +890,8 @@ fun PillNavBar(
                     androidx.compose.animation.AnimatedVisibility(
                         visible = labels || isSelected,
                         enter = if (reduce) androidx.compose.animation.EnterTransition.None
-                        else androidx.compose.animation.expandHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) +
-                            androidx.compose.animation.fadeIn(tween(Motion.MEDIUM)),
+                        else androidx.compose.animation.expandHorizontally(tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate)) +
+                            androidx.compose.animation.fadeIn(tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2)),
                         exit = if (reduce) androidx.compose.animation.ExitTransition.None
                         else androidx.compose.animation.shrinkHorizontally(tween(Motion.MEDIUM)) + androidx.compose.animation.fadeOut(tween(Motion.SHORT)),
                     ) {

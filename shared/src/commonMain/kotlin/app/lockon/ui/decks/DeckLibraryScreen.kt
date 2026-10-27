@@ -569,7 +569,7 @@ private fun DeckRow(
     // top edge, and the hover lift glows in the deck's lead colour (UX rules V4, I4).
     BoxWithConstraints(
         modifier.fillMaxWidth().height(DeckBoxHeight)
-            .hoverLift(press, glow = lighten(cardColor(lead), 0.15f), shape = LockOnShapes.panel, lift = 4.dp)
+            .hoverLift(press, glow = lighten(cardColor(lead), 0.15f), shape = LockOnShapes.panel)
             .clip(LockOnShapes.panel)
             .background(base)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
@@ -668,7 +668,7 @@ private fun NewDeckSlot(modifier: Modifier, onClick: () -> Unit) {
     val line = if (hovered) Accent else scheme.outline
     Box(
         modifier.fillMaxWidth().height(DeckBoxHeight)
-            .hoverLift(press, glow = Accent, shape = LockOnShapes.panel, lift = 4.dp)
+            .hoverLift(press, glow = Accent, shape = LockOnShapes.panel)
             .clip(LockOnShapes.panel)
             .background(scheme.onSurface.copy(alpha = if (hovered) 0.06f else 0.025f))
             .drawBehind {
