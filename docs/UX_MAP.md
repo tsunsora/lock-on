@@ -41,7 +41,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 
 ### Decks (top level)
 - **Purpose:** find a deck and start working on it.
-- **Shows:** each deck as a tile with its cover card (the one picked in the editor, else its highest-level Unit, or a card back for an empty deck), a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50 · Resource n/10`, its folder, tags, win/loss record, and when it was last edited. On desktop the tiles form a grid.
+- **Shows:** each deck as a tile with its cover card (the one picked in the editor, else its highest-level Unit, or a card back for an empty deck), a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50`, its folder, tags, win/loss record, and when it was last edited. On desktop the tiles form a grid.
 - **Folders:** a list beside the decks on desktop (**All decks**, each folder with its count, **No folder**, **New folder**), a chip row on phones. A folder is a filter, not a screen (N2).
   - **New folder** names the folder and picks its decks in one step, since a folder shows only while it holds a deck.
   - An open folder shows **Rename** and **Remove folder**. Removing only takes its decks out, with Undo.
@@ -56,7 +56,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 
 ### Deck editor (level 2)
 - **Header:**
-  - name (tap to rename), color pips, legality tag, `Main n/50 · Resource n/10`
+  - name (tap to rename), color pips, legality tag, `Main n/50`
   - **Export**
   - a conflict banner when one exists
 - **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar (**Deck · Add · Analysis · Test · More**, with Matches and Versions under More):
@@ -64,8 +64,8 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color.
      - **Deck colors only** narrows the list to the deck's colors.
      - Sort by number, level, cost or name.
-  2. **Deck:** grouped by type (Units, Pilots, Commands, Bases, then Resources), each with a HUD header and count, sorted by level and then cost, with − / + on every row.
-     - **Considering** comes after Resources: cards you're weighing up, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − (drops one).
+  2. **Deck:** grouped by type (Units, Pilots, Commands, then Bases), each with a HUD header and count, sorted by level and then cost, with − / + on every row.
+     - **Considering** comes after the deck: cards you're weighing up, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − (drops one).
      - Card details offer **Consider**, **Move 1 to Considering** or **Move 1 to deck**, depending on where the card already is.
      - In the card list, a card that is only being considered is tagged **Considering**.
      - Card details also offer **Use as deck cover**.

@@ -194,21 +194,29 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     var renaming by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
 
+    // Changes read the draft itself, not this composition's copy, so quick taps never lose a copy
+    // and the card list's controls stay the same object from one change to the next.
     fun change(card: GameCard, delta: Int, section: DeckSection = DeckSection.playedIn(card)) {
-        draft = deck.withQuantity(card.cardNumber, section, (deck.quantityOf(card.cardNumber, section) + delta).coerceAtLeast(0))
+        val current = draft ?: return
+        draft = current.withQuantity(card.cardNumber, section, (current.quantityOf(card.cardNumber, section) + delta).coerceAtLeast(0))
     }
 
     fun move(card: GameCard, toConsidering: Boolean) {
+        val current = draft ?: return
         val played = DeckSection.playedIn(card)
-        draft = if (toConsidering) deck.move(card.cardNumber, played, DeckSection.CONSIDERING)
-        else deck.move(card.cardNumber, DeckSection.CONSIDERING, played)
+        draft = if (toConsidering) current.move(card.cardNumber, played, DeckSection.CONSIDERING)
+        else current.move(card.cardNumber, DeckSection.CONSIDERING, played)
     }
+
+    // Main-deck colors, kept as one object while they stay the same so the card list can skip
+    // recomposing when a change doesn't touch them.
+    val colorsNow = deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+    val deckColors = remember(colorsNow) { colorsNow }
 
     Column(Modifier.fillMaxSize()) {
         // Header: a hero banner with the cover art behind it. Who the deck is sits on the left, its
         // health is grouped on the right (UX rule I2).
         val cover = remember(deck, cards) { deckCover(deck, cards) }
-        val deckColorsNow = deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
         DeckBanner(cover, wide, legality.isLegal) {
             // On wide windows the whole header sits in the band between the floating navigation
             // plates, so the editor spends no extra row on it (UX rule N5).
@@ -235,7 +243,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val c = MaterialTheme.colorScheme
-                        ColorPips(deckColorsNow)
+                        ColorPips(deckColors)
                         // A tight band keeps the state and drops the detail; Analysis has the rest.
                         val tight = wide && !roomy
                         if (legality.isLegal) Badge(if (tight) "Legal" else "Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
@@ -245,7 +253,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(if (roomy) 20.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 128.dp))
-                        DeckGauge(if (roomy) "Resource" else "Res.", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.width(if (roomy) 160.dp else 112.dp))
                         // Narrower bands keep the reticle and drop its caption; the legality stamp says it in words (I4).
                         if (roomy) {
                             LockReadout(legality.isLegal)
@@ -262,10 +269,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             }
             }
             if (!wide) {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ProgressGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1.2f), compact = true)
-                    ProgressGauge("Resource", deck.count(DeckSection.RESOURCE), ruleset.resourceDeckSize, Modifier.weight(1f), compact = true)
-                }
+                ProgressGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize,
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp), compact = true)
             }
         }
         if (summary?.hasConflict == true) {
@@ -293,26 +298,34 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 onChange = { card, delta -> change(card, delta) },
                 onRemoveConsidering = { change(it, -1, DeckSection.CONSIDERING) },
                 onMoveToDeck = { move(it, toConsidering = false) },
-                onNotes = { draft = deck.copy(notes = it) },
+                onNotes = { notes -> draft = draft?.copy(notes = notes) },
             )
         }
-        val deckColors = remember(deck, cards) {
-            deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+        // Resource cards stay out of the card list: the editor doesn't track the resource deck.
+        val addable = remember(cards) { cards.values.filter { !it.type.isResource } }
+        // Copies by section and card number, looked up per card instead of scanning the deck.
+        val counts = remember(deck) {
+            deck.entries.groupBy { it.section }.mapValues { (_, entries) -> entries.groupingBy { it.cardNumber }.fold(0) { n, e -> n + e.quantity } }
+        }
+        val countsNow = rememberUpdatedState(counts)
+        val colorsNowState = rememberUpdatedState(deckColors)
+        // One set of controls for the editor's life. They read the counts through state, so a change
+        // recomposes only the cards whose numbers or tags moved, not the whole card list.
+        val controls = remember(deckId, ruleset) {
+            fun copies(card: GameCard, section: DeckSection = DeckSection.playedIn(card)) = countsNow.value[section]?.get(card.cardNumber) ?: 0
+            DeckControls(
+                quantity = { card -> copies(card) },
+                // Rule limits shown where you act (UX rule S3), before anything goes wrong.
+                tag = { card -> FitTags(card, copies(card), copies(card, DeckSection.CONSIDERING), colorsNowState.value, ruleset) },
+                change = { card, delta -> change(card, delta) },
+                limit = { card -> copyLimit(card, ruleset) },
+            )
         }
         val search: @Composable (Modifier) -> Unit = { modifier ->
             CardSearchPanel(
-                cards.values, onCardClick = { detail = it }, modifier = modifier,
+                addable, onCardClick = { detail = it }, modifier = modifier,
                 focusRequests = state.searchFocusRequests, deckColors = deckColors, wide = wide,
-                controls = DeckControls(
-                    quantity = { card -> deck.quantityOf(card.cardNumber, DeckSection.playedIn(card)) },
-                    // Rule limits shown where you act (UX rule S3), before anything goes wrong.
-                    tag = { card ->
-                        FitTags(card, deck.quantityOf(card.cardNumber, DeckSection.playedIn(card)),
-                            deck.quantityOf(card.cardNumber, DeckSection.CONSIDERING), deckColors, ruleset)
-                    },
-                    change = { card, delta -> change(card, delta) },
-                    limit = { card -> copyLimit(card, ruleset) },
-                ),
+                controls = controls,
             )
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }
@@ -467,8 +480,7 @@ private fun DeckList(
         val byType = CardType.entries.filter { !it.isResource }.map { type ->
             "${type.label}s" to main.filter { cards[it.cardNumber]?.type == type }.sortedWith(order)
         } + ("Unknown cards" to main.filter { cards[it.cardNumber] == null })
-        byType.filter { it.second.isNotEmpty() } +
-            ("Resources" to deck.entries.filter { it.section == DeckSection.RESOURCE }.sortedWith(order))
+        byType.filter { it.second.isNotEmpty() }
     }
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
     var cardView by rememberSaveable { mutableStateOf(true) }
@@ -494,7 +506,7 @@ private fun DeckList(
                     LockIndicator(locked = false, size = 72.dp)
                     Text("No cards yet", style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Tap + on any card to add a copy. A deck needs 50 main-deck cards in up to two colors, and 10 resources.",
+                        "Tap + on any card to add a copy. A deck needs 50 cards in up to two colors.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
@@ -512,18 +524,8 @@ private fun DeckList(
         }
         for ((label, entries) in groups) {
             item(key = "header-$label") {
-                SectionHeader(label, Modifier.padding(start = 6.dp, end = 6.dp, top = if (label == "Resources") 12.dp else 6.dp, bottom = 2.dp),
+                SectionHeader(label, Modifier.padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 2.dp),
                     readout = "${entries.sumOf { it.quantity }}")
-            }
-            if (label == "Resources" && entries.isEmpty()) {
-                item(key = "empty-resource") {
-                    Text(
-                        "Add resource cards from the card list.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                }
             }
             if (cardView) {
                 // Whole cards, small, a row at a time so the list stays lazy (UX rule V4a).

@@ -90,7 +90,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -98,7 +97,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lockon.ui.theme.LockOnShapes
@@ -478,30 +476,37 @@ fun Modifier.hoverLift(
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedAsState()
     val reduce = LocalReduceMotion.current
-    val t by animateFloatAsState(if (hovered) 1f else 0f, motion(Motion.SHORT), label = "hover-lift")
-    val press by animateFloatAsState(if (pressed) 0.96f else 1f, motion(Motion.SHORT), label = "press")
-    var pointer by remember { mutableStateOf(Offset.Unspecified) }
-    var area by remember { mutableStateOf(IntSize.Zero) }
-    val aim = if (tilt == 0f || reduce || !hovered || pointer == Offset.Unspecified || area.width == 0) Offset.Zero
-    else Offset(pointer.x / area.width - 0.5f, pointer.y / area.height - 0.5f) * 2f
-    val tiltX by animateFloatAsState(-aim.y * tilt, motion(Motion.SHORT), label = "tilt-x")
-    val tiltY by animateFloatAsState(aim.x * tilt, motion(Motion.SHORT), label = "tilt-y")
-    val tracking = if (tilt == 0f) Modifier else Modifier.onSizeChanged { area = it }.pointerInput(Unit) {
+    // The animations and the pointer are read only inside graphicsLayer, so moving over a card
+    // redraws its layer without recomposing it. Only entering, leaving and pressing recompose.
+    val t = animateFloatAsState(if (hovered) 1f else 0f, motion(Motion.SHORT), label = "hover-lift")
+    val press = animateFloatAsState(if (pressed) 0.96f else 1f, motion(Motion.SHORT), label = "press")
+    // Where the pointer is over the card, from -1 to 1 on each axis.
+    val aim = remember { mutableStateOf(Offset.Zero) }
+    val tracking = if (tilt == 0f || reduce) Modifier else Modifier.pointerInput(Unit) {
         awaitPointerEventScope {
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
-                pointer = if (event.type == PointerEventType.Exit) Offset.Unspecified else event.changes.first().position
+                // Kept on exit, so the tilt eases out with the lift instead of snapping flat.
+                if (event.type != PointerEventType.Exit && size.width > 0 && size.height > 0) {
+                    val p = event.changes.first().position
+                    aim.value = Offset(p.x / size.width - 0.5f, p.y / size.height - 0.5f) * 2f
+                }
             }
         }
     }
     then(tracking).hoverable(interaction).graphicsLayer {
-        val s = (1f + 0.035f * t) * press
+        val h = t.value
+        val s = (1f + 0.035f * h) * press.value
         scaleX = s; scaleY = s
-        rotationX = tiltX; rotationY = tiltY
+        // The lean follows the pointer and grows with the lift.
+        if (tilt != 0f && !reduce) {
+            rotationX = -aim.value.y * tilt * h
+            rotationY = aim.value.x * tilt * h
+        }
         cameraDistance = 14f * density
-        translationY = -lift.toPx() * t
+        translationY = -lift.toPx() * h
         this.shape = shape
-        shadowElevation = 18.dp.toPx() * maxOf(t, resting)
+        shadowElevation = 18.dp.toPx() * maxOf(h, resting)
         ambientShadowColor = glow; spotShadowColor = glow
     }
 }

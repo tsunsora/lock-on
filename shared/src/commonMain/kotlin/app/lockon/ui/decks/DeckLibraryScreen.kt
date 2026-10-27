@@ -603,21 +603,11 @@ private fun DeckRow(
                         }
                     }
                 }
-                // Side by side when the box is wide enough, stacked on phones so labels never wrap.
+                // Full gauge when the box is wide enough, compact on phones so the label never wraps.
                 BoxWithConstraints {
                     val main = deck.snapshot.count(DeckSection.MAIN)
-                    val resource = deck.snapshot.count(DeckSection.RESOURCE)
-                    if (maxWidth >= 300.dp) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.weight(1.2f).widthIn(max = 170.dp))
-                            ProgressGauge("Resource", resource, ruleset.resourceDeckSize, Modifier.weight(1f).widthIn(max = 140.dp))
-                        }
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth(), compact = true)
-                            ProgressGauge("Resource", resource, ruleset.resourceDeckSize, Modifier.fillMaxWidth(), compact = true)
-                        }
-                    }
+                    if (maxWidth >= 300.dp) ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.widthIn(max = 240.dp).fillMaxWidth())
+                    else ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth(), compact = true)
                 }
                 val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

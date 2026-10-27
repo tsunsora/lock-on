@@ -120,6 +120,8 @@ fun CardSearchPanel(
     val levels = remember(cards) { cards.mapNotNull { it.level }.distinct().sorted() }
     val costs = remember(cards) { cards.mapNotNull { it.cost }.distinct().sorted() }
     val sets = remember(cards) { cards.map { it.setCode }.distinct().sorted() }
+    // Only the types these cards have, so a list without resources offers no Resource chip.
+    val types = remember(cards) { CardType.entries.filter { type -> cards.any { it.type == type } } }
 
     @Composable
     fun ViewControls() {
@@ -180,7 +182,7 @@ fun CardSearchPanel(
                 }
             }
             Spacer(Modifier.width(6.dp))
-            CardType.entries.forEach { type ->
+            types.forEach { type ->
                 PillChip(
                     selected = type in query.types,
                     onClick = { query = query.copy(types = query.types.toggle(type)) },

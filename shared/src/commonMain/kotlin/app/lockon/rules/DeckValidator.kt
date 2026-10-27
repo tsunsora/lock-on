@@ -25,10 +25,10 @@ object DeckValidator {
         fun warn(text: String, card: String? = null) = messages.add(LegalityMessage(Severity.WARNING, text, card))
         fun nameOf(number: String) = cards[number]?.let { "${it.name} ($number)" } ?: number
 
+        // The resource deck is not tracked: every player brings 10 standard resources, so only the
+        // main deck's size is checked.
         val main = deck.count(DeckSection.MAIN)
-        val resource = deck.count(DeckSection.RESOURCE)
         if (main != ruleset.mainDeckSize) error("Main deck has $main of ${ruleset.mainDeckSize} cards.")
-        if (resource != ruleset.resourceDeckSize) error("Resource deck has $resource of ${ruleset.resourceDeckSize} cards.")
 
         // Copies are counted by card number, so alternate art never adds extra copies.
         // Considering cards are a scratch list and are never checked.

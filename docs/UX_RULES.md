@@ -40,8 +40,8 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 
 ## 3. Information and feedback
 
-- **I1. Numbers read like instruments.** Counts and limits use tabular figures as `current/limit` (`Main 42/50`, `Resource 10/10`), so totals don't jump around while you edit.
-- **I2. Deck health in one line.** Every deck header shows its legal or draft state, main and resource counts, and its colors, with no scrolling needed.
+- **I1. Numbers read like instruments.** Counts and limits use tabular figures as `current/limit` (`Main 42/50`), so totals don't jump around while you edit.
+- **I2. Deck health in one line.** Every deck header shows its legal or draft state, its main-deck count, and its colors, with no scrolling needed.
 - **I3. Explain the rule with the problem.** A legality message names the card, the count and the limit (*"Inferno Lancer has 5 copies; the limit is 4"*), never just *"Invalid deck."*
 - **I4. Color is never the only signal.** Card colors always come with their name or initial, and status tags always include a word.
 - **I5. Label every icon.** An icon on its own needs a text label next to it or an accessible description plus a tooltip on desktop. (A reviewer criticized Aniimo's controller menu for having "the most incomprehensible buttons for any given action.")
@@ -80,7 +80,7 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
   - **Deck cards:** the deck list shows each card small and whole, at its real shape, grouped by type. − ×count + and copy pips sit underneath. Desktop fits as many 104 dp cards as the panel holds, with 40 dp targets. Phones show 120 dp cards, three across, with 48 dp targets (R1).
   - **Deck strips** (as in Hearthstone) are the denser **List view**, a toggle in the stats strip. Each row has a glossy cost orb in the card's colour and the name over a crop of the art, fading in from the right. Considering always uses strips, since its rows need the **To deck** action.
   - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal while filling, gold at the limit, and red past it.
-  - **Gauges:** `Main 42/50` and `Resource 10/10` are rounded bars. They're teal while filling, gold with a sparkle when exactly full, and red when over.
+  - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold with a sparkle when exactly full, and red when over.
   - **Level curve** (as in MTG Arena): a compact curve sits at the top of the deck list.
   - **Deck boxes:** library tiles show the cover art behind the deck's name, its colour orbs, both gauges and the record.
   - **Hero banner:** the editor header is a frosted strip with the cover art fading in from the right, and the Lock On readout (*Locked on!* or *Not ready*) in words.
@@ -93,7 +93,7 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
   - **Lists:** rows glide when cards are added, removed or regrouped.
   - **Numbers:** they roll up when they grow and down when they shrink. A count that grows also bumps with a spring.
   - **Adding and removing:** the card or strip flashes teal when a copy is added, and red when one is removed.
-  - **Hover (desktop):** cards rise, grow a touch, glow in their colour and lean toward the pointer. Strips push into their art. Buttons brighten.
+  - **Hover (desktop):** cards rise, grow a touch, glow in their colour and lean toward the pointer. Strips push into their art. Buttons brighten. Resting on a card for a moment opens the whole card beside it, never over it.
   - **Charts:** bars grow into place.
   - **Test hand:** cards are dealt in, and shields flip over when revealed.
   - **Touch:** tiles, cards and buttons squish slightly when pressed. Phones give a light tick on each +/−.

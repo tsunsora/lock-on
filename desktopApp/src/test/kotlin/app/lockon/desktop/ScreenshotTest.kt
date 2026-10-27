@@ -298,6 +298,30 @@ class ScreenshotTest {
     }
 
     /**
+     * The card preview on hover in the editor: resting on a deck card opens the whole card to its
+     * left, since the deck panel sits at the window's right edge, and resting on a card in the card
+     * list opens it to the right.
+     */
+    @Test fun renderHoverPreview() {
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { open(Screen.DeckEditor(deckId)) }
+        ImageComposeScene(1980, 1290, Density(1.5f)) { LockOnApp(container, state, sync, files, imageCacheDir = File("build/artwork-cache").absolutePath, dark = true) }.use { scene ->
+            var time = 0L
+            fun frames(n: Int) = repeat(n) { Thread.sleep(40); time += 16_000_000L; scene.render(time) }
+            fun restOn(name: String, x: Float, y: Float) {
+                val at = androidx.compose.ui.geometry.Offset(x, y)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, at)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, at + androidx.compose.ui.geometry.Offset(2f, 2f))
+                frames(20)
+                File(out, "$name.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+            frames(15)
+            // The first card in the deck panel's grid, then a card in the middle of the card list.
+            restOn("desktop-hover-preview-deck", 1318f, 770f)
+            restOn("desktop-hover-preview-list", 757f, 600f)
+        }
+    }
+
+    /**
      * The Lock On moment on a banner-sized plate: the deck turns legal, and a frame is caught while
      * the light band crosses the plate and the brackets close on the reticle.
      */

@@ -113,7 +113,7 @@ private fun VersionCard(
                 Text("Deleted the deck", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
             } else {
                 Text(snapshot.name, style = MaterialTheme.typography.titleMedium)
-                Text("Main ${snapshot.count(DeckSection.MAIN)} · Resource ${snapshot.count(DeckSection.RESOURCE)}",
+                Text("Main ${snapshot.count(DeckSection.MAIN)}",
                     style = MaterialTheme.typography.bodySmall)
                 // Differences against the other versions, so people can see what they would lose.
                 val other = others.firstOrNull()?.snapshot

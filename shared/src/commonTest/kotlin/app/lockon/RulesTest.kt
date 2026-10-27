@@ -41,7 +41,7 @@ class DeckValidatorTest {
     @Test fun incompleteDeckIsADraftWithCountErrors() {
         val result = DeckValidator.validate(DeckSnapshot("Draft", entries = listOf(DeckEntry("T-001", 4))), cards, rules)
         assertTrue(result.errors.any { "Main deck has 4 of 50" in it.text })
-        assertTrue(result.errors.any { "Resource deck has 0 of 10" in it.text })
+        assertTrue(result.errors.none { "Resource deck" in it.text }, "the resource deck is not tracked")
     }
 
     @Test fun copiesCountByCardNumberAcrossPrintings() {

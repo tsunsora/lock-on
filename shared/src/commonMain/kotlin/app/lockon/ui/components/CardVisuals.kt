@@ -54,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
@@ -71,6 +72,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.ui.window.DialogProperties
 import app.lockon.model.Card
 import app.lockon.model.Printing
@@ -94,6 +105,46 @@ fun CardImage(card: Card?, modifier: Modifier = Modifier, printingId: String? = 
         CardArtwork(art, contentDescription = card?.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) {
             PlaceholderCard(card, Modifier.fillMaxSize())
         }
+    }
+}
+
+/** How long the pointer rests on a card before its preview opens, so sweeping across a grid stays calm. */
+private const val HOVER_PREVIEW_DELAY_MS = 350L
+
+/**
+ * The whole card at a readable size beside its thumbnail while the pointer rests on it. Touch
+ * screens never hover, so this only shows with a mouse. The preview sits beside the card, never
+ * over it, so it never takes the hover away, and screen readers skip it: the card already has a name.
+ */
+@Composable
+fun CardHoverPreview(card: Card, printingId: String?, hovered: Boolean) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(hovered) {
+        if (hovered) { delay(HOVER_PREVIEW_DELAY_MS); shown = true } else shown = false
+    }
+    if (!shown) return
+    val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
+    Popup(popupPositionProvider = remember(gap) { BesideAnchor(gap) }, properties = PopupProperties(focusable = false)) {
+        // As large as fits the window, up to a size where the effect text reads easily.
+        Box(Modifier.widthIn(max = 300.dp).padding(vertical = 8.dp).clearAndSetSemantics {}) {
+            // The drawn placeholder face is partly see-through, so it gets a solid backing out here.
+            CardImage(card, Modifier.shadow(18.dp, CardShape).background(MaterialTheme.colorScheme.surface, CardShape), printingId)
+        }
+    }
+}
+
+/** Places a popup to the right of its anchor, or to the left when the right has no room, centred on it. */
+private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+        val right = anchorBounds.right + gap
+        val left = anchorBounds.left - gap - popupContentSize.width
+        val x = when {
+            right + popupContentSize.width <= windowSize.width -> right
+            left >= 0 -> left
+            else -> (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        }
+        val y = (anchorBounds.center.y - popupContentSize.height / 2).coerceIn(0, (windowSize.height - popupContentSize.height).coerceAtLeast(0))
+        return IntOffset(x, y)
     }
 }
 
@@ -170,6 +221,7 @@ fun CardTile(
     limit: Int? = null,
 ) {
     val press = remember { MutableInteractionSource() }
+    val hovered by press.collectIsHoveredAsState()
     val haptics = LocalHapticFeedback.current
     val scheme = MaterialTheme.colorScheme
     val count = quantity ?: 0
@@ -190,6 +242,7 @@ fun CardTile(
         ) {
             CardImage(card, Modifier.fillMaxWidth())
             Box(Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) { tag() }
+            CardHoverPreview(card, null, hovered)
         }
         if (onMinus != null && onPlus != null) {
             Row(
@@ -300,6 +353,8 @@ fun DeckStrip(
         // A colour band on the leading edge, and a lit edge on hover.
         Box(Modifier.align(Alignment.CenterStart).width(4.dp).fillMaxHeight().background(color))
         if (hovered) Box(Modifier.fillMaxSize().border(BorderStroke(1.dp, scheme.primary.copy(alpha = 0.7f)), StripShape))
+        // A strip shows only a crop of the art, so the whole card opens beside it on hover.
+        if (card != null) CardHoverPreview(card, printingId, hovered)
         Row(Modifier.fillMaxSize().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             CostOrb(card?.cost, color, onCardColor(card?.colors?.firstOrNull()), size = if (compact) 30.dp else 34.dp)
             Spacer(Modifier.width(if (compact) 10.dp else 12.dp))
@@ -532,6 +587,7 @@ fun DeckCard(
     target: Dp = 48.dp,
 ) {
     val press = remember { MutableInteractionSource() }
+    val hovered by press.collectIsHoveredAsState()
     val haptics = LocalHapticFeedback.current
     val scheme = MaterialTheme.colorScheme
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -543,6 +599,7 @@ fun DeckCard(
                 .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
         ) {
             CardImage(card, Modifier.fillMaxWidth(), printingId)
+            CardHoverPreview(card, printingId, hovered)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             TileButton("−", "Remove one ${card.name}", enabled = quantity > 0, target = target) {

@@ -77,7 +77,7 @@ fun VersionsPanel(
                     color = if (index == 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "${deviceLabel(version.originDeviceId)} · Main ${version.snapshot.count(DeckSection.MAIN)} · Resource ${version.snapshot.count(DeckSection.RESOURCE)}",
+                    "${deviceLabel(version.originDeviceId)} · Main ${version.snapshot.count(DeckSection.MAIN)}",
                     style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(

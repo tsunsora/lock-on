@@ -8,6 +8,8 @@ First release for Android and Windows.
 - Card browser with search by name, number and text, and filters for color, type, level, cost, set and trait. Sort it, and switch between list and grid.
 - Deck editor with one-tap add and remove, and autosave. Cards are tagged **Max** at their copy limit and **Off-color** when they would add a third color, and **Deck colors only** hides the rest. The deck is grouped by card type.
 - **Considering** list for cards you're weighing up. It never counts toward the deck.
+- The resource deck isn't tracked: every player brings 10 standard resources, so decks list only their 50 main-deck cards and resource cards stay out of the editor's card list.
+- On desktop, resting the pointer on a card opens the whole card beside it, at a size you can read.
 - Analysis:
   - legality messages
   - Burst and Blocker counts, and Unit–Pilot link pairs
