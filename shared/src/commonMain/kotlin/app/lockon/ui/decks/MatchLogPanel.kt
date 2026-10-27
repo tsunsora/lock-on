@@ -91,7 +91,7 @@ fun MatchLogPanel(
                     }
                 }
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("Turn not noted", "Went first", "Went second").forEachIndexed { i, label ->
+                    listOf("Not noted", "Went first", "Went second").forEachIndexed { i, label ->
                         SegmentedButton(selected = turn == i, onClick = { turn = i }, shape = SegmentedButtonDefaults.itemShape(i, 3)) {
                             Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }

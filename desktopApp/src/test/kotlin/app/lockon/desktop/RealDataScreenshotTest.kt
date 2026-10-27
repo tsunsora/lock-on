@@ -81,6 +81,7 @@ class RealDataScreenshotTest {
         }
         val files = object : FileBridge {
             override suspend fun saveText(suggestedName: String, mimeType: String, content: String) = false
+            override suspend fun saveBytes(suggestedName: String, mimeType: String, content: ByteArray) = false
             override suspend fun openText(mimeTypes: List<String>): String? = null
         }
 

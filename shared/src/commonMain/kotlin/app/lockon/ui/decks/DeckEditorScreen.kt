@@ -48,7 +48,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
-import app.lockon.io.DeckListFormat
 import app.lockon.model.Card as GameCard
 import app.lockon.model.CardColor
 import app.lockon.model.CardType
@@ -86,7 +85,6 @@ import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.CardThumb
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.Panel
-import app.lockon.ui.io.ExportDialog
 import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -190,7 +188,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             } else {
                 LockIndicator(locked = legality.isLegal)
                 // A labelled icon on phones leaves room for the deck name (UX rule I5).
-                IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck list") }
+                IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck") }
             }
         }
         if (!wide) {
@@ -286,13 +284,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
 
         if (wide) {
             Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Panel(Modifier.weight(1.6f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
+                Panel(Modifier.weight(1.5f).fillMaxSize()) { search(Modifier.fillMaxSize()) }
                 Panel(Modifier.weight(1f).widthIn(min = 320.dp).fillMaxSize()) { deckList(Modifier.fillMaxSize()) }
-                Panel(Modifier.weight(0.85f).widthIn(min = 300.dp).fillMaxSize()) {
+                Panel(Modifier.weight(0.95f).widthIn(min = 300.dp).fillMaxSize()) {
                     var side by rememberSaveable { mutableStateOf(0) }
                     Column {
-                        PrimaryScrollableTabRow(selectedTabIndex = side, edgePadding = 0.dp) {
-                            listOf("Analysis", "Test hand", "Matches", "Versions").forEachIndexed { i, label ->
+                        // Tabs take their label's width, so all four fit the pane; narrower windows scroll them.
+                        PrimaryScrollableTabRow(selectedTabIndex = side, edgePadding = 0.dp, minTabWidth = 0.dp) {
+                            listOf("Analysis", "Test", "Matches", "Versions").forEachIndexed { i, label ->
                                 Tab(selected = side == i, onClick = { side = i }, text = { Text(label, maxLines = 1) })
                             }
                         }
@@ -373,11 +372,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
     }
     if (exporting) {
-        ExportDialog(
-            title = deck.name, text = DeckListFormat.export(deck, cards),
-            suggestedName = deck.name.filter { it.isLetterOrDigit() || it in " -_" }.ifBlank { "deck" } + ".txt",
-            files = files, state = state, onDismiss = { exporting = false },
-        )
+        DeckExportDialog(deck, cards, ruleset, files, state, onDismiss = { exporting = false })
     }
 }
 

@@ -12,6 +12,8 @@ import app.lockon.model.Printing
 import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
+import app.lockon.model.MatchRecord
+import app.lockon.model.MatchResult
 import app.lockon.platform.FileBridge
 import app.lockon.sync.AutoSyncState
 import app.lockon.sync.ClientSyncController
@@ -47,14 +49,26 @@ class ScreenshotTest {
         AppContainer.create(LockOnDatabase.build(Room.inMemoryDatabaseBuilder<LockOnDatabase>()), "Test Desktop")
     }
     private val deckId = runBlocking {
-        container.decks.create(
-            DeckSnapshot(
-                name = "Blue Red Aggro", tags = listOf("tournament"),
-                entries = (1..12).map { DeckEntry("SMP-%03d".format(it), 4) } + DeckEntry("SMP-013", 2) +
-                    DeckEntry("SMP-019", 6, DeckSection.RESOURCE) + DeckEntry("SMP-020", 4, DeckSection.RESOURCE) +
-                    DeckEntry("SMP-014", 2, DeckSection.CONSIDERING) + DeckEntry("SMP-016", 1, DeckSection.CONSIDERING),
-            ),
-        ).also { container.decks.create(DeckSnapshot(name = "Green test", entries = listOf(DeckEntry("SMP-015", 3)))) }
+        val matches = listOf(
+            MatchRecord("m1", 1_761_400_000_000, MatchResult.WIN, "Zeon Rush", wentFirst = true),
+            MatchRecord("m2", 1_761_403_000_000, MatchResult.LOSS, "Wing Control", wentFirst = false, notes = "Bricked on resources"),
+            MatchRecord("m3", 1_761_406_000_000, MatchResult.WIN, "Zeon Rush", wentFirst = false),
+            MatchRecord("m4", 1_761_409_000_000, MatchResult.WIN),
+        )
+        val first = DeckSnapshot(
+            name = "Blue Red Aggro", tags = listOf("tournament"), folder = "Store championship",
+            entries = (1..11).map { DeckEntry("SMP-%03d".format(it), 4) } + DeckEntry("SMP-013", 2) +
+                DeckEntry("SMP-019", 6, DeckSection.RESOURCE) + DeckEntry("SMP-020", 4, DeckSection.RESOURCE) +
+                DeckEntry("SMP-014", 2, DeckSection.CONSIDERING) + DeckEntry("SMP-016", 1, DeckSection.CONSIDERING),
+        )
+        container.decks.create(first).also { id ->
+            // Two kept versions, so the history has something to compare.
+            container.decks.keepVersion(id, first)
+            container.decks.keepVersion(id, first.withQuantity("SMP-012", DeckSection.MAIN, 4).copy(matches = matches.take(2)))
+            container.decks.save(id, container.decks.currentSnapshot(id)!!.copy(matches = matches))
+            container.decks.create(DeckSnapshot(name = "Green test", folder = "Testing", entries = listOf(DeckEntry("SMP-015", 3))))
+            container.decks.create(DeckSnapshot(name = "Wing Control", entries = listOf(DeckEntry("SMP-003", 4))))
+        }
     }
 
     private val sync = object : HostSyncController {
@@ -99,6 +113,7 @@ class ScreenshotTest {
 
     private val files = object : FileBridge {
         override suspend fun saveText(suggestedName: String, mimeType: String, content: String) = false
+        override suspend fun saveBytes(suggestedName: String, mimeType: String, content: ByteArray) = false
         override suspend fun openText(mimeTypes: List<String>): String? = null
     }
 
@@ -122,6 +137,8 @@ class ScreenshotTest {
         shoot("phone-add-cards", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
         shoot("phone-considering", 600, 3200) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-test-hand", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("phone-matches", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("phone-versions", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 5)) }
         shoot("light-desktop-editor", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId)) }
         shoot("light-phone-library", 600, 1260, dark = false) { select(Tab.DECKS) }
         sync.status.value = SyncStatus(message = "Could not reach the desktop. Check that Lock On is open on it.", isError = true)
@@ -140,7 +157,53 @@ class ScreenshotTest {
             repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "phone-catalog.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
+        // The export dialog's Image tab, drawn on its own for the same reason.
+        val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        ImageComposeScene(1200, 1400, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                    app.lockon.ui.decks.DeckExportDialog(
+                        deck, container.catalog.cards.value, container.catalog.ruleset.value, files,
+                        AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = 1,
+                    )
+                }
+            }
+        }.use { scene ->
+            var image = scene.render()
+            repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+            File(out, "desktop-export-image.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
         assertTrue(File(out, "phone-cards.png").length() > 0)
+    }
+
+    /** Clicks Save image in the export dialog and checks the file is a 1080-pixel-wide PNG. */
+    @Test fun savesTheDeckImageAsPng() {
+        val saved = java.util.concurrent.CompletableFuture<ByteArray>()
+        val capturing = object : FileBridge {
+            override suspend fun saveText(suggestedName: String, mimeType: String, content: String) = false
+            override suspend fun saveBytes(suggestedName: String, mimeType: String, content: ByteArray): Boolean {
+                saved.complete(content); return true
+            }
+            override suspend fun openText(mimeTypes: List<String>): String? = null
+        }
+        val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        ImageComposeScene(1200, 1400, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                app.lockon.ui.decks.DeckExportDialog(
+                    deck, container.catalog.cards.value, container.catalog.ruleset.value, capturing,
+                    AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = 1,
+                )
+            }
+        }.use { scene ->
+            repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 1) * 100_000_000L) }
+            val button = androidx.compose.ui.geometry.Offset(905f, 1113f)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
+            repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 6) * 100_000_000L) }
+            val image = org.jetbrains.skia.Image.makeFromEncoded(saved.get(10, java.util.concurrent.TimeUnit.SECONDS))
+            kotlin.test.assertEquals(1080, image.width)
+            assertTrue(image.height > 1080, "the whole deck is in the image, not just what the dialog shows")
+        }
     }
 
     /** Placeholder artwork drawn locally, linked from a catalog the same way real artwork would be. */

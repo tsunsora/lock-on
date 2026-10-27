@@ -33,7 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private var pendingSave: Pair<String, CompletableDeferred<Boolean>>? = null
+    private var pendingSave: Pair<ByteArray, CompletableDeferred<Boolean>>? = null
     private var pendingOpen: CompletableDeferred<String?>? = null
     private var syncController: AndroidSyncController? = null
 
@@ -44,7 +44,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private val files = object : FileBridge {
-        override suspend fun saveText(suggestedName: String, mimeType: String, content: String): Boolean {
+        override suspend fun saveText(suggestedName: String, mimeType: String, content: String): Boolean =
+            saveBytes(suggestedName, mimeType, content.toByteArray())
+
+        override suspend fun saveBytes(suggestedName: String, mimeType: String, content: ByteArray): Boolean {
             val result = CompletableDeferred<Boolean>()
             pendingSave = content to result
             createDocument.launch(suggestedName to mimeType)
@@ -120,7 +123,7 @@ class MainActivity : ComponentActivity() {
         pendingSave = null
         if (uri == null) { result.complete(false); return }
         (application as LockOnApplication).appScope.launch(Dispatchers.IO) {
-            val ok = runCatching { contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray()) } != null }.getOrDefault(false)
+            val ok = runCatching { contentResolver.openOutputStream(uri, "wt")?.use { it.write(content) } != null }.getOrDefault(false)
             result.complete(ok)
         }
     }

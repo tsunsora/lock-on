@@ -81,6 +81,18 @@ private class DesktopFileBridge(private val owner: Frame) : FileBridge {
         return true
     }
 
+    override suspend fun saveBytes(suggestedName: String, mimeType: String, content: ByteArray): Boolean {
+        val file = withContext(Dispatchers.Main) {
+            FileDialog(owner, "Save", FileDialog.SAVE).run {
+                file = suggestedName
+                isVisible = true
+                if (file == null) null else File(directory, file)
+            }
+        } ?: return false
+        withContext(Dispatchers.IO) { file.writeBytes(content) }
+        return true
+    }
+
     override suspend fun openText(mimeTypes: List<String>): String? {
         val file = withContext(Dispatchers.Main) {
             FileDialog(owner, "Open", FileDialog.LOAD).run {

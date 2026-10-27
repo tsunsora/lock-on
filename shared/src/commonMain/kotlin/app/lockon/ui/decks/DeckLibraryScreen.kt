@@ -82,10 +82,8 @@ import app.lockon.ui.Screen
 import app.lockon.ui.components.Badge
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.HudHeader
-import app.lockon.ui.io.ExportDialog
 import app.lockon.ui.io.ImportDialog
 import app.lockon.io.BackupFormat
-import app.lockon.io.DeckListFormat
 import kotlinx.coroutines.launch
 
 private sealed interface LibraryDialog {
@@ -315,12 +313,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dialog = null
             scope.launch { container.decks.renameFolder(d.folder, name)?.let { folderFilter = FolderFilter.Named(it) } }
         }
-        is LibraryDialog.Export -> ExportDialog(
-            title = d.deck.snapshot.name,
-            text = DeckListFormat.export(d.deck.snapshot, cards),
-            suggestedName = d.deck.snapshot.name.filter { it.isLetterOrDigit() || it in " -_" }.ifBlank { "deck" } + ".txt",
-            files = files, state = state, onDismiss = { dialog = null },
-        )
+        is LibraryDialog.Export -> DeckExportDialog(d.deck.snapshot, cards, ruleset, files, state, onDismiss = { dialog = null })
         LibraryDialog.Import -> ImportDialog(container, files, state, onDismiss = { dialog = null })
     }
 }
@@ -544,10 +537,11 @@ private fun DeckRow(
                 }
                 val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
                 Text(
+                    // The record leads, so narrow tiles cut the edit time rather than the results.
                     listOfNotNull(
+                        record.winRate?.let { "${record.score} · $it%" },
                         deck.snapshot.folder?.takeIf { showFolder },
                         deck.snapshot.tags.joinToString(" · ").ifBlank { null },
-                        record.winRate?.let { "${record.score} · $it%" },
                         "Edited ${formatTimestamp(deck.updatedAt)}",
                     ).joinToString("  —  "),
                     style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
@@ -562,7 +556,7 @@ private fun DeckRow(
                     DropdownMenuItem(text = { Text("Move to folder") }, onClick = { menu = false; onMove() })
                     DropdownMenuItem(text = { Text("Edit tags") }, onClick = { menu = false; onTags() })
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; onDuplicate() })
-                    DropdownMenuItem(text = { Text("Export deck list") }, onClick = { menu = false; onExport() })
+                    DropdownMenuItem(text = { Text("Export list, image or sheet") }, onClick = { menu = false; onExport() })
                     DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onDelete() })
                 }
             }

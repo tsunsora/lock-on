@@ -2,12 +2,8 @@ package app.lockon.ui.io
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -20,8 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
@@ -32,39 +26,6 @@ import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import kotlinx.coroutines.launch
 
-@Suppress("DEPRECATION") // LocalClipboard needs ClipEntry, which differs per platform.
-@Composable
-fun ExportDialog(title: String, text: String, suggestedName: String, files: FileBridge, state: AppState, onDismiss: () -> Unit) {
-    val clipboard = LocalClipboardManager.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            SelectionContainer {
-                Text(
-                    text,
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                )
-            }
-        },
-        confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = {
-                    clipboard.setText(AnnotatedString(text))
-                    state.notify("Deck list copied.")
-                }) { Text("Copy") }
-                TextButton(onClick = {
-                    state.appScope.launch { if (files.saveText(suggestedName, "text/plain", text)) state.notify("Deck list saved.") }
-                }) { Text("Save file") }
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-    )
-}
-
-/** Accepts a pasted or opened deck list, or a Lock On JSON backup. */
 @Composable
 fun ImportDialog(container: AppContainer, files: FileBridge, state: AppState, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }
