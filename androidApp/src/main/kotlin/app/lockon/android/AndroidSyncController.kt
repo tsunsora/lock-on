@@ -9,6 +9,7 @@ import app.lockon.sync.PairedDevice
 import app.lockon.sync.PairingInvite
 import app.lockon.sync.SyncException
 import app.lockon.sync.SyncStatus
+import app.lockon.sync.syncedMessage
 import app.lockon.sync.baseUrl
 import app.lockon.sync.requestPairing
 import app.lockon.sync.verificationCode
@@ -286,7 +287,7 @@ class AndroidSyncController(
         val (device, transport) = transportFor(hostId) ?: throw SyncException("Not paired.")
         val result = container.syncClient.sync(hostId, transport, recordErrors = false)
         if (result.sent > 0 || result.received > 0) {
-            _status.value = SyncStatus(message = "Auto-synced with ${device.name}: sent ${result.sent}, received ${result.received} changes.")
+            _status.value = SyncStatus(message = syncedMessage(device.name, result.sent, result.received))
         }
     }
 
@@ -386,8 +387,7 @@ class AndroidSyncController(
                 container.syncClient.sync(hostId, HttpSyncTransport(client, baseUrl(host, port), token))
             }
             _status.value = SyncStatus(
-                message = if (result.sent == 0 && result.received == 0) "Up to date with ${device.name}."
-                else "Synced with ${device.name}: sent ${result.sent}, received ${result.received} changes.",
+                message = syncedMessage(device.name, result.sent, result.received),
             )
         } catch (e: CancellationException) {
             throw e

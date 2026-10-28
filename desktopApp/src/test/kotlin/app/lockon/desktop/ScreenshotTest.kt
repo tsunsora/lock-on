@@ -107,7 +107,7 @@ class ScreenshotTest {
             PairedDevice("desk-1", "DESKTOP-VPP8OD2", DeviceRole.HOST, "192.168.1.20", 53340, "ab".repeat(32),
                 System.currentTimeMillis() - 86_400_000, System.currentTimeMillis() - 60_000, null, 0, 0),
         ))
-        override val status = MutableStateFlow(SyncStatus(message = "Auto-synced with DESKTOP-VPP8OD2: sent 1, received 0 changes."))
+        override val status = MutableStateFlow(SyncStatus(message = app.lockon.sync.syncedMessage("DESKTOP-VPP8OD2", 1, 0)))
         override val canScanQr = true
         override val autoSync = MutableStateFlow(true)
         override val autoStates = MutableStateFlow(mapOf("desk-1" to AutoSyncState.LIVE))
@@ -164,6 +164,7 @@ class ScreenshotTest {
         shoot("desktop-editor", 1980, 1290) { open(Screen.DeckEditor(deckId)) }
         shoot("desktop-sync", 1980, 1290) { select(Tab.SYNC) }
         shoot("desktop-settings", 1980, 1290) { select(Tab.SETTINGS) }
+        shoot("desktop-cards", 1980, 1290) { select(Tab.CARDS) }
         shoot("light-phone-settings", 600, 1260, dark = false) { select(Tab.SETTINGS) }
         shoot("phone-library", 600, 1260) { select(Tab.DECKS) }
         shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }

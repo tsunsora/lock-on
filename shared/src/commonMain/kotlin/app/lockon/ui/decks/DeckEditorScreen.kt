@@ -1,4 +1,7 @@
 package app.lockon.ui.decks
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.lockon.rules.DeckAnalysis
 import app.lockon.ui.components.FloatingPillNav
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.navClearance
@@ -603,9 +606,11 @@ private fun DeckList(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (deck.entries.isNotEmpty()) {
-            // Whether the deck is legal rides at the top of the list; the curve and counts are under Analysis.
+            // Whether the deck is legal and its level curve ride at the top of the list; the curve opens
+            // Analysis, which has the counts too.
             item(key = "stats") {
-                DeckStatusBar(legality, onOpenAnalysis, cardView, { cardView = it }, Modifier.padding(bottom = 4.dp))
+                val curve = remember(deck, cards) { DeckAnalysis.stats(deck, cards).levelCurve }
+                DeckStatusBar(legality, curve, onOpenAnalysis, cardView, { cardView = it }, Modifier.padding(bottom = 4.dp))
             }
         }
         if (deck.entries.isEmpty()) {
@@ -789,11 +794,12 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
 
 /**
  * A slim bar at the top of the deck list: the first legality problem in words (UX rule I3), the
- * card/list view switch, and a link to the full analysis with the curve and counts.
+ * card/list view switch, and a small level curve that opens the full analysis.
  */
 @Composable
 private fun DeckStatusBar(
     legality: DeckLegality,
+    curve: List<Pair<Int, Int>>,
     onOpenAnalysis: () -> Unit,
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
@@ -814,7 +820,26 @@ private fun DeckStatusBar(
             )
             // How the deck below is shown: small whole cards, or denser strips.
             GameButton(if (cardView) "List view" else "Card view", onClick = { onCardView(!cardView) }, style = GameButtonStyle.GHOST, compact = true)
-            GameButton("Analysis", onClick = onOpenAnalysis, style = GameButtonStyle.GHOST, compact = true)
+            MiniCurve(curve, onOpenAnalysis)
+        }
+    }
+}
+
+/** The level curve as small bars, the shape at a glance (UX rule V8); a tap opens Analysis. */
+@Composable
+private fun MiniCurve(curve: List<Pair<Int, Int>>, onOpen: () -> Unit) {
+    if (curve.isEmpty()) return
+    val most = curve.maxOf { it.second }.coerceAtLeast(1)
+    val bar = MaterialTheme.colorScheme.secondary
+    val description = "Level curve: " + curve.joinToString { (level, n) -> "level $level, $n" } + ". Opens Analysis."
+    Row(
+        Modifier.height(40.dp).clip(LockOnShapes.button).clickable(onClickLabel = "Open analysis", onClick = onOpen)
+            .semantics(mergeDescendants = true) { contentDescription = description }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom,
+    ) {
+        curve.forEach { (_, n) ->
+            Box(Modifier.width(7.dp).fillMaxHeight(maxOf(n / most.toFloat(), 0.08f)).clip(RoundedCornerShape(2.dp)).background(bar))
         }
     }
 }

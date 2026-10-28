@@ -1,4 +1,5 @@
 package app.lockon.ui.sync
+import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillChip
 import app.lockon.ui.components.PillSwitch
@@ -98,25 +99,46 @@ fun SyncScreen(
     val liveHosts by ((controller as? ClientSyncController)?.autoStates ?: remember { MutableStateFlow(emptyMap()) }).collectAsState()
     val liveClients by ((controller as? HostSyncController)?.liveClients ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
+    val pairedIds = devices.map { it.deviceId }.toSet()
+    // What is happening now and the devices nearby, then the devices already paired. Wide windows set
+    // them side by side, so paired devices are in view instead of below the pairing code.
+    val now = @Composable {
         // The screen header names the device; this says how syncing is going right now.
         SectionHeader("Status")
         StatusLine(status)
-        val pairedIds = devices.map { it.deviceId }.toSet()
-        controller.sharing?.let { SendCard(it, decks, pairedIds, isHost = controller is HostSyncController) }
-        when (controller) {
-            is HostSyncController -> HostSection(controller, pairedIds)
-            is ClientSyncController -> ClientSection(controller, pairedIds)
+        // With sending available, one list holds every nearby device, with Send and, until it is
+        // paired, Connect; otherwise the nearby list is for pairing alone.
+        val sharing = controller.sharing
+        if (sharing != null) SendCard(sharing, decks, pairedIds, isHost = controller is HostSyncController) { device ->
+            when (controller) {
+                is HostSyncController -> HostConnect(controller, device, pairedIds)
+                is ClientSyncController -> if (device.deviceId !in pairedIds) ClientConnect(controller, device)
+            }
         }
+        when (controller) {
+            is HostSyncController -> HostSection(controller, pairedIds, showNearby = sharing == null)
+            is ClientSyncController -> ClientSection(controller, pairedIds, showNearby = sharing == null)
+        }
+    }
+    val paired = @Composable {
         SectionHeader("Paired devices")
         if (devices.isEmpty()) {
-            Text(
-                if (controller is HostSyncController) "No phones paired yet." else "No computer paired yet.",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // A panel like the paired devices it stands in for, saying how to get one.
+            GlassCard {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DeviceGlyph(desktop = controller !is HostSyncController)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(if (controller is HostSyncController) "No phones paired yet" else "No computer paired yet",
+                            style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (controller is HostSyncController) "Connect a nearby phone, or open Sync on it and use the code under Other ways to connect."
+                            else "Connect a nearby computer, or scan the code shown under Sync on it.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
         devices.forEach { device ->
             DeviceCard(
@@ -135,6 +157,18 @@ fun SyncScreen(
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         footer()
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val scroll = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current)
+        if (maxWidth >= 900.dp) {
+            Row(scroll, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Column(Modifier.weight(1.4f), verticalArrangement = Arrangement.spacedBy(14.dp)) { now() }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { paired() }
+            }
+        } else {
+            Column(scroll, verticalArrangement = Arrangement.spacedBy(14.dp)) { now(); paired() }
+        }
     }
 
     controller.sharing?.let { IncomingShareDialog(it) }
@@ -213,17 +247,22 @@ private fun NearbyCard(
  * accepted decks arrive as copies, so this works with a friend's device as well as your own.
  */
 @Composable
-private fun SendCard(sharing: DeckSharing, decks: List<DeckSummary>, paired: Set<String>, isHost: Boolean) {
+private fun SendCard(
+    sharing: DeckSharing, decks: List<DeckSummary>, paired: Set<String>, isHost: Boolean,
+    connect: @Composable (NearbyDevice) -> Unit,
+) {
     val targets by sharing.targets.collectAsState()
     val outgoing by sharing.outgoing.collectAsState()
     var chosen by remember { mutableStateOf(emptyList<String>()) }
     var choosing by remember { mutableStateOf(false) }
+    // A device tapped before any decks were chosen: once they are, they go straight to it.
+    var sendTo by remember { mutableStateOf<NearbyDevice?>(null) }
     // Decks deleted since they were chosen drop out of the selection.
     val selected = chosen.mapNotNull { id -> decks.firstOrNull { it.deckId == id } }
 
     GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionHeader("Send decks", readout = if (selected.isEmpty()) null else "${selected.size}")
+            SectionHeader(if (isHost) "Nearby phones" else "Nearby computers", readout = if (targets.isEmpty()) null else "${targets.size}")
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     if (selected.isEmpty()) "Choose decks, then a nearby device. It asks before saving them. No pairing needed."
@@ -263,11 +302,19 @@ private fun SendCard(sharing: DeckSharing, decks: List<DeckSummary>, paired: Set
                             },
                         )
                     }
+                    // While a send waits, the row keeps its room for that; Connect comes back after.
+                    if (send?.state != OutgoingShare.State.WAITING) {
+                        connect(device)
+                        Spacer(Modifier.width(8.dp))
+                    }
                     if (send?.state == OutgoingShare.State.WAITING) {
                         ReticleSpinner(size = 18.dp)
                         GameButton("Cancel", onClick = { sharing.cancelSend(device.deviceId) }, style = GameButtonStyle.GHOST, compact = true)
                     } else {
-                        GameButton("Send", onClick = { sharing.send(device, selected.map { it.deckId }) }, enabled = selected.isNotEmpty())
+                        // Never greyed out: with nothing chosen yet, Send asks which decks first.
+                        GameButton("Send", onClick = {
+                            if (selected.isEmpty()) { sendTo = device; choosing = true } else sharing.send(device, selected.map { it.deckId })
+                        }, enabled = decks.isNotEmpty())
                     }
                 }
             }
@@ -275,7 +322,12 @@ private fun SendCard(sharing: DeckSharing, decks: List<DeckSummary>, paired: Set
     }
 
     if (choosing) {
-        ChooseDecksDialog(decks, chosen.toSet(), onDismiss = { choosing = false }, onDone = { chosen = it; choosing = false })
+        ChooseDecksDialog(decks, chosen.toSet(), onDismiss = { choosing = false; sendTo = null }, onDone = {
+            chosen = it
+            choosing = false
+            sendTo?.let { device -> if (it.isNotEmpty()) sharing.send(device, it) }
+            sendTo = null
+        })
     }
 }
 
@@ -353,33 +405,45 @@ private fun CheckNumber(value: String) {
     Text(value, style = MaterialTheme.typography.displaySmall.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary)
 }
 
+/** Pairs with a nearby phone: this computer invites it, and the phone's owner confirms. */
+@Composable
+private fun HostConnect(controller: HostSyncController, phone: NearbyDevice, paired: Set<String>) {
+    val invited by controller.invited.collectAsState()
+    when {
+        phone.deviceId in paired -> Unit
+        phone.deviceId in invited -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Waiting for the phone…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            GameButton("Cancel", onClick = { controller.cancelInvite(phone.deviceId) }, style = GameButtonStyle.GHOST, compact = true)
+        }
+        else -> GameButton("Connect", onClick = { controller.invite(phone) }, style = GameButtonStyle.SECONDARY, compact = true, enabled = phone.compatible)
+    }
+}
+
+/** Pairs with a nearby computer: one tap, and the computer asks its owner to confirm (UX rule C4). */
+@Composable
+private fun ClientConnect(controller: ClientSyncController, desktop: NearbyDevice) {
+    val status by controller.status.collectAsState()
+    GameButton("Connect", onClick = { controller.pair(PairingInvite(desktop.host, desktop.port, "", desktop.fingerprint, desktop.name)) },
+        style = GameButtonStyle.SECONDARY, compact = true, enabled = desktop.compatible && !status.working)
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HostSection(controller: HostSyncController, paired: Set<String>) {
+private fun HostSection(controller: HostSyncController, paired: Set<String>, showNearby: Boolean) {
     val info by controller.hostInfo.collectAsState()
     val prompt by controller.pairingPrompt.collectAsState()
     val nearby by controller.nearby.collectAsState()
-    val invited by controller.invited.collectAsState()
     // QR codes are the fallback once phones can find this desktop by themselves.
     var showQr by remember { mutableStateOf(paired.isEmpty()) }
     var now by remember { mutableLongStateOf(Clock.System.now().toEpochMilliseconds()) }
     LaunchedEffect(Unit) { while (true) { delay(1000); now = Clock.System.now().toEpochMilliseconds() } }
 
-    NearbyCard(
+    if (showNearby) NearbyCard(
         title = "Nearby phones",
         devices = nearby,
         paired = paired,
         emptyHint = "Open Lock On on your phone on the same Wi-Fi and it appears here. On the phone, tap this computer to connect.",
-    ) { phone ->
-        when {
-            phone.deviceId in paired -> Unit
-            phone.deviceId in invited -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Waiting for the phone…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                GameButton("Cancel", onClick = { controller.cancelInvite(phone.deviceId) }, style = GameButtonStyle.GHOST, compact = true)
-            }
-            else -> GameButton("Connect", onClick = { controller.invite(phone) }, enabled = phone.compatible)
-        }
-    }
+    ) { phone -> HostConnect(controller, phone, paired) }
 
     GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -455,7 +519,7 @@ private fun Field(label: String, value: String) {
 }
 
 @Composable
-private fun ClientSection(controller: ClientSyncController, paired: Set<String>) {
+private fun ClientSection(controller: ClientSyncController, paired: Set<String>, showNearby: Boolean) {
     val autoSync by controller.autoSync.collectAsState()
     val nearby by controller.nearby.collectAsState()
     val invite by controller.incomingInvite.collectAsState()
@@ -467,14 +531,12 @@ private fun ClientSection(controller: ClientSyncController, paired: Set<String>)
     var code by remember { mutableStateOf("") }
 
     // One tap on a nearby computer connects; the computer asks its owner to confirm (UX rule C4).
-    NearbyCard(
+    if (showNearby) NearbyCard(
         title = "Nearby computers",
         devices = nearby,
         paired = paired,
         emptyHint = "Open Lock On on your computer on the same Wi-Fi and it appears here.",
-    ) { desktop ->
-        GameButton("Connect", onClick = { controller.pair(PairingInvite(desktop.host, desktop.port, "", desktop.fingerprint, desktop.name)) }, enabled = desktop.compatible && !status.working)
-    }
+    ) { desktop -> ClientConnect(controller, desktop) }
 
     if (paired.isNotEmpty()) {
         Row(verticalAlignment = Alignment.CenterVertically) {

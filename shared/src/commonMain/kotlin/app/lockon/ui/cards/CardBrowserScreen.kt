@@ -43,6 +43,9 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
     // Kept by card number, so the details panel still shows the same card after a visit elsewhere.
     var selectedNumber by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = selectedNumber?.let { cards[it] }
+    // Wide windows always show a card in the details panel, the first one until another is picked,
+    // so the panel is never an empty third of the window.
+    val shown = selected ?: if (wide) cards.values.minByOrNull { it.cardNumber } else null
     var managing by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
@@ -55,7 +58,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
             val search: @Composable (Modifier) -> Unit = { m ->
                 CardSearchPanel(
                     cards.values, onCardClick = { selectedNumber = it.cardNumber },
-                    modifier = m, focusRequests = state.searchFocusRequests, selected = selected?.cardNumber, wide = wide,
+                    modifier = m, focusRequests = state.searchFocusRequests, selected = shown?.cardNumber, wide = wide,
                 )
             }
             if (wide) {
@@ -68,7 +71,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
             if (wide) {
                 // The details panel always stays, so the grid never changes width as cards are picked.
                 Panel(Modifier.width(460.dp).fillMaxHeight().padding(end = 12.dp, bottom = 12.dp)) {
-                    val card = selected
+                    val card = shown
                     if (card == null) {
                         EmptyState("No card selected", "Pick a card to see its effect, stats and printings here.", Modifier.padding(top = 24.dp))
                     } else {
