@@ -1,4 +1,5 @@
 package app.lockon.ui.sync
+import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillChip
 import app.lockon.ui.components.PillSwitch
@@ -98,19 +99,20 @@ fun SyncScreen(
     val liveHosts by ((controller as? ClientSyncController)?.autoStates ?: remember { MutableStateFlow(emptyMap()) }).collectAsState()
     val liveClients by ((controller as? HostSyncController)?.liveClients ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
+    val pairedIds = devices.map { it.deviceId }.toSet()
+    // What is happening now and the devices nearby, then the devices already paired. Wide windows set
+    // them side by side, so paired devices are in view instead of below the pairing code.
+    val now = @Composable {
         // The screen header names the device; this says how syncing is going right now.
         SectionHeader("Status")
         StatusLine(status)
-        val pairedIds = devices.map { it.deviceId }.toSet()
         controller.sharing?.let { SendCard(it, decks, pairedIds, isHost = controller is HostSyncController) }
         when (controller) {
             is HostSyncController -> HostSection(controller, pairedIds)
             is ClientSyncController -> ClientSection(controller, pairedIds)
         }
+    }
+    val paired = @Composable {
         SectionHeader("Paired devices")
         if (devices.isEmpty()) {
             Text(
@@ -135,6 +137,18 @@ fun SyncScreen(
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         footer()
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val scroll = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current)
+        if (maxWidth >= 900.dp) {
+            Row(scroll, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Column(Modifier.weight(1.4f), verticalArrangement = Arrangement.spacedBy(14.dp)) { now() }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { paired() }
+            }
+        } else {
+            Column(scroll, verticalArrangement = Arrangement.spacedBy(14.dp)) { now(); paired() }
+        }
     }
 
     controller.sharing?.let { IncomingShareDialog(it) }

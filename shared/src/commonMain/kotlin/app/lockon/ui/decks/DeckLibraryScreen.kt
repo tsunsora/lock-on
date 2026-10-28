@@ -170,35 +170,34 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         val wide = maxWidth >= 840.dp
         Column(Modifier.fillMaxSize()) {
         // The title row sits in the band beside the floating navigation on wide windows (UX rule N5).
-        val n = list?.size ?: 0
-        ScreenHeader(
-            if (wide) "Deck hangar" else "Decks",
-            subtitle = if (wide) (if (n == 1) "1 deck in the hangar" else "$n decks in the hangar") else null,
-        ) {
+        // The player card and folders already count the decks, so the subtitle says how many are ready.
+        val legalCount = remember(list, cards, ruleset) { list.orEmpty().count { DeckValidator.validate(it.snapshot, cards, ruleset).isLegal } }
+        val drafts = (list?.size ?: 0) - legalCount
+        // The deck actions. Wide windows put them at the end of the tag row, which has the room, so the
+        // band keeps space for the title; phones keep Import beside the title. Rarely used actions sit
+        // in a menu.
+        val actions = @Composable {
+            if (wide) GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add, compact = true)
             GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY, compact = true)
-            if (wide) {
-                GameButton("Back up all", onClick = {
-                    scope.launch {
-                    val backup = BackupFormat.encode(container.decks.exportBackup())
-                    if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
-                }
-                }, style = GameButtonStyle.SECONDARY, compact = true)
-            } else {
-                // Phones keep the title row for the title and Import: rarely used actions sit in a menu.
-                var menu by remember { mutableStateOf(false) }
-                Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More actions") }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text("Back up all decks") }, onClick = {
-                            menu = false
-                            scope.launch {
-                    val backup = BackupFormat.encode(container.decks.exportBackup())
-                    if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
-                }
-                        })
-                    }
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More actions") }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Back up all decks") }, onClick = {
+                        menu = false
+                        scope.launch {
+                            val backup = BackupFormat.encode(container.decks.exportBackup())
+                            if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
+                        }
+                    })
                 }
             }
+        }
+        ScreenHeader(
+            if (wide) "Deck hangar" else "Decks",
+            subtitle = if (wide && !list.isNullOrEmpty()) "$legalCount legal · $drafts ${if (drafts == 1) "draft" else "drafts"}" else null,
+        ) {
+            if (!wide) actions()
         }
         Row(Modifier.fillMaxSize()) {
             if (wide && !list.isNullOrEmpty()) {
@@ -219,9 +218,9 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     // Folders (phones only; desktop has the rail) and tags share one scrolling row.
                     val tags = list.orEmpty().flatMap { it.snapshot.tags }.distinct().sorted()
                     val showFolders = !wide && !list.isNullOrEmpty()
-                    if (showFolders || tags.isNotEmpty()) {
+                    if (showFolders || tags.isNotEmpty() || wide) Row(Modifier.fillMaxWidth().padding(end = if (wide) 12.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
                         Row(
-                            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
+                            Modifier.weight(1f).fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -239,6 +238,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                 }
                             }
                         }
+                        if (wide) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
                     }
                     (folderFilter as? FolderFilter.Named)?.let { selected ->
                         val count = folders.firstOrNull { it.first == selected.name }?.second ?: 0
@@ -310,11 +310,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         }
                     }
                 }
-                // In thumb reach on phones (UX rule R3), and compact there so it covers less of the last deck.
-                GameButton(
-                    if (wide) "New deck" else "New", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add, large = wide,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = if (wide) 20.dp else 14.dp,
-                        bottom = (if (wide) 20.dp else 14.dp) + LocalNavClearance.current),
+                // In thumb reach on phones (UX rule R3), and compact so it covers less of the last deck.
+                // Wide windows have it in the header instead.
+                if (!wide) GameButton(
+                    "New", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 14.dp + LocalNavClearance.current),
                 )
             }
         }
@@ -625,7 +625,7 @@ private fun DeckRow(
                 // Full gauge when the box is wide enough, compact on phones so the label never wraps.
                 BoxWithConstraints {
                     val main = deck.snapshot.count(DeckSection.MAIN)
-                    if (maxWidth >= 300.dp) ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.widthIn(max = 240.dp).fillMaxWidth())
+                    if (maxWidth >= 300.dp) ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 16.dp))
                     else ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth(), compact = true)
                 }
                 val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }

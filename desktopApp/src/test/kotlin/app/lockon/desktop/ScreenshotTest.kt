@@ -164,6 +164,7 @@ class ScreenshotTest {
         shoot("desktop-editor", 1980, 1290) { open(Screen.DeckEditor(deckId)) }
         shoot("desktop-sync", 1980, 1290) { select(Tab.SYNC) }
         shoot("desktop-settings", 1980, 1290) { select(Tab.SETTINGS) }
+        shoot("desktop-cards", 1980, 1290) { select(Tab.CARDS) }
         shoot("light-phone-settings", 600, 1260, dark = false) { select(Tab.SETTINGS) }
         shoot("phone-library", 600, 1260) { select(Tab.DECKS) }
         shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }

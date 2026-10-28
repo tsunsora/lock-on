@@ -1,5 +1,6 @@
 package app.lockon.ui.settings
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -62,10 +63,9 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     var deviceName by remember { mutableStateOf(container.identity.deviceName) }
     var renaming by remember { mutableStateOf(false) }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
+    // Wide windows set the groups side by side, so the panels fill the width instead of leaving most
+    // of each one empty: this device and how the app looks on the left, cards and updates on the right.
+    val left = @Composable {
         SettingsGroup("Appearance") {
             Choice("Theme", "Sky is bright glass; Twilight is the same look after dark.", ThemeChoice.entries, theme, { it.label }) {
                 scope.launch { settings.setTheme(it) }
@@ -84,16 +84,6 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
             }
         }
 
-        SettingsGroup("Cards") {
-            Toggle("Show card artwork", "Images download once from the card list's links and stay on this device, so cards show offline. They never sync.", showArtwork) {
-                scope.launch { container.catalog.setShowArtwork(it) }
-            }
-            Toggle("Check for card list updates", "Once a week, only for the official card list. Nothing changes until you choose to update.", catalogChecks) {
-                scope.launch { settings.setCatalogChecks(it) }
-            }
-        }
-        CardDatabaseCard(container, state, files)
-
         SettingsGroup("This device") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -107,8 +97,30 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 GameButton("Rename", onClick = { renaming = true }, style = GameButtonStyle.SECONDARY, compact = true)
             }
         }
-
+    }
+    val right = @Composable {
+        SettingsGroup("Cards") {
+            Toggle("Show card artwork", "Images download once from the card list's links and stay on this device, so cards show offline. They never sync.", showArtwork) {
+                scope.launch { container.catalog.setShowArtwork(it) }
+            }
+            Toggle("Check for card list updates", "Once a week, only for the official card list. Nothing changes until you choose to update.", catalogChecks) {
+                scope.launch { settings.setCatalogChecks(it) }
+            }
+        }
+        CardDatabaseCard(container, state, files)
         AppUpdateCard(container.updater, state.appScope)
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val scroll = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current)
+        if (maxWidth >= 900.dp) {
+            Row(scroll, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { left() }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { right() }
+            }
+        } else {
+            Column(scroll, verticalArrangement = Arrangement.spacedBy(14.dp)) { left(); right() }
+        }
     }
 
     if (renaming) {

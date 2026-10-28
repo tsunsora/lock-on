@@ -309,13 +309,13 @@ fun LockOnApp(
                                             ScreenHeader("Sync", subtitle = "This device: ${container.identity.deviceName}")
                                             val decks by container.decks.decks.collectAsState(initial = emptyList())
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                                Box(Modifier.widthIn(max = 980.dp)) { SyncScreen(sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted }) }
+                                                Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted }) }
                                             }
                                         }
                                         Tab.SETTINGS -> {
                                             ScreenHeader("Settings", subtitle = "Kept on this device; settings never sync")
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                                Box(Modifier.widthIn(max = 980.dp)) { SettingsScreen(container, state, files) }
+                                                Box(Modifier.widthIn(max = 1240.dp)) { SettingsScreen(container, state, files) }
                                             }
                                         }
                                     }
