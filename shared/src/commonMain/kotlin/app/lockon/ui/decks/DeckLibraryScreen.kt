@@ -1,4 +1,10 @@
 package app.lockon.ui.decks
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.hoverable
+import app.lockon.ui.components.motion
+import app.lockon.ui.components.Motion
+import app.lockon.ui.components.ControlSize
+import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.fadeEnd
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillChip
@@ -78,7 +84,9 @@ import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.model.DeckSummary
 import app.lockon.platform.FileBridge
-import app.lockon.platform.formatDate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
 import app.lockon.rules.DeckValidator
 import app.lockon.rules.MatchStats
 import app.lockon.ui.AppState
@@ -170,9 +178,6 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         val wide = maxWidth >= 840.dp
         Column(Modifier.fillMaxSize()) {
         // The title row sits in the band beside the floating navigation on wide windows (UX rule N5).
-        // The player card and folders already count the decks, so the subtitle says how many are ready.
-        val legalCount = remember(list, cards, ruleset) { list.orEmpty().count { DeckValidator.validate(it.snapshot, cards, ruleset).isLegal } }
-        val drafts = (list?.size ?: 0) - legalCount
         // The deck actions. Wide windows put them at the end of the tag row, which has the room, so the
         // band keeps space for the title; phones keep Import beside the title. Rarely used actions sit
         // in a menu.
@@ -181,7 +186,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY, compact = true)
             var menu by remember { mutableStateOf(false) }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More actions") }
+                GlassIconButton(Icons.Default.MoreVert, "More actions", { menu = true })
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Back up all decks") }, onClick = {
                         menu = false
@@ -194,8 +199,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             }
         }
         ScreenHeader(
+            // Each deck box says Legal or Draft itself, so the title needs no tally under it.
             if (wide) "Deck hangar" else "Decks",
-            subtitle = if (wide && !list.isNullOrEmpty()) "$legalCount legal · $drafts ${if (drafts == 1) "draft" else "drafts"}" else null,
         ) {
             if (!wide) actions()
         }
@@ -407,7 +412,6 @@ private fun FolderRail(
         Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 12.dp, top = 4.dp, end = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        SectionHeader("Folders", Modifier.padding(start = 4.dp, bottom = 6.dp))
         FolderItem("All decks", total, selected == FolderFilter.All) { onSelect(FolderFilter.All) }
         folders.forEach { (name, count) ->
             FolderItem(name, count, selected == FolderFilter.Named(name)) { onSelect(FolderFilter.Named(name)) }
@@ -417,32 +421,38 @@ private fun FolderRail(
         }
         GameButton("New folder", onClick = onNewFolder, style = GameButtonStyle.GHOST, icon = Icons.Default.Add, compact = true,
             modifier = Modifier.padding(top = 4.dp))
-        if (folders.isEmpty()) {
-            Text(
-                "Group decks by event, color or anything else. Folders sync with your decks.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-        }
     }
 }
 
-/** A folder in the rail: the selected one is a lit plate with a V-fin edge. */
+/**
+ * A folder in the rail. The selected one is a teal pill, like every other selected pill (UX rule
+ * V3); the rest are bare text that tints on hover. The pill's shape alone marks it: no edge bar.
+ */
 @Composable
 private fun FolderItem(label: String, count: Int, selected: Boolean, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val fill by animateColorAsState(
+        when {
+            selected -> Accent
+            hovered -> scheme.onSurface.copy(alpha = 0.07f)
+            else -> Color.Transparent
+        },
+        motion(Motion.SHORT), label = "folder",
+    )
+    val ink = if (selected) OnAccent else scheme.onSurface
     Row(
-        Modifier.fillMaxWidth().height(48.dp).clip(LockOnShapes.button)
-            .background(if (selected) Brush.horizontalGradient(listOf(scheme.primary.copy(alpha = 0.28f), scheme.primary.copy(alpha = 0.04f)))
-                else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)))
-            .selectable(selected, role = Role.Tab, onClick = onClick),
+        Modifier.fillMaxWidth().height(ControlSize).clip(LockOnShapes.button).background(fill)
+            .hoverable(interaction)
+            .selectable(selected, interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(4.dp).fillMaxHeight().background(if (selected) scheme.primary else Color.Transparent))
         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            color = if (selected) scheme.onSurface else scheme.onSurfaceVariant, modifier = Modifier.weight(1f).padding(start = 14.dp))
-        Text("$count", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
-            color = if (selected) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.padding(end = 14.dp))
+            color = ink, modifier = Modifier.weight(1f))
+        Text("$count", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+            color = if (selected) OnAccent else scheme.onSurfaceVariant)
     }
 }
 
@@ -641,8 +651,6 @@ private fun DeckRow(
                             // "In" marks it as a folder, so a name like Testing doesn't read as the deck's state.
                             deck.snapshot.folder?.takeIf { showFolder }?.let { "In $it" },
                             deck.snapshot.tags.joinToString(" · ").ifBlank { null },
-                            // Beside a record the edit time no longer fits, and would end the line in "·…".
-                            "Edited ${formatDate(deck.updatedAt)}".takeIf { record.winRate == null },
                         // Narrow boxes show one detail beside the record, so nothing is cut mid-word.
                         ).let { if (narrow) it.take(1) else it }.joinToString("  ·  "),
                         style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
@@ -651,11 +659,8 @@ private fun DeckRow(
                 }
             }
             Box {
-                IconButton(
-                    onClick = { menu = true },
-                    // A light plate keeps the icon readable over cover art without outweighing the deck's name.
-                    modifier = Modifier.padding(end = 8.dp).clip(LockOnShapes.button).background(base.copy(alpha = 0.45f)),
-                ) { Icon(Icons.Default.MoreVert, contentDescription = "Deck actions", tint = scheme.onSurface) }
+                // A glass disc keeps the icon readable over cover art, and matches every other icon button.
+                GlassIconButton(Icons.Default.MoreVert, "Deck actions", { menu = true }, Modifier.padding(end = 10.dp))
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
                     DropdownMenuItem(text = { Text("Move to folder") }, onClick = { menu = false; onMove() })
@@ -686,12 +691,12 @@ private fun NewDeckSlot(modifier: Modifier, onClick: () -> Unit) {
             .clip(LockOnShapes.panel)
             .background(scheme.onSurface.copy(alpha = if (hovered) 0.06f else 0.025f))
             .drawBehind {
-                val cut = 14.dp.toPx()
-                val outline = Path().apply {
-                    moveTo(cut, 1f); lineTo(size.width - 1f, 1f); lineTo(size.width - 1f, size.height - cut)
-                    lineTo(size.width - cut, size.height - 1f); lineTo(1f, size.height - 1f); lineTo(1f, cut); close()
-                }
-                drawPath(outline, line, style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 6.dp.toPx()))))
+                // The panel's own rounded shape, dashed, so the slot reads as a box still to fill.
+                val inset = 0.75.dp.toPx()
+                drawRoundRect(
+                    line, Offset(inset, inset), Size(size.width - inset * 2, size.height - inset * 2), CornerRadius(22.dp.toPx()),
+                    style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 6.dp.toPx()))),
+                )
             }
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -702,7 +707,6 @@ private fun NewDeckSlot(modifier: Modifier, onClick: () -> Unit) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = if (hovered) OnAccent else scheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
             }
             Text("New deck", style = MaterialTheme.typography.titleMedium, color = if (hovered) scheme.onSurface else scheme.onSurfaceVariant)
-            Text("Name it, then add cards", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
         }
     }
 }

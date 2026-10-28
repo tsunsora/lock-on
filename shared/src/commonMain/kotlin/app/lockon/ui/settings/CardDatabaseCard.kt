@@ -42,11 +42,8 @@ fun CardDatabaseCard(container: AppContainer, state: AppState, files: FileBridge
                 info?.let { "${it.name} · version ${it.version}" } ?: "No catalog installed",
                 style = MaterialTheme.typography.titleSmall,
             )
-            Text(
-                update ?: "Card images and the official card list download from here. Your decks never change when the catalog does.",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (update != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Only news earns a line here; the installed catalog's name above says the rest.
+            update?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GameButton("Manage card database", onClick = { managing = true }, style = GameButtonStyle.SECONDARY, compact = true)
             }

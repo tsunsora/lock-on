@@ -162,21 +162,6 @@ fun glassColors(): GlassColors = if (isTwilight()) {
     GlassColors(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.9f), Color.White, Color(0xFFBFD2E6), Color(0xFF6A88B0))
 }
 
-/** A four-pointed sparkle, the mark of a full gauge. */
-private fun DrawScope.sparkle(center: Offset, radius: Float, color: Color) {
-    val x = center.x
-    val y = center.y
-    val path = Path().apply {
-        moveTo(x, y - radius)
-        cubicTo(x, y, x, y, x + radius, y)
-        cubicTo(x, y, x, y, x, y + radius)
-        cubicTo(x, y, x, y, x - radius, y)
-        cubicTo(x, y, x, y, x, y - radius)
-        close()
-    }
-    drawPath(path, color)
-}
-
 /** A painted sky and the theme it was painted for. */
 private class SkyPaint(val image: ImageBitmap, val twilight: Boolean)
 
@@ -357,6 +342,44 @@ fun GameButton(
 }
 
 /**
+ * An icon-only action as a round glass button, the same 44 dp as [GameButton] and the search field,
+ * so a header row of mixed controls lines up (UX rule V1). [label] is read out and is the tooltip's
+ * text on desktop (I5). Over art, [onArt] makes the disc a little more solid so the icon stays clear.
+ */
+@Composable
+fun GlassIconButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val g = glassColors()
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val squish by animateFloatAsState(if (pressed) 0.94f else 1f, motion(Motion.SHORT), label = "icon-press")
+    Box(
+        modifier
+            .size(ControlSize)
+            .graphicsLayer { scaleX = squish; scaleY = squish }
+            .clip(CircleShape)
+            .background(if (hovered) lighten(g.strong, 0.08f) else g.strong)
+            .border(BorderStroke(1.dp, if (hovered) Accent.copy(alpha = 0.6f) else g.rimLow), CircleShape)
+            .hoverable(interaction)
+            .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = if (hovered) scheme.primary else tint, modifier = Modifier.size(22.dp))
+    }
+}
+
+/** The one height for buttons, fields and icon buttons that share a row. */
+val ControlSize = 44.dp
+
+/**
  * Pill tabs on a glass track: the selected tab is a teal pill. They scroll when the track is
  * narrower than its tabs, or share the width equally with [fill].
  */
@@ -397,7 +420,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
 
 /**
  * A deck gauge (UX rule I1): label, count over limit, and a rounded bar. Teal while filling, gold
- * with a sparkle when exactly full, red when over.
+ * when exactly full, red when over. The colour and the number say it; nothing is drawn on the bar.
  */
 @Composable
 fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false) {
@@ -430,7 +453,6 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
             val r = CornerRadius(size.height / 2)
             drawRoundRect(track, cornerRadius = r)
             if (fraction > 0f) drawRoundRect(fillBrush, size = Size(size.width * fraction, size.height), cornerRadius = r)
-            if (full) sparkle(Offset(size.width - size.height * 0.2f, size.height / 2), size.height * 1.3f, Color.White)
         }
     }
 }
@@ -750,11 +772,12 @@ fun Modifier.clearOfNav(): Modifier {
 }
 
 /**
- * A screen's title row: a big friendly heading with an optional subtitle and actions at the right.
- * On wide windows it sits in the band between the player card and the icon tray.
+ * A screen's title row: a big friendly heading and actions at the right. On wide windows it sits in
+ * the band between the player card and the icon tray. There is no subtitle: what a screen holds is
+ * said by the screen itself (UX rule K5).
  */
 @Composable
-fun ScreenHeader(title: String, modifier: Modifier = Modifier, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
+fun ScreenHeader(title: String, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
     val wide = LocalTopBand.current.height > 0.dp
     val scheme = MaterialTheme.colorScheme
     Row(
@@ -763,15 +786,8 @@ fun ScreenHeader(title: String, modifier: Modifier = Modifier, subtitle: String?
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = scheme.onBackground, modifier = Modifier.weight(1f, fill = false))
-            }
-            if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
+        Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            color = scheme.onBackground, modifier = Modifier.weight(1f))
         actions()
     }
 }
@@ -969,6 +985,12 @@ val LocalNavClearance = compositionLocalOf { 0.dp }
 
 /** The nav bar's height, without its margin and the system's gesture area. */
 val PillNavHeight = 60.dp
+
+/**
+ * How tall the window controls' capsule is: the nav pill's height beside the pill, and
+ * [ControlSize] when it shares a screen header's row instead (UX rule K1).
+ */
+val LocalChromeHeight = compositionLocalOf { PillNavHeight }
 
 /** The room to leave under content for the floating nav bar: its height, its margin and a little air. */
 @Composable

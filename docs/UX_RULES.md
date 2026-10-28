@@ -81,14 +81,14 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
   - **Deck cards:** the deck list shows each card small and whole, at its real shape, grouped by type. − ×count + and copy pips sit underneath. Desktop fits as many 104 dp cards as the panel holds, with 40 dp targets. Phones show 120 dp cards, three across, with 48 dp targets (R1).
   - **Deck strips** (as in Hearthstone) are the denser **List view**, a toggle in the stats strip. Each row has a glossy cost orb in the card's colour and the name over a crop of the art, fading in from the right. The side deck always uses strips, since its rows need the **To deck** action.
   - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal while filling, gold at the limit, and red past it.
-  - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold with a sparkle when exactly full, and red when over.
+  - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold when exactly full, and red when over. Nothing is drawn on the bar itself (K3).
   - **Level curve** (as in MTG Arena): a compact curve sits at the top of the deck list.
   - **Deck boxes:** library tiles show the cover art behind the deck's name, its colour orbs, both gauges and the record.
   - **Hero banner:** the editor header is a frosted strip with the cover art fading in from the right, and the Lock On readout (*Locked on!* or *Not ready*) in words.
 - **V9. Navigation floats and fits the theme** (as on Stella Sora's home screen, N5).
   - **The player card** is the brand: the Lock On mark in a teal-ringed level badge, the name, and the deck and card counts in currency-style pills. They're plain counts, never badges or prompts (C1).
   - **The pill** (N5): destinations float in a translucent capsule, and the selected one is a teal pill with its label.
-  - **Window controls** (N5, desktop) use the pill's own glass, with drawn glyphs, a label and a tooltip on each (I5). They tint on hover and sink a hair when pressed, and close turns red on hover.
+  - **Window controls** (N5, desktop) use the pill's own glass and its exact height (K1), with three round 42 dp buttons the size of the pill's selected item, drawn glyphs, and a label and tooltip on each (I5). As on Windows itself, the three are the same size: being icon-only ranks them below the labelled destinations, and close shows its weight by turning red on hover, not by size. They tint on hover and sink a hair when pressed.
 - **V5. Motion explains and gives feedback, quietly.** Every animation answers *what changed*, *where did I go* or *what can I touch*, and none of it competes with the cards. Short distances, small scales, no bounce, overshoot, tilt or sparkle. Timing lives in `Motion.kt`.
   - **Timing:** 120 ms for small exits, 200 ms for most changes, 280 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 30 ms apart.
   - **Navigation:** going deeper drifts a short way forward, coming back drifts back, and switching tabs fades through.
@@ -109,6 +109,18 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
   - **The Lock On mark:** a V-fin over a targeting reticle with a red crest. It appears in the player card's badge, on face-down shields and as the launcher icon.
   - **Yellow-and-black caution stripes** are reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
   - All of these are original shapes, not official logos or artwork.
+
+## 5a. Consistency (checked on every change)
+
+These came from a UI review on 2026-10-28, where a sparkle on full gauges, an edge bar on the selected folder, a bare back arrow and window controls shorter than the nav pill all read as mistakes. Design-audit checklists agree on the same causes: values off the scale ("magic numbers"), similar elements styled differently, and decoration the eye reads as UI ([design audit](https://skills.sh/devanshudesai/agent-skills/design-audit), [design standards](https://tessl.io/registry/skills/github/rampstackco/claude-skills/design-standards)). Windows keeps its caption buttons one size and always visible ([title bar design](https://learn.microsoft.com/en-us/WINDOWS/APPS/design/basics/titlebar-design)).
+
+- **K1. One height per row.** Buttons, fields and icon buttons that share a row are `ControlSize` (44 dp). Capsules side by side share a height: the window controls are exactly `PillNavHeight`, like the nav pill.
+- **K2. Same rank, same size.** Controls of equal rank are equal in size. Rank shows through fill (teal, glass, text) and labels, never through sizes that drift apart.
+- **K3. No stray marks.** Selection is a fill, never an edge bar or underline. No rule, sparkle or glow sits where it could be read as a control or a state: no lines under banners, nothing drawn on a gauge.
+- **K4. Icon-only actions have a body.** Back, Export, ⋮ and similar use `GlassIconButton`, a round glass disc, never a bare glyph. Back sits 12–16 dp from the title beside it.
+- **K5. Let the layout explain.** No subtitle under a screen title (`ScreenHeader` has none), no description under a setting whose name and options already say it, and one heading per group, not a heading over a single label. Words appear for news (an update, a pending name), problems (I3) and trust (T2), not to narrate what is on screen.
+- **K6. Spacing on a 4 dp grid.** Gaps are 4, 8, 12, 16 or 24 dp, and similar gaps match across screens.
+- **K7. Check in pictures.** Every UI change is reviewed in `ScreenshotTest` renders, in both themes, on phone and desktop, before it ships.
 
 ## 6. Reach and input
 

@@ -67,19 +67,20 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     // of each one empty: this device and how the app looks on the left, cards and updates on the right.
     val left = @Composable {
         SettingsGroup("Appearance") {
-            Choice("Theme", "Sky is bright glass; Twilight is the same look after dark.", ThemeChoice.entries, theme, { it.label }) {
+            Choice("Theme", null, ThemeChoice.entries, theme, { it.label }) {
                 scope.launch { settings.setTheme(it) }
             }
-            Choice("Interface size", "Scales text, cards and controls together.", InterfaceSize.entries, size, { it.label }) {
+            Choice("Interface size", null, InterfaceSize.entries, size, { it.label }) {
                 scope.launch { settings.setSize(it) }
             }
-            Choice("Animations", "Reduced swaps slides and fades for instant changes.", MotionChoice.entries, motion, { it.label }) {
+            Choice("Animations", null, MotionChoice.entries, motion, { it.label }) {
                 scope.launch { settings.setMotion(it) }
             }
         }
 
-        SettingsGroup("Startup") {
-            Choice("Open on", null, StartChoice.entries, start, { it.label }) {
+        // The group's title names the choice, so the choice needs no second label under it.
+        SettingsGroup("Open on") {
+            Choice(null, null, StartChoice.entries, start, { it.label }) {
                 scope.launch { settings.setStart(it) }
             }
         }
@@ -89,8 +90,9 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 Column(Modifier.weight(1f)) {
                     Text("Device name", style = MaterialTheme.typography.titleSmall)
                     Text(
-                        if (deviceName == container.identity.deviceName) "$deviceName · paired devices see this name"
-                        else "$deviceName · used from the next time Lock On opens",
+                        // A pending name is the one place a note earns its line: it isn't live yet.
+                        if (deviceName == container.identity.deviceName) deviceName
+                        else "$deviceName · from the next launch",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -100,10 +102,10 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     }
     val right = @Composable {
         SettingsGroup("Cards") {
-            Toggle("Show card artwork", "Images download once from the card list's links and stay on this device, so cards show offline. They never sync.", showArtwork) {
+            Toggle("Show card artwork", showArtwork) {
                 scope.launch { container.catalog.setShowArtwork(it) }
             }
-            Toggle("Check for card list updates", "Once a week, only for the official card list. Nothing changes until you choose to update.", catalogChecks) {
+            Toggle("Check weekly for card list updates", catalogChecks) {
                 scope.launch { settings.setCatalogChecks(it) }
             }
         }
@@ -155,12 +157,9 @@ private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> 
 }
 
 @Composable
-private fun Toggle(title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun Toggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(12.dp))
         PillSwitch(checked = checked, onCheckedChange = onChange)
     }
@@ -168,9 +167,9 @@ private fun Toggle(title: String, description: String, checked: Boolean, onChang
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> Choice(title: String, description: String?, options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+private fun <T> Choice(title: String?, description: String?, options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        title?.let { Text(it, style = MaterialTheme.typography.titleSmall) }
         description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             options.forEach { option ->

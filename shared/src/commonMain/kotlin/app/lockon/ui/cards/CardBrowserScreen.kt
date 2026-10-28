@@ -50,7 +50,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
 
     Column(Modifier.fillMaxSize()) {
         // In the band beside the floating navigation on wide windows (UX rule N5).
-        ScreenHeader(if (wide) "Card database" else "Cards", subtitle = info?.let { "${it.name} · v${it.version}" }) {
+        ScreenHeader(if (wide) "Card database" else "Cards") {
             // A found update is a quiet label here, never a pop-up (UX rule C1).
             GameButton(update ?: "Catalog", onClick = { managing = true }, style = GameButtonStyle.SECONDARY, compact = true)
         }

@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.GlassIconButton
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import app.lockon.rules.DeckAnalysis
@@ -264,14 +265,16 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             BoxWithConstraints(Modifier.fillMaxWidth().clearOfNav()) {
             val roomy = maxWidth >= 1000.dp
             Row(
-                Modifier.fillMaxWidth().padding(start = 4.dp, end = if (wide) 8.dp else 16.dp, top = if (wide) 0.dp else 6.dp, bottom = if (wide) 0.dp else 2.dp)
+                Modifier.fillMaxWidth().padding(start = if (wide) 0.dp else 12.dp, end = if (wide) 8.dp else 12.dp, top = if (wide) 0.dp else 8.dp, bottom = if (wide) 0.dp else 4.dp)
                     .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
+                // A solid round button, so the way out reads as a control rather than a stray glyph.
+                GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back to decks", state::goBack)
+                Spacer(Modifier.width(14.dp))
                 if (wide && roomy) {
                     // A small cover that sits inside the band with air around it, not edge to edge.
-                    val thumb = Modifier.padding(start = 4.dp, end = 14.dp).padding(vertical = 6.dp).height(48.dp)
+                    val thumb = Modifier.padding(end = 14.dp).padding(vertical = 6.dp).height(48.dp)
                     if (cover != null) CardImage(cover.card, thumb, cover.printingId)
                     else CardBack(thumb)
                 }
@@ -300,18 +303,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(if (roomy) 20.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 104.dp))
-                        // Narrower bands keep the reticle and drop its caption; the legality stamp says it in words (I4).
+                        // A tight band drops the reticle: the Legal or Draft stamp says it in words (I4).
                         if (roomy) {
                             LockReadout(legality.isLegal)
                             GameButton("Export", onClick = { exporting = true }, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
                         } else {
-                            LockIndicator(locked = legality.isLegal, size = 44.dp)
-                            IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck") }
+                            GlassIconButton(Icons.Default.Share, "Export deck", { exporting = true })
                         }
                     }
                 } else {
                     // Phones keep only Export here; the legality stamp says Legal or Draft in words (I4).
-                    IconButton(onClick = { exporting = true }) { Icon(Icons.Default.Share, contentDescription = "Export deck") }
+                    GlassIconButton(Icons.Default.Share, "Export deck", { exporting = true })
                 }
             }
             }
@@ -784,17 +786,15 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
                     Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, color.copy(alpha = 0.5f)))))
                 }
             }
-            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(1.dp).background(
-                Brush.horizontalGradient(listOf(scheme.primary.copy(alpha = 0.6f), scheme.primary.copy(alpha = 0f))),
-            ))
         }
         Column { content() }
     }
 }
 
 /**
- * A slim bar at the top of the deck list: the first legality problem in words (UX rule I3), the
- * card/list view switch, and a small level curve that opens the full analysis.
+ * A slim bar at the top of the deck list: the level curve, which opens the full analysis, then the
+ * first legality problem in words (UX rule I3), and the card/list view switch at the end. A legal
+ * deck shows no message: the Legal stamp in the header already says so.
  */
 @Composable
 private fun DeckStatusBar(
@@ -806,21 +806,17 @@ private fun DeckStatusBar(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MiniCurve(curve, onOpenAnalysis)
             val first = legality.errors.firstOrNull()
-            Text(
-                when {
-                    first == null -> "Meets every construction rule."
-                    legality.errors.size == 1 -> first.text
-                    else -> "${first.text} (+${legality.errors.size - 1} more)"
-                },
+            if (first == null) Spacer(Modifier.weight(1f)) else Text(
+                if (legality.errors.size == 1) first.text else "${first.text} (+${legality.errors.size - 1} more)",
                 style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                color = if (first == null) scheme.secondary else scheme.error, modifier = Modifier.weight(1f),
+                color = scheme.error, modifier = Modifier.weight(1f),
             )
             // How the deck below is shown: small whole cards, or denser strips.
             GameButton(if (cardView) "List view" else "Card view", onClick = { onCardView(!cardView) }, style = GameButtonStyle.GHOST, compact = true)
-            MiniCurve(curve, onOpenAnalysis)
         }
     }
 }
