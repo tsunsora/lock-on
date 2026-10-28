@@ -93,7 +93,7 @@ fun SyncScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Settings opens with sync; the device name is in the screen header.
+        // The device name is in the screen header.
         SectionHeader("Sync")
         StatusLine(status)
         val pairedIds = devices.map { it.deviceId }.toSet()
@@ -244,7 +244,7 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 else -> {
-                    Text("In Lock On on your phone, open Settings and scan this code.", style = MaterialTheme.typography.bodyMedium)
+                    Text("In Lock On on your phone, open Sync and scan this code.", style = MaterialTheme.typography.bodyMedium)
                     // Details wrap under the QR code in a narrow window instead of squeezing beside it.
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         current.qr?.let { QrCodeView(it, Modifier.size(220.dp)) }
@@ -344,7 +344,7 @@ private fun ClientSection(controller: ClientSyncController, paired: Set<String>)
                 GameButton(if (other) "Hide" else "Show", onClick = { other = !other }, style = GameButtonStyle.GHOST, compact = true)
             }
             if (other) {
-                Text("If your computer doesn't appear above, scan the QR code under Settings on the computer, or type its address.",
+                Text("If your computer doesn't appear above, scan the QR code under Sync on the computer, or type its address.",
                     style = MaterialTheme.typography.bodyMedium)
                 if (controller.canScanQr) GameButton("Scan QR code", onClick = controller::scanQr, enabled = !status.working)
                 OutlinedTextField(host, { host = it.trim() }, label = { Text("Computer address") }, singleLine = true,

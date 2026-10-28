@@ -137,7 +137,9 @@ class ScreenshotTest {
     @Test fun renderScreens() {
         shoot("desktop-library", 1980, 1290) { select(Tab.DECKS) }
         shoot("desktop-editor", 1980, 1290) { open(Screen.DeckEditor(deckId)) }
-        shoot("desktop-sync", 1980, 1290) { select(Tab.SETTINGS) }
+        shoot("desktop-sync", 1980, 1290) { select(Tab.SYNC) }
+        shoot("desktop-settings", 1980, 1290) { select(Tab.SETTINGS) }
+        shoot("light-phone-settings", 600, 1260, dark = false) { select(Tab.SETTINGS) }
         shoot("phone-library", 600, 1260) { select(Tab.DECKS) }
         shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-cards", 600, 1260) { select(Tab.CARDS) }
@@ -148,15 +150,15 @@ class ScreenshotTest {
         shoot("phone-versions", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 5)) }
         shoot("light-desktop-editor", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId)) }
         shoot("light-phone-library", 600, 1260, dark = false) { select(Tab.DECKS) }
-        shoot("light-phone-sync", 600, 1260, dark = false, controller = client) { select(Tab.SETTINGS) }
+        shoot("light-phone-sync", 600, 1260, dark = false, controller = client) { select(Tab.SYNC) }
         shoot("light-phone-matches", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         shoot("phone-analysis", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 2)) }
         shoot("light-phone-editor", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId)) }
         shoot("light-phone-cards", 600, 1260, dark = false) { select(Tab.CARDS) }
         shoot("light-phone-add-cards", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 1)) }
         sync.status.value = SyncStatus(message = "Could not reach the desktop. Check that Lock On is open on it.", isError = true)
-        shoot("phone-sync-error", 600, 1260) { select(Tab.SETTINGS) }
-        shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SETTINGS) }
+        shoot("phone-sync-error", 600, 1260) { select(Tab.SYNC) }
+        shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SYNC) }
         sync.status.value = SyncStatus(message = "Ready for phones on port 53340.")
         // The Catalog dialog, drawn on its own because it opens from a button.
         ImageComposeScene(600, 1260, Density(1.5f)) {

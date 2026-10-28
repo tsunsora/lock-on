@@ -1,5 +1,9 @@
 package app.lockon.ui
-import app.lockon.ui.settings.CardDatabaseCard
+import app.lockon.ui.settings.SettingsScreen
+import app.lockon.data.MotionChoice
+import app.lockon.data.StartChoice
+import app.lockon.data.ThemeChoice
+import androidx.compose.ui.unit.Density
 import app.lockon.ui.components.FloatingPillNav
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.navClearance
@@ -130,7 +134,6 @@ import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
 import app.lockon.ui.decks.DeckLibraryScreen
 import app.lockon.ui.sync.SyncScreen
-import app.lockon.ui.update.AppUpdateCard
 import app.lockon.ui.theme.LockOnTheme
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.SkyBackground
@@ -152,6 +155,7 @@ import androidx.compose.ui.unit.sp
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.DECKS -> Icons.Default.List
     Tab.CARDS -> Icons.Default.Search
+    Tab.SYNC -> Icons.Default.Refresh
     Tab.SETTINGS -> Icons.Default.Settings
 }
 
@@ -168,9 +172,37 @@ fun LockOnApp(
     /** From the system's "remove animations" setting; turns motion into instant changes. */
     reduceMotion: Boolean = false,
 ) {
-    CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
+    val settings = container.settings
+    val themeChoice by settings.theme.collectAsState()
+    val motionChoice by settings.motion.collectAsState()
+    val interfaceSize by settings.size.collectAsState()
+    // Open where the person asked to, unless the caller already chose a place.
+    remember {
+        if (state.tab == Tab.DECKS && state.current == null) {
+            when (settings.start.value) {
+                StartChoice.DECKS -> Unit
+                StartChoice.CARDS -> state.tab = Tab.CARDS
+                StartChoice.LAST -> Tab.entries.firstOrNull { it.name == settings.lastTab.value }?.let { state.tab = it }
+            }
+        }
+    }
+    LaunchedEffect(state.tab) { settings.setLastTab(state.tab.name) }
+    val reduce = when (motionChoice) {
+        MotionChoice.SYSTEM -> reduceMotion
+        MotionChoice.REDUCED -> true
+        MotionChoice.FULL -> false
+    }
+    val systemDark = isSystemInDarkTheme()
+    val useDark = dark ?: when (themeChoice) {
+        ThemeChoice.SYSTEM -> systemDark
+        ThemeChoice.LIGHT -> false
+        ThemeChoice.DARK -> true
+    }
+    val base = LocalDensity.current
+    val density = remember(base, interfaceSize) { Density(base.density * interfaceSize.scale, base.fontScale) }
+    CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density) {
     ArtworkProvider(container, artworkDir) {
-    LockOnTheme(dark ?: isSystemInDarkTheme()) {
+    LockOnTheme(useDark) {
         val snackbars = remember { SnackbarHostState() }
         val syncStatus by sync.status.collectAsState()
         // Only the counts, so saving a deck or loading cards doesn't recompose the whole app.
@@ -187,9 +219,9 @@ fun LockOnApp(
             if (result == SnackbarResult.ActionPerformed) notice.action?.invoke()
         }
         LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
-        // At most weekly, and only for people on the official card list.
+        // At most weekly, only for people on the official card list, and only while checks are on.
         LaunchedEffect(Unit) {
-            state.appScope.launch {
+            if (settings.catalogChecks.value) state.appScope.launch {
                 runCatching { container.catalogUpdater.quietWeeklyCheck(kotlin.time.Clock.System.now().toEpochMilliseconds()) }
             }
         }
@@ -215,7 +247,7 @@ fun LockOnApp(
             @Composable
             fun TabIcon(tab: Tab) {
                 // The only status signal outside its screen (UX rule C1): a dot when sync failed.
-                if (tab == Tab.SETTINGS && syncStatus.isError) {
+                if (tab == Tab.SYNC && syncStatus.isError) {
                     BadgedBox(badge = { Badge() }) { Icon(tab.icon(), contentDescription = null) }
                 } else {
                     Icon(tab.icon(), contentDescription = null)
@@ -267,16 +299,16 @@ fun LockOnApp(
                                     when (destination) {
                                         Tab.DECKS -> DeckLibraryScreen(container, state, files)
                                         Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
-                                        Tab.SETTINGS -> {
-                                            ScreenHeader("Settings", subtitle = "This device: ${container.identity.deviceName}")
+                                        Tab.SYNC -> {
+                                            ScreenHeader("Sync", subtitle = "This device: ${container.identity.deviceName}")
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                                Box(Modifier.widthIn(max = 980.dp)) {
-                                                    // Sync first, then the card database, then the app itself.
-                                                    SyncScreen(sync, container.identity.deviceName) {
-                                                        CardDatabaseCard(container, state, files)
-                                                        AppUpdateCard(container.updater, state.appScope)
-                                                    }
-                                                }
+                                                Box(Modifier.widthIn(max = 980.dp)) { SyncScreen(sync, container.identity.deviceName) }
+                                            }
+                                        }
+                                        Tab.SETTINGS -> {
+                                            ScreenHeader("Settings", subtitle = "Kept on this device; settings never sync")
+                                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                                                Box(Modifier.widthIn(max = 980.dp)) { SettingsScreen(container, state, files) }
                                             }
                                         }
                                     }

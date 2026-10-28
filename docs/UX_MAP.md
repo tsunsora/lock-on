@@ -10,6 +10,7 @@ flowchart LR
         D[Decks]
         C[Cards]
         S[Sync]
+        ST[Settings]
     end
 
     D -->|tap deck| E[Deck editor]
@@ -125,6 +126,15 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - paired desktops with **Sync now**, last sync, the last manual-sync error, and a live line: *Live: changes sync automatically* or *Waiting for the desktop*
   - a verification code dialog while the desktop is confirming
 - **Always:** the line "Only decks sync. No account or cloud server."
+- A dot on the Sync tab is the only sync signal outside this screen (C1).
+
+### Settings (top level, beside Sync)
+- **Purpose:** this device's preferences. They are stored on the device and never sync.
+- **Appearance:** **Theme** (Match system · Sky · Twilight), **Interface size** (Small · Default · Large · Larger, scaling everything together), **Animations** (Match system · Reduced · Full).
+- **Startup:** **Open on** Decks, Cards, or *Where I left off*.
+- **Cards:** **Show card artwork** and **Check for card list updates** (the weekly background check) switches, then the card database card with **Manage card database**.
+- **This device:** the name paired devices see, with **Rename** (used from the next launch).
+- **App updates** last.
 
 ## Primary journeys
 
@@ -143,8 +153,8 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
    3. The computer shows a 6-digit number, and so does the phone. If they match, click **Pair**.
    4. Sync starts at once and stays automatic while both are open.
    - Fallback when discovery is blocked:
-   1. Desktop: **Settings**, which shows the QR code.
-   2. Phone: **Settings** → **Scan QR code**.
+   1. Desktop: **Sync**, which shows the QR code.
+   2. Phone: **Sync** → **Scan QR code**.
    3. Desktop: confirm the codes match → **Pair**.
    4. The phone syncs right away.
    5. With both open, edits on either device appear on the other within seconds. **Sync now** is there when auto-sync is off.

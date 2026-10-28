@@ -3,6 +3,7 @@ package app.lockon
 import app.lockon.catalog.CatalogUpdater
 import app.lockon.data.CatalogRepository
 import app.lockon.data.DeckRepository
+import app.lockon.data.SettingsRepository
 import app.lockon.data.db.LockOnDatabase
 import app.lockon.resources.Res
 import app.lockon.sync.DeviceRepository
@@ -19,6 +20,8 @@ class AppContainer private constructor(
     val catalog: CatalogRepository,
     val decks: DeckRepository,
     val devices: DeviceRepository,
+    /** This device's own preferences; they never sync. */
+    val settings: SettingsRepository,
     /** Null where this platform can't update itself. */
     val updater: AppUpdater?,
 ) {
@@ -39,8 +42,9 @@ class AppContainer private constructor(
                 bundledCatalogJson = readBundledCatalog(),
                 bundledRulesetsJson = Res.readBytes("files/rulesets/rulesets.json").decodeToString(),
             )
+            val settings = SettingsRepository(database.metaDao()).apply { load() }
             val updater = updateInstaller?.let { AppUpdater(database.metaDao(), it) }
-            return AppContainer(database, identity, catalog, DeckRepository(database, identity.deviceId), devices, updater)
+            return AppContainer(database, identity, catalog, DeckRepository(database, identity.deviceId), devices, settings, updater)
         }
     }
 }
