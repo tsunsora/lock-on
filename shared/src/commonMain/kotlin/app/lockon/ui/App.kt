@@ -171,6 +171,8 @@ fun LockOnApp(
     dark: Boolean? = null,
     /** From the system's "remove animations" setting; turns motion into instant changes. */
     reduceMotion: Boolean = false,
+    /** Desktop's own title bar, drawn into the top band; null keeps the system's (and on phones). */
+    chrome: WindowChrome? = null,
 ) {
     val settings = container.settings
     val themeChoice by settings.theme.collectAsState()
@@ -254,6 +256,14 @@ fun LockOnApp(
                 }
             }
             SkyBackground(Modifier.fillMaxSize()) {
+            var band by remember { mutableStateOf(TopBand()) }
+            // Desktop draws its own title bar (UX rule N5). The top band is the bar: its drag area lies
+            // under the screens, so it only gets presses nothing else takes. Narrower windows have no
+            // band, so the controls share the screen header's row, which leaves them room at its end.
+            var controlsWidth by remember { mutableStateOf(0.dp) }
+            if (chrome != null) {
+                chrome.dragArea(Modifier.fillMaxWidth().height(if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else CaptionHeight))
+            }
             Scaffold(
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground,
@@ -263,10 +273,9 @@ fun LockOnApp(
                 // bottom, in thumb reach (UX rule N5).
 
             ) { padding ->
-                var band by remember { mutableStateOf(TopBand()) }
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     Box(Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
+                    CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
                         // Going deeper drifts forward, coming back drifts back, and switching tabs
                         // fades through, so motion always says where you went (UX rule V5).
                         val reduce = LocalReduceMotion.current
@@ -323,9 +332,14 @@ fun LockOnApp(
                             state.select(Tab.entries[it])
                         }
                     }
+                    if (chrome != null && !wide) {
+                        val density = LocalDensity.current
+                        Box(Modifier.align(Alignment.TopEnd).padding(top = 15.dp, end = 8.dp)
+                            .onSizeChanged { controlsWidth = with(density) { it.width.toDp() } + 8.dp }) { chrome.controls() }
+                    }
                     if (wide) {
                         val density = LocalDensity.current
-                        FloatingTopNav(deckCount, cardCount, state.tab, state::select, icon = { TabIcon(it) }) { start, end, height ->
+                        FloatingTopNav(deckCount, cardCount, state.tab, state::select, icon = { TabIcon(it) }, trailing = chrome?.controls) { start, end, height ->
                             band = with(density) { TopBand(height.toDp(), start.toDp(), end.toDp()) }
                         }
                     }
@@ -372,6 +386,8 @@ private fun FloatingTopNav(
     selected: Tab,
     onSelect: (Tab) -> Unit,
     icon: @Composable (Tab) -> Unit,
+    /** The window controls on desktop, just right of the pill, so the band keeps clear of them too. */
+    trailing: (@Composable () -> Unit)?,
     /** Reports, in pixels, the room the plates take at the start and end, and the band's height. */
     onMeasured: (start: Int, end: Int, height: Int) -> Unit,
 ) {
@@ -385,12 +401,23 @@ private fun FloatingTopNav(
     }
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(12.dp)) {
         Box(Modifier.align(Alignment.TopStart).onSizeChanged { start = it }) { PlayerCard(decks, cards) }
-        PillNavBar(
-            Tab.entries.map { tab -> BottomItem(tab.label) { icon(tab) } }, Tab.entries.indexOf(selected), { onSelect(Tab.entries[it]) },
-            Modifier.align(Alignment.TopEnd).onSizeChanged { end = it }, labels = true,
-        )
+        Row(
+            Modifier.align(Alignment.TopEnd).onSizeChanged { end = it },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PillNavBar(
+                Tab.entries.map { tab -> BottomItem(tab.label) { icon(tab) } }, Tab.entries.indexOf(selected), { onSelect(Tab.entries[it]) },
+                labels = true,
+            )
+            trailing?.invoke()
+        }
     }
 }
+
+/** The title bar's own row on desktop windows too narrow for the top band. */
+/** How far down the drag area reaches on narrow windows: the screen header's row. */
+private val CaptionHeight = 64.dp
 
 private val TrayShape = RoundedCornerShape(24.dp)
 

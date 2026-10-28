@@ -1,12 +1,8 @@
 package app.lockon.ui.cards
 import app.lockon.ui.components.LocalNavClearance
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.drawWithContent
 import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.fadeEnd
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -18,6 +14,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -91,6 +88,7 @@ class DeckControls(
  *
  * @param deckColors when set, offers "Deck colors only" so a two-color deck can hide the rest.
  * @param selected highlights the card shown in a side panel.
+ * @param trailing extra controls at the end of the search row, such as the editor's Add to switch.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -103,6 +101,7 @@ fun CardSearchPanel(
     controls: DeckControls? = null,
     selected: String? = null,
     wide: Boolean = false,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
@@ -165,16 +164,11 @@ fun CardSearchPanel(
             if (wide) ViewControls()
             else PillChip(selected = showMore, onClick = { showMore = !showMore },
                 label = { Text(if (hiddenFilters > 0) "Filters · $hiddenFilters" else "Filters") })
+            trailing?.invoke(this)
         }
         // Phones scroll this row, and its far edge fades out to show there is more.
         val rowModifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)
-        else Modifier.fillMaxWidth()
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-            .drawWithContent {
-                drawContent()
-                drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = size.width - 40.dp.toPx(), endX = size.width),
-                    blendMode = BlendMode.DstOut)
-            }
+        else Modifier.fillMaxWidth().fadeEnd()
             .horizontalScroll(rememberScrollState()).padding(start = 6.dp, end = 32.dp, top = 2.dp, bottom = 2.dp)
         FlowRow(rowModifier, horizontalArrangement = Arrangement.spacedBy(if (wide) 4.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             CardColor.entries.forEach { color ->

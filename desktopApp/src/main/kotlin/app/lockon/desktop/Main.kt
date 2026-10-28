@@ -1,6 +1,15 @@
 package app.lockon.desktop
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -13,6 +22,7 @@ import app.lockon.ui.LockOnApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
@@ -53,19 +63,35 @@ fun main() {
             position = saved.position,
             size = saved.size,
         )
-        closeWindow = { WindowMemory.save(windowState); exitApplication() }
+        // The window closes at once; the sync server and LAN announcement shut down after it.
+        val exit = { WindowMemory.save(windowState); exitApplication() }
+        closeWindow = exit
         Window(
-            // The window closes at once; the sync server and LAN announcement shut down after it.
-            onCloseRequest = { WindowMemory.save(windowState); exitApplication() },
+            onCloseRequest = exit,
             title = "Lock On",
             icon = painterResource("lock-on-window.png"),
             state = windowState,
         ) {
             // Which graphics API draws the window, for reports of slow scrolling: SOFTWARE means no GPU.
-            androidx.compose.runtime.LaunchedEffect(Unit) {
+            LaunchedEffect(Unit) {
                 org.slf4j.LoggerFactory.getLogger("LockOn").info("Rendering with ${window.renderApi}")
             }
-            LockOnApp(container, state, sync, DesktopFileBridge(window), artworkDir = File(AppDirs.data, "artwork").absolutePath)
+            // On Windows the app draws its own title bar in the sky's top band (UX rule N5). Elsewhere, or
+            // if Windows refuses, the system's title bar stays and so do its controls.
+            var ownTitleBar by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                while (!window.isDisplayable) delay(16)
+                ownTitleBar = WindowsFrame.install(window)
+            }
+            val chrome = if (ownTitleBar) rememberWindowChrome(window, windowState, exit) else null
+            Box(Modifier.fillMaxSize()) {
+                LockOnApp(
+                    container, state, sync, DesktopFileBridge(window),
+                    artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
+                )
+                if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
+            }
+            System.getProperty("lockon.scrollProbe")?.let { ScrollProbe(window, state, File(it), exit) }
         }
     }
     sync.stop()

@@ -3,7 +3,6 @@ import androidx.compose.ui.draw.drawBehind
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.ui.BiasAlignment
@@ -224,7 +223,8 @@ fun CardTile(
     limit: Int? = null,
 ) {
     val press = remember { MutableInteractionSource() }
-    val hovered by press.collectIsHoveredAsState()
+    val hover = remember { HoverState() }
+    val hovered = hover.hovered
     val haptics = LocalHapticFeedback.current
     val scheme = MaterialTheme.colorScheme
     val count = quantity ?: 0
@@ -236,6 +236,7 @@ fun CardTile(
     Column(modifier) {
         Box(
             Modifier.fillMaxWidth()
+                .hoverState(hover)
                 .hoverLift(press, glow = if (count > 0) scheme.primary else lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape,
                     resting = if (count > 0) 0.35f else 0f)
                 .flashOnChange(count, scheme.primary, scheme.error, CardShape)
@@ -279,10 +280,11 @@ private val SmallPlate = RoundedCornerShape(percent = 50)
 private fun TileButton(symbol: String, description: String, primary: Boolean = false, enabled: Boolean = true, target: Dp = 48.dp, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
+    val hover = remember { HoverState() }
+    val hovered = hover.hovered
     Box(
         Modifier.size(target).semantics { contentDescription = description }
-            .hoverable(interaction)
+            .hoverable(interaction).hoverState(hover)
             .clickable(interaction, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -327,7 +329,8 @@ fun DeckStrip(
     val color = cardColor(card?.colors?.firstOrNull())
     val art = card?.let { LocalArtwork.current.urlFor(it.cardNumber, printingId) }
     val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
+    val hover = remember { HoverState() }
+    val hovered = hover.hovered
     val zoom by animateFloatAsState(if (hovered) 1.03f else 1f, motion(Motion.LONG), label = "strip-art")
     val base = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest
     Box(
@@ -335,7 +338,7 @@ fun DeckStrip(
             .flashOnChange(quantity, scheme.primary, scheme.error, StripShape)
             .clip(StripShape)
             .background(base)
-            .hoverable(interaction)
+            .hoverable(interaction).hoverState(hover)
             .clickable(interaction, indication = LocalIndication.current, enabled = card != null, onClick = onClick),
     ) {
         // The art crop fills the right two-thirds, aimed at the art box in the upper half of the card.
@@ -430,7 +433,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
             if (printings.size > 1) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SectionHeader("Printings", readout = "${printings.size}")
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(end = 32.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         printings.forEach { p ->
                             val isShown = (shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId) == p.printingId
                             Column(
@@ -607,12 +610,14 @@ fun DeckCard(
     target: Dp = 48.dp,
 ) {
     val press = remember { MutableInteractionSource() }
-    val hovered by press.collectIsHoveredAsState()
+    val hover = remember { HoverState() }
+    val hovered = hover.hovered
     val haptics = LocalHapticFeedback.current
     val scheme = MaterialTheme.colorScheme
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.fillMaxWidth()
+                .hoverState(hover)
                 .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, lift = 2.dp)
                 .flashOnChange(quantity, scheme.primary, scheme.error, CardShape)
                 .clip(CardShape)

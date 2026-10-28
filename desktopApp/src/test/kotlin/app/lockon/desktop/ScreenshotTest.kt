@@ -124,9 +124,17 @@ class ScreenshotTest {
         override suspend fun openText(mimeTypes: List<String>): String? = null
     }
 
+    /** The desktop title bar as the app draws it, with no window to move. */
+    private val chrome = app.lockon.ui.WindowChrome(
+        dragArea = { androidx.compose.foundation.layout.Box(it) },
+        controls = { WindowControls(maximized = false, onMinimize = {}, onToggleMaximize = {}, onClose = {}) },
+    )
+
+    /** Desktop-sized shots (phones are 600 px wide) include the title bar, as the Windows app shows it. */
     private fun shoot(name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync, setup: AppState.() -> Unit) {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
-        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark) }.use { scene ->
+        val titleBar = if (width > 600) chrome else null
+        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, chrome = titleBar) }.use { scene ->
             var image = scene.render()
             // Let Room flows settle, and advance the frame clock so animations reach their end state.
             repeat(15) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
@@ -149,6 +157,8 @@ class ScreenshotTest {
         shoot("phone-matches", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         shoot("phone-versions", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 5)) }
         shoot("light-desktop-editor", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId)) }
+        shoot("light-desktop-library", 1980, 1290, dark = false) { select(Tab.DECKS) }
+        shoot("desktop-narrow-library", 1200, 1290) { select(Tab.DECKS) }
         shoot("light-phone-library", 600, 1260, dark = false) { select(Tab.DECKS) }
         shoot("light-phone-sync", 600, 1260, dark = false, controller = client) { select(Tab.SYNC) }
         shoot("light-phone-matches", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 4)) }
@@ -239,11 +249,14 @@ class ScreenshotTest {
             override suspend fun openText(mimeTypes: List<String>): String? = null
         }
         val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        // The app's scope runs on the thread that draws the window. Here that is this thread, between
+        // frames: capturing the image from another thread while a frame draws crashes or hangs.
+        val uiThread = FrameThreadDispatcher()
         ImageComposeScene(1200, 1400, Density(1.5f)) {
             app.lockon.ui.theme.LockOnTheme(dark = true) {
                 app.lockon.ui.decks.DeckExportDialog(
                     deck, container.catalog.cards.value, container.catalog.ruleset.value, capturing,
-                    AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = 1,
+                    AppState(CoroutineScope(uiThread)), onDismiss = {}, startTab = 1,
                 )
             }
         }.use { scene ->
@@ -251,8 +264,15 @@ class ScreenshotTest {
             val button = androidx.compose.ui.geometry.Offset(1020f, 1306f)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
-            repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 6) * 100_000_000L) }
-            val image = org.jetbrains.skia.Image.makeFromEncoded(saved.get(10, java.util.concurrent.TimeUnit.SECONDS))
+            // Frames keep coming until the image arrives, as they would in a window.
+            var frame = 6L
+            val deadline = System.nanoTime() + 60_000_000_000L
+            while (!saved.isDone && System.nanoTime() < deadline) {
+                uiThread.runPending()
+                Thread.sleep(16)
+                scene.render(frame++ * 100_000_000L)
+            }
+            val image = org.jetbrains.skia.Image.makeFromEncoded(saved.get(1, java.util.concurrent.TimeUnit.SECONDS))
             kotlin.test.assertEquals(2160, image.width)
             assertTrue(image.height > 2160, "the whole deck is in the image, not just what the dialog shows")
         }
@@ -438,5 +458,40 @@ class ScreenshotTest {
             File(out, "live-card-detail.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
         container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())
+    }
+
+    /** The window controls on their own, at rest and with the pointer resting on Close, in both themes. */
+    @Test fun renderWindowControls() {
+        for (dark in listOf(false, true)) {
+            ImageComposeScene(600, 200, Density(1.5f)) {
+                app.lockon.ui.theme.LockOnTheme(dark = dark) {
+                    app.lockon.ui.components.SkyBackground(androidx.compose.ui.Modifier.fillMaxSize()) {
+                        WindowControls(maximized = dark, onMinimize = {}, onToggleMaximize = {}, onClose = {},
+                            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(18.dp))
+                    }
+                }
+            }.use { scene ->
+                var time = 0L
+                fun frames(n: Int) = repeat(n) { Thread.sleep(40); time += 50_000_000L; scene.render(time) }
+                frames(10)
+                // Close is the last 40 dp button, 4 dp inside the capsule, 18 dp from the corner: 1.5 px per dp.
+                val close = androidx.compose.ui.geometry.Offset(600f - (18 + 4 + 20) * 1.5f, (18 + 4 + 16) * 1.5f)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, close)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, close + androidx.compose.ui.geometry.Offset(1f, 1f))
+                frames(20)
+                File(out, "${if (dark) "" else "light-"}desktop-window-controls.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+        }
+    }
+}
+
+/** Stands in for a window's UI thread: queued work runs on the test's thread when it calls [runPending]. */
+private class FrameThreadDispatcher : kotlinx.coroutines.CoroutineDispatcher() {
+    private val queue = java.util.concurrent.ConcurrentLinkedQueue<Runnable>()
+
+    override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) { queue += block }
+
+    fun runPending() {
+        while (true) (queue.poll() ?: return).run()
     }
 }

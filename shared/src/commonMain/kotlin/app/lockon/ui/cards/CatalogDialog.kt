@@ -144,7 +144,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         Column(Modifier.weight(1f)) {
                             Text("Show card artwork", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "Images come from the catalog's links. Each downloads once and stays on this device, so cards show offline. They never sync.",
+                                "Images download once from the card list's links and stay on this device, so cards show offline. They never sync.",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             val images = LocalArtworkStore.current?.status?.collectAsState()?.value

@@ -32,6 +32,8 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
     implementation("org.jmdns:jmdns:3.6.3")
     implementation("org.slf4j:slf4j-simple:2.0.17")
+    // Windows calls for the app's own title bar (WindowFrame.kt).
+    implementation("net.java.dev.jna:jna-platform:5.9.0")
 
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
@@ -39,11 +41,20 @@ dependencies {
     testImplementation("io.coil-kt.coil3:coil-core:3.4.0")
 }
 
+tasks.test {
+    // Tests run with assertions on, which also turns on coroutine debugging: every dispatch renames
+    // the thread and every cancellation records a stack trace. The installed app runs without it,
+    // so the scroll benchmark turns it off to time what people actually get.
+    if (System.getenv("LOCKON_BENCH") == "1") systemProperty("kotlinx.coroutines.debug", "off")
+}
+
 compose.desktop {
     application {
         mainClass = "app.lockon.desktop.MainKt"
         // `./gradlew :desktopApp:run -Plockon.dataDir=...` runs a separate profile, e.g. for testing.
         providers.gradleProperty("lockon.dataDir").orNull?.let { jvmArgs("-Dlockon.dataDir=$it") }
+        // `-Plockon.scrollProbe=<file>` times scrolling the card grid and closes the app (ScrollProbe.kt).
+        providers.gradleProperty("lockon.scrollProbe").orNull?.let { jvmArgs("-Dlockon.scrollProbe=$it") }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Lock On"

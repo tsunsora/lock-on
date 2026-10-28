@@ -85,7 +85,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
         }
 
         SettingsGroup("Cards") {
-            Toggle("Show card artwork", "Images are saved on this device for offline use and never sync.", showArtwork) {
+            Toggle("Show card artwork", "Images download once from the card list's links and stay on this device, so cards show offline. They never sync.", showArtwork) {
                 scope.launch { container.catalog.setShowArtwork(it) }
             }
             Toggle("Check for card list updates", "Once a week, only for the official card list. Nothing changes until you choose to update.", catalogChecks) {
