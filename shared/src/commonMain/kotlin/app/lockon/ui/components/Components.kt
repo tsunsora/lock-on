@@ -182,15 +182,13 @@ fun Panel(modifier: Modifier = Modifier, title: String? = null, readout: String?
 }
 
 /**
- * Section header (UX rule V2): a sparkle, the label in friendly bold type, a soft rule fading out,
+ * Section header (UX rule V2): the label in friendly bold type, a soft rule fading out,
  * and the count in a tinted pill when the section has one.
  */
 @Composable
 fun SectionHeader(label: String, modifier: Modifier = Modifier, readout: String? = null, trailing: @Composable () -> Unit = {}) {
     val scheme = MaterialTheme.colorScheme
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Sparkle(size = 11.dp, color = scheme.primary)
-        Spacer(Modifier.width(7.dp))
         Text(label, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
         Box(
             Modifier.weight(1f).padding(horizontal = 10.dp).height(1.dp)

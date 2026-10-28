@@ -61,6 +61,8 @@ data class HelloResponse(
     val deviceName: String,
     /** Informational only; compatibility is decided by the version fields above. */
     val appVersion: String = BuildInfo.VERSION,
+    /** True when this desktop takes decks sent to it ([ShareOffer]). Older desktops leave it out. */
+    val receivesDecks: Boolean = false,
 )
 
 @Serializable
@@ -112,6 +114,27 @@ data class PullResponse(val revisions: List<RevisionDto>, val nextCursor: Long, 
 
 @Serializable
 data class ErrorResponse(val message: String)
+
+/**
+ * Copies of decks one device sends another, LocalSend-style: the receiver sees who sent them and
+ * which decks, and saves them as new decks only if its owner accepts. Needs no pairing.
+ */
+@Serializable
+data class ShareOffer(
+    val shareId: String,
+    val senderId: String,
+    val senderName: String,
+    val dataFormatVersion: Int = SyncProtocol.DATA_FORMAT_VERSION,
+    val decks: List<DeckSnapshot>,
+)
+
+/** How a send ended, from the receiver: [saved] decks kept, or [declined] by its owner, or refused with [message]. */
+@Serializable
+data class ShareResponse(val accepted: Boolean, val saved: Int = 0, val declined: Boolean = false, val message: String = "")
+
+/** A phone's answer to decks the desktop offered it. */
+@Serializable
+data class ShareAnswer(val shareId: String, val deviceId: String, val response: ShareResponse)
 
 /** Answer to a change-wait: true when the desktop has revisions after the phone's cursor. */
 @Serializable

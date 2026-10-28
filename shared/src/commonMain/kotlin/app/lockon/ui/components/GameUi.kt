@@ -76,12 +76,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -154,7 +148,7 @@ fun isTwilight(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0
 val Accent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 val OnAccent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onPrimary
 
-/** Soft gold for celebration only: a full gauge, a legal deck, sparkles, the Lock On moment. */
+/** Soft gold for celebration only: a full gauge, a legal deck, the Lock On moment. */
 val Gold = SuitColors.vFinYellow
 
 /** Frosted glass for the current theme: its fill, a stronger fill for small controls, and the rim. */
@@ -168,7 +162,7 @@ fun glassColors(): GlassColors = if (isTwilight()) {
     GlassColors(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.9f), Color.White, Color(0xFFBFD2E6), Color(0xFF6A88B0))
 }
 
-/** A four-pointed sparkle, the sky theme's signature mark. */
+/** A four-pointed sparkle, the mark of a full gauge. */
 private fun DrawScope.sparkle(center: Offset, radius: Float, color: Color) {
     val x = center.x
     val y = center.y
@@ -183,37 +177,12 @@ private fun DrawScope.sparkle(center: Offset, radius: Float, color: Color) {
     drawPath(path, color)
 }
 
-/** A sparkle as a composable, for headings and celebration. */
-@Composable
-fun Sparkle(modifier: Modifier = Modifier, size: Dp = 12.dp, color: Color = Accent) {
-    Canvas(modifier.size(size)) { sparkle(center, this.size.minDimension / 2, color) }
-}
-
 /** A painted sky and the theme it was painted for. */
 private class SkyPaint(val image: ImageBitmap, val twilight: Boolean)
 
-/** Where text sits over the sky, in window coordinates, so stars and sparkles stay out of it. */
-private class SkyClearings {
-    val rects = mutableStateMapOf<Any, Rect>()
-}
-
-private val LocalSkyClearings = compositionLocalOf<SkyClearings?> { null }
-
-/** Keeps the sky's stars and sparkles out from behind this element, for text that sits on the sky. */
-@Composable
-fun Modifier.skyClearing(): Modifier {
-    val clearings = LocalSkyClearings.current ?: return this
-    val key = remember { Any() }
-    DisposableEffect(clearings) { onDispose { clearings.rects.remove(key) } }
-    return onGloballyPositioned {
-        val bounds = it.boundsInWindow()
-        if (clearings.rects[key] != bounds) clearings.rects[key] = bounds
-    }
-}
-
 /**
- * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light,
- * floating bokeh and a few sparkles. Twilight swaps the light for stars. It is static: nothing loops.
+ * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light and
+ * floating bokeh. It is static: nothing loops.
  * The smooth parts are painted per pixel by [paintSky] so they never band.
  */
 @Composable
@@ -230,74 +199,48 @@ fun SkyBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.(
         val ph = (area.height * scale).roundToInt().coerceAtLeast(1)
         value = withContext(Dispatchers.Default) { SkyPaint(imageBitmapOf(paintSky(pw, ph, twilight), pw, ph), twilight) }
     }
-    val clearings = remember { SkyClearings() }
-    var origin by remember { mutableStateOf(Offset.Zero) }
     Box(
-        modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }
-            .onGloballyPositioned { origin = it.positionInWindow() }.drawBehind {
+        modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
             val w = size.width
             val h = size.height
             val m = size.maxDimension
-            // Stars and sparkles skip anywhere near text, so they never sit among the letters.
-            val margin = 6.dp.toPx()
-            val clear = clearings.rects.values.map { it.translate(-origin).inflate(margin) }
-            fun open(at: Offset, radius: Float) = clear.none { it.inflate(radius).contains(at) }
             val painted = sky?.takeIf { it.twilight == twilight }
             if (painted != null) {
                 drawImage(painted.image, dstSize = IntSize(ceil(w).toInt(), ceil(h).toInt()), filterQuality = FilterQuality.Low)
             } else {
                 drawRect(Brush.verticalGradient(if (twilight) TwilightSky else DaySky))
             }
-            // Bokeh and sparkles at fixed places, so every frame and screenshot is the same. Twilight's
-            // bokeh are glows, painted with the sky.
+            // Bokeh at fixed places, so every frame and screenshot is the same. Twilight's bokeh are
+            // glows, painted with the sky.
             if (!twilight) SkyBokeh.forEachIndexed { i, b ->
                 val c = Offset(w * b.x, h * b.y)
                 val r = m * b.radius
                 drawCircle(Color.White.copy(alpha = 0.28f), r, c)
                 if (i % 2 == 0) drawCircle(Color.White.copy(alpha = 0.5f), r, c, style = Stroke(1.5f))
             }
-            if (twilight) {
-                var seed = 7L
-                repeat(70) {
-                    seed = (seed * 1103515245 + 12345) and 0x7fffffff
-                    val x = (seed % 10000) / 10000f * w
-                    seed = (seed * 1103515245 + 12345) and 0x7fffffff
-                    val y = (seed % 10000) / 10000f * h
-                    val r = 1.2f + (it % 3)
-                    if (open(Offset(x, y), r)) drawCircle(Color.White.copy(alpha = 0.25f + (it % 4) * 0.1f), r, Offset(x, y))
-                }
-            }
-            listOf(Triple(0.18f, 0.1f, 9f), Triple(0.78f, 0.22f, 7f), Triple(0.56f, 0.82f, 8f), Triple(0.04f, 0.55f, 6f), Triple(0.93f, 0.62f, 10f))
-                .forEachIndexed { i, (fx, fy, r) ->
-                    val c = Offset(w * fx, h * fy)
-                    val radius = r.dp.toPx()
-                    if (open(c, radius)) sparkle(c, radius, (if (i % 2 == 0) Color.White else Gold).copy(alpha = if (twilight) 0.55f else 0.85f))
-                }
         },
-    ) {
-        CompositionLocalProvider(LocalSkyClearings provides clearings) { content() }
-    }
+        content = content,
+    )
 }
 
 /**
  * A frosted glass surface: translucent fill, a bright rim fading downward, clipped to [shape].
- * Pass [clearing] = false for surfaces inside scrolling lists: each one that moves makes the whole sky redraw.
  */
 @Composable
-fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false, clearing: Boolean = true): Modifier {
+fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false): Modifier {
     val g = glassColors()
     // Frosted: a touch brighter at the top, so the sky shows through more toward the bottom.
     val fill = if (strong) SolidColor(g.strong) else Brush.verticalGradient(listOf(g.fill, g.fill.copy(alpha = g.fill.alpha * 0.7f)))
-    return (if (clearing) skyClearing() else this).clip(shape)
+    return clip(shape)
         .background(fill)
         .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
 }
 
 /** The glass rim on its own, for surfaces that draw their own fill (art banners, dialogs). */
 @Composable
-fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel, clearing: Boolean = true): Modifier {
+fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel): Modifier {
     val g = glassColors()
-    return (if (clearing) skyClearing() else this).border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+    return border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
 }
 
 /** A large glass panel with an optional title row (UX rule V1). */
@@ -315,7 +258,7 @@ fun GlassPanel(
     }
 }
 
-/** A panel's title row: a sparkle, the title, and the count in a tinted pill. */
+/** A panel's title row: the title and the count in a tinted pill. */
 @Composable
 fun PanelTitle(title: String, readout: String? = null, accent: Color = Accent, trailing: @Composable () -> Unit = {}) {
     val scheme = MaterialTheme.colorScheme
@@ -323,8 +266,6 @@ fun PanelTitle(title: String, readout: String? = null, accent: Color = Accent, t
         Modifier.fillMaxWidth().height(42.dp).padding(start = 16.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Sparkle(color = accent, size = 12.dp)
-        Spacer(Modifier.width(8.dp))
         Text(title, style = MaterialTheme.typography.titleMedium, color = scheme.onSurface, modifier = Modifier.weight(1f))
         trailing()
         if (readout != null) CountPill(readout, accent)
@@ -388,7 +329,6 @@ fun GameButton(
     Box(
         modifier
             .heightIn(min = if (large) 54.dp else if (compact) 38.dp else 44.dp)
-            .skyClearing()
             .graphicsLayer {
                 scaleX = squish; scaleY = squish
                 if (style == GameButtonStyle.PRIMARY && enabled) {
@@ -824,14 +764,12 @@ fun ScreenHeader(title: String, modifier: Modifier = Modifier, subtitle: String?
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Row(Modifier.skyClearing(), verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = scheme.onBackground, modifier = Modifier.weight(1f, fill = false))
-                Sparkle(Modifier.padding(start = 8.dp, bottom = 10.dp), size = 14.dp, color = Gold)
             }
             if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.skyClearing())
+                Text(subtitle, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         actions()
@@ -912,7 +850,7 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
 
 /**
  * A dialog on a rounded card: Material's dialog behaviour with the glass rim, a friendly title
- * after a sparkle, and [GameButton] actions.
+ * and [GameButton] actions.
  */
 @Composable
 fun GameDialog(
@@ -932,11 +870,7 @@ fun GameDialog(
         containerColor = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
         title = title?.let {
             {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Sparkle(size = 16.dp, color = Accent)
-                    Spacer(Modifier.width(10.dp))
-                    Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
+                Text(it, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         },
         text = text,

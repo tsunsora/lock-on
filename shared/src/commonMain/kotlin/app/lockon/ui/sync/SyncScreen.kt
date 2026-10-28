@@ -75,11 +75,20 @@ import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.delay
 import kotlin.time.Clock
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.semantics.Role
+import app.lockon.model.DeckSection
+import app.lockon.model.DeckSummary
+import app.lockon.sync.DeckSharing
+import app.lockon.sync.OutgoingShare
 
 @Composable
 fun SyncScreen(
     controller: SyncController,
     deviceName: String,
+    /** Decks that can be sent to a nearby device. */
+    decks: List<DeckSummary> = emptyList(),
     /** Last item on the screen: the app's version and updates. */
     footer: @Composable () -> Unit = {},
 ) {
@@ -97,6 +106,7 @@ fun SyncScreen(
         SectionHeader("Status")
         StatusLine(status)
         val pairedIds = devices.map { it.deviceId }.toSet()
+        controller.sharing?.let { SendCard(it, decks, pairedIds, isHost = controller is HostSyncController) }
         when (controller) {
             is HostSyncController -> HostSection(controller, pairedIds)
             is ClientSyncController -> ClientSection(controller, pairedIds)
@@ -126,6 +136,8 @@ fun SyncScreen(
         )
         footer()
     }
+
+    controller.sharing?.let { IncomingShareDialog(it) }
 
     forgetting?.let { device ->
         GameDialog(
@@ -194,6 +206,145 @@ private fun NearbyCard(
             }
         }
     }
+}
+
+/**
+ * Send, LocalSend-style: choose decks, then tap a nearby device. Its owner accepts or declines, and
+ * accepted decks arrive as copies, so this works with a friend's device as well as your own.
+ */
+@Composable
+private fun SendCard(sharing: DeckSharing, decks: List<DeckSummary>, paired: Set<String>, isHost: Boolean) {
+    val targets by sharing.targets.collectAsState()
+    val outgoing by sharing.outgoing.collectAsState()
+    var chosen by remember { mutableStateOf(emptyList<String>()) }
+    var choosing by remember { mutableStateOf(false) }
+    // Decks deleted since they were chosen drop out of the selection.
+    val selected = chosen.mapNotNull { id -> decks.firstOrNull { it.deckId == id } }
+
+    GlassCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionHeader("Send decks", readout = if (selected.isEmpty()) null else "${selected.size}")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    if (selected.isEmpty()) "Choose decks, then a nearby device. It asks before saving them. No pairing needed."
+                    else selected.joinToString(" · ") { it.snapshot.name },
+                    style = MaterialTheme.typography.bodyMedium, maxLines = if (selected.isEmpty()) 4 else 2, overflow = TextOverflow.Ellipsis,
+                    color = if (selected.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                GameButton(if (selected.isEmpty()) "Choose decks" else "Change", onClick = { choosing = true },
+                    style = GameButtonStyle.SECONDARY, compact = true, enabled = decks.isNotEmpty())
+            }
+            if (targets.isEmpty()) {
+                Text(
+                    if (isHost) "Phones with Lock On open on the same Wi-Fi appear here."
+                    else "Computers with Lock On open on the same Wi-Fi appear here.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            targets.forEach { device ->
+                val send = outgoing[device.deviceId]
+                Row(Modifier.fillMaxWidth().heightIn(min = 60.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DeviceGlyph(device.isDesktop)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            when {
+                                send == null -> if (device.deviceId in paired) "Paired" else if (device.isDesktop) "Desktop · ${device.host}" else "Phone · ${device.host}"
+                                send.state == OutgoingShare.State.WAITING -> "Waiting for ${device.name} to accept…"
+                                else -> send.message.orEmpty()
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when (send?.state) {
+                                OutgoingShare.State.SAVED -> MaterialTheme.colorScheme.secondary
+                                OutgoingShare.State.FAILED -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                    if (send?.state == OutgoingShare.State.WAITING) {
+                        ReticleSpinner(size = 18.dp)
+                        GameButton("Cancel", onClick = { sharing.cancelSend(device.deviceId) }, style = GameButtonStyle.GHOST, compact = true)
+                    } else {
+                        GameButton("Send", onClick = { sharing.send(device, selected.map { it.deckId }) }, enabled = selected.isNotEmpty())
+                    }
+                }
+            }
+        }
+    }
+
+    if (choosing) {
+        ChooseDecksDialog(decks, chosen.toSet(), onDismiss = { choosing = false }, onDone = { chosen = it; choosing = false })
+    }
+}
+
+@Composable
+private fun ChooseDecksDialog(decks: List<DeckSummary>, preselected: Set<String>, onDismiss: () -> Unit, onDone: (List<String>) -> Unit) {
+    val sorted = remember(decks) { decks.sortedBy { it.snapshot.name.lowercase() } }
+    var chosen by remember { mutableStateOf(preselected) }
+    GameDialog(
+        onDismissRequest = onDismiss,
+        title = "Choose decks to send",
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                    sorted.forEach { deck ->
+                        val checked = deck.deckId in chosen
+                        Row(
+                            Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox) {
+                                chosen = if (it) chosen + deck.deckId else chosen - deck.deckId
+                            },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(deck.snapshot.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    listOfNotNull("Main ${deck.snapshot.count(DeckSection.MAIN)}", deck.snapshot.folder).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+                Text("They arrive as new decks with their cards, notes and tags. Folders and match logs stay here.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = {
+            GameButton("Done", onClick = { onDone(sorted.map { it.deckId }.filter { it in chosen }) }, compact = true)
+        },
+        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
+    )
+}
+
+/** Receive: decks another device is sending, saved only if accepted. */
+@Composable
+private fun IncomingShareDialog(sharing: DeckSharing) {
+    val share by sharing.incoming.collectAsState()
+    val s = share ?: return
+    GameDialog(
+        onDismissRequest = {},
+        title = "${s.senderName} wants to send you ${if (s.decks.size == 1) "a deck" else "${s.decks.size} decks"}",
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    s.decks.forEach { deck ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(deck.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text("Main ${deck.count(DeckSection.MAIN)}", style = MaterialTheme.typography.bodyMedium.merge(TabularNumbers),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Text("Accepted decks are added as new decks. Nothing else on this device changes.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { GameButton("Accept", onClick = { sharing.answer(s.shareId, true) }) },
+        dismissButton = { GameButton("Decline", onClick = { sharing.answer(s.shareId, false) }, style = GameButtonStyle.GHOST, compact = true) },
+    )
 }
 
 /** The number both screens show while pairing, big enough to compare at a glance. */

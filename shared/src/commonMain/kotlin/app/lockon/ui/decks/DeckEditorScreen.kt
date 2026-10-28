@@ -143,7 +143,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.clearOfNav
-import app.lockon.ui.components.skyClearing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -263,7 +262,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             val roomy = maxWidth >= 1000.dp
             Row(
                 Modifier.fillMaxWidth().padding(start = 4.dp, end = if (wide) 8.dp else 16.dp, top = if (wide) 0.dp else 6.dp, bottom = if (wide) 0.dp else 2.dp)
-                    .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier).skyClearing(),
+                    .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
@@ -315,7 +314,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             }
             if (!wide) {
                 ProgressGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize,
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp).skyClearing(), compact = true)
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp), compact = true)
             }
         }
         if (summary?.hasConflict == true) {
@@ -801,7 +800,7 @@ private fun DeckStatusBar(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true, clearing = false).padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)) {
+    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val first = legality.errors.firstOrNull()
             Text(

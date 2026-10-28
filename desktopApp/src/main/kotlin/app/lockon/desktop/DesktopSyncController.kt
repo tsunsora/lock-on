@@ -22,6 +22,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import app.lockon.sync.NearbyDevice
+import app.lockon.sync.DeckSharing
+import app.lockon.sync.IncomingShare
+import app.lockon.sync.OutgoingShare
+import app.lockon.sync.ShareInbox
 import kotlinx.coroutines.launch
 
 /** The desktop hosts sync: it runs the HTTPS server and shows the pairing QR code. */
@@ -29,6 +33,8 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     private val tls = TlsIdentity.loadOrCreate(AppDirs.data)
     private val pairing = PairingManager(container.devices, container.identity, tls.fingerprint)
     private val live = LiveClients()
+    private val inbox = ShareInbox(container.decks)
+    private val outbox = ShareOutbox(container.identity)
     private val advertiser = LanAdvertiser(container.identity, tls.fingerprint)
     private val _hostInfo = MutableStateFlow<HostInfo?>(null)
     private val _status = MutableStateFlow(SyncStatus())
@@ -56,11 +62,28 @@ class DesktopSyncController(private val container: AppContainer, private val sco
 
     override fun cancelInvite(deviceId: String) = pairing.cancelInvite(deviceId)
 
+    // Phones pick up decks sent to them with a held-open request, so any nearby phone can receive.
+    override val sharing: DeckSharing = object : DeckSharing {
+        override val targets: StateFlow<List<NearbyDevice>> = nearby
+        override val outgoing: StateFlow<Map<String, OutgoingShare>> = outbox.sends
+        override val incoming: StateFlow<IncomingShare?> = inbox.prompt
+
+        override fun send(device: NearbyDevice, deckIds: List<String>) {
+            scope.launch {
+                val decks = deckIds.mapNotNull { container.decks.currentSnapshot(it) }.filterNot { it.deleted }.map(ShareInbox::asCopy)
+                if (decks.isNotEmpty()) outbox.send(device.deviceId, device.name, decks)
+            }
+        }
+
+        override fun cancelSend(deviceId: String) = outbox.cancel(deviceId)
+        override fun answer(shareId: String, accept: Boolean) = inbox.answer(shareId, accept)
+    }
+
     fun start() {
         scope.launch(Dispatchers.IO) {
             try {
                 val (started, chosenPort) = startSyncServer(tls, SyncProtocol.DEFAULT_PORT) {
-                    lockOnSync(container.syncHost, container.devices, pairing, container.identity, live)
+                    lockOnSync(container.syncHost, container.devices, pairing, container.identity, live, inbox = inbox, outbox = outbox)
                 }
                 server = started
                 port = chosenPort
@@ -83,6 +106,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
             while (true) {
                 delay(15_000)
                 pairing.rotateIfExpired()
+                outbox.expire()
                 val fresh = lanAddresses()
                 if (fresh.toSet() != addresses.toSet()) { addresses = fresh; publish() }
             }

@@ -40,7 +40,12 @@ The desktop hosts HTTPS on port **53340** (or the next free port). Phones start 
    - Phones browse for it only while the app is in the foreground. A discovered desktop is just a hint; trust still comes from pairing.
    - While open, the phone holds `GET /v1/sync/wait?after=<cursor>` open, and the desktop answers within 25 seconds, as soon as it has new revisions. Local edits trigger a sync about 2 seconds after they settle.
    - Failures back off from 5 to 60 seconds and show as "Waiting for the desktop", not as errors.
-4. **Data format.** Deck snapshots are at data format **3**: format 2 added the side deck (stored and synced as `CONSIDERING`, its first name), and format 3 added folders, cover cards and the match log. Both sides must use the same format to sync; otherwise the phone shows which device to update. An older app would drop the newer fields the next time it saved a deck.
+4. **Sending decks, LocalSend-style.** Separate from sync and needs no pairing. The receiver's owner accepts or declines every send, and accepted decks are saved as new decks (copies), never merged into the sender's revision history. Folders and match logs are left out.
+   - **Phone to computer:** the phone checks `GET /v1/hello` for `receivesDecks`, then sends `POST /v1/share` with the decks. The desktop holds the request open while its owner decides, and answers with how many decks it saved.
+   - **Computer to phone:** phones make every request, so while the app is open a phone holds `GET /v1/shares?device=<id>` open to each nearby desktop. The desktop answers once it has decks for that phone. The phone asks its owner, saves the decks if accepted, and reports back with `POST /v1/shares/answer`. Decks meant for a paired phone are only handed to a request carrying that phone's token. An unanswered send ends after 3 minutes.
+   - A receiver shows one send at a time. It refuses decks in a newer data format without asking. A sender that was just declined waits 30 seconds before it can send again.
+   - Phones can't send to phones, or desktops to desktops, because only desktops run a server.
+5. **Data format.** Deck snapshots are at data format **3**: format 2 added the side deck (stored and synced as `CONSIDERING`, its first name), and format 3 added folders, cover cards and the match log. Both sides must use the same format to sync; otherwise the phone shows which device to update. An older app would drop the newer fields the next time it saved a deck.
 
 ## Key files
 

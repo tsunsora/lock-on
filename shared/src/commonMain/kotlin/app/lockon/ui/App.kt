@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Settings
 import app.lockon.ui.components.BottomItem
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassColors
-import app.lockon.ui.components.Sparkle
 import app.lockon.ui.components.Accent
 import app.lockon.ui.components.OnAccent
 import app.lockon.ui.components.Gold
@@ -255,15 +254,13 @@ fun LockOnApp(
                     Icon(tab.icon(), contentDescription = null)
                 }
             }
-            SkyBackground(Modifier.fillMaxSize()) {
             var band by remember { mutableStateOf(TopBand()) }
-            // Desktop draws its own title bar (UX rule N5). The top band is the bar: its drag area lies
-            // under the screens, so it only gets presses nothing else takes. Narrower windows have no
-            // band, so the controls share the screen header's row, which leaves them room at its end.
+            // Desktop draws its own title bar (UX rule N5). The top band is the bar: its drag area wraps
+            // the screens and only acts on presses nothing else takes. Narrower windows have no band, so
+            // the controls share the screen header's row, which leaves them room at its end.
+            val caption = if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else CaptionHeight
+            SkyBackground(if (chrome != null) chrome.dragArea(Modifier.fillMaxSize(), caption) else Modifier.fillMaxSize()) {
             var controlsWidth by remember { mutableStateOf(0.dp) }
-            if (chrome != null) {
-                chrome.dragArea(Modifier.fillMaxWidth().height(if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else CaptionHeight))
-            }
             Scaffold(
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground,
@@ -310,8 +307,9 @@ fun LockOnApp(
                                         Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
                                         Tab.SYNC -> {
                                             ScreenHeader("Sync", subtitle = "This device: ${container.identity.deviceName}")
+                                            val decks by container.decks.decks.collectAsState(initial = emptyList())
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                                Box(Modifier.widthIn(max = 980.dp)) { SyncScreen(sync, container.identity.deviceName) }
+                                                Box(Modifier.widthIn(max = 980.dp)) { SyncScreen(sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted }) }
                                             }
                                         }
                                         Tab.SETTINGS -> {

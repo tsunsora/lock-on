@@ -94,7 +94,7 @@ object SuitColors {
     val armorBlue = Color(0xFF3F7FE6)
     val armorWhite = Color(0xFFF3F7FC)
     val chestRed = Color(0xFFE5484D)
-    /** Soft gold for celebration: sparkles, a legal deck, the Lock On moment. */
+    /** Soft gold for celebration: a full gauge, a legal deck, the Lock On moment. */
     val vFinYellow = Color(0xFFFFC34D)
     val cautionBlack = Color(0xFF1C2742)
     val teal = Color(0xFF2CC9D0)

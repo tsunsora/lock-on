@@ -52,6 +52,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
@@ -62,7 +63,6 @@ import app.lockon.ui.components.PillShape
 import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.components.motion
-import app.lockon.ui.components.skyClearing
 import com.sun.jna.CallbackReference
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -172,17 +172,18 @@ internal fun rememberWindowChrome(window: Window, state: WindowState, onClose: (
     return remember(window, state) {
         val toggle = { state.placement = if (state.placement == WindowPlacement.Maximized) WindowPlacement.Floating else WindowPlacement.Maximized }
         WindowChrome(
-            dragArea = { modifier -> Box(modifier.windowDrag(window, toggle)) },
+            dragArea = { height -> windowDrag(window, height, toggle) },
             controls = { WindowControls(state.placement == WindowPlacement.Maximized, { state.isMinimized = true }, toggle, { close() }) },
         )
     }
 }
 
 /**
- * Moves the window when dragged and toggles maximise on a double-click. It only sees presses nothing
- * above it took. The drag starts past the touch slop, so a click or double-click never moves the window.
+ * Moves the window when the top [height] of this element is dragged, and toggles maximise on a
+ * double-click there. It sits on a parent, so it hears presses after the children and skips the ones
+ * a button or field consumed. The drag starts past the touch slop, so a click never moves the window.
  */
-private fun Modifier.windowDrag(window: Window, onToggleMaximize: () -> Unit): Modifier = pointerInput(window) {
+private fun Modifier.windowDrag(window: Window, height: Dp, onToggleMaximize: () -> Unit): Modifier = pointerInput(window, height) {
     var lastPress = 0L
     var lastAt = Offset.Zero
     awaitPointerEventScope {
@@ -191,6 +192,7 @@ private fun Modifier.windowDrag(window: Window, onToggleMaximize: () -> Unit): M
             if (press.type != PointerEventType.Press || !press.buttons.isPrimaryPressed) continue
             val change = press.changes.first()
             val at = change.position
+            if (change.isConsumed || at.y > height.toPx()) continue
             if (change.uptimeMillis - lastPress < viewConfiguration.doubleTapTimeoutMillis && (at - lastAt).getDistance() < viewConfiguration.touchSlop) {
                 lastPress = 0L
                 onToggleMaximize()
@@ -201,7 +203,7 @@ private fun Modifier.windowDrag(window: Window, onToggleMaximize: () -> Unit): M
             // Windows' own move loop eats the release, so this waits only until the drag is handed over.
             while (true) {
                 val event = awaitPointerEvent()
-                if (!event.buttons.isPrimaryPressed) break
+                if (!event.buttons.isPrimaryPressed || event.changes.first().isConsumed) break
                 if ((event.changes.first().position - at).getDistance() > viewConfiguration.touchSlop) {
                     lastPress = 0L
                     WindowsFrame.beginDrag(window, WindowsFrame.HT_CAPTION)
@@ -254,7 +256,7 @@ internal fun WindowControls(
     val scheme = MaterialTheme.colorScheme
     val shade = glassColors().shade
     Row(
-        modifier.skyClearing()
+        modifier
             .shadow(10.dp, PillShape, ambientColor = shade, spotColor = shade)
             .clip(PillShape)
             // The navigation pill's own fill and hairline, so the two read as a pair.

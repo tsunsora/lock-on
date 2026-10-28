@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.sp
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.Gold
-import app.lockon.ui.components.Sparkle
 import app.lockon.ui.components.ProgressGauge
 import app.lockon.ui.components.GlassPanel
 import app.lockon.ui.components.glass
@@ -145,11 +144,7 @@ fun DeckExportDialog(
     val scheme = MaterialTheme.colorScheme
 
     val title = @Composable {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Sparkle(size = 16.dp)
-            Spacer(Modifier.width(10.dp))
-            Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
+        Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
     val tabs = @Composable { PillTabs(listOf("List", "Image", "Print sheet"), tab, { tab = it }, fill = true) }
     // What each format is for, so the choice is easy.
@@ -398,7 +393,6 @@ private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Rul
                 LockOnMark(size = 18.dp, reticleColor = scheme.onSurface)
                 Spacer(Modifier.width(6.dp))
                 Text("Built with Lock On", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-                Sparkle(Modifier.padding(start = 6.dp), size = 10.dp, color = Gold)
             }
         }
     }

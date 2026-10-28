@@ -485,7 +485,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (actions != null) {
-                    Column(Modifier.padding(top = 4.dp).fillMaxWidth().glass(LockOnShapes.tile, clearing = false)) {
+                    Column(Modifier.padding(top = 4.dp).fillMaxWidth().glass(LockOnShapes.tile)) {
                         PanelTitle("In this deck")
                         Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)) { actions() }
                     }

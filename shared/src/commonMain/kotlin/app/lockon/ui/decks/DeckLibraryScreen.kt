@@ -664,7 +664,7 @@ private fun DeckRow(
                 }
             }
         }
-        Box(Modifier.matchParentSize().glassFrame(clearing = false))
+        Box(Modifier.matchParentSize().glassFrame())
     }
 }
 

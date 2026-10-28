@@ -8,6 +8,9 @@ import app.lockon.sync.LocalIdentity
 import app.lockon.sync.PairRequest
 import app.lockon.sync.PairedDevice
 import app.lockon.sync.PushRequest
+import app.lockon.sync.ShareAnswer
+import app.lockon.sync.ShareInbox
+import app.lockon.sync.ShareOffer
 import app.lockon.sync.SyncHost
 import app.lockon.sync.SyncProtocol
 import io.ktor.http.HttpStatusCode
@@ -39,6 +42,9 @@ fun Application.lockOnSync(
     identity: LocalIdentity,
     live: LiveClients = LiveClients(),
     maxWaitMs: Long = SyncProtocol.MAX_WAIT_SECONDS * 1000L,
+    /** Decks phones send here, and decks this desktop sends them. Null leaves sending off. */
+    inbox: ShareInbox? = null,
+    outbox: ShareOutbox? = null,
 ) {
     install(ContentNegotiation) { json(SyncProtocol.json) }
 
@@ -46,6 +52,12 @@ fun Application.lockOnSync(
         val token = request.headers["Authorization"]?.removePrefix("Bearer ")?.trim()
         if (token.isNullOrEmpty()) return null
         return devices.byTokenHash(sha256Hex(token.toByteArray()))?.takeIf { it.role == DeviceRole.CLIENT }
+    }
+
+    /** Decks meant for a paired phone go only to that phone; an unpaired one is known by its ID alone. */
+    suspend fun ApplicationCall.mayActAs(deviceId: String): Boolean {
+        val paired = devices.device(deviceId)?.takeIf { it.role == DeviceRole.CLIENT } ?: return true
+        return client()?.deviceId == paired.deviceId
     }
 
     suspend fun ApplicationCall.unauthorized() =
@@ -65,7 +77,36 @@ fun Application.lockOnSync(
 
     routing {
         get("/v1/hello") {
-            call.respond(HelloResponse(deviceId = identity.deviceId, deviceName = identity.deviceName))
+            call.respond(HelloResponse(deviceId = identity.deviceId, deviceName = identity.deviceName, receivesDecks = inbox != null))
+        }
+        if (inbox != null && outbox != null) {
+            // A phone sending decks: held open while someone here accepts or declines.
+            post("/v1/share") {
+                call.guard {
+                    val length = call.request.headers["Content-Length"]?.toLongOrNull() ?: 0
+                    if (length > MAX_SHARE_BYTES) {
+                        call.respond(HttpStatusCode.PayloadTooLarge, ErrorResponse("Those decks are too large to send at once."))
+                        return@guard
+                    }
+                    call.respond(inbox.receive(call.receive<ShareOffer>()))
+                }
+            }
+            // A phone with Lock On open holds this so the desktop can send it decks.
+            get("/v1/shares") {
+                val device = call.request.queryParameters["device"]?.takeIf { it.isNotBlank() }
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing device."))
+                if (!call.mayActAs(device)) return@get call.unauthorized()
+                val offer = outbox.await(device, maxWaitMs)
+                if (offer == null) call.respond(HttpStatusCode.NoContent) else call.respond(offer)
+            }
+            post("/v1/shares/answer") {
+                call.guard {
+                    val answer = call.receive<ShareAnswer>()
+                    if (!call.mayActAs(answer.deviceId)) return@guard call.unauthorized()
+                    if (outbox.answer(answer)) call.respond(HttpStatusCode.NoContent)
+                    else call.respond(HttpStatusCode.NotFound, ErrorResponse("The desktop stopped sending those decks."))
+                }
+            }
         }
         // A phone with Lock On open holds this while it's nearby, so the desktop can invite it.
         get("/v1/invites") {
@@ -116,6 +157,9 @@ fun Application.lockOnSync(
         }
     }
 }
+
+/** Far more than [ShareInbox.MAX_DECKS] full decks; anything bigger isn't a deck send. */
+private const val MAX_SHARE_BYTES = 4L * 1024 * 1024
 
 /** Phones currently holding a wait request open, which means auto-sync is live for them. */
 class LiveClients {

@@ -35,7 +35,7 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // The level curve and the counts by type, Burst and Blocker, as the game shows them.
         if (deck.entries.isNotEmpty()) {
-            DeckGlance(stats, Modifier.glass(LockOnShapes.tile, strong = true, clearing = false)
+            DeckGlance(stats, Modifier.glass(LockOnShapes.tile, strong = true)
                 .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp))
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

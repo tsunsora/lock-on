@@ -85,6 +85,46 @@ suspend fun requestPairing(client: HttpClient, baseUrl: String, request: PairReq
     else throw SyncException(response.errorMessage())
 }
 
+/** Offers decks to a desktop and waits while its owner accepts or declines. */
+suspend fun sendDecks(client: HttpClient, baseUrl: String, offer: ShareOffer): ShareResponse {
+    val hello: HelloResponse = client.get("$baseUrl/v1/hello").read()
+    if (!hello.receivesDecks) throw SyncException("Update Lock On on ${hello.deviceName} to send it decks.")
+    val response = client.post("$baseUrl/v1/share") {
+        json(offer)
+        timeout { requestTimeoutMillis = 130_000 }
+    }
+    return if (response.status.isSuccess()) response.body() else throw SyncException(response.errorMessage())
+}
+
+/** True when the desktop at [baseUrl] can send decks to phones, so it's worth waiting on [awaitShare]. */
+suspend fun sendsDecks(client: HttpClient, baseUrl: String): Boolean =
+    client.get("$baseUrl/v1/hello").read<HelloResponse>().receivesDecks
+
+/**
+ * Waits up to [SyncProtocol.MAX_WAIT_SECONDS] for the desktop to send this phone decks. A paired
+ * phone passes its [authToken], since the desktop gives decks meant for a paired phone only to it.
+ */
+suspend fun awaitShare(client: HttpClient, baseUrl: String, deviceId: String, authToken: String?): ShareOffer? {
+    val response = client.get("$baseUrl/v1/shares") {
+        parameter("device", deviceId)
+        authToken?.let { bearerAuth(it) }
+        timeout { requestTimeoutMillis = (SyncProtocol.MAX_WAIT_SECONDS + 10) * 1000L }
+    }
+    return when {
+        response.status.value == 200 -> response.body()
+        response.status.isSuccess() -> null
+        else -> throw SyncException(response.errorMessage())
+    }
+}
+
+/** Tells the desktop what happened to the decks it sent. */
+suspend fun answerShare(client: HttpClient, baseUrl: String, answer: ShareAnswer, authToken: String?) {
+    client.post("$baseUrl/v1/shares/answer") {
+        authToken?.let { bearerAuth(it) }
+        json(answer)
+    }.let { if (!it.status.isSuccess()) throw SyncException(it.errorMessage()) }
+}
+
 private inline fun <reified T> HttpRequestBuilder.json(body: T) {
     contentType(ContentType.Application.Json)
     setBody(body)

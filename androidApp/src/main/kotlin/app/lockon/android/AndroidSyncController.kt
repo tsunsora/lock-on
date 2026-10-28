@@ -36,6 +36,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.map
+import app.lockon.sync.DeckSharing
+import app.lockon.sync.IncomingShare
+import app.lockon.sync.OutgoingShare
+import app.lockon.sync.ShareAnswer
+import app.lockon.sync.ShareInbox
+import app.lockon.sync.ShareOffer
+import app.lockon.sync.answerShare
+import app.lockon.sync.awaitShare
+import app.lockon.sync.sendDecks
+import app.lockon.sync.sendsDecks
+import app.lockon.sync.toOutgoing
 
 /** The phone connects to a paired desktop. It starts every pairing and sync; the desktop only answers. */
 class AndroidSyncController(
@@ -51,6 +63,12 @@ class AndroidSyncController(
     private val _nearby = MutableStateFlow<Map<String, NearbyDevice>>(emptyMap())
     private val _incomingInvite = MutableStateFlow<IncomingInvite?>(null)
     private val inviteWatchers = mutableMapOf<String, Job>()
+    /** Every desktop seen on the network, paired or not, by service name. Decks can go to any of them. */
+    private val _desktops = MutableStateFlow<Map<String, NearbyDevice>>(emptyMap())
+    private val shareWatchers = mutableMapOf<String, Job>()
+    private val inbox = ShareInbox(container.decks)
+    private val _outgoing = MutableStateFlow<Map<String, OutgoingShare>>(emptyMap())
+    private val sendJobs = mutableMapOf<String, Job>()
     private val busy = Mutex()
     private var foregroundJob: Job? = null
     /** One pinned client per desktop for held-open wait requests, closed when the app leaves the foreground. */
@@ -69,7 +87,11 @@ class AndroidSyncController(
     private val discovery = NsdDiscovery(
         context,
         onFound = { service, device -> if (device.isDesktop) scope.launch { onDesktopFound(service, device) } },
-        onLost = { service -> _nearby.update { it - service } },
+        onLost = { service ->
+            _nearby.update { it - service }
+            _desktops.value[service]?.let { gone -> synchronized(shareWatchers) { shareWatchers.remove(gone.deviceId)?.cancel() } }
+            _desktops.update { it - service }
+        },
     )
 
     init {
@@ -137,6 +159,86 @@ class AndroidSyncController(
         inviteWatchers.clear()
     }
 
+    override val sharing: DeckSharing = object : DeckSharing {
+        override val targets: StateFlow<List<NearbyDevice>> = _desktops
+            .map { found -> found.values.distinctBy { it.deviceId }.sortedBy { it.name } }
+            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+        override val outgoing: StateFlow<Map<String, OutgoingShare>> = _outgoing.asStateFlow()
+        override val incoming: StateFlow<IncomingShare?> = inbox.prompt
+
+        override fun send(device: NearbyDevice, deckIds: List<String>) {
+            _outgoing.update { it + (device.deviceId to OutgoingShare(device.name, deckIds.size, OutgoingShare.State.WAITING)) }
+            val job = scope.launch {
+                val result = try {
+                    val decks = deckIds.mapNotNull { container.decks.currentSnapshot(it) }.filterNot { it.deleted }.map(ShareInbox::asCopy)
+                    val offer = ShareOffer(Uuid.random().toString(), container.identity.deviceId, container.identity.deviceName, decks = decks)
+                    clientFor(device).use { sendDecks(it, baseUrl(device.host, device.port), offer) }.toOutgoing(device.name, decks.size)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    OutgoingShare(device.name, deckIds.size, OutgoingShare.State.FAILED, friendly(e))
+                }
+                _outgoing.update { it + (device.deviceId to result) }
+            }
+            synchronized(sendJobs) { sendJobs.put(device.deviceId, job)?.cancel() }
+        }
+
+        override fun cancelSend(deviceId: String) {
+            synchronized(sendJobs) { sendJobs.remove(deviceId)?.cancel() }
+            _outgoing.update { it - deviceId }
+        }
+
+        override fun answer(shareId: String, accept: Boolean) = inbox.answer(shareId, accept)
+    }
+
+    /** A paired desktop is reached with the certificate pinned at pairing; others with the one they announce. */
+    private suspend fun clientFor(desktop: NearbyDevice): HttpClient =
+        pinnedHttpClient(container.devices.device(desktop.deviceId)?.certFingerprint ?: desktop.fingerprint)
+
+    /**
+     * Keeps one held-open request per nearby desktop so it can send this phone decks. Asks first,
+     * then tells the desktop what happened. Stops for desktops too old to send decks.
+     */
+    private fun watchShares(desktop: NearbyDevice) {
+        synchronized(shareWatchers) {
+            if (shareWatchers[desktop.deviceId]?.isActive == true) return
+            shareWatchers[desktop.deviceId] = scope.launch {
+                val url = baseUrl(desktop.host, desktop.port)
+                var checked = false
+                var backoff = 2_000L
+                while (true) {
+                    try {
+                        val token = secrets.get(tokenKey(desktop.deviceId))?.takeIf { container.devices.device(desktop.deviceId) != null }
+                        val offer = clientFor(desktop).use { client ->
+                            if (!checked) {
+                                if (!sendsDecks(client, url)) return@launch
+                                checked = true
+                            }
+                            awaitShare(client, url, container.identity.deviceId, token)
+                        }
+                        backoff = 2_000L
+                        if (offer == null || offer.senderId != desktop.deviceId) continue
+                        val response = inbox.receive(offer)
+                        clientFor(desktop).use { answerShare(it, url, ShareAnswer(offer.shareId, container.identity.deviceId, response), token) }
+                        if (response.accepted) {
+                            _status.value = SyncStatus(message = "Saved ${if (response.saved == 1) "1 deck" else "${response.saved} decks"} from ${desktop.name}.")
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        delay(backoff)
+                        backoff = (backoff * 2).coerceAtMost(60_000L)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopWatchingShares() = synchronized(shareWatchers) {
+        shareWatchers.values.forEach { it.cancel() }
+        shareWatchers.clear()
+    }
+
     override fun setAutoSync(enabled: Boolean) {
         _autoSync.value = enabled
         scope.launch { container.devices.setAutoSync(enabled) }
@@ -154,6 +256,8 @@ class AndroidSyncController(
         } else {
             discovery.stop()
             stopWatchingInvites()
+            stopWatchingShares()
+            _desktops.value = emptyMap()
             _incomingInvite.value = null
             foregroundJob?.cancel()
             foregroundJob = null
@@ -163,6 +267,8 @@ class AndroidSyncController(
     }
 
     private suspend fun onDesktopFound(service: String, desktop: NearbyDevice) {
+        _desktops.update { it + (service to desktop) }
+        watchShares(desktop)
         val paired = container.devices.device(desktop.deviceId)
         if (paired == null) {
             _nearby.update { it + (service to desktop) }

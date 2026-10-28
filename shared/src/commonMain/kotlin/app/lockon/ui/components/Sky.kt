@@ -39,7 +39,7 @@ private val TwilightGlows = listOf(
 
 /**
  * The sky's gradient, glows and diagonal beam of light as opaque 0xAARRGGBB pixels, row by row.
- * Bokeh discs, stars and sparkles are crisp shapes and stay with the drawing code.
+ * The day's bokeh discs are crisp shapes and stay with the drawing code.
  */
 internal fun paintSky(width: Int, height: Int, twilight: Boolean): IntArray {
     val w = width.toFloat()

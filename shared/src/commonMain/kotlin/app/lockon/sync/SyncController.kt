@@ -8,6 +8,8 @@ sealed interface SyncController {
     val pairedDevices: Flow<List<PairedDevice>>
     val status: StateFlow<SyncStatus>
     fun forget(deviceId: String)
+    /** Sending copies of decks to nearby devices; null where this device can't. */
+    val sharing: DeckSharing? get() = null
 }
 
 data class SyncStatus(val working: Boolean = false, val message: String? = null, val isError: Boolean = false)

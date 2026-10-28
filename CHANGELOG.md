@@ -34,6 +34,7 @@ First release for Android and Windows.
 - Phones find desktops on the same network and can pair with just the code.
 - While both apps are open, changes sync automatically within seconds, and the phone follows a desktop that changes address.
 - Edits made on two devices before they sync are kept side by side for you to choose from. Deletions never come back.
+- **Send decks**, LocalSend-style: choose decks under Sync, then tap any nearby device to send them, paired or not. It works between a phone and a computer in either direction. The other device asks before saving, and accepted decks arrive as new copies.
 
 **Look and feel**
 - Motion throughout:

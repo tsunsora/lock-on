@@ -113,6 +113,11 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - always shows a preview before installing: an update or a replacement, warnings, and any cards your decks use that the new catalog lacks. **Update** / **Replace catalog** confirms, since this can't be undone (C2).
 
 ### Sync (top level)
+- **Send decks** (both devices, first after the status line), LocalSend-style:
+  - **Choose decks** opens a checklist of decks. The chosen names show on the card, with **Change**.
+  - Every Lock On device nearby is listed, paired or not (phones on a computer, computers on a phone), each with **Send**.
+  - While the other device decides, the row reads *Waiting for Pixel to accept…* with **Cancel**. Then it reads *Pixel saved 2 decks.*, *Pixel declined.*, or why it failed.
+  - The receiver sees *"Desk wants to send you 2 decks"*, listing each deck and its main deck count, with **Accept** or **Decline**. Accepted decks are added as new decks with their cards, notes, tags and cover. Folders and match logs stay with the sender.
 - **Desktop:**
   - **Nearby phones:** every phone with Lock On open on the network, each with **Connect** (an invitation the phone accepts) or *Waiting for the phone… Cancel*. Paired phones are marked.
   - **Other ways to connect:** the QR code, address, port, pairing code and code expiry, shown by default only until a phone is paired
@@ -162,8 +167,13 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 4. **Edited on both devices:**
    1. The deck tile shows **Needs review**.
    2. Open **Compare versions** → **Keep this version** → back in the editor.
-5. **Remove a deck by mistake:** Delete → **Undo** in the snackbar.
-6. **Build a side deck:**
+5. **Give a friend a deck:**
+   1. Both open Lock On on the same Wi-Fi and go to **Sync**.
+   2. **Choose decks**, tick the decks, **Done**.
+   3. Tap **Send** beside the friend's device. No pairing needed.
+   4. The friend taps **Accept**, and the decks appear in their library as new decks.
+6. **Remove a deck by mistake:** Delete → **Undo** in the snackbar.
+7. **Build a side deck:**
    1. Set the card list to **Add to: Side deck**, then + or drag cards in. Or open a card → side deck +, or **Move 1 to side deck** if it's already in the deck.
    2. It waits under Side deck without affecting legality.
    3. **To deck** brings a copy into the deck.

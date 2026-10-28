@@ -33,6 +33,9 @@ import app.lockon.sync.HostSyncController
 import app.lockon.sync.PairedDevice
 import app.lockon.sync.PairingPrompt
 import app.lockon.sync.SyncStatus
+import app.lockon.sync.DeckSharing
+import app.lockon.sync.IncomingShare
+import app.lockon.sync.OutgoingShare
 import app.lockon.ui.AppState
 import app.lockon.ui.LockOnApp
 import app.lockon.ui.Screen
@@ -95,6 +98,7 @@ class ScreenshotTest {
         override fun invite(device: app.lockon.sync.NearbyDevice) = Unit
         override fun cancelInvite(deviceId: String) = Unit
         override fun forget(deviceId: String) = Unit
+        override val sharing = FakeSharing(nearby.value, mapOf("phone-2" to OutgoingShare("Pixel 9", 2, OutgoingShare.State.WAITING)))
     }
 
     /** A phone's view: one paired desktop live, another desktop nearby and unpaired. */
@@ -116,6 +120,19 @@ class ScreenshotTest {
         override fun pair(invite: PairingInvite) = Unit
         override fun syncNow(deviceId: String) = Unit
         override fun forget(deviceId: String) = Unit
+        override val sharing = FakeSharing(
+            listOf(NearbyDevice("desk-1", "DESKTOP-VPP8OD2", "192.168.1.20", 53340, null, true)) + nearby.value,
+            mapOf("desk-1" to OutgoingShare("DESKTOP-VPP8OD2", 2, OutgoingShare.State.SAVED, "DESKTOP-VPP8OD2 saved 2 decks.")),
+        )
+    }
+
+    class FakeSharing(targets: List<NearbyDevice>, outgoing: Map<String, OutgoingShare>) : DeckSharing {
+        override val targets = MutableStateFlow(targets)
+        override val outgoing = MutableStateFlow(outgoing)
+        override val incoming = MutableStateFlow<IncomingShare?>(null)
+        override fun send(device: NearbyDevice, deckIds: List<String>) = Unit
+        override fun cancelSend(deviceId: String) = Unit
+        override fun answer(shareId: String, accept: Boolean) = Unit
     }
 
     private val files = object : FileBridge {
@@ -126,7 +143,7 @@ class ScreenshotTest {
 
     /** The desktop title bar as the app draws it, with no window to move. */
     private val chrome = app.lockon.ui.WindowChrome(
-        dragArea = { androidx.compose.foundation.layout.Box(it) },
+        dragArea = { this },
         controls = { WindowControls(maximized = false, onMinimize = {}, onToggleMaximize = {}, onClose = {}) },
     )
 
@@ -169,6 +186,12 @@ class ScreenshotTest {
         sync.status.value = SyncStatus(message = "Could not reach the desktop. Check that Lock On is open on it.", isError = true)
         shoot("phone-sync-error", 600, 1260) { select(Tab.SYNC) }
         shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SYNC) }
+        client.sharing.incoming.value = IncomingShare("s-1", "DESKTOP-VPP8OD2", listOf(
+            DeckSnapshot(name = "Wing Control", entries = listOf(DeckEntry("SMP-003", 4))),
+            DeckSnapshot(name = "Green test", entries = listOf(DeckEntry("SMP-015", 3))),
+        ))
+        shoot("phone-receive-decks", 600, 1260, controller = client) { select(Tab.SYNC) }
+        client.sharing.incoming.value = null
         sync.status.value = SyncStatus(message = "Ready for phones on port 53340.")
         // The Catalog dialog, drawn on its own because it opens from a button.
         ImageComposeScene(600, 1260, Density(1.5f)) {
