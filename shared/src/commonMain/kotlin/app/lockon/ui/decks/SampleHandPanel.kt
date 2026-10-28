@@ -1,4 +1,6 @@
 package app.lockon.ui.decks
+import androidx.compose.ui.Alignment
+import app.lockon.ui.components.VerticalScrollBar
 import app.lockon.ui.components.LocalNavClearance
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -70,7 +72,8 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     // Up to 132 dp a card, but always three across, so a phone shows the whole 5-card hand.
     val handWidth = minOf(132.dp, (maxWidth - 32.dp - 16.dp) / 3)
     val shieldWidth = minOf(100.dp, (maxWidth - 32.dp - 16.dp) / 3)
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val scroll = rememberScrollState()
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader("Hand", readout = "${game.hand.size}")
         Text(
             when {
@@ -107,6 +110,7 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
             }
         }
     }
+    VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
     }
     // Actions stay pinned in the thumb zone instead of scrolling away under the cards (UX rule R3).
     HorizontalDivider()

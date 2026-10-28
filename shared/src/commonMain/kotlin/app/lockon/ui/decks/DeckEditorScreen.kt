@@ -58,7 +58,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -163,6 +162,15 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.withFrameNanos
 import app.lockon.platform.resizeHorizontalPointer
+import app.lockon.ui.components.VerticalScrollBar
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.PointerIcon
 
 private const val AUTOSAVE_DELAY_MS = 400L
 
@@ -349,8 +357,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         var deckTab by rememberSaveable(deckId) { mutableStateOf(0) }
         var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
         // Kept for every deck, so the editor opens the way the person last arranged it.
-        var split by remember { mutableStateOf(DEFAULT_SPLIT) }
-        LaunchedEffect(Unit) { container.database.metaDao().get(KEY_EDITOR_SPLIT)?.toFloatOrNull()?.let { split = it } }
+        val split = remember { mutableFloatStateOf(DEFAULT_SPLIT) }
+        LaunchedEffect(Unit) { container.database.metaDao().get(KEY_EDITOR_SPLIT)?.toFloatOrNull()?.let { split.floatValue = it } }
         val deckList: @Composable (Modifier) -> Unit = { modifier ->
             DeckList(
                 deck, cards, ruleset, legality, modifier, compact = wide,
@@ -466,28 +474,30 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 if (usable <= MIN_CARDS_WIDTH + MIN_DECK_WIDTH) return f
                 return f.coerceIn(MIN_CARDS_WIDTH / usable, 1f - MIN_DECK_WIDTH / usable)
             }
-            val cardsWidth = usable * clampSplit(split)
-            // While dragging, only a guide line follows the pointer; the panels resize once on release,
-            // since relaying out both card grids on every pixel makes the drag stutter.
-            val guideX = remember { mutableFloatStateOf(Float.NaN) }
-            Row(Modifier.fillMaxSize()) {
-                Panel(Modifier.width(cardsWidth).fillMaxHeight()) { if (stage >= 2) search(Modifier.fillMaxSize()) }
+            // Both areas follow the pointer while the divider is dragged. The split is read only when
+            // the card list is measured, so a drag relays out the two areas and recomposes neither.
+            // The pointer keeps the resize arrows over the whole editor until it lets go.
+            var resizing by remember { mutableStateOf(false) }
+            // Where the pointer has taken the divider, which may be past where the areas stop it.
+            val pointerX = remember { mutableFloatStateOf(0f) }
+            fun saveSplit() = state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.floatValue.toString())) }
+            Row(Modifier.fillMaxSize().pointerHoverIcon(if (resizing) resizeHorizontalPointer else PointerIcon.Default, overrideDescendants = resizing)) {
+                Panel(
+                    Modifier.fillMaxHeight().layout { measurable, constraints ->
+                        val width = (usable * clampSplit(split.floatValue)).roundToPx()
+                        val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                        layout(width, placeable.height) { placeable.place(0, 0) }
+                    },
+                ) { if (stage >= 2) search(Modifier.fillMaxSize()) }
                 SplitHandle(
-                    onDragStart = { guideX.floatValue = with(density) { cardsWidth.toPx() } },
+                    onDragStart = { resizing = true; pointerX.floatValue = with(density) { (usable * clampSplit(split.floatValue)).toPx() } },
                     onDrag = { dx ->
-                        val (lo, hi) = with(density) { (usable * clampSplit(0f)).toPx() to (usable * clampSplit(1f)).toPx() }
-                        guideX.floatValue = (guideX.floatValue + dx).coerceIn(lo, hi)
+                        pointerX.floatValue += dx
+                        val usablePx = with(density) { usable.toPx() }
+                        if (usablePx > 0f) split.floatValue = clampSplit(pointerX.floatValue / usablePx)
                     },
-                    onDragEnd = {
-                        val x = guideX.floatValue
-                        guideX.floatValue = Float.NaN
-                        if (!x.isNaN() && usable > 0.dp) split = clampSplit(with(density) { x.toDp() } / usable)
-                        state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.toString())) }
-                    },
-                    onReset = {
-                        split = DEFAULT_SPLIT
-                        state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.toString())) }
-                    },
+                    onDragEnd = { resizing = false; saveSplit() },
+                    onReset = { split.floatValue = DEFAULT_SPLIT; saveSplit() },
                 )
                 // The deck panel takes dropped cards, and its rim lights up while one is held over it.
                 val dropRim = when {
@@ -509,7 +519,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                 }
             }
-            SplitGuide(guideX)
             }
             CardDragGhost(cardDrag, Modifier.matchParentSize())
             }
@@ -612,9 +621,10 @@ private fun DeckList(
     }
     var cardView by rememberSaveable { mutableStateOf(true) }
     val gap = if (compact) 8.dp else 6.dp
+    val listState = rememberLazyListState()
     BoxWithConstraints(modifier) {
     val columns = ((maxWidth - 16.dp + gap) / ((if (compact) 104.dp else 120.dp) + gap)).toInt().coerceAtLeast(2)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (deck.entries.isNotEmpty()) {
             // Whether the deck is legal and its level curve ride at the top of the list; the curve opens
@@ -737,6 +747,7 @@ private fun DeckList(
             }
         }
     }
+    VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
     }
 }
 
@@ -853,7 +864,10 @@ private fun MiniCurve(curve: List<Pair<Int, Int>>, onOpen: () -> Unit) {
  * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3): Deck, Add,
  * Analysis and Test, with Matches and Versions under More so the bar keeps to five items.
  */
-/** The divider between the card list and the deck: drag to resize, double-click to reset. */
+/**
+ * The divider between the card list and the deck: drag to resize, double-click to reset. A pill grip
+ * sits in the gap, and lights up in the accent with a soft glow while hovered or dragged.
+ */
 @Composable
 private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDragEnd: () -> Unit, onReset: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
@@ -864,10 +878,14 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
     val end by rememberUpdatedState(onDragEnd)
     val reset by rememberUpdatedState(onReset)
     val scheme = MaterialTheme.colorScheme
+    val active = dragging || hovered
+    val grip by animateColorAsState(if (active) scheme.primary else scheme.onSurfaceVariant.copy(alpha = 0.3f), tween(140))
+    val glow by animateFloatAsState(if (active) 1f else 0f, tween(140))
     Box(
         Modifier.width(SPLIT_HANDLE).fillMaxHeight()
             .hoverable(interaction)
             .pointerHoverIcon(resizeHorizontalPointer)
+            .semantics { contentDescription = "Resize the card list and the deck" }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { dragging = true; start() },
@@ -878,30 +896,16 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
             .pointerInput(Unit) { detectTapGestures(onDoubleTap = { reset() }) },
         contentAlignment = Alignment.Center,
     ) {
-        val grip = when {
-            dragging -> scheme.primary
-            hovered -> scheme.primary.copy(alpha = 0.6f)
-            else -> scheme.onSurfaceVariant.copy(alpha = 0.25f)
-        }
-        Box(Modifier.width(4.dp).height(48.dp).clip(RoundedCornerShape(2.dp)).background(grip))
-    }
-}
-
-/** Where the divider will land, shown while it is dragged. Read only in layout, so moving it recomposes nothing. */
-@Composable
-private fun SplitGuide(x: FloatState) {
-    val scheme = MaterialTheme.colorScheme
-    Box(
-        Modifier.fillMaxHeight().width(SPLIT_HANDLE)
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                layout(placeable.width, placeable.height) {
-                    if (!x.floatValue.isNaN()) placeable.place(x.floatValue.roundToInt(), 0)
+        Box(
+            Modifier.width(4.dp).height(54.dp)
+                .drawBehind {
+                    if (glow > 0f) drawRoundRect(
+                        Brush.radialGradient(listOf(scheme.primary.copy(alpha = 0.35f * glow), Color.Transparent), radius = size.height * 0.75f),
+                        topLeft = Offset(-size.height / 2, -size.height / 4), size = Size(size.height + size.width, size.height * 1.5f),
+                    )
                 }
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(Modifier.width(4.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(scheme.primary.copy(alpha = 0.7f)))
+                .clip(RoundedCornerShape(2.dp)).background(grip),
+        )
     }
 }
 

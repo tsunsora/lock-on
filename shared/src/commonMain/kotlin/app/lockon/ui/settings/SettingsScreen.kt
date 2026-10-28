@@ -1,5 +1,6 @@
 package app.lockon.ui.settings
 
+import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -113,7 +114,8 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
         AppUpdateCard(container.updater, state.appScope)
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val scroll = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        val scrollState = rememberScrollState()
+        val scroll = Modifier.fillMaxSize().verticalScroll(scrollState)
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current)
         if (maxWidth >= 900.dp) {
             Row(scroll, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -123,6 +125,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
         } else {
             Column(scroll, verticalArrangement = Arrangement.spacedBy(14.dp)) { left(); right() }
         }
+        VerticalScrollBar(scrollState, Modifier.align(Alignment.TopEnd))
     }
 
     if (renaming) {

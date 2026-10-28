@@ -66,6 +66,7 @@ import app.lockon.ui.theme.cardColor
 import app.lockon.ui.theme.onCardColor
 import app.lockon.ui.components.ColorOrbToggle
 import app.lockon.ui.components.PillSearchField
+import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.layout.width
 
 enum class CardSort(val label: String, val comparator: Comparator<Card>) {
@@ -240,9 +241,9 @@ fun CardSearchPanel(
             }
         }
         HorizontalDivider(Modifier.padding(top = 4.dp))
-        when {
-            results.isEmpty() -> EmptyState("No cards match", "Try fewer filters or a shorter search.")
-            grid -> LazyVerticalGrid(
+        if (results.isEmpty()) EmptyState("No cards match", "Try fewer filters or a shorter search.")
+        else Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (grid) LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(if (wide) 136.dp else 104.dp),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 20.dp + LocalNavClearance.current),
@@ -263,7 +264,7 @@ fun CardSearchPanel(
                     )
                 }
             }
-            else -> LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(bottom = LocalNavClearance.current)) {
+            else LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(bottom = LocalNavClearance.current)) {
                 items(listed, key = { it.cardNumber }) { card ->
                     CardRow(card, Modifier.animateItem().cardDragSource(card, controls?.drag), onClick = { onCardClick(card) }, trailing = {
                         if (controls != null) {
@@ -275,6 +276,8 @@ fun CardSearchPanel(
                     })
                 }
             }
+            if (grid) VerticalScrollBar(gridState, Modifier.align(Alignment.TopEnd))
+            else VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
         }
     }
 }

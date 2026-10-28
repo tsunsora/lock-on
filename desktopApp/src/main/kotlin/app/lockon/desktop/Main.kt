@@ -94,6 +94,7 @@ fun main() {
             }
             System.getProperty("lockon.scrollProbe")?.let { ScrollProbe(window, state, File(it), exit) }
             System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
+            System.getProperty("lockon.dividerProbe")?.let { DividerProbe(window, container, state, File(it), exit) }
         }
     }
     sync.stop()
