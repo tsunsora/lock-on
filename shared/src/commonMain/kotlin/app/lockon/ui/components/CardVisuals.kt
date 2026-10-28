@@ -417,6 +417,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
     var shown by remember(card.cardNumber) { mutableStateOf<String?>(null) }
     BoxWithConstraints(modifier) {
         val sideBySide = maxWidth >= 640.dp
+        val roomy = maxWidth >= 380.dp
         val imageWidth = (maxWidth * 0.4f).coerceIn(240.dp, 360.dp)
         // The card sits in a pool of its own colour, like a card raised for inspection.
         val pool = cardColor(card.colors.firstOrNull())
@@ -504,7 +505,10 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
         } else {
             // Stacked, the card text comes before the printings so it isn't pushed off screen.
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                image(Modifier.fillMaxWidth(0.82f).align(Alignment.CenterHorizontally))
+                // In a desktop side panel a full-width card pushes its effect text out of view, so it
+                // stays a readable size there; phones' dialogs keep the big card.
+                image(Modifier.fillMaxWidth(0.82f).then(if (roomy) Modifier.widthIn(max = 280.dp) else Modifier)
+                    .align(Alignment.CenterHorizontally))
                 info(Modifier.fillMaxWidth())
                 printingStrip()
             }

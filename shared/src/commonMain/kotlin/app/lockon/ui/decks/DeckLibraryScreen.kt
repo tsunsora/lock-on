@@ -78,7 +78,7 @@ import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.model.DeckSummary
 import app.lockon.platform.FileBridge
-import app.lockon.platform.formatTimestamp
+import app.lockon.platform.formatDate
 import app.lockon.rules.DeckValidator
 import app.lockon.rules.MatchStats
 import app.lockon.ui.AppState
@@ -641,7 +641,7 @@ private fun DeckRow(
                             deck.snapshot.folder?.takeIf { showFolder },
                             deck.snapshot.tags.joinToString(" · ").ifBlank { null },
                             // Beside a record the edit time no longer fits, and would end the line in "·…".
-                            "Edited ${formatTimestamp(deck.updatedAt)}".takeIf { record.winRate == null },
+                            "Edited ${formatDate(deck.updatedAt)}".takeIf { record.winRate == null },
                         // Narrow boxes show one detail beside the record, so nothing is cut mid-word.
                         ).let { if (narrow) it.take(1) else it }.joinToString("  ·  "),
                         style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
@@ -652,7 +652,8 @@ private fun DeckRow(
             Box {
                 IconButton(
                     onClick = { menu = true },
-                    modifier = Modifier.padding(end = 8.dp).clip(LockOnShapes.button).background(base.copy(alpha = 0.85f)),
+                    // A light plate keeps the icon readable over cover art without outweighing the deck's name.
+                    modifier = Modifier.padding(end = 8.dp).clip(LockOnShapes.button).background(base.copy(alpha = 0.45f)),
                 ) { Icon(Icons.Default.MoreVert, contentDescription = "Deck actions", tint = scheme.onSurface) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })

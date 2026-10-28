@@ -232,6 +232,8 @@ private fun SendCard(sharing: DeckSharing, decks: List<DeckSummary>, paired: Set
     val outgoing by sharing.outgoing.collectAsState()
     var chosen by remember { mutableStateOf(emptyList<String>()) }
     var choosing by remember { mutableStateOf(false) }
+    // A device tapped before any decks were chosen: once they are, they go straight to it.
+    var sendTo by remember { mutableStateOf<NearbyDevice?>(null) }
     // Decks deleted since they were chosen drop out of the selection.
     val selected = chosen.mapNotNull { id -> decks.firstOrNull { it.deckId == id } }
 
@@ -281,7 +283,10 @@ private fun SendCard(sharing: DeckSharing, decks: List<DeckSummary>, paired: Set
                         ReticleSpinner(size = 18.dp)
                         GameButton("Cancel", onClick = { sharing.cancelSend(device.deviceId) }, style = GameButtonStyle.GHOST, compact = true)
                     } else {
-                        GameButton("Send", onClick = { sharing.send(device, selected.map { it.deckId }) }, enabled = selected.isNotEmpty())
+                        // Never greyed out: with nothing chosen yet, Send asks which decks first.
+                        GameButton("Send", onClick = {
+                            if (selected.isEmpty()) { sendTo = device; choosing = true } else sharing.send(device, selected.map { it.deckId })
+                        }, enabled = decks.isNotEmpty())
                     }
                 }
             }
@@ -289,7 +294,12 @@ private fun SendCard(sharing: DeckSharing, decks: List<DeckSummary>, paired: Set
     }
 
     if (choosing) {
-        ChooseDecksDialog(decks, chosen.toSet(), onDismiss = { choosing = false }, onDone = { chosen = it; choosing = false })
+        ChooseDecksDialog(decks, chosen.toSet(), onDismiss = { choosing = false; sendTo = null }, onDone = {
+            chosen = it
+            choosing = false
+            sendTo?.let { device -> if (it.isNotEmpty()) sharing.send(device, it) }
+            sendTo = null
+        })
     }
 }
 

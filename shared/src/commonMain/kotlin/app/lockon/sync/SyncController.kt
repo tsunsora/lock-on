@@ -14,6 +14,16 @@ sealed interface SyncController {
 
 data class SyncStatus(val working: Boolean = false, val message: String? = null, val isError: Boolean = false)
 
+/** How a finished sync reads on the Sync screen: in decks and words, not counters. */
+fun syncedMessage(deviceName: String, sent: Int, received: Int): String {
+    fun changes(n: Int) = if (n == 1) "1 change" else "$n changes"
+    val moved = listOfNotNull(
+        changes(sent).takeIf { sent > 0 }?.let { "sent $it" },
+        changes(received).takeIf { received > 0 }?.let { "got $it" },
+    )
+    return "Up to date with $deviceName" + (if (moved.isEmpty()) "." else ": ${moved.joinToString(", ")}.")
+}
+
 interface ClientSyncController : SyncController {
     val canScanQr: Boolean
     val autoSync: StateFlow<Boolean>
