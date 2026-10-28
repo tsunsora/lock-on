@@ -265,7 +265,7 @@ fun CardTile(
                     )
                     if (limit != null) CopyPips(count, limit, pip = 6.dp)
                 }
-                TileButton("+", "Add one ${card.name}", primary = true) {
+                TileButton("+", "Add one ${card.name}", primary = limit == null || count < limit) {
                     haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
                 }
             }
@@ -277,6 +277,8 @@ private val SmallPlate = RoundedCornerShape(percent = 50)
 
 /** A chamfered tile button: 32 dp to look at, 48 dp to hit. Plus glows V-fin yellow. */
 @Composable
+// "+" is teal only while another copy fits: in a full deck every card is at its limit, and thirty lit
+// buttons would say nothing. At the limit it turns plain, beside the gold pips that say why.
 private fun TileButton(symbol: String, description: String, primary: Boolean = false, enabled: Boolean = true, target: Dp = 48.dp, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
@@ -592,7 +594,7 @@ fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () ->
             }
             if (limit != null) CopyPips(quantity, limit, pip = 5.dp)
         }
-        TileButton("+", "Add one $name", primary = true) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
+        TileButton("+", "Add one $name", primary = limit == null || quantity < limit) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
     }
 }
 
@@ -641,7 +643,7 @@ fun DeckCard(
                 }
                 if (limit != null) CopyPips(quantity, limit, pip = 5.dp)
             }
-            TileButton("+", "Add one ${card.name}", primary = true, target = target) {
+            TileButton("+", "Add one ${card.name}", primary = limit == null || quantity < limit, target = target) {
                 haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
             }
         }

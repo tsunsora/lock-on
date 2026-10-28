@@ -1,4 +1,7 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LocalTopBand
+import app.lockon.ui.components.Accent
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import app.lockon.ui.components.GlassIconButton
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -726,7 +729,11 @@ private fun DeckList(
             ) {
                 if (card != null) {
                     // One tap per copy (UX rule S1): move one into the deck, or change the side deck's count.
-                    GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true)
+                    // On phones an arrow, so the card's name keeps its room; its label is still read out.
+                    if (LocalTopBand.current.height == 0.dp) IconButton(onClick = { onMoveToDeck(card) }) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move one ${card.name} to the deck", tint = Accent)
+                    }
+                    else GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true)
                     PlateStepper(entry.quantity, card.name, onMinus = { onSideChange(card, -1) }, onPlus = { onSideChange(card, 1) })
                 } else {
                     Text("×${entry.quantity}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 12.dp))
@@ -752,17 +759,16 @@ private fun DeckList(
 }
 
 /**
- * "Max" at the copy limit and "Off-color" when a card would add a third color (UX rule S3), and the
- * count in whichever of the deck and side deck the card list isn't adding to.
+ * "Off-color" when a card would add a third color (UX rule S3), and the
+ * count in whichever of the deck and side deck the card list isn't adding to. The copy limit has no
+ * badge: the gold pips and the plain "+" under the card say it.
  */
 @Composable
 private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Boolean, deckColors: Set<CardColor>, ruleset: Ruleset) {
     val c = MaterialTheme.colorScheme
-    val limit = ruleset.restricted[card.cardNumber] ?: if (card.type.isResource) ruleset.resourceMaxCopies else ruleset.maxCopies
     when {
         card.cardNumber in ruleset.banned -> Badge("Banned", c.errorContainer, c.onErrorContainer)
         addingToSide -> if (quantity > 0) Badge("Deck $quantity", c.secondaryContainer, c.onSecondaryContainer)
-        limit != null && quantity >= limit -> Badge("Max", c.primaryContainer, c.onPrimaryContainer)
         card.colors.isNotEmpty() && (deckColors + card.colors).size > ruleset.maxColors ->
             Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
         side > 0 -> Badge("Side $side", c.secondaryContainer, c.onSecondaryContainer)

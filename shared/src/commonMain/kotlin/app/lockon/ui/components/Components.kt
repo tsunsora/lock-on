@@ -242,10 +242,11 @@ fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = fal
 
 /**
  * A compact level curve for the top of the deck list: one lit column per level with its count,
- * like the curve a game deck builder keeps under the deck.
+ * like the curve a game deck builder keeps under the deck. With another [prefix] it draws any curve,
+ * such as the cost curve, in the same style.
  */
 @Composable
-fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true) {
+fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true, prefix: String = "Lv") {
     val scheme = MaterialTheme.colorScheme
     val max = bars.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
     Column(modifier.fillMaxWidth()) {
@@ -261,7 +262,7 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                             .background(Brush.verticalGradient(listOf(scheme.primary, scheme.primary.copy(alpha = 0.25f)))),
                     )
-                    Text("Lv$level", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                    Text("$prefix$level", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                 }
             }
         }
