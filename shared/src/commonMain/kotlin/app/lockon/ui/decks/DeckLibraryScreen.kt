@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.SpotlightGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.animation.animateColorAsState
@@ -286,7 +287,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                 )
                             }
                             val gridState = rememberLazyGridState()
-                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                            SpotlightGrid(Modifier.weight(1f).fillMaxWidth()) {
                             LazyVerticalGrid(
                                 state = gridState,
                                 columns = GridCells.Adaptive(460.dp),

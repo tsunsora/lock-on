@@ -127,6 +127,12 @@ import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.invalidatePlacement
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.runtime.State
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.node.GlobalPositionAwareModifierNode
+import androidx.compose.ui.node.requireDensity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -549,14 +555,39 @@ private data class HoverLiftElement(
     override fun update(node: HoverLiftNode) = node.update(interaction, glow, shape, lift, resting)
 }
 
-private class HoverLiftNode(
+internal class HoverLiftNode(
     private var interaction: MutableInteractionSource,
     private var glow: Color,
     private var shape: Shape,
     private var lift: Dp,
     private var resting: Float,
-) : Modifier.Node(), LayoutModifierNode, PointerInputModifierNode, CompositionLocalConsumerModifierNode {
+) : Modifier.Node(), LayoutModifierNode, DrawModifierNode, PointerInputModifierNode, CompositionLocalConsumerModifierNode,
+    GlobalPositionAwareModifierNode {
     private val hover = Animatable(0f)
+    // Where the pointer is over the card, for the spotlight that follows it.
+    private var pointer = Offset.Unspecified
+    // Where the card sits in the window, to place a [SpotlightGrid]'s pointer on it.
+    private var origin = Offset.Zero
+    private var area = IntSize.Zero
+    private var grid: GridSpotlight? = null
+    // Read while drawing, so bumping it redraws this card. invalidateDraw from the grid's pointer
+    // handler doesn't reach a card drawn inside its own layer.
+    private var light by androidx.compose.runtime.mutableIntStateOf(0)
+
+    fun relight() { light++ }
+
+    override fun onGloballyPositioned(coordinates: LayoutCoordinates) { origin = coordinates.positionInRoot(); area = coordinates.size }
+
+    override fun onAttach() { grid = currentValueOf(LocalGridSpotlight)?.also { it.cards += this } }
+
+    /** Whether [point], in window coordinates, is close enough to light this card's rim. */
+    fun within(point: Offset): Boolean {
+        if (point == Offset.Unspecified || area == IntSize.Zero) return false
+        val reach = with(requireDensity()) { GridSpotlightReach.toPx() }
+        val dx = maxOf(origin.x - point.x, 0f, point.x - origin.x - area.width)
+        val dy = maxOf(origin.y - point.y, 0f, point.y - origin.y - area.height)
+        return dx * dx + dy * dy < reach * reach
+    }
     private val press = Animatable(1f)
     private var hovered = false
     private var watching: Job? = null
@@ -570,11 +601,35 @@ private class HoverLiftNode(
             PointerEventType.Enter -> setHovered(true)
             PointerEventType.Exit -> setHovered(false)
         }
+        pointerEvent.changes.firstOrNull()?.let { pointer = it.position; invalidateDraw() }
     }
 
     override fun onCancelPointerInput() = setHovered(false)
 
-    override fun onDetach() { watching = null; hovered = false }
+    // A soft light under the pointer and a brighter stretch of rim near it, so the card answers
+    // where the pointer is, not only that it arrived. Drawn over the content; it never moves anything.
+    override fun ContentDrawScope.draw() {
+        drawContent()
+        // In a [SpotlightGrid] the rims of every card near the pointer catch its light, not only the
+        // card under it, so the whole grid answers the pointer.
+        light
+        val grid = grid
+        val near = if (grid != null && within(grid.pointer)) grid.level?.value ?: 0f else 0f
+        if (near > 0f && grid != null) {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            drawOutline(outline, Brush.radialGradient(listOf(lighten(glow, 0.3f).copy(alpha = 0.7f * near), Color.Transparent),
+                grid.pointer - origin, GridSpotlightReach.toPx()), style = Stroke(1.5.dp.toPx()))
+        }
+        val t = hover.value
+        if (t <= 0f || pointer == Offset.Unspecified) return
+        val reach = size.maxDimension * 0.9f
+        val outline = shape.createOutline(size, layoutDirection, this)
+        drawOutline(outline, Brush.radialGradient(listOf(Color.White.copy(alpha = 0.16f * t), Color.Transparent), pointer, reach * 0.6f))
+        drawOutline(outline, Brush.radialGradient(listOf(lighten(glow, 0.3f).copy(alpha = 0.9f * t), Color.Transparent), pointer, reach),
+            style = Stroke(1.5.dp.toPx()))
+    }
+
+    override fun onDetach() { watching = null; hovered = false; pointer = Offset.Unspecified; grid?.cards?.remove(this); grid = null }
 
     // A lazy grid reuses this node for another card, which starts at rest.
     override fun onReset() {
@@ -627,6 +682,61 @@ private class HoverLiftNode(
             }
         }
     }
+}
+
+/** The pointer over a [SpotlightGrid], in window coordinates, and how strongly the grid is lit. */
+@Stable
+class GridSpotlight {
+    // A plain field, not state: a move redraws only the cards near the pointer, not the whole grid.
+    var pointer = Offset.Unspecified
+        private set
+    internal var level: State<Float>? = null
+    internal val cards = mutableSetOf<HoverLiftNode>()
+
+    internal fun moveTo(to: Offset) {
+        val from = pointer
+        pointer = to
+        for (card in cards) if (card.within(from) || card.within(to)) card.relight()
+    }
+}
+
+/** The grid of cards around this composable, if it is a [SpotlightGrid]. */
+val LocalGridSpotlight = compositionLocalOf<GridSpotlight?> { null }
+
+/** How far a [SpotlightGrid]'s light reaches across neighbouring cards' rims. */
+private val GridSpotlightReach = 140.dp
+
+/**
+ * A grid whose [hoverLift] cards share the pointer: as it moves, the rims of the cards around it
+ * light up, not only the one under it (after Hyperplexed's multi-card hover). The light fades in and
+ * out over half a second as the pointer enters and leaves; with reduced motion it switches at once.
+ */
+@Composable
+fun SpotlightGrid(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val spot = remember { GridSpotlight() }
+    var inside by remember { mutableStateOf(false) }
+    spot.level = animateFloatAsState(if (inside) 1f else 0f, if (LocalReduceMotion.current) snap() else tween(500), label = "grid-spotlight")
+    val origin = remember { floatArrayOf(0f, 0f) }
+    Box(
+        modifier
+            .onGloballyPositioned { val o = it.positionInRoot(); origin[0] = o.x; origin[1] = o.y }
+            .pointerInput(spot) {
+                awaitPointerEventScope {
+                    while (true) {
+                        // Seen on the way in, so the cards' own handlers still get every event.
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        when (event.type) {
+                            PointerEventType.Exit -> inside = false
+                            else -> {
+                                inside = true
+                                event.changes.firstOrNull()?.let { spot.moveTo(it.position + Offset(origin[0], origin[1])) }
+                            }
+                        }
+                    }
+                }
+            },
+        content = { CompositionLocalProvider(LocalGridSpotlight provides spot) { content() } },
+    )
 }
 
 /** Animates to [target] the way [motion] would: an emphasized tween, or at once when motion is reduced. */
