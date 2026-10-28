@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -58,12 +59,15 @@ class DeckRepository(
      * [decks] for screens: one read per change shared by every screen, decoded off the main thread.
      * It can trail a write by a moment, so code that reads straight after writing uses [decks].
      */
-    val liveDecks: Flow<List<DeckSummary>> =
+    val liveDecks: SharedFlow<List<DeckSummary>> =
         decks.shareIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.WhileSubscribed(5_000), replay = 1)
 
     /** One deck from [liveDecks]; it emits only when that deck changes. */
     fun liveDeck(deckId: String): Flow<DeckSummary?> =
         liveDecks.map { list -> list.firstOrNull { it.deckId == deckId } }.distinctUntilChanged()
+
+    /** The deck as [liveDecks] last had it, if a screen has it loaded, so another screen can start drawing at once. */
+    fun cachedDeck(deckId: String): DeckSummary? = liveDecks.replayCache.firstOrNull()?.firstOrNull { it.deckId == deckId }
 
     /** Highest local revision seq. It rises on every save and every received revision. */
     val latestSeq: Flow<Long> = revisions.observeMaxSeq()

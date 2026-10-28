@@ -56,6 +56,19 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.rememberTransition
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.currentValueOf
+import androidx.compose.ui.unit.Constraints
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.SuitColors
@@ -87,12 +100,24 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
 fun <T> motion(durationMillis: Int = Motion.MEDIUM, delayMillis: Int = 0): FiniteAnimationSpec<T> =
     if (LocalReduceMotion.current) snap() else tween(durationMillis, delayMillis, Motion.emphasized)
 
-/** A number that rolls up when it grows and down when it shrinks, so changes are noticed. */
+/**
+ * A number that rolls up when it grows and down when it shrinks, so changes are noticed. It is plain
+ * text until the number first changes: a screen opens with dozens of these, and most never move.
+ */
 @Composable
 fun RollingNumber(value: Int, style: TextStyle, color: Color = Color.Unspecified, modifier: Modifier = Modifier) {
+    val first = remember { value }
+    // Not state: it only matters in the composition the new value already caused.
+    val moved = remember { BooleanArray(1) }
+    if (value != first) moved[0] = true
+    if (!moved[0]) {
+        Text("$value", modifier, style = style, color = color)
+        return
+    }
     val reduce = LocalReduceMotion.current
-    AnimatedContent(
-        targetState = value,
+    // Starts from the first value, so the first change rolls too.
+    val transition = rememberTransition(remember { MutableTransitionState(first) }.apply { targetState = value }, label = "rolling-number")
+    transition.AnimatedContent(
         modifier = modifier,
         transitionSpec = {
             if (reduce) {
@@ -105,7 +130,6 @@ fun RollingNumber(value: Int, style: TextStyle, color: Color = Color.Unspecified
                         fadeOut(tween(Motion.SHORT))) using SizeTransform(clip = true)
             }
         },
-        label = "rolling-number",
     ) { Text("$it", style = style, color = color) }
 }
 
@@ -172,11 +196,61 @@ fun ReticleSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp, color: Color
     }
 }
 
-/** Presses sink a hair, so taps on tiles and cards register. */
-fun Modifier.pressScale(interaction: MutableInteractionSource): Modifier = composed {
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.985f else 1f, motion(Motion.SHORT), label = "press")
-    graphicsLayer { scaleX = scale; scaleY = scale }
+/**
+ * Presses sink a hair, so taps on tiles and cards register. A modifier node rather than composed
+ * state, since every card tile carries two of these and a screen opens with dozens of tiles.
+ */
+fun Modifier.pressScale(interaction: MutableInteractionSource): Modifier = this then PressScaleElement(interaction)
+
+private data class PressScaleElement(val interaction: MutableInteractionSource) : ModifierNodeElement<PressScaleNode>() {
+    override fun create() = PressScaleNode(interaction)
+    override fun update(node: PressScaleNode) = node.update(interaction)
+}
+
+private class PressScaleNode(private var interaction: MutableInteractionSource) :
+    Modifier.Node(), LayoutModifierNode, CompositionLocalConsumerModifierNode {
+    private val scale = Animatable(1f)
+    private var watching: Job? = null
+
+    override fun onAttach() = watch()
+
+    // A lazy grid reuses this node for another card, which starts at rest.
+    override fun onReset() {
+        if (isAttached) coroutineScope.launch { scale.snapTo(1f) }
+    }
+
+    fun update(interaction: MutableInteractionSource) {
+        if (interaction == this.interaction) return
+        this.interaction = interaction
+        watching?.cancel()
+        watch()
+    }
+
+    private fun watch() {
+        watching = coroutineScope.launch {
+            var presses = 0
+            interaction.interactions.collect { event ->
+                when (event) {
+                    is PressInteraction.Press -> presses++
+                    is PressInteraction.Release, is PressInteraction.Cancel -> presses = (presses - 1).coerceAtLeast(0)
+                    else -> return@collect
+                }
+                val target = if (presses > 0) 0.985f else 1f
+                launch {
+                    if (currentValueOf(LocalReduceMotion)) scale.snapTo(target)
+                    else scale.animateTo(target, tween(Motion.SHORT, easing = Motion.emphasized))
+                }
+            }
+        }
+    }
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        return layout(placeable.width, placeable.height) {
+            // Read in the layer, so a press redraws without recomposing or relaying out.
+            placeable.placeWithLayer(0, 0) { scaleX = scale.value; scaleY = scale.value }
+        }
+    }
 }
 
 /**

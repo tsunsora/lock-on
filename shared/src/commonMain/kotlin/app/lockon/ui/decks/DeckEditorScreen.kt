@@ -154,6 +154,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import app.lockon.data.db.MetaEntity
+import androidx.compose.runtime.produceState
 import app.lockon.platform.resizeHorizontalPointer
 
 private const val AUTOSAVE_DELAY_MS = 400L
@@ -168,7 +169,11 @@ private val MIN_DECK_WIDTH = 380.dp
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge, deckId: String, wide: Boolean, startTab: Int = 0) {
-    val summary by container.decks.liveDeck(deckId).collectAsState(initial = null)
+    // Coming from the library the deck is already loaded, so the whole editor draws on the first frame,
+    // before the screen starts sliding in, instead of halfway through it.
+    val cached = remember(deckId) { container.decks.cachedDeck(deckId) }
+    var loaded by remember(deckId) { mutableStateOf(cached != null) }
+    val summary by produceState(cached, deckId) { container.decks.liveDeck(deckId).collect { value = it; loaded = true } }
     val cards by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
@@ -178,10 +183,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
 
     // The editor works on a local draft and autosaves it. Changes that arrive by sync replace the
     // draft only when nothing local is waiting to be saved.
-    var draft by remember(deckId) { mutableStateOf<DeckSnapshot?>(null) }
-    var saved by remember(deckId) { mutableStateOf<DeckSnapshot?>(null) }
+    var draft by remember(deckId) { mutableStateOf(cached?.snapshot) }
+    var saved by remember(deckId) { mutableStateOf(cached?.snapshot) }
     // The revision the draft builds on, so an edit that syncs in meanwhile becomes a conflict, not lost.
-    var base by remember(deckId) { mutableStateOf<String?>(null) }
+    var base by remember(deckId) { mutableStateOf(cached?.headRevisionId) }
     LaunchedEffect(summary) {
         val incoming = summary ?: return@LaunchedEffect
         if (draft == null || draft == saved) { draft = incoming.snapshot; saved = incoming.snapshot; base = incoming.headRevisionId }
@@ -201,6 +206,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
 
     val deck = draft
+    // Still loading: show nothing rather than a moment of "Deck not found".
+    if (!loaded && deck == null) return
     if (summary == null && deck == null) {
         EmptyState("Deck not found", "It may have been deleted on another device.") {
             GameButton("Back", onClick = state::goBack, style = GameButtonStyle.GHOST, compact = true)
