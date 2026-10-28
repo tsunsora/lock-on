@@ -6,6 +6,8 @@ import app.lockon.data.ThemeChoice
 import androidx.compose.ui.unit.Density
 import app.lockon.ui.components.FloatingPillNav
 import app.lockon.ui.components.LocalNavClearance
+import app.lockon.ui.components.LocalChromeHeight
+import app.lockon.ui.components.ControlSize
 import app.lockon.ui.components.navClearance
 import app.lockon.ui.components.PillNavBar
 import androidx.compose.material.icons.filled.Settings
@@ -306,14 +308,14 @@ fun LockOnApp(
                                         Tab.DECKS -> DeckLibraryScreen(container, state, files)
                                         Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
                                         Tab.SYNC -> {
-                                            ScreenHeader("Sync", subtitle = "This device: ${container.identity.deviceName}")
+                                            ScreenHeader("Sync")
                                             val decks by container.decks.decks.collectAsState(initial = emptyList())
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                                                 Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted }) }
                                             }
                                         }
                                         Tab.SETTINGS -> {
-                                            ScreenHeader("Settings", subtitle = "Kept on this device; settings never sync")
+                                            ScreenHeader("Settings")
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                                                 Box(Modifier.widthIn(max = 1240.dp)) { SettingsScreen(container, state, files) }
                                             }
@@ -332,8 +334,11 @@ fun LockOnApp(
                     }
                     if (chrome != null && !wide) {
                         val density = LocalDensity.current
-                        Box(Modifier.align(Alignment.TopEnd).padding(top = 15.dp, end = 8.dp)
-                            .onSizeChanged { controlsWidth = with(density) { it.width.toDp() } + 8.dp }) { chrome.controls() }
+                        Box(Modifier.align(Alignment.TopEnd).padding(top = 11.dp, end = 8.dp)
+                            .onSizeChanged { controlsWidth = with(density) { it.width.toDp() } + 8.dp }) {
+                            // In the header's row, so as tall as its buttons rather than the nav pill.
+                            CompositionLocalProvider(LocalChromeHeight provides ControlSize) { chrome.controls() }
+                        }
                     }
                     if (wide) {
                         val density = LocalDensity.current

@@ -1,4 +1,6 @@
 package app.lockon.desktop
+import app.lockon.ui.components.PillNavHeight
+import app.lockon.ui.components.LocalChromeHeight
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -255,6 +257,7 @@ internal fun WindowControls(
 ) {
     val scheme = MaterialTheme.colorScheme
     val shade = glassColors().shade
+    val compact = LocalChromeHeight.current < PillNavHeight
     Row(
         modifier
             .shadow(10.dp, PillShape, ambientColor = shade, spotColor = shade)
@@ -262,13 +265,17 @@ internal fun WindowControls(
             // The navigation pill's own fill and hairline, so the two read as a pair.
             .background(if (isTwilight()) scheme.surfaceContainerHigh.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.9f))
             .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), PillShape)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
+            // The pill's height and inset, and buttons the size of its unselected items, so the two
+            // capsules sit as one row. Round, icon-only buttons rank them below the labelled destinations.
+            .height(LocalChromeHeight.current)
+            .padding(horizontal = if (compact) 4.dp else 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        ControlButton("Minimize", onMinimize) { ink, unit ->
+        ControlButton("Minimize", onMinimize, compact = compact) { ink, unit ->
             drawLine(ink, Offset(center.x - 5 * unit, center.y), Offset(center.x + 5 * unit, center.y), 1.4f * unit, StrokeCap.Round)
         }
-        ControlButton(if (maximized) "Restore" else "Maximize", onToggleMaximize) { ink, unit ->
+        ControlButton(if (maximized) "Restore" else "Maximize", onToggleMaximize, compact = compact) { ink, unit ->
             val stroke = Stroke(1.4f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round)
             if (maximized) {
                 // Two overlapping windows: the front one whole, the back one peeking out above and right.
@@ -284,7 +291,7 @@ internal fun WindowControls(
                 drawRoundRect(ink, Offset(center.x - 4.5f * unit, center.y - 4.5f * unit), Size(9 * unit, 9 * unit), CornerRadius(2 * unit), stroke)
             }
         }
-        ControlButton("Close", onClose, danger = true) { ink, unit ->
+        ControlButton("Close", onClose, danger = true, compact = compact) { ink, unit ->
             val r = 4.5f * unit
             drawLine(ink, Offset(center.x - r, center.y - r), Offset(center.x + r, center.y + r), 1.4f * unit, StrokeCap.Round)
             drawLine(ink, Offset(center.x - r, center.y + r), Offset(center.x + r, center.y - r), 1.4f * unit, StrokeCap.Round)
@@ -295,7 +302,7 @@ internal fun WindowControls(
 /** One window control: a pill that tints on hover and sinks a hair when pressed, drawing [glyph] in 1 dp [unit]s. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ControlButton(label: String, onClick: () -> Unit, danger: Boolean = false, glyph: DrawScope.(ink: Color, unit: Float) -> Unit) {
+private fun ControlButton(label: String, onClick: () -> Unit, danger: Boolean = false, compact: Boolean = false, glyph: DrawScope.(ink: Color, unit: Float) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -318,14 +325,14 @@ private fun ControlButton(label: String, onClick: () -> Unit, danger: Boolean = 
         tooltipPlacement = TooltipPlacement.CursorPoint(offset = DpOffset(0.dp, 18.dp)),
     ) {
         Canvas(
-            Modifier.size(40.dp, 32.dp)
+            Modifier.size(if (compact) 36.dp else 42.dp)
                 .graphicsLayer { scaleX = squish; scaleY = squish }
                 .clip(PillShape)
                 .background(fill)
                 .hoverable(interaction)
                 .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = label },
-        ) { glyph(ink, density) }
+        ) { glyph(ink, density * 1.1f) }
     }
 }
 

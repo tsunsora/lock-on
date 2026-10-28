@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.GameButton
 
 import androidx.compose.foundation.layout.Arrangement
@@ -56,13 +57,13 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-            Column {
-                Text("Compare versions", style = MaterialTheme.typography.titleLarge)
-                Text("This deck changed on more than one device before they synced. Keep the version you want; the others stay in history.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", state::goBack)
+            // The versions side by side, each with Keep, say the rest.
+            Text("Compare versions", style = MaterialTheme.typography.titleLarge)
         }
         val body: @Composable (DeckVersion, Modifier) -> Unit = { version, modifier ->
             VersionCard(

@@ -103,8 +103,7 @@ fun SyncScreen(
     // What is happening now and the devices nearby, then the devices already paired. Wide windows set
     // them side by side, so paired devices are in view instead of below the pairing code.
     val now = @Composable {
-        // The screen header names the device; this says how syncing is going right now.
-        SectionHeader("Status")
+        // How syncing is going right now. One line needs no heading over it.
         StatusLine(status)
         // With sending available, one list holds every nearby device, with Send and, until it is
         // paired, Connect; otherwise the nearby list is for pairing alone.
@@ -262,17 +261,19 @@ private fun SendCard(
 
     GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionHeader(if (isHost) "Nearby phones" else "Nearby computers", readout = if (targets.isEmpty()) null else "${targets.size}")
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // The button names the step and sits in the heading's row; once decks are chosen, their
+            // names get a row of their own with Change.
+            SectionHeader(if (isHost) "Nearby phones" else "Nearby computers", readout = if (targets.isEmpty()) null else "${targets.size}") {
+                if (selected.isEmpty()) GameButton("Choose decks to send", onClick = { choosing = true },
+                    style = GameButtonStyle.SECONDARY, compact = true, enabled = decks.isNotEmpty(), modifier = Modifier.padding(start = 10.dp))
+            }
+            if (selected.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    if (selected.isEmpty()) "Choose decks, then a nearby device. It asks before saving them. No pairing needed."
-                    else selected.joinToString(" · ") { it.snapshot.name },
-                    style = MaterialTheme.typography.bodyMedium, maxLines = if (selected.isEmpty()) 4 else 2, overflow = TextOverflow.Ellipsis,
-                    color = if (selected.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
+                    selected.joinToString(" · ") { it.snapshot.name },
+                    style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f),
                 )
-                GameButton(if (selected.isEmpty()) "Choose decks" else "Change", onClick = { choosing = true },
-                    style = GameButtonStyle.SECONDARY, compact = true, enabled = decks.isNotEmpty())
+                GameButton("Change", onClick = { choosing = true }, style = GameButtonStyle.SECONDARY, compact = true)
             }
             if (targets.isEmpty()) {
                 Text(
@@ -290,7 +291,7 @@ private fun SendCard(
                         Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
                             when {
-                                send == null -> if (device.deviceId in paired) "Paired" else if (device.isDesktop) "Desktop · ${device.host}" else "Phone · ${device.host}"
+                                send == null -> if (device.deviceId in paired) "Paired" else device.host.orEmpty()
                                 send.state == OutgoingShare.State.WAITING -> "Waiting for ${device.name} to accept…"
                                 else -> send.message.orEmpty()
                             },
@@ -540,13 +541,8 @@ private fun ClientSection(controller: ClientSyncController, paired: Set<String>,
 
     if (paired.isNotEmpty()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Auto-sync while Lock On is open", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "Edits sync within seconds when your computer is open on the same network. Nothing runs in the background.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            // The name says when it runs, so it needs no note under it.
+            Text("Auto-sync while Lock On is open", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             PillSwitch(checked = autoSync, onCheckedChange = controller::setAutoSync)
         }
     }
