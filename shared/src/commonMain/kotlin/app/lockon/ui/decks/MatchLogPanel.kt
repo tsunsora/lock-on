@@ -2,6 +2,8 @@ package app.lockon.ui.decks
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
+import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.PillTextField
 import app.lockon.ui.components.VerticalScrollBar
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillSegmented
@@ -28,11 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -89,19 +89,16 @@ fun MatchLogPanel(
         item(key = "log") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("Log a match")
-                OutlinedTextField(
-                    opponent, { opponent = it }, label = { Text("Opponent's deck (optional)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                PillTextField(opponent, { opponent = it }, "Opponent's deck (optional)", Modifier.fillMaxWidth())
                 // Earlier opponents to pick from instead of typing (UX rule C4).
                 val picks = opponentSuggestions.filter { it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(6)
                 if (picks.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        picks.forEach { SuggestionChip(onClick = { opponent = it }, label = { Text(it) }) }
+                        picks.forEach { PillChip(selected = false, onClick = { opponent = it }, label = { Text(it) }) }
                     }
                 }
                 PillSegmented(listOf("Not noted", "Went first", "Went second"), turn, { turn = it }, Modifier.fillMaxWidth())
-                OutlinedTextField(notes, { notes = it }, label = { Text("Notes (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                PillTextField(notes, { notes = it }, "Notes (optional)", Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     fun log(result: MatchResult) {
                         onLog(result, opponent.trim(), when (turn) { 1 -> true; 2 -> false; else -> null }, notes.trim())

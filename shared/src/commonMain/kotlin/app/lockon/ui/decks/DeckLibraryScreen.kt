@@ -629,8 +629,9 @@ private fun DeckRow(
             else CardBack(Modifier.width(coverWidth).align(Alignment.CenterVertically))
             Column(Modifier.weight(1f).fillMaxHeight().padding(start = if (compact) 14.dp else 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Clear of the actions button, which floats in the corner.
                     Text(deck.snapshot.name, style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface)
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface, modifier = Modifier.padding(end = 48.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         ColorPips(colors)
                         when {
@@ -666,17 +667,18 @@ private fun DeckRow(
                     )
                 }
             }
-            Box {
-                // A glass disc keeps the icon readable over cover art, and matches every other icon button.
-                GlassIconButton(Icons.Default.MoreVert, "Deck actions", { menu = true }, Modifier.padding(end = 10.dp))
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
-                    DropdownMenuItem(text = { Text("Move to folder") }, onClick = { menu = false; onMove() })
-                    DropdownMenuItem(text = { Text("Edit tags") }, onClick = { menu = false; onTags() })
-                    DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; onDuplicate() })
-                    DropdownMenuItem(text = { Text("Export list, image or sheet") }, onClick = { menu = false; onExport() })
-                    DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onDelete() })
-                }
+        }
+        // In the corner rather than a column of its own, so the gauge and the record run to the edge.
+        Box(Modifier.align(Alignment.TopEnd).padding(top = if (compact) 8.dp else 12.dp, end = 10.dp)) {
+            // A glass disc keeps the icon readable over cover art, and matches every other icon button.
+            GlassIconButton(Icons.Default.MoreVert, "Deck actions", { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
+                DropdownMenuItem(text = { Text("Move to folder") }, onClick = { menu = false; onMove() })
+                DropdownMenuItem(text = { Text("Edit tags") }, onClick = { menu = false; onTags() })
+                DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; onDuplicate() })
+                DropdownMenuItem(text = { Text("Export list, image or sheet") }, onClick = { menu = false; onExport() })
+                DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onDelete() })
             }
         }
         Box(Modifier.matchParentSize().glassFrame())

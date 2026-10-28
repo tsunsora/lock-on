@@ -910,6 +910,24 @@ fun PillSearchField(
     placeholder: String,
     modifier: Modifier = Modifier,
     onClear: (() -> Unit)? = null,
+) = PillField(value, onValueChange, placeholder, modifier, Icons.Default.Search, onClear)
+
+/**
+ * A text field on the same glass pill as [PillSearchField], without the search icon, for short
+ * entries on a page (a dialog keeps Material's field). Its placeholder says what goes in it.
+ */
+@Composable
+fun PillTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) =
+    PillField(value, onValueChange, placeholder, modifier, icon = null, onClear = null)
+
+@Composable
+private fun PillField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier,
+    icon: ImageVector?,
+    onClear: (() -> Unit)?,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
@@ -928,11 +946,13 @@ fun PillSearchField(
             Row(
                 Modifier.fillMaxSize().clip(shape).background(g.strong)
                     .border(BorderStroke(if (focused) 1.6.dp else 1.dp, if (focused) scheme.primary else g.rimLow), shape)
-                    .padding(start = 14.dp, end = 4.dp),
+                    .padding(start = if (icon != null) 14.dp else 18.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Default.Search, contentDescription = null, tint = if (focused) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
+                if (icon != null) {
+                    Icon(icon, contentDescription = null, tint = if (focused) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                }
                 Box(Modifier.weight(1f)) {
                     if (value.isEmpty()) Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant, maxLines = 1)
                     field()

@@ -264,12 +264,9 @@ private fun SendCard(
 
     GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // The button names the step and sits in the heading's row; once decks are chosen, their
-            // names get a row of their own with Change.
-            SectionHeader(if (isHost) "Nearby phones" else "Nearby computers", readout = if (targets.isEmpty()) null else "${targets.size}") {
-                if (selected.isEmpty()) GameButton("Choose decks to send", onClick = { choosing = true },
-                    style = GameButtonStyle.SECONDARY, compact = true, enabled = decks.isNotEmpty(), modifier = Modifier.padding(start = 10.dp))
-            }
+            // Each device's Send asks which decks first, so the heading needs no button of its own;
+            // once decks are chosen, their names get a row with Change.
+            SectionHeader(if (isHost) "Nearby phones" else "Nearby computers", readout = if (targets.isEmpty()) null else "${targets.size}")
             if (selected.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     selected.joinToString(" · ") { it.snapshot.name },
@@ -318,7 +315,7 @@ private fun SendCard(
                         // Never greyed out: with nothing chosen yet, Send asks which decks first.
                         GameButton("Send", onClick = {
                             if (selected.isEmpty()) { sendTo = device; choosing = true } else sharing.send(device, selected.map { it.deckId })
-                        }, enabled = decks.isNotEmpty())
+                        }, enabled = decks.isNotEmpty(), compact = true)
                     }
                 }
             }

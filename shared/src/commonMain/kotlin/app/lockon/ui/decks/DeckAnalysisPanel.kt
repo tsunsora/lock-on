@@ -25,7 +25,7 @@ import app.lockon.model.DeckSnapshot
 import app.lockon.rules.DeckAnalysis
 import app.lockon.rules.DeckLegality
 import app.lockon.rules.Severity
-import app.lockon.ui.components.BarChart
+import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.DeckGlance
 import app.lockon.ui.components.glass
 import app.lockon.ui.theme.LockOnShapes
@@ -78,7 +78,19 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
             }
         }
         HorizontalDivider()
-        BarChart("Cost curve (main deck)", stats.costCurve, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f))
+        // Drawn like the level curve at the top, so the two curves read as one kind of chart.
+        if (stats.costCurve.isNotEmpty()) {
+            Column(
+                Modifier.glass(LockOnShapes.tile, strong = true).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cost curve", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                    Text("Main deck", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                MiniCurve(stats.costCurve, Modifier.fillMaxWidth(), height = 88.dp, caption = false, prefix = "")
+            }
+        }
         HorizontalDivider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SectionHeader("Card types")
