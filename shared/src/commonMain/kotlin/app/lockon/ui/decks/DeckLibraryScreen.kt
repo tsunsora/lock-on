@@ -638,7 +638,8 @@ private fun DeckRow(
                     Text(
                         // The record leads, so narrow tiles cut the edit time rather than the results.
                         listOfNotNull(
-                            deck.snapshot.folder?.takeIf { showFolder },
+                            // "In" marks it as a folder, so a name like Testing doesn't read as the deck's state.
+                            deck.snapshot.folder?.takeIf { showFolder }?.let { "In $it" },
                             deck.snapshot.tags.joinToString(" · ").ifBlank { null },
                             // Beside a record the edit time no longer fits, and would end the line in "·…".
                             "Edited ${formatDate(deck.updatedAt)}".takeIf { record.winRate == null },
