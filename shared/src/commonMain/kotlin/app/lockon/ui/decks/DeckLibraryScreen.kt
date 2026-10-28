@@ -287,7 +287,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     val cover = remember(deck, cards) { deckCover(deck.snapshot, cards) }
                                     DeckRow(
                                         Modifier.animateItem(),
-                                        deck, legal, colors, ruleset, cover,
+                                        deck, legal, colors, ruleset, cover, compact = !wide,
                                         showFolder = folderFilter == FolderFilter.All,
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                                         onRename = { dialog = LibraryDialog.Rename(deck) },
@@ -560,6 +560,7 @@ private fun DeckRow(
     colors: Set<CardColor>,
     ruleset: Ruleset,
     cover: DeckCover?,
+    compact: Boolean,
     showFolder: Boolean,
     onOpen: () -> Unit,
     onRename: () -> Unit,
@@ -579,7 +580,8 @@ private fun DeckRow(
     // A deck box: the cover art fills the plate behind the deck's name, its colours run along the
     // top edge, and the hover lift glows in the deck's lead colour (UX rules V4, I4).
     BoxWithConstraints(
-        modifier.fillMaxWidth().height(DeckBoxHeight)
+        // Phones get a shorter box with a smaller cover, so more decks fit on one screen.
+        modifier.fillMaxWidth().height(if (compact) CompactDeckBoxHeight else DeckBoxHeight)
             .hoverLift(press, glow = lighten(cardColor(lead), 0.15f), shape = LockOnShapes.panel)
             .clip(LockOnShapes.panel)
             .background(base)
@@ -598,10 +600,11 @@ private fun DeckRow(
         Row(Modifier.fillMaxWidth().height(4.dp)) {
             colors.sortedBy { it.ordinal }.ifEmpty { listOf(null) }.forEach { Box(Modifier.weight(1f).fillMaxHeight().background(cardColor(it))) }
         }
-        Row(Modifier.fillMaxSize().padding(start = 16.dp, top = 18.dp, bottom = 14.dp, end = 4.dp)) {
-            if (cover != null) CardImage(cover.card, Modifier.width(104.dp).align(Alignment.CenterVertically), cover.printingId)
-            else CardBack(Modifier.width(104.dp).align(Alignment.CenterVertically))
-            Column(Modifier.weight(1f).fillMaxHeight().padding(start = 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        val coverWidth = if (compact) 76.dp else 104.dp
+        Row(Modifier.fillMaxSize().padding(start = if (compact) 14.dp else 16.dp, top = if (compact) 14.dp else 18.dp, bottom = if (compact) 10.dp else 14.dp, end = 4.dp)) {
+            if (cover != null) CardImage(cover.card, Modifier.width(coverWidth).align(Alignment.CenterVertically), cover.printingId)
+            else CardBack(Modifier.width(coverWidth).align(Alignment.CenterVertically))
+            Column(Modifier.weight(1f).fillMaxHeight().padding(start = if (compact) 14.dp else 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(deck.snapshot.name, style = MaterialTheme.typography.titleLarge,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface)
@@ -659,6 +662,7 @@ private fun DeckRow(
 }
 
 private val DeckBoxHeight = 196.dp
+private val CompactDeckBoxHeight = 148.dp
 
 /** The empty deck slot: a dashed plate with a + that lights up on hover. */
 @Composable

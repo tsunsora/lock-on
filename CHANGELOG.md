@@ -21,6 +21,7 @@ First release for Android and Windows.
 - **Match log** per deck: wins, losses and draws with optional opponent, turn order and notes, and a record with win rate, going first and second, and results by opponent.
 - **Version history**: every version of a deck with what changed, a comparison with the deck now, and restoring an older version's cards.
 - Export a deck as an **image** (PNG) or a printable **deck registration sheet**, as well as a text list, ordered by level, cost, card number, name or copies, with Units first, then Pilots, Commands and Bases. The image shows the main deck, its curve and type counts, and a QR code holding the deck list, with steps for importing it.
+- On desktop the export dialog shows the **whole deck image** beside its controls, with no scrolling. On phones it fills the screen, so the preview gets the room.
 - Import and export plain-text deck lists, and a JSON backup of all decks.
 - **Download the latest card database** in one tap: the official card list via gcg-api, with official card images, converted on the device. Check for updates at any time, and a weekly quiet check notes when a newer list is out.
 - Install a card catalog from a file or a link, check the link for updates, and go back to the sample at any time. A preview before each install lists any cards your decks use that are missing from the new catalog.

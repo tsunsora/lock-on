@@ -204,7 +204,28 @@ class ScreenshotTest {
             repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "desktop-export-image.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
+        // The export dialog at a full desktop window, where the whole image fits, and the image on a phone.
+        exportShot("desktop-export-image-window", 1980, 1290, deck, tab = 1)
+        exportShot("desktop-export-list-window", 1980, 1290, deck, tab = 0)
+        exportShot("phone-export-image", 600, 1260, deck, tab = 1)
         assertTrue(File(out, "phone-cards.png").length() > 0)
+    }
+
+    private fun exportShot(name: String, width: Int, height: Int, deck: DeckSnapshot, tab: Int) {
+        ImageComposeScene(width, height, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                    app.lockon.ui.decks.DeckExportDialog(
+                        deck, container.catalog.cards.value, container.catalog.ruleset.value, files,
+                        AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = tab,
+                    )
+                }
+            }
+        }.use { scene ->
+            var image = scene.render()
+            repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+            File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
     }
 
     /** Clicks Save image in the export dialog and checks the file is a 1080-pixel-wide PNG. */
@@ -227,7 +248,7 @@ class ScreenshotTest {
             }
         }.use { scene ->
             repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 1) * 100_000_000L) }
-            val button = androidx.compose.ui.geometry.Offset(900f, 1196f)
+            val button = androidx.compose.ui.geometry.Offset(1020f, 1306f)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
             repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 6) * 100_000_000L) }

@@ -19,10 +19,25 @@ import app.lockon.ui.components.GlassPanel
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.SkyBackground
 import app.lockon.ui.components.PillTabs
-import app.lockon.ui.components.GameDialog
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.Surface
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import app.lockon.ui.components.Motion
+import app.lockon.ui.components.glassFrame
+import app.lockon.ui.components.isTwilight
+import app.lockon.ui.components.motion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,7 +46,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -99,7 +113,11 @@ private const val IMAGE_WIDTH_PX = 2160
 private val IMAGE_WIDTH = 540.dp
 private const val CARDS_PER_ROW = 5
 
-/** Every way out of the app for one deck: the text list, a shareable image, and a printable sheet. */
+/**
+ * Every way out of the app for one deck: the text list, a shareable image, and a printable sheet.
+ * Wide windows put the preview beside the controls and fit the whole image in view; phones get a
+ * near full-screen sheet whose preview takes every row the controls leave.
+ */
 @Suppress("DEPRECATION") // LocalClipboard needs ClipEntry, which differs per platform.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -115,101 +133,189 @@ fun DeckExportDialog(
     var tab by rememberSaveable { mutableStateOf(startTab) }
     // One order for every format, so the list, image and sheet match.
     var order by rememberSaveable { mutableStateOf(ExportOrder.LEVEL) }
+    // Wide windows show the whole image; this zooms it to its full width instead.
+    var zoomed by rememberSaveable { mutableStateOf(false) }
     val text = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
     val baseName = deck.name.filter { it.isLetterOrDigit() || it in " -_" }.trim().ifBlank { "deck" }
     val clipboard = LocalClipboardManager.current
     val layer = rememberGraphicsLayer()
-    GameDialog(
-        onDismissRequest = onDismiss,
-        title = deck.name,
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                PillTabs(listOf("List", "Image", "Print sheet"), tab, { tab = it }, fill = true)
-                // What each format is for, so the choice is easy.
-                Text(
-                    when (tab) {
-                        0 -> "Plain text for chats, forums and other deck builders. Lock On reads it back under Decks › Import."
-                        1 -> "A picture to post or send. It shows the main deck, its curve and a QR code that holds the full list."
-                        else -> "For events that ask for a written deck list."
-                    },
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Order", style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 2.dp))
-                    ExportOrder.entries.forEach { option ->
-                        PillChip(selected = order == option, onClick = { order = option }, label = { Text(option.label) })
-                    }
+    val scheme = MaterialTheme.colorScheme
+
+    val title = @Composable {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Sparkle(size = 16.dp)
+            Spacer(Modifier.width(10.dp))
+            Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+    val tabs = @Composable { PillTabs(listOf("List", "Image", "Print sheet"), tab, { tab = it }, fill = true) }
+    // What each format is for, so the choice is easy.
+    val about = @Composable {
+        Text(
+            when (tab) {
+                0 -> "Plain text for chats, forums and other deck builders. Lock On reads it back under Decks › Import."
+                1 -> "A picture to post or send. It shows the main deck, its curve and a QR code that holds the full list."
+                else -> "For events that ask for a written deck list."
+            },
+            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+        )
+    }
+    val orderLabel = @Composable { modifier: Modifier ->
+        Text("Order", style = MaterialTheme.typography.labelLarge, modifier = modifier.padding(end = 2.dp))
+    }
+    val orderChips = @Composable {
+        ExportOrder.entries.forEach { option ->
+            PillChip(selected = order == option, onClick = { order = option }, label = { Text(option.label) })
+        }
+    }
+    val listText = @Composable { modifier: Modifier ->
+        SelectionContainer(modifier) {
+            Text(
+                text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+            )
+        }
+    }
+    val sheetText = @Composable { modifier: Modifier ->
+        Text(
+            "A deck registration sheet with blanks for your name and event, then every card in the main and " +
+                "resource decks with its number and count. It saves as a web page: open it in any browser and print it, " +
+                "or print to PDF.",
+            style = MaterialTheme.typography.bodyMedium, modifier = modifier.padding(12.dp),
+        )
+    }
+    val buttons = @Composable {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+            GameButton("Close", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true)
+            when (tab) {
+                0 -> {
+                    GameButton("Copy", onClick = {
+                        clipboard.setText(AnnotatedString(text))
+                        state.notify("Deck list copied.")
+                    }, style = GameButtonStyle.SECONDARY, compact = true)
+                    GameButton("Save file", onClick = {
+                        state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) state.notify("Deck list saved.") }
+                    }, compact = true)
                 }
-                when (tab) {
-                    0 -> SelectionContainer {
-                        Text(
-                            text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                        )
+                1 -> GameButton("Save image", onClick = {
+                    state.appScope.launch {
+                        val png = encodePng(layer.toImageBitmap())
+                        if (files.saveBytes("$baseName.png", "image/png", png)) state.notify("Deck image saved.")
                     }
-                    1 -> Box(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                        CaptureAtFixedWidth(layer) { DeckImage(deck, cards, ruleset, order) }
-                    }
-                    else -> Text(
-                        "A deck registration sheet with blanks for your name and event, then every card in the main and " +
-                            "resource decks with its number and count. It saves as a web page: open it in any browser and print it, " +
-                            "or print to PDF.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                }, compact = true)
+                else -> GameButton("Save sheet", onClick = {
+                    val html = DeckSheetFormat.html(deck, cards, ruleset, formatDate(Clock.System.now().toEpochMilliseconds()), order)
+                    state.appScope.launch { if (files.saveText("$baseName sheet.html", "text/html", html)) state.notify("Print sheet saved.") }
+                }, compact = true)
             }
-        },
-        confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                when (tab) {
-                    0 -> {
-                        GameButton("Copy", onClick = {
-                            clipboard.setText(AnnotatedString(text))
-                            state.notify("Deck list copied.")
-                        }, style = GameButtonStyle.SECONDARY, compact = true)
-                        GameButton("Save file", onClick = {
-                            state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) state.notify("Deck list saved.") }
-                        }, compact = true)
-                    }
-                    1 -> GameButton("Save image", onClick = {
-                        state.appScope.launch {
-                            val png = encodePng(layer.toImageBitmap())
-                            if (files.saveBytes("$baseName.png", "image/png", png)) state.notify("Deck image saved.")
+        }
+    }
+    val pane = Modifier.clip(LockOnShapes.tile).background(scheme.surfaceContainerLow)
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+            val wide = maxWidth >= 720.dp && maxHeight >= 480.dp
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
+                modifier = Modifier.padding(if (wide) 24.dp else 12.dp)
+                    .then(if (wide) Modifier.animateContentSize(motion(Motion.SHORT)) else Modifier.fillMaxSize())
+                    .glassFrame(MaterialTheme.shapes.extraLarge),
+            ) {
+                if (wide) {
+                    // The preview at full height on the left, the controls in a column on the right.
+                    val controlsWidth = 360.dp
+                    val previewMax = (maxWidth - 48.dp - 40.dp - 20.dp - controlsWidth).coerceAtLeast(240.dp)
+                    val textPane = Modifier.width(minOf(440.dp, previewMax)).fillMaxHeight()
+                    Row(Modifier.height(maxHeight - 48.dp).padding(20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        when (tab) {
+                            0 -> listText(pane.then(textPane))
+                            1 -> if (zoomed) {
+                                Box(pane.width(minOf(IMAGE_WIDTH, previewMax)).fillMaxHeight().verticalScroll(rememberScrollState())) {
+                                    CaptureAtFixedWidth(layer) { DeckImage(deck, cards, ruleset, order) }
+                                }
+                            } else {
+                                // The whole picture in view at once, as it will be saved.
+                                Box(Modifier.widthIn(max = previewMax).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+                                    CaptureAtFixedWidth(layer, Modifier.clip(LockOnShapes.tile), fit = true) { DeckImage(deck, cards, ruleset, order) }
+                                }
+                            }
+                            else -> sheetText(pane.then(textPane))
                         }
-                    }, compact = true)
-                    else -> GameButton("Save sheet", onClick = {
-                        val html = DeckSheetFormat.html(deck, cards, ruleset, formatDate(Clock.System.now().toEpochMilliseconds()), order)
-                        state.appScope.launch { if (files.saveText("$baseName sheet.html", "text/html", html)) state.notify("Print sheet saved.") }
-                    }, compact = true)
+                        Column(Modifier.width(controlsWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            title()
+                            tabs()
+                            about()
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                orderLabel(Modifier.align(Alignment.CenterVertically))
+                                orderChips()
+                            }
+                            if (tab == 1) {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("View", style = MaterialTheme.typography.labelLarge,
+                                        modifier = Modifier.align(Alignment.CenterVertically).padding(end = 2.dp))
+                                    PillChip(selected = !zoomed, onClick = { zoomed = false }, label = { Text("Whole image") })
+                                    PillChip(selected = zoomed, onClick = { zoomed = true }, label = { Text("Full width") })
+                                }
+                            }
+                            Spacer(Modifier.weight(1f))
+                            buttons()
+                        }
+                    }
+                } else {
+                    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        title()
+                        tabs()
+                        about()
+                        // One scrolling line of order chips, so the preview keeps the rows.
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            orderLabel(Modifier)
+                            orderChips()
+                        }
+                        val preview = Modifier.weight(1f).fillMaxWidth()
+                        when (tab) {
+                            0 -> listText(pane.then(preview))
+                            1 -> Box(pane.then(preview).verticalScroll(rememberScrollState())) {
+                                CaptureAtFixedWidth(layer) { DeckImage(deck, cards, ruleset, order) }
+                            }
+                            else -> Box(preview) { sheetText(Modifier) }
+                        }
+                        buttons()
+                    }
                 }
             }
-        },
-        dismissButton = { GameButton("Close", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
-    )
+        }
+    }
 }
 
 /**
  * Lays [content] out at [IMAGE_WIDTH] with a density that makes it exactly [IMAGE_WIDTH_PX] wide,
- * records it into [layer] at that size, and shows it scaled to fit the space it is given.
+ * records it into [layer] at that size, and shows it scaled to the width it is given. With [fit]
+ * it shrinks further until its whole height fits too, and never grows past [IMAGE_WIDTH].
  */
 @Composable
-private fun CaptureAtFixedWidth(layer: GraphicsLayer, content: @Composable () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val scale = constraints.maxWidth.toFloat() / IMAGE_WIDTH_PX
-        Box(
-            Modifier.layout { measurable, _ ->
-                val placeable = measurable.measure(Constraints.fixedWidth(IMAGE_WIDTH_PX))
-                layout((placeable.width * scale).roundToInt(), (placeable.height * scale).roundToInt()) {
-                    placeable.placeWithLayer(0, 0) {
-                        scaleX = scale; scaleY = scale
-                        transformOrigin = TransformOrigin(0f, 0f)
-                    }
-                }
-            },
-        ) {
-            CompositionLocalProvider(LocalDensity provides Density(IMAGE_WIDTH_PX / IMAGE_WIDTH.value, fontScale = 1f)) {
-                Box(Modifier.drawWithContent { layer.record { this@drawWithContent.drawContent() }; drawLayer(layer) }) { content() }
+private fun CaptureAtFixedWidth(layer: GraphicsLayer, modifier: Modifier = Modifier, fit: Boolean = false, content: @Composable () -> Unit) {
+    Box(
+        modifier.layout { measurable, constraints ->
+            val placeable = measurable.measure(Constraints.fixedWidth(IMAGE_WIDTH_PX))
+            var scale = constraints.maxWidth.toFloat() / IMAGE_WIDTH_PX
+            if (fit) {
+                if (constraints.hasBoundedHeight) scale = minOf(scale, constraints.maxHeight.toFloat() / placeable.height)
+                scale = minOf(scale, IMAGE_WIDTH.toPx() / IMAGE_WIDTH_PX)
             }
+            layout((placeable.width * scale).roundToInt(), (placeable.height * scale).roundToInt()) {
+                placeable.placeWithLayer(0, 0) {
+                    scaleX = scale; scaleY = scale
+                    transformOrigin = TransformOrigin(0f, 0f)
+                }
+            }
+        },
+    ) {
+        CompositionLocalProvider(LocalDensity provides Density(IMAGE_WIDTH_PX / IMAGE_WIDTH.value, fontScale = 1f)) {
+            Box(Modifier.drawWithContent { layer.record { this@drawWithContent.drawContent() }; drawLayer(layer) }) { content() }
         }
     }
 }
