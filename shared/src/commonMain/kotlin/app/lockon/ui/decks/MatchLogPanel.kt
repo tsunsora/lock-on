@@ -1,4 +1,8 @@
 package app.lockon.ui.decks
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import app.lockon.ui.components.VerticalScrollBar
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillSegmented
 import app.lockon.ui.components.GameButton
@@ -68,7 +72,9 @@ fun MatchLogPanel(
     // 0 = not recorded, 1 = went first, 2 = went second.
     var turn by rememberSaveable { mutableStateOf(0) }
 
-    LazyColumn(modifier, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavClearance.current), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val listState = rememberLazyListState()
+    Box(modifier) {
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavClearance.current), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "record") {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("Record", readout = if (stats.overall.games == 0) null else stats.overall.score)
@@ -160,6 +166,8 @@ fun MatchLogPanel(
             }
         }
         item(key = "bottom") { Spacer(Modifier.padding(bottom = 24.dp)) }
+    }
+    VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
     }
 }
 

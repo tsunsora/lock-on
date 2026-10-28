@@ -1,4 +1,6 @@
 package app.lockon.ui.decks
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.hoverable
 import app.lockon.ui.components.motion
@@ -283,7 +285,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     modifier = Modifier.padding(16.dp),
                                 )
                             }
+                            val gridState = rememberLazyGridState()
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
                             LazyVerticalGrid(
+                                state = gridState,
                                 columns = GridCells.Adaptive(460.dp),
                                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp + LocalNavClearance.current),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -311,6 +316,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                 // On desktop, an empty slot after the last deck starts a new one, as in a game's deck list.
                                 // Phones already have New deck in the thumb zone (UX rule R3).
                                 if (wide) item(key = "new-deck-slot") { NewDeckSlot(Modifier.animateItem()) { dialog = LibraryDialog.New } }
+                            }
+                            VerticalScrollBar(gridState, Modifier.align(Alignment.TopEnd))
                             }
                         }
                     }

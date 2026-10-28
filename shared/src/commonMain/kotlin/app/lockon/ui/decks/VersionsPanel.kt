@@ -1,4 +1,9 @@
 package app.lockon.ui.decks
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import app.lockon.ui.components.VerticalScrollBar
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.GameDialog
 import app.lockon.ui.components.GameButton
@@ -52,7 +57,9 @@ fun VersionsPanel(
     onRestore: (DeckVersion) -> Unit,
 ) {
     var comparing by remember { mutableStateOf<DeckVersion?>(null) }
-    LazyColumn(modifier, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavClearance.current)) {
+    val listState = rememberLazyListState()
+    Box(modifier) {
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavClearance.current)) {
         item(key = "keep") {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionHeader("Versions", readout = "${versions.size}")
@@ -87,6 +94,8 @@ fun VersionsPanel(
             }
             HorizontalDivider(Modifier.padding(start = 16.dp))
         }
+    }
+    VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
     }
 
     comparing?.let { version ->

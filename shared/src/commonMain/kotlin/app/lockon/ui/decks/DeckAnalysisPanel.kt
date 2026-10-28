@@ -1,4 +1,8 @@
 package app.lockon.ui.decks
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import app.lockon.ui.components.VerticalScrollBar
 import app.lockon.ui.components.LocalNavClearance
 
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +35,9 @@ import app.lockon.ui.theme.cardColor
 @Composable
 fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: DeckLegality, modifier: Modifier = Modifier) {
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
-    Column(modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
+    val scroll = rememberScrollState()
+    Box(modifier) {
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // The level curve and the counts by type, Burst and Blocker, as the game shows them.
         if (deck.entries.isNotEmpty()) {
@@ -89,6 +95,8 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
                 }
             }
         }
+    }
+    VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
     }
 }
 

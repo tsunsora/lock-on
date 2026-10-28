@@ -1,4 +1,5 @@
 package app.lockon.ui.sync
+import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillChip
@@ -158,7 +159,8 @@ fun SyncScreen(
         footer()
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val scroll = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        val scrollState = rememberScrollState()
+        val scroll = Modifier.fillMaxSize().verticalScroll(scrollState)
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current)
         if (maxWidth >= 900.dp) {
             Row(scroll, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -168,6 +170,7 @@ fun SyncScreen(
         } else {
             Column(scroll, verticalArrangement = Arrangement.spacedBy(14.dp)) { now(); paired() }
         }
+        VerticalScrollBar(scrollState, Modifier.align(Alignment.TopEnd))
     }
 
     controller.sharing?.let { IncomingShareDialog(it) }
