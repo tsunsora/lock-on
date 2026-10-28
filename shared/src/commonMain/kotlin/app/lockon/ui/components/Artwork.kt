@@ -21,6 +21,7 @@ import coil3.memory.MemoryCache
 import app.lockon.data.ArtworkStore
 import coil3.Uri
 import coil3.decode.DataSource
+import coil3.decode.Decoder
 import coil3.decode.ImageSource
 import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
@@ -103,7 +104,10 @@ fun CardArtwork(
 /** Image loader for card artwork. Images come from [store], so each downloads once and then works offline. */
 fun artworkImageLoader(context: PlatformContext, store: ArtworkStore): ImageLoader =
     ImageLoader.Builder(context)
-        .components { add(StoredArtworkFetcher.Factory(store)) }
+        .components {
+            add(StoredArtworkFetcher.Factory(store))
+            artworkDecoder()?.let { add(it) }
+        }
         .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.15).build() }
         .crossfade(CROSSFADE_MS)
         .build()
@@ -125,6 +129,9 @@ private class StoredArtworkFetcher(private val url: String, private val store: A
             if (data.scheme == "https") StoredArtworkFetcher(data.toString(), store, options) else null
     }
 }
+
+/** A decoder that resizes artwork more smoothly than Coil's default on this platform, if it needs one. */
+internal expect fun artworkDecoder(): Decoder.Factory?
 
 /** How many artwork downloads run at once from one server. */
 internal const val ARTWORK_DOWNLOADS = 12

@@ -25,7 +25,7 @@ First release for Android and Windows.
 - **Download the latest card database** in one tap: the official card list via gcg-api, with official card images, converted on the device. Check for updates at any time, and a weekly quiet check notes when a newer list is out.
 - Install a card catalog from a file or a link, check the link for updates, and go back to the sample at any time. A preview before each install lists any cards your decks use that are missing from the new catalog.
 - **App updates**: a daily check while Lock On is open. Windows downloads in the background and installs on close or with **Restart and update**. Android downloads on Wi-Fi and installs with one tap. Each download is verified, and automatic updating can be turned off under Settings.
-- Card artwork from catalog links in lists, grids, test hands and card details. Every image downloads once in the background and stays on the device, so cards show their art offline; the Catalog dialog shows how many are saved. In card details, tap a printing to see its art. It can be turned off in the Catalog dialog.
+- Card artwork from catalog links in lists, grids, test hands and card details. Every image downloads once in the background and stays on the device, so cards show their art offline; the Catalog dialog shows how many are saved. On desktop, images are scaled down smoothly, so small card text stays readable in grids. In card details, tap a printing to see its art. It can be turned off in the Catalog dialog.
 - On wide windows, the Cards screen keeps a details panel beside the grid. It shows the last card you picked, even after visiting other screens.
 
 **Sync, with no account or server**

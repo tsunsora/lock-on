@@ -36,6 +36,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
     testImplementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    testImplementation("io.coil-kt.coil3:coil-core:3.4.0")
 }
 
 compose.desktop {
