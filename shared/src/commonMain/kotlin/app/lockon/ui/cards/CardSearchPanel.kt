@@ -226,7 +226,7 @@ fun CardSearchPanel(
         when {
             results.isEmpty() -> EmptyState("No cards match", "Try fewer filters or a shorter search.")
             grid -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(if (wide) 160.dp else 104.dp),
+                columns = GridCells.Adaptive(if (wide) 136.dp else 104.dp),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 20.dp + LocalNavClearance.current),
                 horizontalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
                 verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 10.dp),

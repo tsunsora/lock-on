@@ -90,7 +90,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - Every version newest first, with time, device, counts and what changed (`+3 −1 cards · renamed`).
      - Edits join the current version until you choose **Keep as a version**, it syncs, or the deck sits for 30 minutes.
      - Opening an older version lists its card differences from now, and **Restore these cards** brings them back with Undo. Name, notes, folder and matches stay as they are.
-- **Export dialog:** **List** (copy or save the text list), **Image** (a 2160-pixel-wide picture of the main deck, five cards a row, with its cover, colors, legality, curve, type counts and a QR code holding the list, saved as PNG), and **Print sheet** (a deck registration sheet saved as a web page to print from any browser).
+- **Export dialog:** **List** (copy or save the text list), **Image** (a 2160-pixel-wide picture of the main deck, five cards a row, with its cover, colors, legality, curve, type counts and a QR code holding the list, saved as PNG), and **Print sheet** (a deck registration sheet saved as a web page to print from any browser). On wide windows the preview sits beside the controls and shows the whole image at once (**View: Full width** zooms it to scroll); on phones the dialog fills the screen and the preview takes every row the controls leave.
 - **Leaving:** back or the navigation, which saves first.
 
 ### Compare versions (level 2)
