@@ -115,10 +115,22 @@ fun SyncScreen(
     val paired = @Composable {
         SectionHeader("Paired devices")
         if (devices.isEmpty()) {
-            Text(
-                if (controller is HostSyncController) "No phones paired yet." else "No computer paired yet.",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // A panel like the paired devices it stands in for, saying how to get one.
+            GlassCard {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DeviceGlyph(desktop = controller !is HostSyncController)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(if (controller is HostSyncController) "No phones paired yet" else "No computer paired yet",
+                            style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (controller is HostSyncController) "Connect a nearby phone, or open Sync on it and use the code under Other ways to connect."
+                            else "Connect a nearby computer, or scan the code shown under Sync on it.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
         devices.forEach { device ->
             DeviceCard(
