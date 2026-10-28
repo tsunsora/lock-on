@@ -67,6 +67,14 @@ class AnimationPreviewTest {
         }
     }
 
+    @Test fun segmentSlide() {
+        val choice = mutableStateOf(0)
+        record("segment-slide", 520, 140, frames = 14, onFrame = { i -> if (i == 2) choice.value = 2 }) {
+            app.lockon.ui.components.PillSegmented(listOf("Not noted", "Went first", "Went second"), choice.value, { choice.value = it },
+                Modifier.padding(12.dp))
+        }
+    }
+
     @Test fun dealAndFlip() {
         val deck = DeckSnapshot(
             "Preview",

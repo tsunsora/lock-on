@@ -312,7 +312,7 @@ fun GameButton(
             content = onAccent; rim = lighten(accent, 0.45f)
         }
         style == GameButtonStyle.SECONDARY -> {
-            fill = SolidColor(if (hovered) lighten(g.strong, 0.06f) else g.strong)
+            fill = SolidColor(lighten(g.strong, 0.06f * lift))
             content = accent; rim = accent.copy(alpha = 0.55f + 0.35f * lift)
         }
         else -> { fill = SolidColor(accent.copy(alpha = 0.10f * lift)); content = accent; rim = Color.Transparent }
@@ -366,19 +366,23 @@ fun GlassIconButton(
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedAsState()
     val squish by animateFloatAsState(if (pressed) 0.94f else 1f, motion(Motion.SHORT), label = "icon-press")
+    // Hover eases in rather than switching, like the buttons beside it.
+    val disc by animateColorAsState(if (hovered) lighten(g.strong, 0.08f) else g.strong, motion(Motion.SHORT), label = "icon-disc")
+    val ring by animateColorAsState(if (hovered) Accent.copy(alpha = 0.6f) else g.rimLow, motion(Motion.SHORT), label = "icon-ring")
+    val glyph by animateColorAsState(if (hovered) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
     Box(
         modifier
             .size(ControlSize)
             .graphicsLayer { scaleX = squish; scaleY = squish }
             .clip(CircleShape)
-            .background(if (hovered) lighten(g.strong, 0.08f) else g.strong)
-            .border(BorderStroke(1.dp, if (hovered) Accent.copy(alpha = 0.6f) else g.rimLow), CircleShape)
+            .background(disc)
+            .border(BorderStroke(1.dp, ring), CircleShape)
             .hoverable(interaction)
             .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = if (hovered) scheme.primary else tint, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -933,6 +937,10 @@ private fun PillField(
     val g = glassColors()
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    // Focus draws the rim and icon in teal over a moment, so the field visibly wakes up.
+    val rimColor by animateColorAsState(if (focused) scheme.primary else g.rimLow, motion(Motion.SHORT), label = "field-rim")
+    val rimWidth by animateFloatAsState(if (focused) 1.6f else 1f, motion(Motion.SHORT), label = "field-rim-width")
+    val iconTint by animateColorAsState(if (focused) scheme.primary else scheme.onSurfaceVariant, motion(Motion.SHORT), label = "field-icon")
     val shape = LockOnShapes.button
     BasicTextField(
         value = value,
@@ -945,12 +953,12 @@ private fun PillField(
         decorationBox = { field ->
             Row(
                 Modifier.fillMaxSize().clip(shape).background(g.strong)
-                    .border(BorderStroke(if (focused) 1.6.dp else 1.dp, if (focused) scheme.primary else g.rimLow), shape)
+                    .border(BorderStroke(rimWidth.dp, rimColor), shape)
                     .padding(start = if (icon != null) 14.dp else 18.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (icon != null) {
-                    Icon(icon, contentDescription = null, tint = if (focused) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                 }
                 Box(Modifier.weight(1f)) {
@@ -977,18 +985,22 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val ring = Accent
+    // The dot brightens and the ring draws in from a little wider, so turning a colour on reads as a
+    // choice being made, not a swap.
+    val lit by animateFloatAsState(if (selected || hovered) 1f else 0.6f, motion(Motion.SHORT), label = "orb-lit")
+    val on by animateFloatAsState(if (selected) 1f else 0f, motion(Motion.MEDIUM), label = "orb-ring")
     Box(
         Modifier.size(target).hoverable(interaction)
             .toggleable(selected, interaction, indication = null, role = Role.Checkbox) { onToggle() }
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.graphicsLayer { alpha = if (selected || hovered) 1f else 0.6f }) {
+        Box(Modifier.graphicsLayer { alpha = lit }) {
             ColorDot(color, onColor, label.take(1), size = 28.dp, outlined = outlined)
         }
-        if (selected) {
+        if (on > 0f) {
             Canvas(Modifier.fillMaxSize()) {
-                drawCircle(ring, radius = 18.dp.toPx(), style = Stroke(2.5.dp.toPx()))
+                drawCircle(ring.copy(alpha = ring.alpha * on), radius = (18f + 4f * (1f - on)).dp.toPx(), style = Stroke(2.5.dp.toPx()))
             }
         }
     }
@@ -1057,20 +1069,28 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
     val onAccent = OnAccent
-    Row(
-        modifier.height(44.dp).glass(LockOnShapes.button, strong = true).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        options.forEachIndexed { i, label ->
-            val isSelected = i == selected
-            val bg by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "segment")
-            Box(
-                Modifier.weight(1f).fillMaxHeight().clip(LockOnShapes.button).background(bg)
-                    .selectable(isSelected, role = Role.RadioButton) { onSelect(i) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = if (isSelected) onAccent else scheme.onSurfaceVariant)
+    // One teal pill slides to the chosen option, so the eye follows the change instead of seeing one
+    // pill vanish and another appear.
+    val slot by animateFloatAsState(selected.toFloat(), motion(Motion.MEDIUM), label = "segment-slide")
+    Box(modifier.height(44.dp).glass(LockOnShapes.button, strong = true).padding(4.dp)) {
+        if (selected in options.indices) {
+            Canvas(Modifier.matchParentSize()) {
+                val gap = 3.dp.toPx()
+                val w = (size.width - gap * (options.size - 1)) / options.size
+                drawRoundRect(accent, Offset(slot * (w + gap), 0f), Size(w, size.height), CornerRadius(size.height / 2))
+            }
+        }
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            options.forEachIndexed { i, label ->
+                val isSelected = i == selected
+                val text by animateColorAsState(if (isSelected) onAccent else scheme.onSurfaceVariant, motion(Motion.MEDIUM), label = "segment-text")
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clip(LockOnShapes.button)
+                        .selectable(isSelected, role = Role.RadioButton) { onSelect(i) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = text)
+                }
             }
         }
     }
