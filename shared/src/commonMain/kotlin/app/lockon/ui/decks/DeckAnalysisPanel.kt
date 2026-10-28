@@ -22,6 +22,9 @@ import app.lockon.rules.DeckAnalysis
 import app.lockon.rules.DeckLegality
 import app.lockon.rules.Severity
 import app.lockon.ui.components.BarChart
+import app.lockon.ui.components.DeckGlance
+import app.lockon.ui.components.glass
+import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.theme.cardColor
 
@@ -30,6 +33,11 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
     Column(modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // The level curve and the counts by type, Burst and Blocker, as the game shows them.
+        if (deck.entries.isNotEmpty()) {
+            DeckGlance(stats, Modifier.glass(LockOnShapes.tile, strong = true)
+                .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp))
+        }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             SectionHeader("Legality")
             if (legality.messages.isEmpty()) {
@@ -64,7 +72,6 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
             }
         }
         HorizontalDivider()
-        BarChart("Level curve (main deck)", stats.levelCurve)
         BarChart("Cost curve (main deck)", stats.costCurve, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f))
         HorizontalDivider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

@@ -1,5 +1,4 @@
 package app.lockon.ui.decks
-import app.lockon.ui.components.DeckGlance
 import app.lockon.ui.components.FloatingPillNav
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.navClearance
@@ -54,9 +53,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -124,9 +125,7 @@ import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.PlateStepper
 import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.isTwilight
-import app.lockon.rules.DeckAnalysis
 import app.lockon.rules.DeckLegality
-import app.lockon.rules.DeckStats
 import app.lockon.ui.components.glass
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
@@ -137,6 +136,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -428,11 +429,23 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 return f.coerceIn(MIN_CARDS_WIDTH / usable, 1f - MIN_DECK_WIDTH / usable)
             }
             val cardsWidth = usable * clampSplit(split)
+            // While dragging, only a guide line follows the pointer; the panels resize once on release,
+            // since relaying out both card grids on every pixel makes the drag stutter.
+            val guideX = remember { mutableFloatStateOf(Float.NaN) }
             Row(Modifier.fillMaxSize()) {
                 Panel(Modifier.width(cardsWidth).fillMaxHeight()) { search(Modifier.fillMaxSize()) }
                 SplitHandle(
-                    onDrag = { dx -> split = clampSplit((cardsWidth + with(density) { dx.toDp() }) / usable) },
-                    onDragEnd = { state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.toString())) } },
+                    onDragStart = { guideX.floatValue = with(density) { cardsWidth.toPx() } },
+                    onDrag = { dx ->
+                        val (lo, hi) = with(density) { (usable * clampSplit(0f)).toPx() to (usable * clampSplit(1f)).toPx() }
+                        guideX.floatValue = (guideX.floatValue + dx).coerceIn(lo, hi)
+                    },
+                    onDragEnd = {
+                        val x = guideX.floatValue
+                        guideX.floatValue = Float.NaN
+                        if (!x.isNaN() && usable > 0.dp) split = clampSplit(with(density) { x.toDp() } / usable)
+                        state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.toString())) }
+                    },
                     onReset = {
                         split = DEFAULT_SPLIT
                         state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.toString())) }
@@ -458,6 +471,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                 }
             }
+            SplitGuide(guideX)
             }
             CardDragGhost(cardDrag, Modifier.matchParentSize())
             }
@@ -550,7 +564,6 @@ private fun DeckList(
         } + ("Unknown cards" to main.filter { cards[it.cardNumber] == null })
         byType.filter { it.second.isNotEmpty() }
     }
-    val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
     var cardView by rememberSaveable { mutableStateOf(true) }
     val gap = if (compact) 8.dp else 6.dp
     BoxWithConstraints(modifier) {
@@ -558,10 +571,9 @@ private fun DeckList(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (deck.entries.isNotEmpty()) {
-            // The numbers that matter while building ride at the top of the list, as in game deck
-            // builders; the full analysis is one tap away.
+            // Whether the deck is legal rides at the top of the list; the curve and counts are under Analysis.
             item(key = "stats") {
-                DeckStatsStrip(stats, legality, onOpenAnalysis, cardView, { cardView = it }, compact, Modifier.padding(bottom = 4.dp))
+                DeckStatusBar(legality, onOpenAnalysis, cardView, { cardView = it }, Modifier.padding(bottom = 4.dp))
             }
         }
         if (deck.entries.isEmpty()) {
@@ -737,25 +749,20 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
 }
 
 /**
- * A compact summary at the top of the deck list: the level curve beside the counts by type, Burst
- * and Blocker, and the first legality problem in words (UX rule I3) with a link to the full analysis.
+ * A slim bar at the top of the deck list: the first legality problem in words (UX rule I3), the
+ * card/list view switch, and a link to the full analysis with the curve and counts.
  */
 @Composable
-private fun DeckStatsStrip(
-    stats: DeckStats,
+private fun DeckStatusBar(
     legality: DeckLegality,
     onOpenAnalysis: () -> Unit,
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
-    /** Wide windows: the curve sits beside the counts. Phones stack a shorter curve over one line of counts. */
-    compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 6.dp)) {
-        // Phones keep the cards in view with a shorter curve.
-        DeckGlance(stats, curveHeight = if (compact) 80.dp else 64.dp)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             val first = legality.errors.firstOrNull()
             Text(
                 when {
@@ -779,10 +786,11 @@ private fun DeckStatsStrip(
  */
 /** The divider between the card list and the deck: drag to resize, double-click to reset. */
 @Composable
-private fun SplitHandle(onDrag: (Float) -> Unit, onDragEnd: () -> Unit, onReset: () -> Unit) {
+private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDragEnd: () -> Unit, onReset: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     var dragging by remember { mutableStateOf(false) }
+    val start by rememberUpdatedState(onDragStart)
     val drag by rememberUpdatedState(onDrag)
     val end by rememberUpdatedState(onDragEnd)
     val reset by rememberUpdatedState(onReset)
@@ -793,7 +801,7 @@ private fun SplitHandle(onDrag: (Float) -> Unit, onDragEnd: () -> Unit, onReset:
             .pointerHoverIcon(resizeHorizontalPointer)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
-                    onDragStart = { dragging = true },
+                    onDragStart = { dragging = true; start() },
                     onDragEnd = { dragging = false; end() },
                     onDragCancel = { dragging = false; end() },
                 ) { change, dx -> change.consume(); drag(dx) }
@@ -807,6 +815,24 @@ private fun SplitHandle(onDrag: (Float) -> Unit, onDragEnd: () -> Unit, onReset:
             else -> scheme.onSurfaceVariant.copy(alpha = 0.25f)
         }
         Box(Modifier.width(4.dp).height(48.dp).clip(RoundedCornerShape(2.dp)).background(grip))
+    }
+}
+
+/** Where the divider will land, shown while it is dragged. Read only in layout, so moving it recomposes nothing. */
+@Composable
+private fun SplitGuide(x: FloatState) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        Modifier.fillMaxHeight().width(SPLIT_HANDLE)
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                layout(placeable.width, placeable.height) {
+                    if (!x.floatValue.isNaN()) placeable.place(x.floatValue.roundToInt(), 0)
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.width(4.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(scheme.primary.copy(alpha = 0.7f)))
     }
 }
 
