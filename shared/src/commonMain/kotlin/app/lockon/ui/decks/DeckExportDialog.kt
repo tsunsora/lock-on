@@ -102,6 +102,8 @@ import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 
@@ -200,7 +202,10 @@ fun DeckExportDialog(
                 }
                 1 -> GameButton("Save image", onClick = {
                     state.appScope.launch {
-                        val png = encodePng(layer.toImageBitmap())
+                        // The layer is drawn on the UI thread, so it's captured there; encoding a deck
+                        // image takes seconds, so that happens off it and the window keeps responding.
+                        val bitmap = layer.toImageBitmap()
+                        val png = withContext(Dispatchers.Default) { encodePng(bitmap) }
                         if (files.saveBytes("$baseName.png", "image/png", png)) state.notify("Deck image saved.")
                     }
                 }, compact = true)

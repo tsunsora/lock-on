@@ -249,11 +249,14 @@ class ScreenshotTest {
             override suspend fun openText(mimeTypes: List<String>): String? = null
         }
         val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        // The app's scope runs on the thread that draws the window. Here that is this thread, between
+        // frames: capturing the image from another thread while a frame draws crashes or hangs.
+        val uiThread = FrameThreadDispatcher()
         ImageComposeScene(1200, 1400, Density(1.5f)) {
             app.lockon.ui.theme.LockOnTheme(dark = true) {
                 app.lockon.ui.decks.DeckExportDialog(
                     deck, container.catalog.cards.value, container.catalog.ruleset.value, capturing,
-                    AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = 1,
+                    AppState(CoroutineScope(uiThread)), onDismiss = {}, startTab = 1,
                 )
             }
         }.use { scene ->
@@ -261,8 +264,15 @@ class ScreenshotTest {
             val button = androidx.compose.ui.geometry.Offset(1020f, 1306f)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
-            repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 6) * 100_000_000L) }
-            val image = org.jetbrains.skia.Image.makeFromEncoded(saved.get(10, java.util.concurrent.TimeUnit.SECONDS))
+            // Frames keep coming until the image arrives, as they would in a window.
+            var frame = 6L
+            val deadline = System.nanoTime() + 60_000_000_000L
+            while (!saved.isDone && System.nanoTime() < deadline) {
+                uiThread.runPending()
+                Thread.sleep(16)
+                scene.render(frame++ * 100_000_000L)
+            }
+            val image = org.jetbrains.skia.Image.makeFromEncoded(saved.get(1, java.util.concurrent.TimeUnit.SECONDS))
             kotlin.test.assertEquals(2160, image.width)
             assertTrue(image.height > 2160, "the whole deck is in the image, not just what the dialog shows")
         }
@@ -472,5 +482,16 @@ class ScreenshotTest {
                 File(out, "${if (dark) "" else "light-"}desktop-window-controls.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
             }
         }
+    }
+}
+
+/** Stands in for a window's UI thread: queued work runs on the test's thread when it calls [runPending]. */
+private class FrameThreadDispatcher : kotlinx.coroutines.CoroutineDispatcher() {
+    private val queue = java.util.concurrent.ConcurrentLinkedQueue<Runnable>()
+
+    override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) { queue += block }
+
+    fun runPending() {
+        while (true) (queue.poll() ?: return).run()
     }
 }
