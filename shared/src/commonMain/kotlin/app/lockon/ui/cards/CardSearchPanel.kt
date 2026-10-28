@@ -1,4 +1,5 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.SpotlightGrid
 import app.lockon.ui.components.LocalNavClearance
 import androidx.compose.ui.graphics.Color
 import app.lockon.ui.components.PillChip
@@ -242,7 +243,7 @@ fun CardSearchPanel(
         }
         HorizontalDivider(Modifier.padding(top = 4.dp))
         if (results.isEmpty()) EmptyState("No cards match", "Try fewer filters or a shorter search.")
-        else Box(Modifier.weight(1f).fillMaxWidth()) {
+        else SpotlightGrid(Modifier.weight(1f).fillMaxWidth()) {
             if (grid) LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(if (wide) 136.dp else 104.dp),
