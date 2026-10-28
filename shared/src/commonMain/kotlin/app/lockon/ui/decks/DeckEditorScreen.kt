@@ -160,6 +160,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import app.lockon.data.db.MetaEntity
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.withFrameNanos
 import app.lockon.platform.resizeHorizontalPointer
 
 private const val AUTOSAVE_DELAY_MS = 400L
@@ -209,6 +211,13 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     DisposableEffect(deckId) {
         onDispose { pending?.let { last -> state.appScope.launch { container.decks.save(deckId, last, pendingBase) } } }
     }
+
+    // The editor fills in over its first frames: its frame, then the deck, then the card list. Each
+    // is a large first composition, and together they held one frame for over 100 ms (several
+    // hundred the first time), freezing the library as it faded out. The screen fades in after a
+    // delay, so the steps land before it shows.
+    var stage by remember(deckId) { mutableIntStateOf(0) }
+    LaunchedEffect(deckId) { while (stage < 2) withFrameNanos { stage++ } }
 
     val deck = draft
     // Still loading: show nothing rather than a moment of "Deck not found".
@@ -462,7 +471,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // since relaying out both card grids on every pixel makes the drag stutter.
             val guideX = remember { mutableFloatStateOf(Float.NaN) }
             Row(Modifier.fillMaxSize()) {
-                Panel(Modifier.width(cardsWidth).fillMaxHeight()) { search(Modifier.fillMaxSize()) }
+                Panel(Modifier.width(cardsWidth).fillMaxHeight()) { if (stage >= 2) search(Modifier.fillMaxSize()) }
                 SplitHandle(
                     onDragStart = { guideX.floatValue = with(density) { cardsWidth.toPx() } },
                     onDrag = { dx ->
@@ -490,7 +499,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     .border(BorderStroke(2.dp, dropRim), LockOnShapes.panel)) {
                     Column {
                         PillTabs(listOf("Deck", "Analysis", "Test", "Matches", "Versions"), deckTab, { deckTab = it }, fill = true)
-                        when (deckTab) {
+                        if (stage >= 1) when (deckTab) {
                             0 -> deckList(Modifier.fillMaxSize())
                             1 -> analysis(Modifier.fillMaxSize())
                             2 -> test(Modifier.fillMaxSize())
@@ -507,7 +516,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         } else {
             // The sections float in a pill over the content, which scrolls underneath it.
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                when (phoneTab) {
+                if (stage >= 1) when (phoneTab) {
                     0 -> deckList(Modifier.fillMaxSize())
                     1 -> search(Modifier.fillMaxSize())
                     2 -> analysis(Modifier.fillMaxSize())

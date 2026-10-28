@@ -54,6 +54,7 @@ fun main() {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val sync = DesktopSyncController(container, appScope).also { it.start() }
     container.updater?.start(appScope)
+    EditorWarmup.start(container)
     val state = AppState(appScope)
 
     val saved = WindowMemory.load()
@@ -92,6 +93,7 @@ fun main() {
                 if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
             }
             System.getProperty("lockon.scrollProbe")?.let { ScrollProbe(window, state, File(it), exit) }
+            System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
         }
     }
     sync.stop()

@@ -55,6 +55,9 @@ compose.desktop {
         providers.gradleProperty("lockon.dataDir").orNull?.let { jvmArgs("-Dlockon.dataDir=$it") }
         // `-Plockon.scrollProbe=<file>` times scrolling the card grid and closes the app (ScrollProbe.kt).
         providers.gradleProperty("lockon.scrollProbe").orNull?.let { jvmArgs("-Dlockon.scrollProbe=$it") }
+        // `-Plockon.deckOpenProbe=<file>` times opening decks from the library and closes the app (DeckOpenProbe.kt).
+        providers.gradleProperty("lockon.deckOpenProbe").orNull?.let { jvmArgs("-Dlockon.deckOpenProbe=$it") }
+        providers.gradleProperty("lockon.deckOpenProbe.wait").orNull?.let { jvmArgs("-Dlockon.deckOpenProbe.wait=$it") }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Lock On"

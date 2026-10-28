@@ -23,6 +23,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -39,7 +41,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -82,6 +86,8 @@ class DeckControls(
     val drag: CardDrag? = null,
 )
 
+private const val TILES_PER_FRAME = 4
+
 /**
  * Search and filters over the catalog. Results update as you type (UX rule S5). The grid shows
  * whole cards; the list is denser. With [controls], each card gets the deck's − / + and tags.
@@ -119,6 +125,23 @@ fun CardSearchPanel(
             query.matches(card) && (colorLimit == null || card.colors.isEmpty() || card.colors.all { it in colorLimit })
         }.sortedWith(sort.comparator)
     }
+    // A screen of tiles is a large first composition, over 80 ms and several times that before the JIT
+    // has warmed up, so the list starts with a few and adds more each frame until the screen is full.
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+    var shown by remember { mutableIntStateOf(TILES_PER_FRAME) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            withFrameNanos { }
+            val (total, last) = if (grid) gridState.layoutInfo.run { totalItemsCount to visibleItemsInfo.lastOrNull()?.index }
+            else listState.layoutInfo.run { totalItemsCount to visibleItemsInfo.lastOrNull()?.index }
+            // Done once every result is listed, or the screen is full with some left below it.
+            if (total < shown || (last != null && last < total - 1)) break
+            shown += TILES_PER_FRAME
+        }
+        shown = Int.MAX_VALUE
+    }
+    val listed = if (shown < results.size) results.subList(0, shown) else results
     val levels = remember(cards) { cards.mapNotNull { it.level }.distinct().sorted() }
     val costs = remember(cards) { cards.mapNotNull { it.cost }.distinct().sorted() }
     val sets = remember(cards) { cards.map { it.setCode }.distinct().sorted() }
@@ -220,12 +243,13 @@ fun CardSearchPanel(
         when {
             results.isEmpty() -> EmptyState("No cards match", "Try fewer filters or a shorter search.")
             grid -> LazyVerticalGrid(
+                state = gridState,
                 columns = GridCells.Adaptive(if (wide) 136.dp else 104.dp),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 20.dp + LocalNavClearance.current),
                 horizontalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
                 verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 10.dp),
             ) {
-                items(results, key = { it.cardNumber }) { card ->
+                items(listed, key = { it.cardNumber }) { card ->
                     CardTile(
                         card,
                         onClick = { onCardClick(card) },
@@ -239,8 +263,8 @@ fun CardSearchPanel(
                     )
                 }
             }
-            else -> LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = LocalNavClearance.current)) {
-                items(results, key = { it.cardNumber }) { card ->
+            else -> LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(bottom = LocalNavClearance.current)) {
+                items(listed, key = { it.cardNumber }) { card ->
                     CardRow(card, Modifier.animateItem().cardDragSource(card, controls?.drag), onClick = { onCardClick(card) }, trailing = {
                         if (controls != null) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
