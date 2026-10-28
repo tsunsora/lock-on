@@ -143,6 +143,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.clearOfNav
+import app.lockon.ui.components.skyClearing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -262,7 +263,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             val roomy = maxWidth >= 1000.dp
             Row(
                 Modifier.fillMaxWidth().padding(start = 4.dp, end = if (wide) 8.dp else 16.dp, top = if (wide) 0.dp else 6.dp, bottom = if (wide) 0.dp else 2.dp)
-                    .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier),
+                    .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier).skyClearing(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
@@ -276,13 +277,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     // The name itself opens Rename; wide windows add a quiet pencil beside it as the hint.
                     Row(
                         Modifier.clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Rename deck") { renaming = true }
-                            .padding(end = if (wide) 6.dp else 0.dp),
+                            .padding(end = if (wide && roomy) 6.dp else 0.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(deck.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                        if (wide) Icon(Icons.Default.Edit, contentDescription = null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // A tight band gives the pencil's room to the name, which still opens Rename.
+                        if (wide && roomy) Icon(Icons.Default.Edit, contentDescription = null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val c = MaterialTheme.colorScheme
@@ -295,7 +297,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 }
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(if (roomy) 20.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 128.dp))
+                        DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 104.dp))
                         // Narrower bands keep the reticle and drop its caption; the legality stamp says it in words (I4).
                         if (roomy) {
                             LockReadout(legality.isLegal)
@@ -313,7 +315,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             }
             if (!wide) {
                 ProgressGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize,
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp), compact = true)
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp).skyClearing(), compact = true)
             }
         }
         if (summary?.hasConflict == true) {
@@ -372,16 +374,26 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             )
         }
         val search: @Composable (Modifier) -> Unit = { modifier ->
-            Column(modifier) {
-                Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Add to", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    PillTabs(listOf("Deck", "Side deck"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, Modifier.weight(1f))
+            BoxWithConstraints(modifier) {
+                @Composable
+                fun AddTo(tabs: Modifier, label: Modifier = Modifier) {
+                    Text("Add to", label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PillTabs(listOf("Deck", "Side deck"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs)
                 }
-                CardSearchPanel(
-                    addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
-                    focusRequests = state.searchFocusRequests, deckColors = deckColors, wide = wide,
-                    controls = controls,
-                )
+                // A wide card list fits the switch at the end of the search row, so the cards get
+                // that row's height back (UX rule N4, space goes to cards).
+                val inline = wide && maxWidth >= 720.dp
+                Column {
+                    if (!inline) Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AddTo(Modifier.weight(1f))
+                    }
+                    CardSearchPanel(
+                        addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
+                        focusRequests = state.searchFocusRequests, deckColors = deckColors, wide = wide,
+                        controls = controls,
+                        trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max), Modifier.padding(start = 14.dp)) }) else null,
+                    )
+                }
             }
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }

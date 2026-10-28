@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -91,6 +92,7 @@ class DeckControls(
  *
  * @param deckColors when set, offers "Deck colors only" so a two-color deck can hide the rest.
  * @param selected highlights the card shown in a side panel.
+ * @param trailing extra controls at the end of the search row, such as the editor's Add to switch.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -103,6 +105,7 @@ fun CardSearchPanel(
     controls: DeckControls? = null,
     selected: String? = null,
     wide: Boolean = false,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
@@ -165,6 +168,7 @@ fun CardSearchPanel(
             if (wide) ViewControls()
             else PillChip(selected = showMore, onClick = { showMore = !showMore },
                 label = { Text(if (hiddenFilters > 0) "Filters · $hiddenFilters" else "Filters") })
+            trailing?.invoke(this)
         }
         // Phones scroll this row, and its far edge fades out to show there is more.
         val rowModifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)

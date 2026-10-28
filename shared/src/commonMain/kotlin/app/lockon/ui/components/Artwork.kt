@@ -78,10 +78,10 @@ fun CardArtwork(
     var loaded by remember(url) { mutableStateOf(false) }
     var slow by remember(url) { mutableStateOf(false) }
     var covered by remember(url) { mutableStateOf(false) }
-    // One timer per card: until the image loads it waits to show the placeholder, then to drop it.
-    LaunchedEffect(url, loaded) {
-        if (!loaded) { delay(PLACEHOLDER_DELAY_MS); slow = true } else { delay(CROSSFADE_MS + 50L); covered = true }
-    }
+    // Until the image loads, a timer waits to show the placeholder. Only a placeholder that showed
+    // needs a second timer to drop it after the crossfade; most images arrive first and need neither.
+    if (!loaded) LaunchedEffect(url) { delay(PLACEHOLDER_DELAY_MS); slow = true }
+    else if (slow && !covered) LaunchedEffect(url) { delay(CROSSFADE_MS + 50L); covered = true }
     Box(modifier) {
         if (url == null || failed || (slow && !covered)) fallback()
         if (url != null && !failed) {

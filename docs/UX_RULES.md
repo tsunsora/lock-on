@@ -6,7 +6,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 
 ## 1. Navigation and structure
 
-- **N1. Three destinations, no more.** The top level is **Decks**, **Cards** and **Settings**. Settings holds sync, the card database and app updates. A new feature goes inside an existing destination unless it is used as often as those three. (Aniimo opens on a 16-icon menu and reviewers call it a nightmare to navigate.)
+- **N1. Four destinations, no more.** The top level is **Decks**, **Cards**, **Sync** and **Settings**. Sync holds pairing and devices; Settings holds the device's own preferences, the card database and app updates. A new feature goes inside an existing destination unless it is used as often as those four. (Aniimo opens on a 16-icon menu and reviewers call it a nightmare to navigate.)
 - **N2. Two levels deep at most.** A destination's own screen counts as level one. A deck's editor or a conflict comparison counts as level two. Anything further opens as a sheet or dialog over level two, never a third screen. (Stella Sora is praised for having few nested menus.)
 - **N3. Back always works and never loses work.** System back, the on-screen back arrow and Escape on desktop all leave the current screen, and edits are already saved when they do.
 - **N4. Wide windows split into panes instead of adding screens.** At 840 dp and wider, the editor has two areas: the card list and the deck. On phones the same views become tabs.
@@ -16,15 +16,16 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
   - The library lays decks out in a grid.
   - Reading screens such as Sync stay under about 980 dp wide.
   - Phones show three cards across.
-  - **Space goes to cards.** The card list header is two rows: the search with its result count, Filters, Sort and the view toggle, then colours as orb toggles with initials and types as chips. The second row wraps on wide panes. On phones it scrolls, starting with all five colours as 48 dp orbs and fading at its edge to show there is more. Sort and Grid/List move into Filters, whose chip counts the filters set there.
+  - **Space goes to cards.** The card list header is two rows: the search with its result count, Filters, Sort and the view toggle (and, in the editor when the list is at least 720 dp wide, the **Add to** switch), then colours as orb toggles with initials and types as chips. The second row wraps on wide panes. On phones it scrolls, starting with all five colours as 48 dp orbs and fading at its edge to show there is more. Sort and Grid/List move into Filters, whose chip counts the filters set there.
   - Deck strips are 48 dp tall on wide windows and 58 dp on phones. The level curve above the deck list is a 48 dp row with a small caption.
   - On phones, a screen's title shares its row with that screen's main action. Rarely used actions, such as Import and Back up all on Decks, go in a ⋮ menu. Folder chips share one scrolling row with tag chips.
   - The test hand is always three cards across, so a phone shows the whole opening hand above Keep and Redraw.
 - **N5. Floating navigation shares the top band.** Navigation floats over the hangar backdrop as detached plates instead of spanning the window (V9).
   - At 840 dp and wider, the player card floats top-left and the navigation pill top-right. Each screen puts its own header in the band between them (`ScreenHeader`, or `clearOfNav` for custom headers such as the editor's), so no row is spent on navigation alone.
+  - **The band is the title bar on Windows.** There is no system caption: the sky runs to the window's top edge. Minimise, maximise/restore and close float in a small glass capsule just right of the pill, and the band keeps clear of it. Empty parts of the band (and the player card) move the window, and a double-click maximises it. Controls, fields and cards in the band still take their own clicks. Windows keeps the rounded corners, shadow, resize edges and Snap. Desktop windows narrower than 840 dp give the capsule a slim 48 dp row of its own. Other systems keep their own title bar.
   - When the band is under 1000 dp, the editor header drops the cover thumbnail, the reticle's caption and the ruleset name, and uses short gauge labels. The legality stamp still says *Legal* or *Draft* in words (I4).
   - Below 840 dp, navigation is a floating pill (`PillNavBar`, after AnymeX's "Dynamic Pill" bar). It's about 88% of the screen wide, sits 12 dp above the bottom edge and is somewhat transparent, and content scrolls underneath it. Lists add `LocalNavClearance` to their bottom padding, so their last item can scroll clear of it. The selected destination expands into a teal pill with its icon and label. The others shrink to icons, which keep their labels for screen readers (I5). It holds only the necessities:
-    - **Top level:** Decks, Cards and Settings.
+    - **Top level:** Decks, Cards, Sync and Settings.
     - **Inside a deck:** the app's pill steps aside, and back returns to it (N3). The editor floats its own sections in the same pill: **Deck**, **Add**, **Analysis**, **Test**, and **More** for Matches and Versions, so the pill never holds more than five items.
   - On wide windows, the same pill sits at the top right with every label showing.
   - The phone editor header keeps only back, the deck name (tap to rename), its colours, the Legal or Draft stamp, Export, and the two gauges.
@@ -48,7 +49,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 
 ## 4. Calm by default
 
-- **C1. No nagging.** No badges, banners or pop-ups announce anything the person didn't just do. Sync status appears in Settings and as a small dot on its navigation item, and nowhere else. (Aniimo's reward systems "scream at you from multiple menus.")
+- **C1. No nagging.** No badges, banners or pop-ups announce anything the person didn't just do. Sync status appears on the Sync screen and as a small dot on its navigation item, and nowhere else. (Aniimo's reward systems "scream at you from multiple menus.")
 - **C2. Undo instead of "Are you sure?"** Reversible actions such as deleting a deck or clearing a section happen immediately and offer **Undo** in a snackbar. A confirmation dialog is only for actions undo can't reverse, such as forgetting a paired device or overwriting from a backup.
 - **C3. One bulk action instead of many single ones.** When something applies to many items, offer it once, such as *Clear section* or *Sync now*. (Aniimo reviewers asked for a claim-all.)
 - **C4. Pick from options, don't type.** Wherever a value comes from a known list, such as a card name, a color, a tag already in use or a ruleset, offer it as a choice. Typing is the fallback.
@@ -87,6 +88,7 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
 - **V9. Navigation floats and fits the theme** (as on Stella Sora's home screen, N5).
   - **The player card** is the brand: the Lock On mark in a teal-ringed level badge, the name, and the deck and card counts in currency-style pills. They're plain counts, never badges or prompts (C1).
   - **The pill** (N5): destinations float in a translucent capsule, and the selected one is a teal pill with its label.
+  - **Window controls** (N5, desktop) use the pill's own glass, with drawn glyphs, a label and a tooltip on each (I5). They tint on hover and sink a hair when pressed, and close turns red on hover.
 - **V5. Motion explains and gives feedback, quietly.** Every animation answers *what changed*, *where did I go* or *what can I touch*, and none of it competes with the cards. Short distances, small scales, no bounce, overshoot, tilt or sparkle. Timing lives in `Motion.kt`.
   - **Timing:** 120 ms for small exits, 200 ms for most changes, 280 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 30 ms apart.
   - **Navigation:** going deeper drifts a short way forward, coming back drifts back, and switching tabs fades through.
@@ -118,10 +120,10 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
 ## 7. Trust (sync and data)
 
 - **T1. Never silently discard an edit.** Conflicting versions are kept and compared side by side, and the person chooses.
-- **T2. Show where data lives.** Settings states that only decks sync and that no account or server is involved.
+- **T2. Show where data lives.** The Sync screen states that only decks sync and that no account or server is involved.
 - **T3. Errors say what to do next.** *"Could not reach the desktop. Check that Lock On is open on it…"*, not error codes.
 - **T6. Seeing is not trusting.** Devices found on the network are listed with one tap to connect, but nothing pairs until a person on the computer confirms a 6-digit number that matches the phone's. Codes from QR or typing are optional extras, never the only safeguard.
-- **T5. Automatic sync is quiet.** Auto-sync only runs while the app is open. It never shows a snackbar or dialog. It reports itself only in Settings, as *Live* or *Waiting for the desktop*. An unreachable desktop is normal, not an error, so it never sets the error dot. Errors are for syncs the person asked for.
+- **T5. Automatic sync is quiet.** Auto-sync only runs while the app is open. It never shows a snackbar or dialog. It reports itself only on the Sync screen, as *Live* or *Waiting for the desktop*. An unreachable desktop is normal, not an error, so it never sets the error dot. Errors are for syncs the person asked for.
 - **T4. No ads and no upsell.** These are the most common complaints in Gundam deck-builder store reviews.
 
 ---

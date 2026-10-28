@@ -76,12 +76,18 @@ class ScrollBenchmarkTest {
                     start()
                 }
             }
+            // LOCKON_SAMPLE names a file for a report of where slow frames spend their time: the
+            // render thread's stack every millisecond, kept only for frames over 12 ms.
+            val sampler = System.getenv("LOCKON_SAMPLE")?.let { StackSampler(Thread.currentThread()).apply { start() } }
+            val slow = mutableListOf<LongRange>()
             val times = (1..300).map {
                 scene.sendPointerEvent(PointerEventType.Scroll, Offset(800f * scale, 800f * scale), scrollDelta = Offset(0f, 1f))
                 Thread.sleep(8)
-                frame()
+                val start = System.nanoTime()
+                frame().also { took -> if (took > 12_000_000L) slow += start..start + took }
             }.map { it / 1_000_000.0 }.sorted()
             profile?.run { stop(); dump(java.nio.file.Path.of(System.getenv("LOCKON_JFR"))); close() }
+            sampler?.let { File(System.getenv("LOCKON_SAMPLE")).writeText(it.finish().report(slow)) }
             val report = "scale $scale scroll frames: mean %.1f ms, median %.1f ms, p90 %.1f ms, worst %.1f ms".format(
                 times.average(), times[times.size / 2], times[times.size * 9 / 10], times.last(),
             )

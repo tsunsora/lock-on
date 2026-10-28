@@ -628,7 +628,8 @@ private fun DeckRow(
                     else ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth(), compact = true)
                 }
                 val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // As tall with or without a record, so boxes side by side keep their gauges in line.
+                Row(Modifier.heightIn(min = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (record.winRate != null) {
                         Text(record.score, style = MaterialTheme.typography.titleMedium.merge(TabularNumbers), color = scheme.primary)
                         Text("${record.winRate}% WIN", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface)
@@ -638,7 +639,8 @@ private fun DeckRow(
                         listOfNotNull(
                             deck.snapshot.folder?.takeIf { showFolder },
                             deck.snapshot.tags.joinToString(" · ").ifBlank { null },
-                            "Edited ${formatTimestamp(deck.updatedAt)}",
+                            // Beside a record the edit time no longer fits, and would end the line in "·…".
+                            "Edited ${formatTimestamp(deck.updatedAt)}".takeIf { record.winRate == null },
                         // Narrow boxes show one detail beside the record, so nothing is cut mid-word.
                         ).let { if (narrow) it.take(1) else it }.joinToString("  ·  "),
                         style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,

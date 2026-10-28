@@ -1,4 +1,10 @@
 package app.lockon.ui.components
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.node.PointerInputModifierNode
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.drawText
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -521,6 +527,28 @@ fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.
     }
 }
 
+/** Whether the pointer is over an element marked with [Modifier.hoverState]. */
+@Stable
+class HoverState {
+    var hovered by mutableStateOf(false)
+        internal set
+}
+
+/**
+ * Tracks the pointer over this element in [state]. Unlike `collectIsHoveredAsState`, it starts no
+ * coroutine until a pointer first arrives, so tiles scrolling through a grid cost nothing extra.
+ */
+fun Modifier.hoverState(state: HoverState): Modifier = pointerInput(state) {
+    awaitPointerEventScope {
+        while (true) {
+            when (awaitPointerEvent().type) {
+                PointerEventType.Enter -> state.hovered = true
+                PointerEventType.Exit -> state.hovered = false
+            }
+        }
+    }
+}
+
 /**
  * Hover lift for cards and tiles on desktop: rises a little and casts a soft shadow tinted with its
  * colour. Press sinks it a hair. Phones never hover, so they only get the press. A modifier node
@@ -551,40 +579,59 @@ private class HoverLiftNode(
     private var shape: Shape,
     private var lift: Dp,
     private var resting: Float,
-) : Modifier.Node(), LayoutModifierNode, CompositionLocalConsumerModifierNode {
+) : Modifier.Node(), LayoutModifierNode, PointerInputModifierNode, CompositionLocalConsumerModifierNode {
     private val hover = Animatable(0f)
     private val press = Animatable(1f)
+    private var hovered = false
     private var watching: Job? = null
 
-    override fun onAttach() = watch()
+    // Nothing starts until a pointer arrives. On desktop every coroutine a tile starts is posted to
+    // the window's event queue, so a grid scrolling in rows of tiles that only watch would drop frames.
+    override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
+        if (pass != PointerEventPass.Main) return
+        if (watching == null) watch()
+        when (pointerEvent.type) {
+            PointerEventType.Enter -> setHovered(true)
+            PointerEventType.Exit -> setHovered(false)
+        }
+    }
+
+    override fun onCancelPointerInput() = setHovered(false)
+
+    override fun onDetach() { watching = null; hovered = false }
 
     // A lazy grid reuses this node for another card, which starts at rest.
     override fun onReset() {
-        if (isAttached) coroutineScope.launch { hover.snapTo(0f); press.snapTo(1f) }
+        hovered = false
+        // Most reused tiles are already at rest, and starting a coroutine for each costs frames.
+        if (isAttached && (hover.value != 0f || press.value != 1f)) coroutineScope.launch { hover.snapTo(0f); press.snapTo(1f) }
     }
 
     fun update(interaction: MutableInteractionSource, glow: Color, shape: Shape, lift: Dp, resting: Float) {
-        val newSource = interaction != this.interaction
+        if (interaction != this.interaction) { watching?.cancel(); watching = null }
         this.interaction = interaction; this.glow = glow; this.shape = shape; this.lift = lift; this.resting = resting
-        if (newSource) { watching?.cancel(); watch() }
         invalidatePlacement()
     }
 
+    private fun setHovered(on: Boolean) {
+        if (on == hovered || !isAttached) return
+        hovered = on
+        val reduce = currentValueOf(LocalReduceMotion)
+        coroutineScope.launch { hover.settle(if (on) 1f else 0f, Motion.MEDIUM, reduce) }
+    }
+
+    // Presses come from the interaction source, so a long touch counts too. Until a pointer has
+    // reached the tile a keyboard press doesn't sink it; the focus ripple still shows it.
     private fun watch() {
         watching = coroutineScope.launch {
-            var hovers = 0
             var presses = 0
             interaction.interactions.collect { event ->
                 when (event) {
-                    is HoverInteraction.Enter -> hovers++
-                    is HoverInteraction.Exit -> hovers = (hovers - 1).coerceAtLeast(0)
                     is PressInteraction.Press -> presses++
                     is PressInteraction.Release, is PressInteraction.Cancel -> presses = (presses - 1).coerceAtLeast(0)
                     else -> return@collect
                 }
-                val reduce = currentValueOf(LocalReduceMotion)
-                launch { hover.settle(if (hovers > 0) 1f else 0f, Motion.MEDIUM, reduce) }
-                launch { press.settle(if (presses > 0) 0.985f else 1f, Motion.SHORT, reduce) }
+                launch { press.settle(if (presses > 0) 0.985f else 1f, Motion.SHORT, currentValueOf(LocalReduceMotion)) }
             }
         }
     }
@@ -651,7 +698,7 @@ private class FlashNode(
     // A lazy grid reuses this node for another card: its count is new, not a change.
     override fun onReset() {
         reused = true
-        if (isAttached) coroutineScope.launch { flash.snapTo(0f) }
+        if (isAttached && flash.value != 0f) coroutineScope.launch { flash.snapTo(0f) }
     }
 
     fun update(value: Int, add: Color, remove: Color, shape: Shape) {
