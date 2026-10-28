@@ -1,4 +1,6 @@
 package app.lockon.ui.components
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.node.PointerInputModifierNode
@@ -526,6 +528,18 @@ fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.
         }
     }
 }
+
+/**
+ * Fades the last [width] of a sideways-scrolling row to nothing, so a row cut off at the edge
+ * shows there is more instead of slicing a chip in half (UX rule N4). Put it before the scroll.
+ */
+fun Modifier.fadeEnd(width: Dp = 40.dp): Modifier =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = size.width - width.toPx(), endX = size.width),
+                blendMode = BlendMode.DstOut)
+        }
 
 /** Whether the pointer is over an element marked with [Modifier.hoverState]. */
 @Stable

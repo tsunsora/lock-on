@@ -93,8 +93,8 @@ fun SyncScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // The device name is in the screen header.
-        SectionHeader("Sync")
+        // The screen header names the device; this says how syncing is going right now.
+        SectionHeader("Status")
         StatusLine(status)
         val pairedIds = devices.map { it.deviceId }.toSet()
         when (controller) {

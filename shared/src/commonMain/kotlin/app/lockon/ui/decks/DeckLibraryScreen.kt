@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.fadeEnd
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillChip
 import app.lockon.ui.components.GameDialog
@@ -220,7 +221,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     val showFolders = !wide && !list.isNullOrEmpty()
                     if (showFolders || tags.isNotEmpty()) {
                         Row(
-                            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

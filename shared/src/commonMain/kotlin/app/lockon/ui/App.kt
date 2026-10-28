@@ -257,16 +257,14 @@ fun LockOnApp(
             }
             SkyBackground(Modifier.fillMaxSize()) {
             var band by remember { mutableStateOf(TopBand()) }
-            // Desktop draws its own title bar (UX rule N5). On wide windows the top band is the bar: its
-            // drag area lies under the screens, so it only gets presses nothing else takes. Narrower
-            // windows have no band, so they give the bar a slim row of its own.
-            val caption = if (chrome != null && !wide) CaptionHeight else 0.dp
+            // Desktop draws its own title bar (UX rule N5). The top band is the bar: its drag area lies
+            // under the screens, so it only gets presses nothing else takes. Narrower windows have no
+            // band, so the controls share the screen header's row, which leaves them room at its end.
+            var controlsWidth by remember { mutableStateOf(0.dp) }
             if (chrome != null) {
-                chrome.dragArea(Modifier.fillMaxWidth().height(if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else caption))
-                if (!wide) Box(Modifier.fillMaxWidth().height(caption).padding(end = 8.dp), contentAlignment = Alignment.CenterEnd) { chrome.controls() }
+                chrome.dragArea(Modifier.fillMaxWidth().height(if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else CaptionHeight))
             }
             Scaffold(
-                modifier = Modifier.padding(top = caption),
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground,
                 // Snackbars sit above the floating nav bar on phones.
@@ -277,7 +275,7 @@ fun LockOnApp(
             ) { padding ->
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     Box(Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
+                    CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
                         // Going deeper drifts forward, coming back drifts back, and switching tabs
                         // fades through, so motion always says where you went (UX rule V5).
                         val reduce = LocalReduceMotion.current
@@ -333,6 +331,11 @@ fun LockOnApp(
                         FloatingPillNav(Tab.entries.map { tab -> BottomItem(tab.label) { TabIcon(tab) } }, Tab.entries.indexOf(state.tab)) {
                             state.select(Tab.entries[it])
                         }
+                    }
+                    if (chrome != null && !wide) {
+                        val density = LocalDensity.current
+                        Box(Modifier.align(Alignment.TopEnd).padding(top = 15.dp, end = 8.dp)
+                            .onSizeChanged { controlsWidth = with(density) { it.width.toDp() } + 8.dp }) { chrome.controls() }
                     }
                     if (wide) {
                         val density = LocalDensity.current
@@ -413,7 +416,8 @@ private fun FloatingTopNav(
 }
 
 /** The title bar's own row on desktop windows too narrow for the top band. */
-private val CaptionHeight = 48.dp
+/** How far down the drag area reaches on narrow windows: the screen header's row. */
+private val CaptionHeight = 64.dp
 
 private val TrayShape = RoundedCornerShape(24.dp)
 

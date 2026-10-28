@@ -1,12 +1,8 @@
 package app.lockon.ui.cards
 import app.lockon.ui.components.LocalNavClearance
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.drawWithContent
 import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.fadeEnd
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -172,13 +168,7 @@ fun CardSearchPanel(
         }
         // Phones scroll this row, and its far edge fades out to show there is more.
         val rowModifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)
-        else Modifier.fillMaxWidth()
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-            .drawWithContent {
-                drawContent()
-                drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = size.width - 40.dp.toPx(), endX = size.width),
-                    blendMode = BlendMode.DstOut)
-            }
+        else Modifier.fillMaxWidth().fadeEnd()
             .horizontalScroll(rememberScrollState()).padding(start = 6.dp, end = 32.dp, top = 2.dp, bottom = 2.dp)
         FlowRow(rowModifier, horizontalArrangement = Arrangement.spacedBy(if (wide) 4.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             CardColor.entries.forEach { color ->

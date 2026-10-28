@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.fadeEnd
 import app.lockon.ui.components.DeckGlance
 import app.lockon.io.ExportOrder
 import app.lockon.platform.encodeShareQr
@@ -267,9 +268,10 @@ fun DeckExportDialog(
                         title()
                         tabs()
                         about()
-                        // One scrolling line of order chips, so the preview keeps the rows.
+                        // One scrolling line of order chips, so the preview keeps the rows. Its edge fades
+                        // to show there is more.
                         Row(
-                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(end = 32.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
                         ) {
                             orderLabel(Modifier)

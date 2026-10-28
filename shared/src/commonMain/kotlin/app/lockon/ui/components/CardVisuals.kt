@@ -433,7 +433,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
             if (printings.size > 1) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SectionHeader("Printings", readout = "${printings.size}")
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(end = 32.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         printings.forEach { p ->
                             val isShown = (shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId) == p.printingId
                             Column(
