@@ -354,24 +354,22 @@ private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Rul
             }
             GlassPanel(Modifier.fillMaxWidth(), title = "Main deck", readout = "${main.sumOf { it.quantity }}") {
                 Column(Modifier.padding(start = 8.dp, end = 8.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    for ((label, group) in order.groups(main, cards)) {
-                        Text("$label · ${group.sumOf { it.quantity }}", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
-                        group.chunked(CARDS_PER_ROW).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { entry ->
-                                    // The count sits under the card, so cost and AP/HP stay visible (UX rule V4a).
-                                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                        CardImage(cards[entry.cardNumber], Modifier.fillMaxWidth(), entry.printingId)
-                                        Text(
-                                            "×${entry.quantity}",
-                                            style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-                                            color = scheme.onPrimary,
-                                            modifier = Modifier.clip(LockOnShapes.button).background(scheme.primary).padding(horizontal = 12.dp, vertical = 1.dp),
-                                        )
-                                    }
+                    // One continuous grid: the groups keep their order but get no headings, so no row is left half empty.
+                    order.groups(main, cards).flatMap { (_, group) -> group }.chunked(CARDS_PER_ROW).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { entry ->
+                                // The count sits under the card, so cost and AP/HP stay visible (UX rule V4a).
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    CardImage(cards[entry.cardNumber], Modifier.fillMaxWidth(), entry.printingId)
+                                    Text(
+                                        "×${entry.quantity}",
+                                        style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                                        color = scheme.onPrimary,
+                                        modifier = Modifier.clip(LockOnShapes.button).background(scheme.primary).padding(horizontal = 12.dp, vertical = 1.dp),
+                                    )
                                 }
-                                repeat(CARDS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
                             }
+                            repeat(CARDS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }

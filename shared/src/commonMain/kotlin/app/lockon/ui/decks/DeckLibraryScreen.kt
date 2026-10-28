@@ -174,7 +174,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             if (wide) "Deck hangar" else "Decks",
             subtitle = if (wide) (if (n == 1) "1 deck in the hangar" else "$n decks in the hangar") else null,
         ) {
-            if (wide) GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY, compact = true)
+            GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY, compact = true)
             if (wide) {
                 GameButton("Back up all", onClick = {
                     scope.launch {
@@ -183,12 +183,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                 }
                 }, style = GameButtonStyle.SECONDARY, compact = true)
             } else {
-                // Phones keep the title row for the title: rarely used actions sit in a menu.
+                // Phones keep the title row for the title and Import: rarely used actions sit in a menu.
                 var menu by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More actions") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text("Import a deck or backup") }, onClick = { menu = false; dialog = LibraryDialog.Import })
                         DropdownMenuItem(text = { Text("Back up all decks") }, onClick = {
                             menu = false
                             scope.launch {
@@ -260,7 +259,12 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         list.isEmpty() -> EmptyState(
                             "No decks yet",
                             "Create a deck, import a deck list, or pair with another device to bring your decks over.",
-                        )
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add)
+                                GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY)
+                            }
+                        }
                         else -> {
                             val shown = list.filter {
                                 folderFilter.matches(it) && (tagFilter == null || tagFilter in it.snapshot.tags) &&
@@ -657,7 +661,7 @@ private fun DeckRow(
                 }
             }
         }
-        Box(Modifier.matchParentSize().glassFrame())
+        Box(Modifier.matchParentSize().glassFrame(clearing = false))
     }
 }
 

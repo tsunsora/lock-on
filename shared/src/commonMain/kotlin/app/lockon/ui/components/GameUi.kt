@@ -68,6 +68,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -178,6 +184,25 @@ fun Sparkle(modifier: Modifier = Modifier, size: Dp = 12.dp, color: Color = Acce
 /** A painted sky and the theme it was painted for. */
 private class SkyPaint(val image: ImageBitmap, val twilight: Boolean)
 
+/** Where text sits over the sky, in window coordinates, so stars and sparkles stay out of it. */
+private class SkyClearings {
+    val rects = mutableStateMapOf<Any, Rect>()
+}
+
+private val LocalSkyClearings = compositionLocalOf<SkyClearings?> { null }
+
+/** Keeps the sky's stars and sparkles out from behind this element, for text that sits on the sky. */
+@Composable
+fun Modifier.skyClearing(): Modifier {
+    val clearings = LocalSkyClearings.current ?: return this
+    val key = remember { Any() }
+    DisposableEffect(clearings) { onDispose { clearings.rects.remove(key) } }
+    return onGloballyPositioned {
+        val bounds = it.boundsInWindow()
+        if (clearings.rects[key] != bounds) clearings.rects[key] = bounds
+    }
+}
+
 /**
  * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light,
  * floating bokeh and a few sparkles. Twilight swaps the light for stars. It is static: nothing loops.
@@ -197,11 +222,18 @@ fun SkyBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.(
         val ph = (area.height * scale).roundToInt().coerceAtLeast(1)
         value = withContext(Dispatchers.Default) { SkyPaint(imageBitmapOf(paintSky(pw, ph, twilight), pw, ph), twilight) }
     }
+    val clearings = remember { SkyClearings() }
+    var origin by remember { mutableStateOf(Offset.Zero) }
     Box(
-        modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
+        modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }
+            .onGloballyPositioned { origin = it.positionInWindow() }.drawBehind {
             val w = size.width
             val h = size.height
             val m = size.maxDimension
+            // Stars and sparkles skip anywhere near text, so they never sit among the letters.
+            val margin = 6.dp.toPx()
+            val clear = clearings.rects.values.map { it.translate(-origin).inflate(margin) }
+            fun open(at: Offset, radius: Float) = clear.none { it.inflate(radius).contains(at) }
             val painted = sky?.takeIf { it.twilight == twilight }
             if (painted != null) {
                 drawImage(painted.image, dstSize = IntSize(ceil(w).toInt(), ceil(h).toInt()), filterQuality = FilterQuality.Low)
@@ -223,34 +255,41 @@ fun SkyBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.(
                     val x = (seed % 10000) / 10000f * w
                     seed = (seed * 1103515245 + 12345) and 0x7fffffff
                     val y = (seed % 10000) / 10000f * h
-                    drawCircle(Color.White.copy(alpha = 0.25f + (it % 4) * 0.1f), 1.2f + (it % 3), Offset(x, y))
+                    val r = 1.2f + (it % 3)
+                    if (open(Offset(x, y), r)) drawCircle(Color.White.copy(alpha = 0.25f + (it % 4) * 0.1f), r, Offset(x, y))
                 }
             }
             listOf(Triple(0.18f, 0.1f, 9f), Triple(0.78f, 0.22f, 7f), Triple(0.56f, 0.82f, 8f), Triple(0.04f, 0.55f, 6f), Triple(0.93f, 0.62f, 10f))
                 .forEachIndexed { i, (fx, fy, r) ->
-                    sparkle(Offset(w * fx, h * fy), r.dp.toPx(), (if (i % 2 == 0) Color.White else Gold).copy(alpha = if (twilight) 0.55f else 0.85f))
+                    val c = Offset(w * fx, h * fy)
+                    val radius = r.dp.toPx()
+                    if (open(c, radius)) sparkle(c, radius, (if (i % 2 == 0) Color.White else Gold).copy(alpha = if (twilight) 0.55f else 0.85f))
                 }
         },
-        content = content,
-    )
+    ) {
+        CompositionLocalProvider(LocalSkyClearings provides clearings) { content() }
+    }
 }
 
-/** A frosted glass surface: translucent fill, a bright rim fading downward, clipped to [shape]. */
+/**
+ * A frosted glass surface: translucent fill, a bright rim fading downward, clipped to [shape].
+ * Pass [clearing] = false for surfaces inside scrolling lists: each one that moves makes the whole sky redraw.
+ */
 @Composable
-fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false): Modifier {
+fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false, clearing: Boolean = true): Modifier {
     val g = glassColors()
     // Frosted: a touch brighter at the top, so the sky shows through more toward the bottom.
     val fill = if (strong) SolidColor(g.strong) else Brush.verticalGradient(listOf(g.fill, g.fill.copy(alpha = g.fill.alpha * 0.7f)))
-    return clip(shape)
+    return (if (clearing) skyClearing() else this).clip(shape)
         .background(fill)
         .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
 }
 
 /** The glass rim on its own, for surfaces that draw their own fill (art banners, dialogs). */
 @Composable
-fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel): Modifier {
+fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel, clearing: Boolean = true): Modifier {
     val g = glassColors()
-    return border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+    return (if (clearing) skyClearing() else this).border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
 }
 
 /** A large glass panel with an optional title row (UX rule V1). */
@@ -341,6 +380,7 @@ fun GameButton(
     Box(
         modifier
             .heightIn(min = if (large) 54.dp else if (compact) 38.dp else 44.dp)
+            .skyClearing()
             .graphicsLayer {
                 scaleX = squish; scaleY = squish
                 if (style == GameButtonStyle.PRIMARY && enabled) {
@@ -723,13 +763,14 @@ fun ScreenHeader(title: String, modifier: Modifier = Modifier, subtitle: String?
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.skyClearing(), verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = scheme.onBackground, modifier = Modifier.weight(1f, fill = false))
                 Sparkle(Modifier.padding(start = 8.dp, bottom = 10.dp), size = 14.dp, color = Gold)
             }
             if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(subtitle, style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.skyClearing())
             }
         }
         actions()

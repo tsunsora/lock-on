@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -266,21 +267,26 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             ) {
                 IconButton(onClick = state::goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to decks") }
                 if (wide && roomy) {
-                    if (cover != null) CardImage(cover.card, Modifier.padding(end = 12.dp).width(40.dp), cover.printingId)
-                    else CardBack(Modifier.padding(end = 12.dp).width(40.dp))
+                    // A small cover that sits inside the band with air around it, not edge to edge.
+                    val thumb = Modifier.padding(start = 4.dp, end = 14.dp).padding(vertical = 6.dp).height(48.dp)
+                    if (cover != null) CardImage(cover.card, thumb, cover.printingId)
+                    else CardBack(thumb)
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // On phones the name itself opens Rename, which saves a button in a tight header.
-                        Text(deck.name, style = if (wide) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                                .then(if (wide) Modifier else Modifier.clickable(onClickLabel = "Rename deck") { renaming = true }))
-                        if (wide) IconButton(onClick = { renaming = true }) { Icon(Icons.Default.Edit, contentDescription = "Rename deck") }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // The name itself opens Rename; wide windows add a quiet pencil beside it as the hint.
+                    Row(
+                        Modifier.clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Rename deck") { renaming = true }
+                            .padding(end = if (wide) 6.dp else 0.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(deck.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (wide) Icon(Icons.Default.Edit, contentDescription = null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val c = MaterialTheme.colorScheme
-                        ColorPips(deckColors)
+                        ColorPips(deckColors, size = 16.dp)
                         // A tight band keeps the state and drops the detail; Analysis has the rest.
                         val tight = wide && !roomy
                         if (legality.isLegal) Badge(if (tight) "Legal" else "Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
@@ -502,35 +508,43 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         val section = DeckSection.playedIn(card)
         val side = deck.quantityOf(card.cardNumber, DeckSection.SIDE)
         val cardPrintings = printings[card.cardNumber].orEmpty()
+        val inDeck = deck.quantityOf(card.cardNumber, section)
         CardDetailDialog(card, cardPrintings, onDismiss = { detail = null }) {
-            Column(horizontalAlignment = Alignment.End) {
-                if (cardPrintings.size > 1 && deck.quantityOf(card.cardNumber, section) > 0) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                DetailActionRow(section.label) {
+                    PlateStepper(inDeck, "copy", onMinus = { change(card, -1) }, onPlus = { change(card, 1) }, limit = copyLimit(card, ruleset))
+                }
+                // The side deck sits beside the deck; moving keeps the total and never checks rules (UX rule S4).
+                DetailActionRow("Side deck") {
+                    PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
+                }
+                if (cardPrintings.size > 1 && inDeck > 0) {
                     val preferred = deck.entries.firstOrNull { it.cardNumber == card.cardNumber && it.section == section }?.printingId
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        cardPrintings.forEach { p ->
-                            PillChip(
-                                selected = (preferred ?: cardPrintings.first().printingId) == p.printingId,
-                                onClick = { draft = deck.withQuantity(card.cardNumber, section, deck.quantityOf(card.cardNumber, section), p.printingId) },
-                                label = { Text(p.label) },
-                            )
+                    DetailActionRow("Printing used") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            cardPrintings.forEach { p ->
+                                PillChip(
+                                    selected = (preferred ?: cardPrintings.first().printingId) == p.printingId,
+                                    onClick = { draft = deck.withQuantity(card.cardNumber, section, inDeck, p.printingId) },
+                                    label = { Text(p.label.removePrefix("Reprint: ")) },
+                                )
+                            }
                         }
                     }
                 }
-                QuantityStepper(deck.quantityOf(card.cardNumber, section), onMinus = { change(card, -1) }, onPlus = { change(card, 1) })
-                // The side deck sits beside the deck; moving keeps the total and never checks rules (UX rule S4).
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Side deck", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
-                }
-                when {
-                    side > 0 -> GameButton("Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
-                    deck.quantityOf(card.cardNumber, section) > 0 ->
-                        GameButton("Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
-                }
                 // The library shows the deck by this card instead of its highest-level Unit.
-                if (deck.quantityOf(card.cardNumber, section) > 0 || deck.coverCard == card.cardNumber) {
-                    val isCover = deck.coverCard == card.cardNumber
-                    GameButton(if (isCover) "Stop using as deck cover" else "Use as deck cover", onClick = { draft = deck.copy(coverCard = if (isCover) null else card.cardNumber) }, style = GameButtonStyle.GHOST, compact = true)
+                val canCover = inDeck > 0 || deck.coverCard == card.cardNumber
+                if (side > 0 || inDeck > 0 || canCover) {
+                    FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        when {
+                            side > 0 -> GameButton("Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
+                            inDeck > 0 -> GameButton("Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
+                        }
+                        if (canCover) {
+                            val isCover = deck.coverCard == card.cardNumber
+                            GameButton(if (isCover) "Stop using as deck cover" else "Use as deck cover", onClick = { draft = deck.copy(coverCard = if (isCover) null else card.cardNumber) }, style = GameButtonStyle.GHOST, compact = true)
+                        }
+                    }
                 }
             }
         }
@@ -717,8 +731,15 @@ private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Bool
     }
 }
 
+/** One labelled line in the card details' "In this deck" panel: the label left, its control right. */
 @Composable
-fun QuantityStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) = PlateStepper(quantity, "copy", onMinus, onPlus)
+private fun DetailActionRow(label: String, control: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f).padding(end = 12.dp))
+        control()
+    }
+}
 
 /** The copy limit for a card under [ruleset]: restricted, resource or the normal maximum. */
 private fun copyLimit(card: GameCard, ruleset: Ruleset): Int? =
@@ -768,7 +789,7 @@ private fun DeckStatusBar(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)) {
+    Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true, clearing = false).padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val first = legality.errors.firstOrNull()
             Text(

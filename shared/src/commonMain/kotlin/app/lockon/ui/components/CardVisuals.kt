@@ -86,6 +86,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.window.DialogProperties
 import app.lockon.model.Card
 import app.lockon.model.Printing
+import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.theme.SuitColors
 import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.cardColor
@@ -403,16 +404,17 @@ fun CompactStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
 }
 
 /**
- * Everything about one card. Side by side (image left) when there's room, stacked otherwise.
- * Used in the details dialog and in the desktop Cards side panel.
+ * Everything about one card. Side by side (art and printings left) when there's room, stacked otherwise.
+ * Used in the details dialog and in the desktop Cards side panel. [actions], when given, sit in an
+ * "In this deck" panel under the card text.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier = Modifier, actions: @Composable () -> Unit = {}) {
+fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier = Modifier, actions: (@Composable () -> Unit)? = null) {
     var shown by remember(card.cardNumber) { mutableStateOf<String?>(null) }
     BoxWithConstraints(modifier) {
         val sideBySide = maxWidth >= 640.dp
-        val imageWidth = (maxWidth * 0.42f).coerceAtMost(380.dp)
+        val imageWidth = (maxWidth * 0.4f).coerceIn(240.dp, 360.dp)
         // The card sits in a pool of its own colour, like a card raised for inspection.
         val pool = cardColor(card.colors.firstOrNull())
         val image: @Composable (Modifier) -> Unit = { m ->
@@ -420,12 +422,35 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
             Box(m.drawBehind {
                 val r = size.height / 2
                 drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), Color.Transparent), center, r), radius = r)
-            }.padding(vertical = 24.dp)) {
+            }.padding(vertical = 12.dp)) {
                 CardImage(card, Modifier.fillMaxWidth(), printingId = shown)
             }
         }
+        val printingStrip: @Composable () -> Unit = {
+            if (printings.size > 1) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SectionHeader("Printings", readout = "${printings.size}")
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        printings.forEach { p ->
+                            val isShown = (shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId) == p.printingId
+                            Column(
+                                Modifier.width(72.dp).clip(MaterialTheme.shapes.small).clickable { shown = p.printingId }.padding(2.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                CardImage(card, Modifier.fillMaxWidth().border(
+                                    BorderStroke(2.dp, if (isShown) MaterialTheme.colorScheme.primary else Color.Transparent), CardShape,
+                                ), printingId = p.printingId)
+                                Text(p.label.removePrefix("Reprint: "), style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                                    color = if (isShown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
         val info: @Composable (Modifier) -> Unit = { m ->
-            Column(m, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(m, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ColorPips(card.colors)
                     Text(
@@ -456,37 +481,29 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
                     Text("Shows corrected text. Printed: ${card.text}", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                actions()
-                if (printings.size > 1) {
-                    SectionHeader("Printings", readout = "${printings.size}")
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        printings.forEach { p ->
-                            val isShown = (shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId) == p.printingId
-                            Column(
-                                Modifier.width(88.dp).clip(MaterialTheme.shapes.small).clickable { shown = p.printingId }.padding(2.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                CardImage(card, Modifier.fillMaxWidth().border(
-                                    BorderStroke(2.dp, if (isShown) MaterialTheme.colorScheme.primary else Color.Transparent), CardShape,
-                                ), printingId = p.printingId)
-                                Text(p.label.removePrefix("Reprint: "), style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-                                    color = if (isShown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
+                if (actions != null) {
+                    Column(Modifier.padding(top = 4.dp).fillMaxWidth().glass(LockOnShapes.tile, clearing = false)) {
+                        PanelTitle("In this deck")
+                        Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)) { actions() }
                     }
                 }
             }
         }
         if (sideBySide) {
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                image(Modifier.width(imageWidth))
-                info(Modifier.weight(1f).verticalScroll(rememberScrollState()))
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                // Printings pick which art is shown, so they sit with the art.
+                Column(Modifier.width(imageWidth).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    image(Modifier.fillMaxWidth())
+                    printingStrip()
+                }
+                info(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 12.dp))
             }
         } else {
+            // Stacked, the card text comes before the printings so it isn't pushed off screen.
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 image(Modifier.fillMaxWidth(0.82f).align(Alignment.CenterHorizontally))
                 info(Modifier.fillMaxWidth())
+                printingStrip()
             }
         }
     }
@@ -494,14 +511,14 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
 
 /** Card details over the current screen. Wide windows get a side-by-side layout. */
 @Composable
-fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Unit, extraActions: @Composable () -> Unit = {}) {
+fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Unit, extraActions: (@Composable () -> Unit)? = null) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val maxHeight = maxHeight * 0.9f
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth(0.94f).widthIn(max = 960.dp).heightIn(max = maxHeight)
+            modifier = Modifier.fillMaxWidth(0.94f).widthIn(max = 920.dp).heightIn(max = maxHeight)
                 .glassFrame(),
         ) {
             Column(Modifier.padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 16.dp)) {
