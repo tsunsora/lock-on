@@ -36,7 +36,7 @@ fun ImportDialog(container: AppContainer, files: FileBridge, state: AppState, on
     val scope = state.appScope
 
     fun import() {
-        val input = text.trim()
+        val input = text.removePrefix("﻿").trim()
         if (input.isEmpty()) return
         scope.launch {
             if (input.startsWith("{")) {
@@ -44,7 +44,7 @@ fun ImportDialog(container: AppContainer, files: FileBridge, state: AppState, on
                 result.onSuccess { count -> state.notify("Imported $count decks."); onDismiss() }
                 result.onFailure { problems = listOf(it.message ?: "Could not read the backup.") }
             } else {
-                val parsed = DeckListFormat.parse(input, container.catalog.cards.value)
+                val parsed = DeckListFormat.parse(input, container.catalog.cards.value, printings = container.catalog.printings.value)
                 if (parsed.snapshot.entries.isEmpty()) {
                     problems = parsed.problems.ifEmpty { listOf("No cards found. Use lines like \"4 SMP-001\".") }
                     return@launch

@@ -39,6 +39,8 @@ object DeckAnalysis {
         val types = mutableMapOf<CardType, Int>()
         val colors = mutableMapOf<CardColor, Int>()
         for (entry in deck.entries) {
+            // The side deck isn't played, so it stays out of the deck's make-up.
+            if (entry.section == DeckSection.SIDE) continue
             val card = cards[entry.cardNumber] ?: continue
             types[card.type] = (types[card.type] ?: 0) + entry.quantity
             if (entry.section == DeckSection.MAIN) {

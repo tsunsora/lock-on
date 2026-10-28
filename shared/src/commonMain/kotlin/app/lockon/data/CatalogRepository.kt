@@ -11,6 +11,8 @@ import app.lockon.model.Printing
 import app.lockon.model.Ruleset
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -155,7 +157,7 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
     }
 
     /** Replaces the installed catalog in one transaction. Decks are never changed. */
-    suspend fun install(file: CatalogFile, origin: CatalogOrigin, updateUrl: String?) {
+    suspend fun install(file: CatalogFile, origin: CatalogOrigin, updateUrl: String?) = withContext(Dispatchers.Default) {
         val meta = db.metaDao()
         db.useWriterConnection { connection ->
             connection.immediateTransaction {
@@ -188,7 +190,8 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
         _ruleset.value = rules
     }
 
-    private suspend fun refresh() {
+    /** Reloads the catalog into memory; thousands of cards, so it is converted off the main thread. */
+    private suspend fun refresh() = withContext(Dispatchers.Default) {
         val meta = db.metaDao()
         _cards.value = db.catalogDao().cards().associate { it.cardNumber to it.toModel() }
         _printings.value = db.catalogDao().printings().map { it.toModel() }.groupBy { it.cardNumber }

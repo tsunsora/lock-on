@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,8 +48,8 @@ class CardDrag(private val onDrop: (Card) -> Unit) {
         private set
     internal var target by mutableStateOf(Rect.Zero)
 
-    /** True while a card is held over the drop area. */
-    val overTarget: Boolean get() = card != null && target.contains(pointer)
+    /** True while a card is held over the drop area. Derived, so readers update only when it flips, not per pointer move. */
+    val overTarget: Boolean by derivedStateOf { card != null && target.contains(pointer) }
 
     internal fun start(card: Card, at: Offset) { this.card = card; pointer = at }
     internal fun moveTo(at: Offset) { pointer = at }
@@ -95,10 +96,10 @@ fun CardDragGhost(drag: CardDrag, modifier: Modifier = Modifier) {
     val width = 110.dp
     val half = with(LocalDensity.current) { Offset(width.toPx() / 2, width.toPx() * 0.7f) }
     Box(modifier.onGloballyPositioned { origin = it.positionInRoot() }) {
-        val at = drag.pointer - origin - half
         CardImage(
             card,
-            Modifier.offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }.width(width)
+            // The pointer is read during layout, so following it moves the card without recomposing.
+            Modifier.offset { (drag.pointer - origin - half).let { IntOffset(it.x.roundToInt(), it.y.roundToInt()) } }.width(width)
                 .graphicsLayer { alpha = if (drag.overTarget) 0.95f else 0.8f; rotationZ = -3f },
         )
     }

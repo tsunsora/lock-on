@@ -34,5 +34,10 @@ object ReleaseOrder {
     /** Listed sets, then unlisted numbered sets (newer releases), then sets without a number. */
     private fun rank(set: String): Int = released[set] ?: if (set.any { it.isDigit() }) released.size else released.size + 1
 
-    val comparator: Comparator<String> = compareBy<String>({ rank(setCode(it)) }, { setCode(it) }, { it })
+    /** Each side's set is cut out once per comparison; sorting the whole catalog runs this tens of thousands of times. */
+    val comparator: Comparator<String> = Comparator { a, b ->
+        val setA = setCode(a)
+        val setB = setCode(b)
+        compareValues(rank(setA), rank(setB)).takeIf { it != 0 } ?: setA.compareTo(setB).takeIf { it != 0 } ?: a.compareTo(b)
+    }
 }

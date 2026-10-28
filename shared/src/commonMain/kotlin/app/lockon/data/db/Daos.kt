@@ -103,6 +103,13 @@ interface RevisionDao {
     @Query("UPDATE revisions SET snapshotJson = :snapshotJson, deleted = :deleted, createdAt = :createdAt WHERE seq = :seq AND shared = 0")
     suspend fun amend(seq: Long, snapshotJson: String, deleted: Boolean, createdAt: Long): Int
 
+    /** Removes a revision no other device has seen. Returns 0 if it was already shared. */
+    @Query("DELETE FROM revisions WHERE revisionId = :revisionId AND shared = 0")
+    suspend fun discard(revisionId: String): Int
+
+    @Query("DELETE FROM revision_parents WHERE revisionId = :revisionId")
+    suspend fun discardParents(revisionId: String)
+
     @Query("SELECT COALESCE(MAX(seq), 0) FROM revisions")
     suspend fun maxSeq(): Long
 

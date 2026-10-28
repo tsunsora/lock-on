@@ -45,6 +45,8 @@ class SideDeckTest {
         val stats = DeckAnalysis.stats(deck, cards)
         assertEquals(setOf(CardColor.BLUE), stats.colorCounts.keys)
         assertEquals(0, stats.burstCount)
+        assertEquals(50, stats.typeCounts[CardType.UNIT], "side deck units aren't counted")
+        assertEquals(10, stats.typeCounts[CardType.RESOURCE])
         val game = SampleHand.deal(deck)
         assertEquals(50, game.hand.size + game.library.size)
         assertTrue((game.hand + game.library).none { it == "G-01" || it == "R-01" })

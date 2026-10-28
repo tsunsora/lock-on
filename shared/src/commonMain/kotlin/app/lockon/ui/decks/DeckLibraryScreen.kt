@@ -329,7 +329,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         }
         is LibraryDialog.Rename -> TextPromptDialog("Rename deck", "Deck name", d.deck.snapshot.name, confirm = "Rename", onDismiss = { dialog = null }) { name ->
             dialog = null
-            if (name.isNotBlank()) scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(name = name.trim())) }
+            if (name.isNotBlank()) scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(name = name.trim()), d.deck.headRevisionId) }
         }
         is LibraryDialog.Tags -> TextPromptDialog(
             "Tags", "Comma-separated, e.g. tournament, blue-red", d.deck.snapshot.tags.joinToString(", "),
@@ -337,7 +337,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         ) { text ->
             dialog = null
             val tags = text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-            scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(tags = tags)) }
+            scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(tags = tags), d.deck.headRevisionId) }
         }
         is LibraryDialog.Move -> MoveToFolderDialog(
             current = d.deck.snapshot.folder, folders = folders.map { it.first }, onDismiss = { dialog = null },

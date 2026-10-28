@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -81,8 +82,12 @@ class DeckRepository(
      * Saves the deck's new content. Consecutive autosaves fold into one revision, so each version in
      * the history is an editing session. A version closes when it is sent to another device, kept
      * with [keepVersion], or left alone for [VERSION_IDLE_MS]. Shared data is never changed.
+     *
+     * [base] is the revision the edit started from. If another device's revision has arrived since,
+     * the edit branches from [base] instead, so both show as a conflict rather than one overwriting the other.
      */
-    suspend fun save(deckId: String, snapshot: DeckSnapshot) = transaction { saveInTransaction(deckId, snapshot) }
+    suspend fun save(deckId: String, snapshot: DeckSnapshot, base: String? = null) =
+        transaction { saveInTransaction(deckId, snapshot, base) }
 
     /** Saves [snapshot] and closes the version, so the next edit starts a new one. */
     suspend fun keepVersion(deckId: String, snapshot: DeckSnapshot) = transaction {
@@ -91,11 +96,11 @@ class DeckRepository(
     }
 
     /** Every earlier version of the deck's current content, newest first. Deletions are left out. */
-    suspend fun history(deckId: String): List<DeckVersion> {
-        val deck = decksDao.deck(deckId) ?: return emptyList()
+    suspend fun history(deckId: String): List<DeckVersion> = withContext(Dispatchers.Default) {
+        val deck = decksDao.deck(deckId) ?: return@withContext emptyList()
         val all = revisions.forDeck(deckId)
         val byId = all.associateBy { it.revisionId }
-        return RevisionGraph.history(nodes(deckId, all), deck.headRevisionId).filterNot { it.deleted }.map { node ->
+        RevisionGraph.history(nodes(deckId, all), deck.headRevisionId).filterNot { it.deleted }.map { node ->
             val revision = byId.getValue(node.revisionId)
             DeckVersion(revision.revisionId, revision.originDeviceId, revision.createdAt, decode(revision.snapshotJson))
         }
@@ -139,13 +144,32 @@ class DeckRepository(
         }
     }
 
-    suspend fun delete(deckId: String) {
-        val current = currentSnapshot(deckId) ?: return
-        save(deckId, current.copy(deleted = true))
+    /** Deletes the deck. A conflicted deck is deleted on every version, so another one can't take its place. */
+    suspend fun delete(deckId: String) = transaction {
+        val deck = decksDao.deck(deckId) ?: return@transaction
+        val current = currentInTransaction(deckId) ?: return@transaction
+        if (!deck.hasConflict) return@transaction saveInTransaction(deckId, current.copy(deleted = true))
+        val heads = RevisionGraph.heads(nodes(deckId, revisions.forDeck(deckId))).map { it.revisionId }
+        insertRevision(deckId, parents = heads, snapshot = current.copy(deleted = true))
+        rebuild(deckId)
     }
 
-    /** Undoes a delete by saving the earlier content on top of the deletion record. */
-    suspend fun restore(deckId: String, snapshot: DeckSnapshot) = save(deckId, snapshot.copy(deleted = false))
+    /**
+     * Undoes a delete. Deleting a conflicted deck adds a revision of its own, so while no other device
+     * has seen it, it is simply removed and every version comes back. Otherwise the earlier content
+     * is saved on top of the deletion.
+     */
+    suspend fun restore(deckId: String, snapshot: DeckSnapshot) = transaction {
+        val deck = decksDao.deck(deckId) ?: return@transaction
+        val head = revisions.revision(deck.headRevisionId)
+        val endedConflict = head != null && head.deleted && head.originDeviceId == localDeviceId &&
+            revisions.parentsOf(listOf(head.revisionId)).size > 1
+        if (endedConflict && revisions.discard(head.revisionId) == 1) {
+            revisions.discardParents(head.revisionId)
+            return@transaction rebuild(deckId)
+        }
+        saveInTransaction(deckId, snapshot.copy(deleted = false))
+    }
 
     /** The copy keeps the folder and cover but starts with an empty match log. */
     suspend fun duplicate(deckId: String): String? {
@@ -154,11 +178,11 @@ class DeckRepository(
     }
 
     /** All heads of a deck. More than one means devices edited it independently. */
-    suspend fun versions(deckId: String): List<DeckVersion> {
+    suspend fun versions(deckId: String): List<DeckVersion> = withContext(Dispatchers.Default) {
         val all = revisions.forDeck(deckId)
         val nodes = nodes(deckId, all)
         val byId = all.associateBy { it.revisionId }
-        return RevisionGraph.heads(nodes).map { node ->
+        RevisionGraph.heads(nodes).map { node ->
             val revision = byId.getValue(node.revisionId)
             DeckVersion(revision.revisionId, revision.originDeviceId, revision.createdAt, decode(revision.snapshotJson))
         }
@@ -166,15 +190,32 @@ class DeckRepository(
 
     /**
      * Ends a conflict with a merge revision that supersedes every head. The chosen version wins,
-     * except for matches: games logged on any device are all kept.
+     * except for matches: games logged on any device are all kept, and games removed on any device stay removed.
      */
     suspend fun resolve(deckId: String, chosen: DeckSnapshot) = transaction {
         val all = revisions.forDeck(deckId)
-        val heads = RevisionGraph.heads(nodes(deckId, all)).map { it.revisionId }
-        val byId = all.associateBy { it.revisionId }
-        val matches = heads.flatMap { decode(byId.getValue(it).snapshotJson).matches } + chosen.matches
-        insertRevision(deckId, parents = heads, snapshot = chosen.copy(matches = mergeMatches(matches)))
+        val nodes = nodes(deckId, all)
+        val heads = RevisionGraph.heads(nodes).map { it.revisionId }
+        insertRevision(deckId, parents = heads, snapshot = chosen.copy(matches = mergedMatches(all, nodes, heads, chosen.matches)))
         rebuild(deckId)
+    }
+
+    /**
+     * Matches across [heads]: every game any of them logged, minus games that were there before the
+     * branches split and that some head (or [extra]) has since removed.
+     */
+    private fun mergedMatches(
+        all: List<RevisionEntity>,
+        nodes: List<RevisionGraph.Node>,
+        heads: List<String>,
+        extra: List<MatchRecord>? = null,
+    ): List<MatchRecord> {
+        val byId = all.associateBy { it.revisionId }
+        val lists = heads.map { decode(byId.getValue(it).snapshotJson).matches } + listOfNotNull(extra)
+        val before = RevisionGraph.splitPoints(nodes, heads)
+            .flatMap { decode(byId.getValue(it).snapshotJson).matches.map { m -> m.id } }.toSet()
+        val removed = before.filter { id -> lists.any { list -> list.none { it.id == id } } }.toSet()
+        return mergeMatches(lists.flatten().filter { it.id !in removed })
     }
 
     suspend fun exportBackup(): Backup {
@@ -248,23 +289,44 @@ class DeckRepository(
             touched += dto.deckId
             received++
         }
-        touched.forEach { rebuild(it) }
+        touched.forEach { joinIdenticalHeads(it); rebuild(it) }
         alsoInTransaction()
         Applied(received, incoming.size - received)
     }
 
+    /**
+     * Two devices reaching the same content separately, such as a backup restored on a new phone
+     * meeting the desktop's copy, isn't a real conflict, so the heads are joined without asking.
+     */
+    private suspend fun joinIdenticalHeads(deckId: String) {
+        val all = revisions.forDeck(deckId)
+        val nodes = nodes(deckId, all)
+        val heads = RevisionGraph.heads(nodes)
+        if (heads.size < 2 || heads.any { it.deleted }) return
+        val byId = all.associateBy { it.revisionId }
+        val snapshots = heads.map { decode(byId.getValue(it.revisionId).snapshotJson) }
+        if (snapshots.map { it.copy(matches = emptyList()) }.distinct().size != 1) return
+        val ids = heads.map { it.revisionId }
+        insertRevision(deckId, parents = ids, snapshot = snapshots.first().copy(matches = mergedMatches(all, nodes, ids)))
+    }
+
     // --- Internals ---
 
+    /** Runs off the main thread: a sync batch encodes and decodes hundreds of snapshots. */
     private suspend fun <T> transaction(block: suspend () -> T): T =
-        db.useWriterConnection { it.immediateTransaction { block() } }
+        withContext(Dispatchers.Default) { db.useWriterConnection { it.immediateTransaction { block() } } }
 
     private suspend fun currentInTransaction(deckId: String): DeckSnapshot? {
         val deck = decksDao.deck(deckId) ?: return null
         return revisions.revision(deck.headRevisionId)?.let { decode(it.snapshotJson) }
     }
 
-    private suspend fun saveInTransaction(deckId: String, snapshot: DeckSnapshot) {
+    private suspend fun saveInTransaction(deckId: String, snapshot: DeckSnapshot, base: String? = null) {
         val deck = decksDao.deck(deckId) ?: error("Deck $deckId does not exist.")
+        if (base != null && base != deck.headRevisionId && arrivedSince(deckId, base, deck.headRevisionId)) {
+            insertRevision(deckId, parents = listOf(base), snapshot = snapshot)
+            return rebuild(deckId)
+        }
         val head = revisions.revision(deck.headRevisionId)
         // Saving what is already there changes nothing, so keeping a version twice adds no empty version.
         if (head != null && !deck.hasConflict && decode(head.snapshotJson) == snapshot) return
@@ -273,6 +335,21 @@ class DeckRepository(
             revisions.amend(head.seq, encode(snapshot), snapshot.deleted, now()) == 1
         if (!amended) insertRevision(deckId, parents = listOf(deck.headRevisionId), snapshot = snapshot)
         rebuild(deckId)
+    }
+
+    /**
+     * True when [head] builds on another device's revision that [base] doesn't have, so an edit made
+     * on [base] would overwrite it. This device's own later saves don't count, and neither does a
+     * change that left the content as it was.
+     */
+    private suspend fun arrivedSince(deckId: String, base: String, head: String): Boolean {
+        val all = revisions.forDeck(deckId)
+        val byId = all.associateBy { it.revisionId }
+        val baseRevision = byId[base] ?: return false
+        val nodes = nodes(deckId, all)
+        val since = RevisionGraph.ancestors(nodes, head) - RevisionGraph.ancestors(nodes, base)
+        if (since.all { byId[it]?.originDeviceId == localDeviceId }) return false
+        return byId[head]?.snapshotJson?.let(::decode) != decode(baseRevision.snapshotJson)
     }
 
     /** Trims [name] and reuses an existing folder's spelling when only the case differs. */

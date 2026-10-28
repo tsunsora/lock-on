@@ -7,7 +7,6 @@ import io.ktor.client.statement.readRawBytes
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -89,7 +88,8 @@ class ArtworkStore(directory: String, client: () -> HttpClient) {
         _status.value = ArtworkStatus(urls.size - missing.size, urls.size, downloading = missing.isNotEmpty())
         if (missing.isNotEmpty()) {
             val permits = Semaphore(BULK_DOWNLOADS)
-            coroutineScope {
+            // Thousands of links on a first run: their hashing and file checks stay off the main thread.
+            withContext(Dispatchers.IO) {
                 missing.forEach { url ->
                     launch {
                         permits.withPermit {

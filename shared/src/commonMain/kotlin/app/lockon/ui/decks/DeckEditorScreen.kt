@@ -174,26 +174,29 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val allDecks by container.decks.liveDecks.collectAsState(initial = emptyList())
     val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
     var history by remember(deckId) { mutableStateOf<List<DeckVersion>>(emptyList()) }
-    LaunchedEffect(summary) { history = container.decks.history(deckId) }
 
     // The editor works on a local draft and autosaves it. Changes that arrive by sync replace the
     // draft only when nothing local is waiting to be saved.
     var draft by remember(deckId) { mutableStateOf<DeckSnapshot?>(null) }
     var saved by remember(deckId) { mutableStateOf<DeckSnapshot?>(null) }
+    // The revision the draft builds on, so an edit that syncs in meanwhile becomes a conflict, not lost.
+    var base by remember(deckId) { mutableStateOf<String?>(null) }
     LaunchedEffect(summary) {
-        val incoming = summary?.snapshot ?: return@LaunchedEffect
-        if (draft == null || draft == saved) { draft = incoming; saved = incoming }
+        val incoming = summary ?: return@LaunchedEffect
+        if (draft == null || draft == saved) { draft = incoming.snapshot; saved = incoming.snapshot; base = incoming.headRevisionId }
     }
     val pending by rememberUpdatedState(draft?.takeIf { it != saved })
+    val pendingBase by rememberUpdatedState(base)
     LaunchedEffect(draft) {
         val toSave = draft ?: return@LaunchedEffect
         if (toSave == saved) return@LaunchedEffect
         delay(AUTOSAVE_DELAY_MS)
-        state.appScope.launch { container.decks.save(deckId, toSave) }
+        val from = base
+        state.appScope.launch { container.decks.save(deckId, toSave, from) }
         saved = toSave
     }
     DisposableEffect(deckId) {
-        onDispose { pending?.let { last -> state.appScope.launch { container.decks.save(deckId, last) } } }
+        onDispose { pending?.let { last -> state.appScope.launch { container.decks.save(deckId, last, pendingBase) } } }
     }
 
     val deck = draft
@@ -390,6 +393,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             )
         }
         val versions: @Composable (Modifier) -> Unit = { modifier ->
+            // Loaded only while the panel shows: reading the history decodes every version.
+            LaunchedEffect(summary) { history = container.decks.history(deckId) }
             VersionsPanel(
                 history, deck, cards, { deviceLabel(it, container.identity.deviceId, devices) }, modifier,
                 onKeep = {

@@ -9,7 +9,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 
 /** Platform HTTP client for public downloads, trusting the normal certificate authorities. */
 expect fun downloadClient(): HttpClient
@@ -35,9 +37,12 @@ class CatalogUpdater(
     private val decks: DeckRepository,
     private val fetch: suspend (url: String) -> String = ::httpGet,
 ) {
-    suspend fun fromText(text: String): CatalogPreview = preview(catalog.check(text), CatalogOrigin.FILE, null)
+    // A full card list is megabytes of JSON, so parsing and checking it stays off the main thread.
 
-    suspend fun fromUrl(url: String): CatalogPreview {
+    suspend fun fromText(text: String): CatalogPreview =
+        withContext(Dispatchers.Default) { preview(catalog.check(text), CatalogOrigin.FILE, null) }
+
+    suspend fun fromUrl(url: String): CatalogPreview = withContext(Dispatchers.Default) {
         val clean = url.trim()
         if (!clean.startsWith("https://")) throw CatalogException("Use an https:// link.")
         val text = try {
@@ -47,13 +52,13 @@ class CatalogUpdater(
         } catch (e: Exception) {
             throw CatalogException("Couldn't download the catalog. Check the link and your connection.")
         }
-        return preview(catalog.check(text), CatalogOrigin.URL, clean)
+        preview(catalog.check(text), CatalogOrigin.URL, clean)
     }
 
     suspend fun install(preview: CatalogPreview) = catalog.install(preview.checked.file, preview.origin, preview.url)
 
     /** Downloads the latest official card list from gcg-api and converts it on this device. */
-    suspend fun latestCardDatabase(): CatalogPreview {
+    suspend fun latestCardDatabase(): CatalogPreview = withContext(Dispatchers.Default) {
         val manifest = officialManifest()
         val entries = try {
             GcgApi.parseCards(fetchOrExplain(GcgApi.CARDS_URL))
@@ -65,7 +70,7 @@ class CatalogUpdater(
         val converted = GcgApi.toCatalog(manifest, entries)
         val checked = catalog.validate(converted.catalog)
         val note = "${converted.skippedTokens} token cards (EX Base, EX Resource, Unit tokens) are left out because they can't be put in a deck."
-        return preview(checked.copy(warnings = checked.warnings + note), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
+        preview(checked.copy(warnings = checked.warnings + note), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
     }
 
     sealed interface UpdateCheck {

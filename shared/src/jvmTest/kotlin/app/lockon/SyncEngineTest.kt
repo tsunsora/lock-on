@@ -5,6 +5,8 @@ import app.lockon.data.DeckRepository
 import app.lockon.data.db.LockOnDatabase
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
+import app.lockon.model.MatchRecord
+import app.lockon.model.MatchResult
 import app.lockon.sync.DeviceRepository
 import app.lockon.sync.DeviceRole
 import app.lockon.sync.HelloResponse
@@ -169,6 +171,106 @@ class SyncEngineTest {
         val deck = phone.decks.decks.first().single()
         assertTrue(deck.hasConflict)
         assertEquals("still using this", deck.snapshot.notes)
+    }
+
+    @Test fun deletingAConflictedDeckDeletesEveryVersion() = runTest {
+        pair()
+        val id = phone.decks.create(DeckSnapshot(name = "Shared"))
+        sync()
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.copy(name = "Phone edit"))
+        desktop.decks.save(id, desktop.decks.currentSnapshot(id)!!.copy(name = "Desktop edit"))
+        sync()
+        assertTrue(phone.decks.decks.first().single().hasConflict)
+
+        phone.decks.delete(id)
+        assertTrue(phone.decks.decks.first().isEmpty(), "the other version must not take the deleted one's place")
+        sync()
+        assertTrue(desktop.decks.decks.first().isEmpty())
+    }
+
+    @Test fun anEditBasedOnAnOlderVersionConflictsInsteadOfOverwriting() = runTest {
+        pair()
+        val id = desktop.decks.create(DeckSnapshot(name = "Open on desktop"))
+        sync()
+        // The desktop editor loads the deck, then the phone's edit syncs in before the autosave.
+        val base = desktop.decks.decks.first().single().headRevisionId
+        val draft = desktop.decks.currentSnapshot(id)!!.copy(notes = "desktop draft")
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.withQuantity("SMP-001", DeckSection.MAIN, 2))
+        sync()
+        desktop.decks.save(id, draft, base)
+
+        assertTrue(desktop.decks.decks.first().single().hasConflict)
+        val versions = desktop.decks.versions(id).map { it.snapshot }
+        assertTrue(versions.any { it.quantityOf("SMP-001", DeckSection.MAIN) == 2 }, "the phone's edit survives")
+        assertTrue(versions.any { it.notes == "desktop draft" })
+    }
+
+    @Test fun anEditorsOwnEarlierSavesAreNotAConflict() = runTest {
+        pair()
+        val id = phone.decks.create(DeckSnapshot(name = "Mine"))
+        sync()
+        val base = phone.decks.decks.first().single().headRevisionId
+        // The first save starts a new version because the old one was shared; the second builds on it.
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.copy(notes = "one"), base)
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.copy(notes = "two"), base)
+        val deck = phone.decks.decks.first().single()
+        assertFalse(deck.hasConflict)
+        assertEquals("two", deck.snapshot.notes)
+    }
+
+    @Test fun undoingADeleteBringsBackEveryVersionOfAConflictedDeck() = runTest {
+        pair()
+        val id = phone.decks.create(DeckSnapshot(name = "Shared"))
+        sync()
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.copy(name = "Phone edit"))
+        desktop.decks.save(id, desktop.decks.currentSnapshot(id)!!.copy(name = "Desktop edit"))
+        sync()
+        val before = phone.decks.decks.first().single()
+
+        phone.decks.delete(id)
+        phone.decks.restore(id, before.snapshot)
+        val after = phone.decks.decks.first().single()
+        assertTrue(after.hasConflict)
+        assertEquals(setOf("Phone edit", "Desktop edit"), phone.decks.versions(id).map { it.snapshot.name }.toSet())
+    }
+
+    @Test fun undoingAnOrdinaryDeleteKeepsTheLatestEdit() = runTest {
+        val id = phone.decks.create(DeckSnapshot(name = "Mine"))
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.copy(notes = "fresh edit"))
+        val before = phone.decks.currentSnapshot(id)!!
+        phone.decks.delete(id)
+        phone.decks.restore(id, before)
+        assertEquals("fresh edit", phone.decks.decks.first().single().snapshot.notes)
+    }
+
+    @Test fun resolvingKeepsGamesRemovedOnEitherDeviceRemoved() = runTest {
+        pair()
+        val mistake = MatchRecord("m1", playedAt = 1, result = MatchResult.WIN)
+        val id = phone.decks.create(DeckSnapshot(name = "Logged", matches = listOf(mistake)))
+        sync()
+        // The phone removes a mistaken game while the desktop logs a new one and renames the deck.
+        phone.decks.save(id, phone.decks.currentSnapshot(id)!!.copy(matches = emptyList()))
+        val fresh = MatchRecord("m2", playedAt = 2, result = MatchResult.LOSS)
+        desktop.decks.save(id, desktop.decks.currentSnapshot(id)!!.let { it.copy(name = "Renamed", matches = it.matches + fresh) })
+        sync()
+
+        val desktopVersion = phone.decks.versions(id).first { it.snapshot.name == "Renamed" }
+        phone.decks.resolve(id, desktopVersion.snapshot)
+        assertEquals(listOf("m2"), phone.decks.currentSnapshot(id)!!.matches.map { it.id })
+    }
+
+    @Test fun aBackupRestoredOnAFreshPhoneIsNotAConflict() = runTest {
+        val id = desktop.decks.create(DeckSnapshot(name = "Backed up", notes = "same everywhere"))
+        // The phone was reinstalled and restored from a backup made before it was paired.
+        phone.decks.importBackup(desktop.decks.exportBackup())
+        pair()
+        sync()
+        sync()
+        for (side in listOf(phone, desktop)) {
+            val deck = side.decks.decks.first().single()
+            assertFalse(deck.hasConflict, "identical copies join on their own")
+            assertEquals(id, deck.deckId)
+        }
     }
 
     @Test fun interruptedPullAndRetriedPushAreHarmless() = runTest {

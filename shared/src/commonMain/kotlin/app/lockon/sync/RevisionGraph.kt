@@ -33,6 +33,29 @@ object RevisionGraph {
         }
     }
 
+    /** [id] and every revision behind it. */
+    fun ancestors(nodes: Collection<Node>, id: String): Set<String> {
+        val byId = nodes.associateBy { it.revisionId }
+        val found = mutableSetOf<String>()
+        val pending = ArrayDeque(listOf(id))
+        while (pending.isNotEmpty()) {
+            val next = pending.removeLast()
+            val node = byId[next] ?: continue
+            if (found.add(next)) pending.addAll(node.parents)
+        }
+        return found
+    }
+
+    /**
+     * The revisions every one of [ids] builds on, minus any that a later shared one supersedes:
+     * the point where the branches split. Empty when they share no history.
+     */
+    fun splitPoints(nodes: Collection<Node>, ids: Collection<String>): Set<String> {
+        val shared = ids.map { ancestors(nodes, it) }.reduceOrNull { a, b -> a intersect b }.orEmpty()
+        val superseded = nodes.filter { it.revisionId in shared }.flatMap { it.parents }.toSet()
+        return shared - superseded
+    }
+
     /**
      * Every revision behind [headId], newest first. A revision always comes before its parents;
      * only revisions on separate branches, which no parent link orders, fall back to their times.

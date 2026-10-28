@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -155,11 +156,13 @@ fun LockIndicator(locked: Boolean, modifier: Modifier = Modifier, size: Dp = 40.
 @Composable
 fun ReticleSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp, color: Color = MaterialTheme.colorScheme.primary) {
     val reduce = LocalReduceMotion.current
-    val angle = if (reduce) 0f else {
+    // Read only while drawing, so each frame redraws the reticle without recomposing it.
+    val angle: State<Float>? = if (reduce) null else {
         val t = rememberInfiniteTransition(label = "spinner")
-        t.animateFloat(0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "angle").value
+        t.animateFloat(0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "angle")
     }
     Canvas(modifier.size(size)) {
+        val angle = angle?.value ?: 0f
         val stroke = this.size.minDimension * 0.12f
         val inset = stroke / 2
         drawCircle(color.copy(alpha = 0.25f), radius = this.size.minDimension / 2 - inset, style = Stroke(stroke))
