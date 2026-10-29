@@ -40,7 +40,7 @@ Requires **Android 8.0 or newer**.
 
 ### First steps
 
-1. Open **Cards → Catalog** and choose **Download the latest card database**. Until you do, Lock On shows 20 fictional sample cards.
+1. Choose **Download card database** in the welcome tour, or later under **Settings → Card database → Manage card database**. Until you do, Lock On shows 20 fictional sample cards.
 2. In **Decks**, create a deck and add cards from the search panel.
 3. To sync, open Lock On on your phone and computer on the same Wi-Fi, then go to **Settings**.
 
@@ -65,7 +65,7 @@ Wide windows give most of the space to the card list and the deck. The deck pane
 
 ### Keep the card list current
 
-**Cards → Catalog** downloads the official card list from [gcg-api](https://gcgapi.com), about 1,200 cards and 2,000 printings, and converts it on your device. **Check for updates** reads only a small version file, and a weekly background check shows a quiet *Card database update available* in the Cards tab. Card images are cached on each device and can be turned off in the same dialog.
+**Download card database** (in the welcome tour, or **Settings → Card database → Manage card database**) downloads the official card list from [gcg-api](https://gcgapi.com), about 1,200 cards and 2,000 printings, and converts it on your device. **Check for updates** reads only a small version file, and a weekly background check shows a quiet *Card database update available* under **Settings → Card database**. Card images are cached on each device and can be turned off with **Settings → Show card artwork**.
 
 You can also install a catalog from a file or an `https://` link. Every install shows a preview first, including any cards your decks use that the new catalog lacks. Decks are never changed. The format is in [docs/CATALOG_FORMAT.md](docs/CATALOG_FORMAT.md), with a CSV converter in `scripts/`.
 

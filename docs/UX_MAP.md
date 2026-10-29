@@ -103,13 +103,14 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 - **Purpose:** browse and learn cards outside any deck.
 - **Shows:** a search field with the card count, then one chip row (results, Filters, Sort, Grid/List, colors, types), as a gallery of whole cards or a list. On desktop, tapping a card opens its details in a side panel; on phones, in a dialog.
 - **Card details:** artwork when the catalog has it (tap a printing to switch art), type and stats, corrected text, traits, zones, link, and printings.
-- When a weekly background check finds a newer official list, the **Catalog** button reads *Card database update available* (UX rule C1: no pop-up).
-- **Catalog** (button next to the catalog name) opens a dialog that:
+- The catalog is managed from **Settings → Card database**, not from here, so the header has no actions.
+
+**Settings → Card database** shows the installed catalog and, when a weekly background check finds a newer official list, a quiet *Card database update available* line (UX rule C1: no pop-up). **Manage card database** opens a dialog that:
   - shows the installed catalog: name, version, card count, where it came from, and when it was installed
   - has a **Show card artwork** switch (images are cached per device and never sync)
-  - **Official card list:** **Download the latest card database** (gcg-api, converted on the device), then **Check for updates** / **Download update**, with the gcg-api credit underneath
+  - **Official card list:** **Download card database** (gcg-api, converted on the device), then **Check for updates** / **Download update**, with the gcg-api credit underneath
   - **Other sources:** an `https://` link to **Download**, then later **Check for update**, or **Import file**
-  - offers **Go back to the sample catalog**
+  - offers **Restore sample**
   - always shows a preview before installing: an update or a replacement, warnings, and any cards your decks use that the new catalog lacks. **Update** / **Replace catalog** confirms, since this can't be undone (C2).
 
 ### Sync (top level)
