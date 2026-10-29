@@ -28,7 +28,7 @@ fun DeckOpenProbe(window: ComposeWindow, container: AppContainer, state: AppStat
         delay(3_000)
         state.select(Tab.DECKS)
         val decks = container.decks.liveDecks.first { it.isNotEmpty() }.filterNot { it.snapshot.deleted }
-        // Past the editor's warmup (EditorWarmup.kt), as when someone looks over the library first.
+        // As when someone looks over the library first.
         delay(System.getProperty("lockon.deckOpenProbe.wait")?.toLong() ?: 10_000)
         val ids = decks.map { it.deckId }
         // The same deck a few times, then others, so first-open costs and per-deck costs both show.

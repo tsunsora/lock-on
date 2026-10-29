@@ -29,7 +29,15 @@ import coil3.fetch.SourceFetchResult
 import coil3.request.Options
 import coil3.request.crossfade
 import io.ktor.client.HttpClient
+import coil3.EventListener
+import coil3.request.ErrorResult
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import okio.Path.Companion.toPath
 
 /**
@@ -101,6 +109,17 @@ fun CardArtwork(
     }
 }
 
+/** Counts artwork images loading right now, so the boot screen can stay up until the screens under it have theirs. */
+object ArtworkLoads : EventListener() {
+    private val count = MutableStateFlow(0)
+    val inFlight: StateFlow<Int> = count.asStateFlow()
+
+    override fun onStart(request: ImageRequest) = count.update { it + 1 }
+    override fun onSuccess(request: ImageRequest, result: SuccessResult) = count.update { it - 1 }
+    override fun onError(request: ImageRequest, result: ErrorResult) = count.update { it - 1 }
+    override fun onCancel(request: ImageRequest) = count.update { it - 1 }
+}
+
 /** Image loader for card artwork. Images come from [store], so each downloads once and then works offline. */
 fun artworkImageLoader(context: PlatformContext, store: ArtworkStore): ImageLoader =
     ImageLoader.Builder(context)
@@ -108,6 +127,7 @@ fun artworkImageLoader(context: PlatformContext, store: ArtworkStore): ImageLoad
             add(StoredArtworkFetcher.Factory(store))
             artworkDecoder()?.let { add(it) }
         }
+        .eventListener(ArtworkLoads)
         .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.15).build() }
         .crossfade(CROSSFADE_MS)
         .build()

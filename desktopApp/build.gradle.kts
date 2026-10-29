@@ -60,7 +60,7 @@ compose.desktop {
         providers.gradleProperty("lockon.deckOpenProbe.wait").orNull?.let { jvmArgs("-Dlockon.deckOpenProbe.wait=$it") }
         // `-Plockon.tabProbe=<file>` times the first tab switches and deck opens after boot (TabSwitchProbe.kt);
         // `-Plockon.skipBoot=true` starts without the boot screen, to compare.
-        listOf("lockon.tabProbe", "lockon.tabProbe.label", "lockon.tabProbe.settle", "lockon.skipBoot").forEach { key ->
+        listOf("lockon.tabProbe", "lockon.tabProbe.label", "lockon.tabProbe.settle", "lockon.tabProbe.step", "lockon.skipBoot").forEach { key ->
             providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
         }
         // `-Plockon.dividerProbe=<file>` times dragging the deck editor's divider and closes the app (DividerProbe.kt).
