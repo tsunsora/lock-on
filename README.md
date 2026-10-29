@@ -53,7 +53,7 @@ Requires **Android 8.0 or newer**.
 - **Side deck:** keep cards beside the deck. Switch the card list to **Add to: Side deck** and add them like any other card. It never counts toward deck size, colors or legality, and it syncs and exports with the deck.
 - **Drafts are fine:** nothing blocks a save. An incomplete or illegal deck saves as a *Draft*, and the analysis says what's missing.
 - **Organize:** duplicate, rename, tag, search and filter decks. Deleting a deck offers **Undo** instead of asking first.
-- **Folders:** the desktop shows a folder list beside your decks, and phones show folder chips. Create a folder and pick its decks in one step, use **Move to folder** from a deck's menu, and rename or remove a folder. Removing a folder only takes its decks out. Folders sync.
+- **Folders:** the desktop shows a folder list beside your decks, and phones show folder chips. Create a folder, empty or with its decks picked in the same step, use **Move to folder** from a deck's menu, and rename or remove a folder. Removing a folder only takes its decks out. Folders sync.
 - **Deck cover:** open a card's details in the editor and choose **Use as deck cover**. Otherwise the deck shows its highest-level Unit.
 
 Wide windows give most of the space to the card list and the deck. The deck panel has **Deck**, **Analysis**, **Test**, **Matches** and **Versions** tabs, and the Deck tab opens with a summary of the curve, card types and any legality problem. The deck shows its cards small and whole, or as a denser list. On phones they sit in a bottom bar: **Deck**, **Add**, **Analysis**, **Test**, and **More** for Matches and Versions.

@@ -126,6 +126,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpOffset
 
 private sealed interface LibraryDialog {
     data object New : LibraryDialog
@@ -136,6 +142,7 @@ private sealed interface LibraryDialog {
     data class Delete(val deck: DeckSummary) : LibraryDialog
     data object NewFolder : LibraryDialog
     data class RenameFolder(val folder: String) : LibraryDialog
+    data class RemoveFolder(val folder: String, val decks: Int) : LibraryDialog
     data object Import : LibraryDialog
 }
 
@@ -155,6 +162,7 @@ private sealed interface FolderFilter {
 @Composable
 fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridge) {
     val decks by container.decks.liveDecks.collectAsState(initial = null)
+    val keptFolders by container.decks.keptFolders.collectAsState(initial = emptyList())
     val cards by container.catalog.cards.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
     var dialog by remember { mutableStateOf<LibraryDialog?>(null) }
@@ -164,11 +172,18 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
     val scope = state.appScope
 
     val list = decks
-    val folders = remember(list) {
-        list.orEmpty().mapNotNull { it.snapshot.folder }.groupingBy { it }.eachCount().toList().sortedBy { it.first.lowercase() }
+    // Folders holding decks, plus the empty ones this device keeps.
+    val folders = remember(list, keptFolders) {
+        val counts = list.orEmpty().mapNotNull { it.snapshot.folder }.groupingBy { it }.eachCount()
+        (counts + keptFolders.filter { it !in counts }.associateWith { 0 }).toList().sortedBy { it.first.lowercase() }
     }
     val unfiled = list.orEmpty().count { it.snapshot.folder == null }
-    // A folder empties when its last deck moves out, here or on another device; then show every deck.
+    // Every way of removing a folder asks first.
+    val removeFolder: (String) -> Unit = { name ->
+        dialog = LibraryDialog.RemoveFolder(name, folders.firstOrNull { it.first == name }?.second ?: 0)
+    }
+    val renameFolder: (String) -> Unit = { dialog = LibraryDialog.RenameFolder(it) }
+    // A folder goes when it is removed, here or by its last deck moving out on another device; then show every deck.
     LaunchedEffect(folders, unfiled) {
         val f = folderFilter
         if ((f is FolderFilter.Named && folders.none { it.first == f.name }) || (f == FolderFilter.Unfiled && unfiled == 0)) {
@@ -211,6 +226,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                 FolderRail(
                     total = list.size, folders = folders, unfiled = unfiled, selected = folderFilter,
                     onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder },
+                    onRename = renameFolder, onRemove = removeFolder,
                 )
             }
             Box(Modifier.weight(1f).fillMaxSize()) {
@@ -235,6 +251,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                 FolderChips(
                                     folders = folders, unfiled = unfiled, selected = folderFilter,
                                     onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder },
+                                    onRename = renameFolder, onRemove = removeFolder,
                                 )
                                 if (tags.isNotEmpty()) Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
                             }
@@ -250,16 +267,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     (folderFilter as? FolderFilter.Named)?.let { selected ->
                         val count = folders.firstOrNull { it.first == selected.name }?.second ?: 0
                         SectionHeader(selected.name, Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp), readout = "$count") {
-                            GameButton("Rename", onClick = { dialog = LibraryDialog.RenameFolder(selected.name) }, style = GameButtonStyle.GHOST, compact = true)
-                            GameButton("Remove folder", onClick = {
-                                // Removing a folder only unfiles its decks, so it happens at once with Undo (UX rule C2).
-                                scope.launch {
-                                    val moved = container.decks.removeFolder(selected.name)
-                                    state.notify("Removed folder ${selected.name}", "Undo") {
-                                        scope.launch { container.decks.moveToFolder(moved, selected.name) }
-                                    }
-                                }
-                            }, style = GameButtonStyle.GHOST, compact = true)
+                            GameButton("Rename", onClick = { renameFolder(selected.name) }, style = GameButtonStyle.GHOST, compact = true)
+                            GameButton("Remove folder", onClick = { removeFolder(selected.name) }, style = GameButtonStyle.GHOST, compact = true)
                         }
                     }
                     when {
@@ -279,8 +288,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     it.snapshot.name.contains(search.trim(), ignoreCase = true)
                             }
                             if (shown.isEmpty()) {
+                                val emptyFolder = folderFilter is FolderFilter.Named && list.none(folderFilter::matches)
                                 Text(
-                                    "No decks here match. Clear the search, or pick another folder or tag.",
+                                    if (emptyFolder) "This folder is empty. Create a deck while it's open, or move one here from a deck's menu."
+                                    else "No decks here match. Clear the search, or pick another folder or tag.",
                                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(16.dp),
                                 )
@@ -382,6 +393,32 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dialog = null
             scope.launch { container.decks.renameFolder(d.folder, name)?.let { folderFilter = FolderFilter.Named(it) } }
         }
+        // Removing a folder only unfiles its decks, but like deleting a deck it asks first and still offers Undo.
+        is LibraryDialog.RemoveFolder -> GameDialog(
+            onDismissRequest = { dialog = null },
+            title = "Remove ${d.folder}?",
+            text = {
+                Text(
+                    when (d.decks) {
+                        0 -> "This folder is empty. It will be removed."
+                        1 -> "The folder will be removed. Its deck stays in your library, in no folder."
+                        else -> "The folder will be removed. Its ${d.decks} decks stay in your library, in no folder."
+                    },
+                )
+            },
+            confirmButton = {
+                GameButton("Remove", compact = true, onClick = {
+                    dialog = null
+                    scope.launch {
+                        val moved = container.decks.removeFolder(d.folder)
+                        state.notify("Removed folder ${d.folder}", "Undo") {
+                            scope.launch { container.decks.moveToFolder(moved, d.folder) }
+                        }
+                    }
+                })
+            },
+            dismissButton = { GameButton("Cancel", onClick = { dialog = null }, style = GameButtonStyle.GHOST, compact = true) },
+        )
         // Asks first, and still offers Undo afterwards.
         is LibraryDialog.Delete -> GameDialog(
             onDismissRequest = { dialog = null },
@@ -401,7 +438,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dismissButton = { GameButton("Cancel", onClick = { dialog = null }, style = GameButtonStyle.GHOST, compact = true) },
         )
         is LibraryDialog.Export -> DeckExportDialog(d.deck.snapshot, cards, ruleset, files, state, onDismiss = { dialog = null })
-        LibraryDialog.Import -> ImportDialog(container, files, state, onDismiss = { dialog = null })
+        LibraryDialog.Import -> ImportDialog(
+            container, files, state, onDismiss = { dialog = null },
+            folders = folders.map { it.first }, folder = (folderFilter as? FolderFilter.Named)?.name,
+        )
     }
 }
 
@@ -414,6 +454,8 @@ private fun FolderRail(
     selected: FolderFilter,
     onSelect: (FolderFilter) -> Unit,
     onNewFolder: () -> Unit,
+    onRename: (String) -> Unit,
+    onRemove: (String) -> Unit,
 ) {
     Column(
         Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 12.dp, top = 4.dp, end = 4.dp),
@@ -421,7 +463,9 @@ private fun FolderRail(
     ) {
         FolderItem("All decks", total, selected == FolderFilter.All) { onSelect(FolderFilter.All) }
         folders.forEach { (name, count) ->
-            FolderItem(name, count, selected == FolderFilter.Named(name)) { onSelect(FolderFilter.Named(name)) }
+            FolderContextMenu(name, onRename, onRemove) {
+                FolderItem(name, count, selected == FolderFilter.Named(name)) { onSelect(FolderFilter.Named(name)) }
+            }
         }
         if (folders.isNotEmpty() && unfiled > 0) {
             FolderItem("No folder", unfiled, selected == FolderFilter.Unfiled) { onSelect(FolderFilter.Unfiled) }
@@ -463,6 +507,39 @@ private fun FolderItem(label: String, count: Int, selected: Boolean, onClick: ()
     }
 }
 
+/** Right-clicking a folder opens Rename and Remove folder where the pointer is. */
+@Composable
+private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove: (String) -> Unit, content: @Composable () -> Unit) {
+    var menuAt by remember { mutableStateOf<Offset?>(null) }
+    var height by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    Box(
+        Modifier.onSizeChanged { height = it.height }.pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
+                        event.changes.forEach { it.consume() }
+                        menuAt = event.changes.first().position
+                    }
+                }
+            }
+        },
+    ) {
+        content()
+        val at = menuAt ?: Offset.Zero
+        // The menu hangs from the item's bottom edge, so lift it back up to the click.
+        GameMenu(
+            expanded = menuAt != null, onDismissRequest = { menuAt = null },
+            offset = with(density) { DpOffset(at.x.toDp(), (at.y - height).toDp()) },
+        ) {
+            GameMenuItem("Rename", onClick = { menuAt = null; onRename(name) })
+            GameMenuDivider()
+            GameMenuItem("Remove folder", onClick = { menuAt = null; onRemove(name) }, icon = Icons.Default.Delete, danger = true)
+        }
+    }
+}
+
 /** Phone folder chips: the same choices as the desktop list, at the start of the chip row. */
 @Composable
 private fun FolderChips(
@@ -471,14 +548,18 @@ private fun FolderChips(
     selected: FolderFilter,
     onSelect: (FolderFilter) -> Unit,
     onNewFolder: () -> Unit,
+    onRename: (String) -> Unit,
+    onRemove: (String) -> Unit,
 ) {
     if (folders.isNotEmpty()) {
         PillChip(selected = selected == FolderFilter.All, onClick = { onSelect(FolderFilter.All) }, label = { Text("All decks") })
         folders.forEach { (name, count) ->
-            PillChip(
-                selected = selected == FolderFilter.Named(name), onClick = { onSelect(FolderFilter.Named(name)) },
-                label = { Text("$name · $count") },
-            )
+            FolderContextMenu(name, onRename, onRemove) {
+                PillChip(
+                    selected = selected == FolderFilter.Named(name), onClick = { onSelect(FolderFilter.Named(name)) },
+                    label = { Text("$name · $count") },
+                )
+            }
         }
         if (unfiled > 0) {
             PillChip(selected = selected == FolderFilter.Unfiled, onClick = { onSelect(FolderFilter.Unfiled) }, label = { Text("No folder") })
@@ -490,7 +571,7 @@ private fun FolderChips(
     )
 }
 
-/** Name a folder and pick its decks in one step, since a folder exists only while it holds a deck. */
+/** Name a folder and, if you like, pick decks to put in it. A folder can start empty. */
 @Composable
 private fun NewFolderDialog(
     decks: List<DeckSummary>,
@@ -506,7 +587,7 @@ private fun NewFolderDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text("Folder name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Text("Decks to put in it", style = MaterialTheme.typography.labelLarge)
+                if (decks.isNotEmpty()) Text("Decks to put in it (optional)", style = MaterialTheme.typography.labelLarge)
                 Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
                     decks.sortedBy { it.snapshot.name.lowercase() }.forEach { deck ->
                         val checked = deck.deckId in chosen
@@ -526,14 +607,10 @@ private fun NewFolderDialog(
                         }
                     }
                 }
-                if (chosen.isEmpty()) {
-                    Text("Pick at least one deck. A folder shows while it holds a deck.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
         },
         confirmButton = {
-            GameButton("Create", onClick = { onCreate(name.trim(), chosen.toList()) }, enabled = name.isNotBlank() && chosen.isNotEmpty(), compact = true)
+            GameButton("Create", onClick = { onCreate(name.trim(), chosen.toList()) }, enabled = name.isNotBlank(), compact = true)
         },
         dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
     )

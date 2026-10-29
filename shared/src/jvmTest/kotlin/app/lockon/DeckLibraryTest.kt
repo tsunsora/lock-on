@@ -54,6 +54,23 @@ class DeckLibraryTest {
         assertEquals(null, folderOf(c))
     }
 
+    @Test fun foldersStayWhileEmptyUntilRemoved() = runTest {
+        assertEquals("Sideboard ideas", decks.moveToFolder(emptyList(), "Sideboard ideas"))
+        assertEquals(listOf("Sideboard ideas"), decks.keptFolders.first())
+
+        // A deck joining reuses the empty folder's spelling, and leaving doesn't make the folder go.
+        val a = decks.create(DeckSnapshot(name = "A"))
+        decks.moveToFolder(listOf(a), "sideboard IDEAS")
+        assertEquals("Sideboard ideas", folderOf(a))
+        decks.moveToFolder(listOf(a), null)
+        assertEquals(listOf("Sideboard ideas"), decks.keptFolders.first())
+
+        decks.renameFolder("Sideboard ideas", "Brews")
+        assertEquals(listOf("Brews"), decks.keptFolders.first())
+        decks.removeFolder("Brews")
+        assertEquals(emptyList(), decks.keptFolders.first())
+    }
+
     @Test fun editsFoldIntoOneVersionUntilKeptOrIdle() = runTest {
         val id = decks.create(DeckSnapshot(name = "Wing"))
         val one = decks.currentSnapshot(id)!!.withQuantity("SMP-001", DeckSection.MAIN, 1)

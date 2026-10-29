@@ -33,6 +33,9 @@ interface MetaDao {
     @Query("SELECT value FROM meta WHERE `key` = :key")
     suspend fun get(key: String): String?
 
+    @Query("SELECT value FROM meta WHERE `key` = :key")
+    fun observe(key: String): Flow<String?>
+
     @Upsert
     suspend fun put(entry: MetaEntity)
 }

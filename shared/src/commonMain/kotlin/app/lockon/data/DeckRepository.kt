@@ -3,6 +3,7 @@ package app.lockon.data
 import app.lockon.data.db.DeckEntity
 import app.lockon.data.db.DeckEntryEntity
 import app.lockon.data.db.LockOnDatabase
+import app.lockon.data.db.MetaEntity
 import app.lockon.data.db.RevisionEntity
 import app.lockon.data.db.RevisionParentEntity
 import app.lockon.io.Backup
@@ -48,6 +49,7 @@ class DeckRepository(
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val decksDao = db.deckDao()
     private val revisions = db.revisionDao()
+    private val meta = db.metaDao()
 
     val decks: Flow<List<DeckSummary>> =
         combine(decksDao.observeDecks(), decksDao.observeAllEntries()) { decks, entries ->
@@ -111,18 +113,26 @@ class DeckRepository(
     }
 
     // --- Folders ---
-    // A folder is only a name on each deck, so it syncs with the deck and needs no record of its own.
+    // A folder is a name on each deck, so it syncs with the deck. This device also keeps the folders
+    // it has used, so one stays while it holds no deck until it is removed. That list doesn't sync.
+
+    /** Folders this device keeps, including empty ones. [liveDecks] has the folders that hold decks. */
+    val keptFolders: Flow<List<String>> = meta.observe(KEY_FOLDERS).map(::decodeFolders).distinctUntilChanged()
 
     /**
      * Puts decks in [folder], or takes them out of any folder when it is blank. Returns the folder
-     * name as saved, which reuses an existing folder's spelling.
+     * name as saved, which reuses an existing folder's spelling. With no decks it only makes the folder.
      */
     suspend fun moveToFolder(deckIds: Collection<String>, folder: String?): String? = transaction {
         val target = canonicalFolder(folder)
+        val left = mutableSetOf<String>()
         for (id in deckIds) {
             val current = currentInTransaction(id) ?: continue
+            current.folder?.let(left::add)
             if (current.folder != target) saveInTransaction(id, current.copy(folder = target))
         }
+        // The folders the decks left stay too, so emptying a folder doesn't make it vanish.
+        keepFolders(kept() + left + listOfNotNull(target))
         target
     }
 
@@ -136,17 +146,27 @@ class DeckRepository(
             val current = currentInTransaction(deck.deckId) ?: continue
             saveInTransaction(deck.deckId, current.copy(folder = target))
         }
+        keepFolders(kept().map { if (it == from) target else it } + target)
         target
     }
 
     /** Takes every deck out of [folder] and returns their IDs, so the change can be undone. */
     suspend fun removeFolder(folder: String): List<String> = transaction {
+        keepFolders(kept() - folder)
         decksDao.inFolder(folder).mapNotNull { deck ->
             val current = currentInTransaction(deck.deckId) ?: return@mapNotNull null
             saveInTransaction(deck.deckId, current.copy(folder = null))
             deck.deckId
         }
     }
+
+    private suspend fun kept(): List<String> = decodeFolders(meta.get(KEY_FOLDERS))
+
+    private suspend fun keepFolders(names: List<String>) =
+        meta.put(MetaEntity(KEY_FOLDERS, json.encodeToString(tagSerializer, names.distinct())))
+
+    private fun decodeFolders(stored: String?): List<String> =
+        stored?.let { runCatching { json.decodeFromString(tagSerializer, it) }.getOrNull() }.orEmpty()
 
     /** Deletes the deck. A conflicted deck is deleted on every version, so another one can't take its place. */
     suspend fun delete(deckId: String) = transaction {
@@ -359,7 +379,7 @@ class DeckRepository(
     /** Trims [name] and reuses an existing folder's spelling when only the case differs. */
     private suspend fun canonicalFolder(name: String?, ignoring: String? = null): String? {
         val trimmed = name?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        return decksDao.folders().firstOrNull { it != ignoring && it.equals(trimmed, ignoreCase = true) } ?: trimmed
+        return (decksDao.folders() + kept()).firstOrNull { it != ignoring && it.equals(trimmed, ignoreCase = true) } ?: trimmed
     }
 
     private suspend fun insertRevision(deckId: String, parents: List<String>, snapshot: DeckSnapshot) {
@@ -438,6 +458,7 @@ class DeckRepository(
         const val VERSION_IDLE_MS = 30 * 60_000L
 
         private val tagSerializer = ListSerializer(String.serializer())
+        private const val KEY_FOLDERS = "decks.keptFolders"
         private val matchSerializer = ListSerializer(MatchRecord.serializer())
 
         /** One copy of each match, oldest first. */

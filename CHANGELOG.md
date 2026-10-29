@@ -16,7 +16,7 @@ First release for Android and Windows.
   - level and cost curves, and type and color counts
 - **Test hand** using the official setup: draw 5, redraw once, set 6 shields, then draw.
 - Deck library with tags, search, duplicate, rename, and delete with **Undo**.
-- **Deck folders**: a folder list beside the decks on desktop and folder chips on phones. Move decks between folders, create a folder with its decks in one step, and rename or remove folders. Folders sync.
+- **Deck folders**: a folder list beside the decks on desktop and folder chips on phones. Move decks between folders, create a folder empty or with its decks in one step, and rename or remove folders. Folders sync.
 - Pick any card as a deck's **cover**.
 - **Match log** per deck: wins, losses and draws with optional opponent, turn order and notes, and a record with win rate, going first and second, and results by opponent.
 - **Version history**: every version of a deck with what changed, a comparison with the deck now, and restoring an older version's cards.
