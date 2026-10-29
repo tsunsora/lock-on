@@ -242,6 +242,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
     if (deck == null) return
     val legality = remember(deck, cards, ruleset) { DeckValidator.validate(deck, cards, ruleset) }
+    // The editor stays built while hidden (KeptScreens), so only Ctrl+F presses made while this deck
+    // shows reach its search.
+    val focusSeen = remember(deckId) { intArrayOf(state.searchFocusRequests) }
+    if ((state.current as? Screen.DeckEditor)?.deckId == deckId) focusSeen[0] = state.searchFocusRequests
     val haptics = LocalHapticFeedback.current
     var wasLegal by remember(deckId) { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(legality.isLegal) {
@@ -414,7 +418,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                     CardSearchPanel(
                         addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
-                        focusRequests = state.searchFocusRequests, deckColors = deckColors, wide = wide,
+                        focusRequests = focusSeen[0], deckColors = deckColors, wide = wide,
                         controls = controls,
                         trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max), Modifier.padding(start = 14.dp)) }) else null,
                     )

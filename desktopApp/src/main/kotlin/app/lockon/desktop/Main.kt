@@ -54,7 +54,6 @@ fun main() {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val sync = DesktopSyncController(container, appScope).also { it.start() }
     container.updater?.start(appScope)
-    val warmup = EditorWarmup.start(container)
     val state = AppState(appScope)
     // For timing the app without the boot screen (TabSwitchProbe.kt).
     if (System.getProperty("lockon.skipBoot") == "true") state.booted = true
@@ -91,7 +90,6 @@ fun main() {
                 LockOnApp(
                     container, state, sync, DesktopFileBridge(window),
                     artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
-                    warmup = { warmup.join() },
                 )
                 if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
             }

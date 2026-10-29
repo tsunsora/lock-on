@@ -27,17 +27,18 @@ fun TabSwitchProbe(window: ComposeWindow, container: AppContainer, state: AppSta
         snapshotFlow { state.booted }.first { it }
         System.getProperty("lockon.tabProbe.settle")?.toLong()?.let { delay(it) }
         delay(700)
-        val deck = container.decks.liveDecks.first().filterNot { it.snapshot.deleted }.maxByOrNull { it.snapshot.entries.size }
+        // The deck changed last (built during boot) and the one changed longest ago (built as it opens).
+        val byAge = container.decks.liveDecks.first().filterNot { it.snapshot.deleted }.sortedByDescending { it.updatedAt }
         val steps = buildList<Pair<String, () -> Unit>> {
             add("cards 1" to { state.select(Tab.CARDS) })
             add("decks 1" to { state.select(Tab.DECKS) })
             add("cards 2" to { state.select(Tab.CARDS) })
             add("decks 2" to { state.select(Tab.DECKS) })
-            if (deck != null) {
-                add("open 1" to { state.open(Screen.DeckEditor(deck.deckId)) })
-                add("back 1" to { state.goBack() })
-                add("open 2" to { state.open(Screen.DeckEditor(deck.deckId)) })
-                add("back 2" to { state.goBack() })
+            for ((label, deck) in listOfNotNull(byAge.firstOrNull()?.let { "recent" to it }, byAge.lastOrNull()?.let { "oldest" to it })) {
+                add("$label 1" to { state.open(Screen.DeckEditor(deck.deckId)) })
+                add("back" to { state.goBack() })
+                add("$label 2" to { state.open(Screen.DeckEditor(deck.deckId)) })
+                add("back" to { state.goBack() })
             }
         }
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
@@ -48,7 +49,7 @@ fun TabSwitchProbe(window: ComposeWindow, container: AppContainer, state: AppSta
         val everything = java.util.concurrent.ConcurrentLinkedQueue<Pair<String, Array<StackTraceElement>>>()
         for ((name, act) in steps) {
             val frames = mutableListOf<Long>()
-            if (name == "cards 1") kotlin.concurrent.thread(isDaemon = true) {
+            if (name == (System.getProperty("lockon.tabProbe.step") ?: "cards 1")) kotlin.concurrent.thread(isDaemon = true) {
                 val until = System.nanoTime() + 700_000_000L
                 while (System.nanoTime() < until) {
                     Thread.getAllStackTraces().forEach { (t, st) -> if (t.state == Thread.State.RUNNABLE && st.isNotEmpty()) everything += t.name to st }
@@ -74,11 +75,11 @@ fun TabSwitchProbe(window: ComposeWindow, container: AppContainer, state: AppSta
         }
         sampler.finish()
         File(report.path + ".samples.txt").writeText(sampler.report(slow))
-        File(report.path + ".cards1.threads.txt").writeText(
+        File(report.path + ".step.threads.txt").writeText(
             everything.groupingBy { (thread, st) -> thread.replace(Regex("[0-9]+"), "#") + " :: " + st.take(6).joinToString(" < ") { "${it.className.substringAfterLast('.')}.${it.methodName}" } }
                 .eachCount().entries.sortedByDescending { it.value }.take(50).joinToString("\n") { "%5d  %s".format(it.value, it.key) },
         )
-        File(report.path + ".cards1.samples.txt").writeText(sampler.report(slowByStep["cards 1"].orEmpty()))
+        File(report.path + ".step.samples.txt").writeText(sampler.report(slowByStep[System.getProperty("lockon.tabProbe.step") ?: "cards 1"].orEmpty()))
         report.appendText("${System.getProperty("lockon.tabProbe.label") ?: "run"} (${window.renderApi}):\n" + lines.joinToString("\n") + "\n\n")
         exit()
     }

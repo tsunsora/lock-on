@@ -124,6 +124,7 @@ import kotlinx.coroutines.launch
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.LocalArtwork
+import app.lockon.ui.components.ArtworkLoads
 import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.components.artworkImageLoader
 import app.lockon.ui.components.artworkHttpClient
@@ -133,6 +134,9 @@ import coil3.compose.setSingletonImageLoaderFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleOut
 import androidx.compose.ui.layout.Layout
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -184,8 +188,6 @@ fun LockOnApp(
     reduceMotion: Boolean = false,
     /** Desktop's own title bar, drawn into the top band; null keeps the system's (and on phones). */
     chrome: WindowChrome? = null,
-    /** Platform work the boot screen waits for, such as warming up the deck editor off-screen. */
-    warmup: suspend () -> Unit = {},
 ) {
     val settings = container.settings
     val themeChoice by settings.theme.collectAsState()
@@ -234,18 +236,38 @@ fun LockOnApp(
             if (result == SnackbarResult.ActionPerformed) notice.action?.invoke()
         }
         LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
-        // The boot screen stays up until the decks are in, the screens under it have drawn their
-        // cards, and the platform's warm-up is done, so the first look at each tab doesn't stutter.
+        // The boot screen stays up until the decks are in and the screens under it, tabs and recent
+        // decks' editors, have drawn their cards, so the first look at each doesn't stutter.
         var bootStep by remember { mutableStateOf(BootStep.DECKS) }
+        // Deck editors kept built, so opening one of these decks shows it at once; [recentDecks] is
+        // most recently opened first and decides which editor goes when there are too many.
+        val keptDecks = remember { mutableStateListOf<Screen.DeckEditor>() }
+        val recentDecks = remember { mutableListOf<String>() }
+        val openDeck = state.current as? Screen.DeckEditor
+        LaunchedEffect(openDeck) {
+            val open = openDeck ?: return@LaunchedEffect
+            recentDecks.remove(open.deckId)
+            recentDecks.add(0, open.deckId)
+            if (keptDecks.none { it.deckId == open.deckId }) keptDecks += open
+            while (keptDecks.size > KeptDeckLimit) keptDecks.remove(keptDecks.maxBy { recentDecks.indexOf(it.deckId) })
+        }
         if (!state.booted) LaunchedEffect(Unit) {
             val started = TimeSource.Monotonic.markNow()
             withTimeoutOrNull(BootLimit) {
-                container.decks.liveDecks.first()
+                // The decks changed most recently are the likeliest to be opened: build their editors now.
+                val recent = container.decks.liveDecks.first().filterNot { it.snapshot.deleted }
+                    .sortedByDescending { it.updatedAt }.take(KeptDeckLimit).map { it.deckId }
+                recentDecks += recent
+                keptDecks += recent.map { Screen.DeckEditor(it) }
                 bootStep = BootStep.CARDS
-                // The hidden screens compose now; give their images a moment to decode into memory.
+                // The hidden screens compose now and start loading their card images. Wait until no image
+                // has been loading for a moment, since more start as each screen fills in.
                 delay(BootCardsTime)
                 bootStep = BootStep.EDITOR
-                warmup()
+                while (true) {
+                    ArtworkLoads.inFlight.first { it == 0 }
+                    if (withTimeoutOrNull(BootQuietTime) { ArtworkLoads.inFlight.first { it > 0 } } == null) break
+                }
             }
             val shown = started.elapsedNow()
             if (shown < BootMinimum) delay(BootMinimum - shown)
@@ -306,7 +328,7 @@ fun LockOnApp(
                     CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
                         // Tabs are built once and kept: switching only shows a screen that's already laid
                         // out, with its cards drawn. They fade through each other (UX rule V5).
-                        KeptTabs(if (state.current == null) state.tab else null, state.booted) { tab ->
+                        KeptScreens(Tab.entries, if (state.current == null) state.tab else null, state.booted) { tab ->
                             Column(Modifier.fillMaxSize()) {
                                 when (tab) {
                                     Tab.DECKS -> DeckLibraryScreen(container, state, files)
@@ -330,29 +352,28 @@ fun LockOnApp(
                                 }
                             }
                         }
-                        // Going deeper drifts forward and coming back drifts back, so motion always says
-                        // where you went (UX rule V5).
+                        // Decks drift in from the side and back out as you leave, so motion says where you
+                        // went (UX rule V5). A deck opened for the first time builds as it arrives.
+                        val decksShown = if (openDeck == null || keptDecks.any { it.deckId == openDeck.deckId }) keptDecks.toList() else keptDecks + openDeck
+                        KeptScreens(decksShown.map { it.deckId }, openDeck?.deckId, state.booted, slide = true) { id ->
+                            DeckEditorScreen(container, state, files, id, wide, decksShown.firstOrNull { it.deckId == id }?.startTab ?: 0)
+                        }
                         val reduce = LocalReduceMotion.current
                         AnimatedContent(
-                            targetState = state.current,
+                            targetState = state.current as? Screen.Conflict,
                             modifier = Modifier.fillMaxSize(),
                             transitionSpec = {
-                                val dir = if (depthOf(targetState) > depthOf(initialState)) 1 else -1
+                                val dir = if (targetState != null) 1 else -1
                                 if (reduce) fadeIn(tween(90)) togetherWith fadeOut(tween(90))
                                 else (slideInHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) { dir * it / 20 } +
                                     fadeIn(tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2))) togetherWith
                                     (slideOutHorizontally(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { -dir * it / 30 } +
                                         fadeOut(tween(Motion.SHORT)))
                             },
-                            label = "navigation",
-                        ) { destination ->
-                            when (destination) {
-                                is Screen.DeckEditor -> DeckEditorScreen(container, state, files, destination.deckId, wide, destination.startTab)
-                                is Screen.Conflict -> Box(Modifier.padding(top = LocalTopBand.current.height)) {
-                                    ConflictScreen(container, state, destination.deckId, wide)
-                                }
-                                // The tabs show underneath.
-                                null -> Unit
+                            label = "conflict",
+                        ) { conflict ->
+                            if (conflict != null) Box(Modifier.padding(top = LocalTopBand.current.height)) {
+                                ConflictScreen(container, state, conflict.deckId, wide)
                             }
                         }
                     }
@@ -400,47 +421,56 @@ fun LockOnApp(
 private val BootMinimum = 1.2.seconds
 /** And never longer than this, whatever is still loading. */
 private val BootLimit = 8.seconds
-private val BootCardsTime = 600.milliseconds
+private val BootCardsTime = 300.milliseconds
+private val BootQuietTime = 250.milliseconds
 
-/** How deep a destination sits: tabs (null), then a deck, then a conflict comparison. */
-private fun depthOf(destination: Screen?): Int = when (destination) {
-    is Screen.Conflict -> 2
-    is Screen.DeckEditor -> 1
-    else -> 0
-}
+/** How many deck editors stay built; opening a deck beyond these drops the one opened longest ago. */
+private const val KeptDeckLimit = 4
 
 /**
- * Every tab, composed once and kept. Only [shown] (and a tab still fading out) is measured, placed
- * and drawn, so a kept tab costs nothing per frame; showing it again needs no new composition, which
- * is what made a first look at Cards stutter. While not [booted], every tab lays out and draws under
- * the opaque boot screen, so its card grid fills in and its images are decoded and on the GPU before
- * anyone looks. They draw at just under full opacity, the way a crossfade draws them, since the GPU
- * sets that up slowly the first time; a fully transparent layer wouldn't draw at all. [shown] is
- * null under a deck.
+ * Screens composed once and kept: the tabs, and the editors of recently opened decks. Only [shown]
+ * (and a screen still fading out) is measured, placed and drawn, so a kept screen costs nothing per
+ * frame; showing it again needs no new composition, which is what made a first look at Cards or a
+ * deck stutter. While not [booted], every screen lays out and draws under the opaque boot screen, so
+ * its cards fill in and their images are decoded and on the GPU before anyone looks. They draw at
+ * just under full opacity, the way a crossfade draws them, since the GPU sets that up slowly the
+ * first time; a fully transparent layer wouldn't draw at all. [slide] drifts screens in from the
+ * side as they show and back out as they go.
  */
 @Composable
-private fun KeptTabs(shown: Tab?, booted: Boolean, content: @Composable (Tab) -> Unit) {
+private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, slide: Boolean = false, content: @Composable (K) -> Unit) {
     val reduce = LocalReduceMotion.current
-    val alphas = Tab.entries.map { tab ->
-        animateFloatAsState(
-            if (tab == shown) 1f else 0f,
-            when {
-                reduce -> tween(90)
-                tab == shown -> tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2)
-                else -> tween(Motion.SHORT)
-            },
-            label = "tab",
-        )
+    val shows = keys.map { k ->
+        key(k) {
+            val show = remember { Animatable(0f) }
+            LaunchedEffect(k == shown, reduce) {
+                show.animateTo(
+                    if (k == shown) 1f else 0f,
+                    when {
+                        reduce -> tween(90)
+                        k == shown -> tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2)
+                        else -> tween(Motion.SHORT)
+                    },
+                )
+            }
+            show
+        }
     }
     Layout(
         content = {
-            Tab.entries.forEachIndexed { i, tab ->
-                Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (booted) alphas[i].value else 0.99f }) { content(tab) }
+            keys.forEachIndexed { i, k ->
+                key(k) {
+                    Box(Modifier.fillMaxSize().graphicsLayer {
+                        val p = shows[i].value
+                        alpha = if (booted) p else 0.99f
+                        if (slide && booted) translationX = (1f - p) * size.width / 20f
+                    }) { content(k) }
+                }
             }
         },
         modifier = Modifier.fillMaxSize(),
     ) { measurables, constraints ->
-        val placeables = measurables.mapIndexed { i, m -> if (!booted || alphas[i].value > 0f) m.measure(constraints) else null }
+        val placeables = measurables.mapIndexed { i, m -> if (!booted || shows[i].value > 0f) m.measure(constraints) else null }
         layout(constraints.maxWidth, constraints.maxHeight) { placeables.forEach { it?.place(0, 0) } }
     }
 }
