@@ -814,7 +814,7 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
                     },
             ) {
                 CardArtwork(art, null, Modifier.fillMaxSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f)) {
-                    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, color.copy(alpha = 0.5f)))))
+                    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(color.copy(alpha = 0f), color.copy(alpha = 0.5f)))))
                 }
             }
         }
@@ -911,7 +911,7 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
             Modifier.width(4.dp).height(54.dp)
                 .drawBehind {
                     if (glow > 0f) drawRoundRect(
-                        Brush.radialGradient(listOf(scheme.primary.copy(alpha = 0.35f * glow), Color.Transparent), radius = size.height * 0.75f),
+                        Brush.radialGradient(listOf(scheme.primary.copy(alpha = 0.35f * glow), scheme.primary.copy(alpha = 0f)), radius = size.height * 0.75f),
                         topLeft = Offset(-size.height / 2, -size.height / 4), size = Size(size.height + size.width, size.height * 1.5f),
                     )
                 }

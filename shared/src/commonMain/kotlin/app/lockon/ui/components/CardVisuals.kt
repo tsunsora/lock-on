@@ -430,7 +430,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
             Box(m.drawBehind {
                 val r = size.height / 2
                 scale(scaleX = size.width / size.height, scaleY = 1f, pivot = center) {
-                    drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), Color.Transparent), center, r), radius = r)
+                    drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), pool.copy(alpha = 0f)), center, r), radius = r)
                 }
             }.padding(horizontal = 16.dp, vertical = 14.dp)) {
                 CardImage(card, Modifier.fillMaxWidth(), printingId = shown)

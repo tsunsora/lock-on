@@ -64,10 +64,12 @@ class HttpSyncTransport(
 /**
  * Waits up to [SyncProtocol.MAX_WAIT_SECONDS] for the desktop to invite this phone. Returns null
  * when it doesn't. Needs no pairing: an invitation only starts the normal, confirmed pairing.
+ * [answered] is the invitation this phone already answered, so the desktop holds out for a new one.
  */
-suspend fun awaitInvite(client: HttpClient, baseUrl: String, deviceId: String): InviteOffer? {
+suspend fun awaitInvite(client: HttpClient, baseUrl: String, deviceId: String, answered: String? = null): InviteOffer? {
     val response = client.get("$baseUrl/v1/invites") {
         parameter("device", deviceId)
+        if (answered != null) parameter("answered", answered)
         timeout { requestTimeoutMillis = (SyncProtocol.MAX_WAIT_SECONDS + 10) * 1000L }
     }
     return if (response.status.value == 200) response.body() else null

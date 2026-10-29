@@ -81,11 +81,15 @@ class PairingManager(
         _invites.value = _invites.value.filterValues { it.deviceId != deviceId }
     }
 
-    /** Held open by a phone; answers as soon as this desktop invites it, or null after [timeoutMs]. */
-    suspend fun awaitInvite(deviceId: String, timeoutMs: Long): InviteOffer? {
+    /**
+     * Held open by a phone; answers as soon as this desktop invites it, or null after [timeoutMs].
+     * The invitation the phone already [answered] is skipped, so a declined "Connect?" isn't asked
+     * again until the desktop sends a new invitation.
+     */
+    suspend fun awaitInvite(deviceId: String, timeoutMs: Long, answered: String? = null): InviteOffer? {
+        fun offered(invite: Invite) = invite.deviceId == deviceId && invite.inviteId != answered && invite.expiresAt > now()
         val invite = withTimeoutOrNull(timeoutMs) {
-            _invites.first { map -> map.values.any { it.deviceId == deviceId && it.expiresAt > now() } }
-                .values.first { it.deviceId == deviceId }
+            _invites.first { map -> map.values.any(::offered) }.values.first(::offered)
         } ?: return null
         return InviteOffer(invite.inviteId, identity.deviceId, identity.deviceName)
     }

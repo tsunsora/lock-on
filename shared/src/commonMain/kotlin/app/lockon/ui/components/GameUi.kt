@@ -69,6 +69,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -141,6 +142,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 // The sky-glass layer (UX rules V1, V8, V9): a bright sky backdrop, frosted glass panels, pill
@@ -402,24 +404,24 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     val onAccent = OnAccent
     val track = if (fill) Modifier.fillMaxWidth() else Modifier.horizontalScroll(rememberScrollState())
     // Where each tab sits in the row, so one teal pill can slide between them (the tabs differ in width).
+    // Only the draw reads them, so a resize moves the pill with its tab instead of recomposing the
+    // tabs and springing after it.
     val spots = remember(labels.size) { Array(labels.size) { mutableStateOf<Pair<Float, Float>?>(null) } }
-    val target = spots.getOrNull(selected)?.value
-    val x = remember { Animatable(0f) }
-    val w = remember { Animatable(0f) }
-    val reduce = LocalReduceMotion.current
-    // The first placement jumps straight there, so a screen opens with its tab already lit; later
-    // changes slide.
-    var placed by remember { mutableStateOf(false) }
-    LaunchedEffect(target) {
-        if (target == null) return@LaunchedEffect
-        if (!placed || reduce) { x.snapTo(target.first); w.snapTo(target.second); placed = true; return@LaunchedEffect }
-        launch { x.animateTo(target.first, glideSpec(false)) }
-        w.animateTo(target.second, glideSpec(false))
-    }
+    // The pill glides along the tab indices; a screen opens with its tab already lit, since the slot
+    // starts at the selection.
+    val slot by animateFloatAsState(selected.toFloat(), glide(), label = "tab-slide")
+    val placed by remember(spots, selected) { derivedStateOf { spots.getOrNull(selected)?.value != null } }
     Box(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
         Row(
             track.glass(LockOnShapes.button, strong = true).padding(4.dp).drawBehind {
-                val (px, pw) = if (placed) x.value to w.value else (target ?: (0f to 0f))
+                if (spots.isEmpty()) return@drawBehind
+                val s = slot.coerceIn(0f, spots.lastIndex.toFloat())
+                val lo = floor(s).toInt()
+                val a = spots[lo].value ?: return@drawBehind
+                val b = spots.getOrNull(ceil(s).toInt())?.value ?: a
+                val f = s - lo
+                val px = a.first + (b.first - a.first) * f
+                val pw = a.second + (b.second - a.second) * f
                 if (pw > 0f) drawRoundRect(accent, Offset(px, 0f), Size(pw, size.height), CornerRadius(size.height / 2))
             },
             horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -648,15 +650,15 @@ internal class HoverLiftNode(
         val near = if (grid != null && within(grid.pointer)) grid.level?.value ?: 0f else 0f
         if (near > 0f && grid != null) {
             val outline = shape.createOutline(size, layoutDirection, this)
-            drawOutline(outline, Brush.radialGradient(listOf(lighten(glow, 0.3f).copy(alpha = 0.7f * near), Color.Transparent),
+            drawOutline(outline, Brush.radialGradient(listOf(lighten(glow, 0.3f).copy(alpha = 0.7f * near), lighten(glow, 0.3f).copy(alpha = 0f)),
                 grid.pointer - origin, GridSpotlightReach.toPx()), style = Stroke(1.5.dp.toPx()))
         }
         val t = hover.value
         if (t <= 0f || pointer == Offset.Unspecified) return
         val reach = size.maxDimension * 0.9f
         val outline = shape.createOutline(size, layoutDirection, this)
-        drawOutline(outline, Brush.radialGradient(listOf(Color.White.copy(alpha = 0.16f * t), Color.Transparent), pointer, reach * 0.6f))
-        drawOutline(outline, Brush.radialGradient(listOf(lighten(glow, 0.3f).copy(alpha = 0.9f * t), Color.Transparent), pointer, reach),
+        drawOutline(outline, Brush.radialGradient(listOf(Color.White.copy(alpha = 0.16f * t), Color.White.copy(alpha = 0f)), pointer, reach * 0.6f))
+        drawOutline(outline, Brush.radialGradient(listOf(lighten(glow, 0.3f).copy(alpha = 0.9f * t), lighten(glow, 0.3f).copy(alpha = 0f)), pointer, reach),
             style = Stroke(1.5.dp.toPx()))
     }
 
@@ -887,7 +889,7 @@ fun Modifier.shineSweep(locked: Boolean, shape: Shape = RectangleShape): Modifie
             val band = size.width * 0.16f
             drawRect(
                 Brush.linearGradient(
-                    listOf(Color.Transparent, Color.White.copy(alpha = 0.22f), Gold.copy(alpha = 0.1f), Color.Transparent),
+                    listOf(Color.White.copy(alpha = 0f), Color.White.copy(alpha = 0.22f), Gold.copy(alpha = 0.1f), Gold.copy(alpha = 0f)),
                     start = Offset(x - band, 0f), end = Offset(x + band, size.height * 0.5f),
                 ),
             )

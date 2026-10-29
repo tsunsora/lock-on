@@ -5,6 +5,8 @@ import app.lockon.data.db.MetaDao
 import app.lockon.data.db.MetaEntity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.serialization.Serializable
@@ -100,7 +103,8 @@ class AppUpdater(
         _automatic.value = meta.get(KEY_AUTOMATIC)?.toBooleanStrictOrNull() ?: true
         _checkedAt.value = meta.get(KEY_CHECKED_AT)?.toLongOrNull()
         val stored = meta.get(KEY_READY)?.let { runCatching { json.decodeFromString(StoredDownload.serializer(), it) }.getOrNull() }
-        val usable = stored != null && compareVersions(stored.version, currentVersion) > 0 && SystemFileSystem.exists(Path(stored.path))
+        val usable = stored != null && compareVersions(stored.version, currentVersion) > 0 &&
+            withContext(Dispatchers.IO) { SystemFileSystem.exists(Path(stored.path)) }
         if (usable) {
             _state.value = UpdateState.Ready(stored.version, stored.notes, stored.path)
         } else if (stored != null) {
@@ -278,11 +282,12 @@ class AppUpdater(
         return UpdateState.Ready(version, manifest.notes, Path(installer.downloadDir, name).toString())
     }
 
-    private fun deleteDownloadsExcept(keep: String?) {
+    private suspend fun deleteDownloadsExcept(keep: String?) = withContext(Dispatchers.IO) {
         runCatching {
             val dir = Path(installer.downloadDir)
-            if (!SystemFileSystem.exists(dir)) return
-            SystemFileSystem.list(dir).filter { it.toString() != keep }.forEach { SystemFileSystem.delete(it, mustExist = false) }
+            if (SystemFileSystem.exists(dir)) {
+                SystemFileSystem.list(dir).filter { it.toString() != keep }.forEach { SystemFileSystem.delete(it, mustExist = false) }
+            }
         }
     }
 
