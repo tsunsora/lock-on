@@ -31,6 +31,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _lastTab = MutableStateFlow<String?>(null)
     private val _size = MutableStateFlow(InterfaceSize.DEFAULT)
     private val _catalogChecks = MutableStateFlow(true)
+    private val _welcomed = MutableStateFlow(true)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -40,6 +41,8 @@ class SettingsRepository(private val meta: MetaDao) {
     val size: StateFlow<InterfaceSize> = _size.asStateFlow()
     /** Whether Lock On looks for a newer official card list once a week. On unless turned off. */
     val catalogChecks: StateFlow<Boolean> = _catalogChecks.asStateFlow()
+    /** Whether the welcome tour has been seen or skipped; false only on a fresh install. */
+    val welcomed: StateFlow<Boolean> = _welcomed.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -48,6 +51,10 @@ class SettingsRepository(private val meta: MetaDao) {
         _lastTab.value = meta.get(KEY_LAST_TAB)
         _size.value = enumOr(meta.get(KEY_SIZE), InterfaceSize.DEFAULT)
         _catalogChecks.value = meta.get(KEY_CATALOG_CHECKS) != "false"
+        // Lock On remembers its last tab from the first launch on, so a stored tab means someone
+        // used it before the tour existed and needs no welcome.
+        _welcomed.value = meta.get(KEY_WELCOMED)?.toBooleanStrictOrNull() ?: (_lastTab.value != null)
+        meta.put(MetaEntity(KEY_WELCOMED, _welcomed.value.toString()))
     }
 
     suspend fun setTheme(choice: ThemeChoice) { _theme.value = choice; meta.put(MetaEntity(KEY_THEME, choice.name)) }
@@ -59,6 +66,7 @@ class SettingsRepository(private val meta: MetaDao) {
         meta.put(MetaEntity(KEY_LAST_TAB, tab))
     }
     suspend fun setSize(size: InterfaceSize) { _size.value = size; meta.put(MetaEntity(KEY_SIZE, size.name)) }
+    suspend fun setWelcomed() { _welcomed.value = true; meta.put(MetaEntity(KEY_WELCOMED, "true")) }
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
 
     private inline fun <reified E : Enum<E>> enumOr(stored: String?, default: E): E =
@@ -71,5 +79,6 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_LAST_TAB = "settings.lastTab"
         const val KEY_SIZE = "settings.size"
         const val KEY_CATALOG_CHECKS = "settings.catalogChecks"
+        const val KEY_WELCOMED = "settings.welcomed"
     }
 }

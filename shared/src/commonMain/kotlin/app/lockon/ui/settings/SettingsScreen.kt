@@ -99,6 +99,10 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 }
                 GameButton("Rename", onClick = { renaming = true }, style = GameButtonStyle.SECONDARY, compact = true)
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Welcome tour", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                GameButton("Show again", onClick = { state.tourStop = 0; state.touring = true }, style = GameButtonStyle.SECONDARY, compact = true)
+            }
         }
     }
     val right = @Composable {
