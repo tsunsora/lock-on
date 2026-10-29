@@ -164,11 +164,16 @@ private fun DrawScope.drawBit(bit: Bit, t: Float, center: Offset, reach: Float, 
     val heading = atan2(here.y - center.y, here.x - center.x)
     val unit = 2.4.dp.toPx() * bit.scale
     val shape = if (bit.stave) Stave else Wing
-    // No thruster: just a thin fading glow line back along the path.
-    var prev = here
-    for (k in 1..12) {
+    // A thin fading glow line that leaves the back end and streams out behind it as the bit slides.
+    fun tailAt(k: Int): Offset {
         val p = bit.at(t - k * 0.004f, center, reach)
-        drawLine(trail.copy(alpha = 0.4f * (1f - k / 13f)), prev, p, unit * (1.6f - k * 0.1f), StrokeCap.Round)
+        val back = atan2(p.y - center.y, p.x - center.x) + PI.toFloat()
+        return p + Offset(cos(back), sin(back)) * (unit * (shape.tail + k * 1.2f))
+    }
+    var prev = tailAt(0)
+    for (k in 1..12) {
+        val p = tailAt(k)
+        drawLine(trail.copy(alpha = 0.45f * (1f - k / 13f)), prev, p, unit * (1.6f - k * 0.1f), StrokeCap.Round)
         prev = p
     }
     // A short beam for a moment once per loop.
@@ -199,13 +204,15 @@ private fun DrawScope.drawBit(bit: Bit, t: Float, center: Offset, reach: Float, 
 
 /**
  * A GUND-Bit as drawn from Aerial's split-up shield, pointing along +x with its clipped tip at
- * [tip] units: a white face, a blue strip down one edge, a dark recessed panel, and a lit muzzle.
+ * [tip] units and its back end [tail] units behind the middle: a white face, a blue strip down one
+ * edge, a dark recessed panel, and a lit muzzle.
  */
-private class BitShape(val tip: Float, val body: Outline, val edge: Outline, val inset: Outline, val muzzle: Offset)
+private class BitShape(val tip: Float, val tail: Float, val body: Outline, val edge: Outline, val inset: Outline, val muzzle: Offset)
 
 /** The long blade stave, about five times as long as it is wide. */
 private val Stave = BitShape(
     tip = 15f,
+    tail = 15f,
     body = Outline(15f to -0.8f, 10f to -3.2f, -12f to -3.2f, -15f to -0.8f, -15f to 3.2f, 9f to 3.2f),
     edge = Outline(11.4f to 1.6f, 9f to 3.2f, -15f to 3.2f, -15f to 1.6f),
     inset = Outline(7f to -1.8f, -10f to -1.8f, -11.5f to 0.8f, 5.5f to 0.8f),
@@ -215,6 +222,7 @@ private val Stave = BitShape(
 /** The short wing piece from the shield's shoulders. */
 private val Wing = BitShape(
     tip = 9f,
+    tail = 9f,
     body = Outline(9f to -1f, 5f to -3.4f, -8f to -3.4f, -9f to -2.2f, -9f to 3.4f, 4f to 3.4f),
     edge = Outline(5.4f to 2.2f, 4f to 3.4f, -9f to 3.4f, -9f to 2.2f),
     inset = Outline(3f to -1.8f, -6f to -1.8f, -7f to 0.6f, 2f to 0.6f),
