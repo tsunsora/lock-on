@@ -15,8 +15,8 @@ import app.lockon.ui.components.BottomItem
 import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.ProgressGauge
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import app.lockon.ui.components.GameMenu
+import app.lockon.ui.components.GameMenuItem
 import androidx.compose.foundation.layout.size
 import app.lockon.ui.components.DeckCard
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -635,8 +635,9 @@ private fun DeckList(
     val gap = if (compact) 8.dp else 6.dp
     val listState = rememberLazyListState()
     BoxWithConstraints(modifier) {
-    val columns = ((maxWidth - 16.dp + gap) / ((if (compact) 104.dp else 120.dp) + gap)).toInt().coerceAtLeast(2)
-    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
+    // The end padding clears the scroll bar's lane so section counts don't sit under it.
+    val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 120.dp) + gap)).toInt().coerceAtLeast(2)
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (deck.entries.isNotEmpty()) {
             // Whether the deck is legal and its level curve ride at the top of the list; the curve opens
@@ -941,9 +942,9 @@ private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
         )
         // Anchored over the right end of the pill, where More sits, so the menu opens above it.
         Box(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.2f)) {
-            DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
-                DropdownMenuItem(text = { Text("Matches") }, onClick = { more = false; onSelect(4) })
-                DropdownMenuItem(text = { Text("Versions") }, onClick = { more = false; onSelect(5) })
+            GameMenu(expanded = more, onDismissRequest = { more = false }) {
+                GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, selected = tab == 4)
+                GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, selected = tab == 5)
             }
         }
     }

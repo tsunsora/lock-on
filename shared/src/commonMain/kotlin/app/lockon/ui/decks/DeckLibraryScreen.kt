@@ -1,5 +1,4 @@
 package app.lockon.ui.decks
-import app.lockon.ui.components.SpotlightGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.animation.animateColorAsState
@@ -58,8 +57,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import app.lockon.ui.components.GameMenu
+import app.lockon.ui.components.GameMenuItem
+import app.lockon.ui.components.GameMenuDivider
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -115,10 +116,8 @@ import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.ProgressGauge
-import app.lockon.ui.components.hoverLift
 import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.isTwilight
-import app.lockon.ui.components.lighten
 import app.lockon.ui.theme.LockOnShapes
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.BiasAlignment
@@ -190,8 +189,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             var menu by remember { mutableStateOf(false) }
             Box {
                 GlassIconButton(Icons.Default.MoreVert, "More actions", { menu = true })
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text("Back up all decks") }, onClick = {
+                GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    GameMenuItem("Back up all decks", onClick = {
                         menu = false
                         scope.launch {
                             val backup = BackupFormat.encode(container.decks.exportBackup())
@@ -287,7 +286,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                 )
                             }
                             val gridState = rememberLazyGridState()
-                            SpotlightGrid(Modifier.weight(1f).fillMaxWidth()) {
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
                             LazyVerticalGrid(
                                 state = gridState,
                                 columns = GridCells.Adaptive(460.dp),
@@ -601,11 +600,10 @@ private fun DeckRow(
     val lead = colors.minByOrNull { it.ordinal }
     val art = cover?.let { LocalArtwork.current.urlFor(it.card.cardNumber, it.printingId) }
     // A deck box: the cover art fills the plate behind the deck's name, its colours run along the
-    // top edge, and the hover lift glows in the deck's lead colour (UX rules V4, I4).
+    // top edge (UX rule V4).
     BoxWithConstraints(
         // Phones get a shorter box with a smaller cover, so more decks fit on one screen.
         modifier.fillMaxWidth().height(if (compact) CompactDeckBoxHeight else DeckBoxHeight)
-            .hoverLift(press, glow = lighten(cardColor(lead), 0.15f), shape = LockOnShapes.panel)
             .clip(LockOnShapes.panel)
             .background(base)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
@@ -672,13 +670,14 @@ private fun DeckRow(
         Box(Modifier.align(Alignment.TopEnd).padding(top = if (compact) 8.dp else 12.dp, end = 10.dp)) {
             // A glass disc keeps the icon readable over cover art, and matches every other icon button.
             GlassIconButton(Icons.Default.MoreVert, "Deck actions", { menu = true })
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
-                DropdownMenuItem(text = { Text("Move to folder") }, onClick = { menu = false; onMove() })
-                DropdownMenuItem(text = { Text("Edit tags") }, onClick = { menu = false; onTags() })
-                DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menu = false; onDuplicate() })
-                DropdownMenuItem(text = { Text("Export list, image or sheet") }, onClick = { menu = false; onExport() })
-                DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onDelete() })
+            GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                GameMenuItem("Rename", onClick = { menu = false; onRename() })
+                GameMenuItem("Move to folder", onClick = { menu = false; onMove() })
+                GameMenuItem("Edit tags", onClick = { menu = false; onTags() })
+                GameMenuItem("Duplicate", onClick = { menu = false; onDuplicate() })
+                GameMenuItem("Export list, image or sheet", onClick = { menu = false; onExport() })
+                GameMenuDivider()
+                GameMenuItem("Delete", onClick = { menu = false; onDelete() }, icon = Icons.Default.Delete, danger = true)
             }
         }
         Box(Modifier.matchParentSize().glassFrame())
@@ -697,7 +696,7 @@ private fun NewDeckSlot(modifier: Modifier, onClick: () -> Unit) {
     val line = if (hovered) Accent else scheme.outline
     Box(
         modifier.fillMaxWidth().height(DeckBoxHeight)
-            .hoverLift(press, glow = Accent, shape = LockOnShapes.panel)
+            .hoverable(press)
             .clip(LockOnShapes.panel)
             .background(scheme.onSurface.copy(alpha = if (hovered) 0.06f else 0.025f))
             .drawBehind {

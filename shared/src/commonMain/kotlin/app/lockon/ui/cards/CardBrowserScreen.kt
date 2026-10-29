@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
-import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
 import app.lockon.ui.Tab
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -29,32 +28,25 @@ import app.lockon.ui.components.CardDetailContent
 import app.lockon.ui.components.CardDetailDialog
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.Panel
-import app.lockon.ui.components.GameButton
-import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.ScreenHeader
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridge, wide: Boolean = false) {
+fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = false) {
     val catalog = container.catalog
     val cards by catalog.cards.collectAsState()
     val printings by catalog.printings.collectAsState()
-    val info by catalog.info.collectAsState()
-    val update by catalog.updateAvailable.collectAsState()
     // Kept by card number, so the details panel still shows the same card after a visit elsewhere.
     var selectedNumber by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = selectedNumber?.let { cards[it] }
     // Wide windows always show a card in the details panel, the first one until another is picked,
     // so the panel is never an empty third of the window.
     val shown = selected ?: if (wide) cards.values.minByOrNull { it.cardNumber } else null
-    var managing by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         // In the band beside the floating navigation on wide windows (UX rule N5).
-        ScreenHeader(if (wide) "Card database" else "Cards") {
-            // A found update is a quiet label here, never a pop-up (UX rule C1).
-            GameButton(update ?: "Catalog", onClick = { managing = true }, style = GameButtonStyle.SECONDARY, compact = true)
-        }
+        // The catalog is managed from Settings, so the header carries no actions.
+        ScreenHeader(if (wide) "Card database" else "Cards")
         // This screen stays composed while hidden (KeptTabs), so only Ctrl+F presses made while it shows
         // reach its search; a deck's own search takes the rest.
         val focusSeen = remember { intArrayOf(state.searchFocusRequests) }
@@ -94,5 +86,4 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
     if (!wide) selected?.let { card ->
         CardDetailDialog(card, printings[card.cardNumber].orEmpty(), onDismiss = { selectedNumber = null })
     }
-    if (managing) CatalogDialog(container, state, files, onDismiss = { managing = false })
 }
