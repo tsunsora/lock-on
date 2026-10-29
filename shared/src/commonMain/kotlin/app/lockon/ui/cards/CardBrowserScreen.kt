@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
 import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
+import app.lockon.ui.Tab
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import app.lockon.ui.components.CardDetailContent
@@ -54,11 +55,16 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, files: FileBridg
             // A found update is a quiet label here, never a pop-up (UX rule C1).
             GameButton(update ?: "Catalog", onClick = { managing = true }, style = GameButtonStyle.SECONDARY, compact = true)
         }
+        // This screen stays composed while hidden (KeptTabs), so only Ctrl+F presses made while it shows
+        // reach its search; a deck's own search takes the rest.
+        val focusSeen = remember { intArrayOf(state.searchFocusRequests) }
+        if (state.current == null && state.tab == Tab.CARDS) focusSeen[0] = state.searchFocusRequests
+        val focusRequests = focusSeen[0]
         Row(Modifier.fillMaxSize().padding(start = if (wide) 10.dp else 0.dp, top = if (wide) 8.dp else 0.dp)) {
             val search: @Composable (Modifier) -> Unit = { m ->
                 CardSearchPanel(
                     cards.values, onCardClick = { selectedNumber = it.cardNumber },
-                    modifier = m, focusRequests = state.searchFocusRequests, selected = shown?.cardNumber, wide = wide,
+                    modifier = m, focusRequests = focusRequests, selected = shown?.cardNumber, wide = wide,
                 )
             }
             if (wide) {

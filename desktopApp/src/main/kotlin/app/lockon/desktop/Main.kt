@@ -56,6 +56,8 @@ fun main() {
     container.updater?.start(appScope)
     val warmup = EditorWarmup.start(container)
     val state = AppState(appScope)
+    // For timing the app without the boot screen (TabSwitchProbe.kt).
+    if (System.getProperty("lockon.skipBoot") == "true") state.booted = true
 
     val saved = WindowMemory.load()
     application {
@@ -95,6 +97,7 @@ fun main() {
             }
             System.getProperty("lockon.scrollProbe")?.let { ScrollProbe(window, state, File(it), exit) }
             System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
+            System.getProperty("lockon.tabProbe")?.let { TabSwitchProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.dividerProbe")?.let { DividerProbe(window, container, state, File(it), exit) }
         }
     }
