@@ -54,7 +54,7 @@ fun main() {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val sync = DesktopSyncController(container, appScope).also { it.start() }
     container.updater?.start(appScope)
-    EditorWarmup.start(container)
+    val warmup = EditorWarmup.start(container)
     val state = AppState(appScope)
 
     val saved = WindowMemory.load()
@@ -89,6 +89,7 @@ fun main() {
                 LockOnApp(
                     container, state, sync, DesktopFileBridge(window),
                     artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
+                    warmup = { warmup.join() },
                 )
                 if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
             }

@@ -67,6 +67,21 @@ class AnimationPreviewTest {
         }
     }
 
+    @Test fun bootScreen() {
+        for (dark in listOf(false, true)) {
+            val dir = File("build/animation-frames/boot-${if (dark) "dark" else "light"}").apply { deleteRecursively(); mkdirs() }
+            ImageComposeScene(1100, 700, Density(1.25f)) {
+                LockOnTheme(dark = dark) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS) }
+            }.use { scene ->
+                for (i in 0 until 45) {
+                    val image = scene.render(i * frameNanos * 2)
+                    Thread.sleep(20)
+                    File(dir, "frame-%03d.png".format(i)).writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+                }
+            }
+        }
+    }
+
     @Test fun segmentSlide() {
         val choice = mutableStateOf(0)
         record("segment-slide", 520, 140, frames = 14, onFrame = { i -> if (i == 2) choice.value = 2 }) {

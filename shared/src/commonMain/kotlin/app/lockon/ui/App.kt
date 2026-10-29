@@ -130,6 +130,14 @@ import app.lockon.ui.components.artworkHttpClient
 import app.lockon.ui.components.LocalArtworkStore
 import app.lockon.data.ArtworkStore
 import coil3.compose.setSingletonImageLoaderFactory
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.scaleOut
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import app.lockon.ui.components.TricolorStripe
 import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
@@ -175,6 +183,8 @@ fun LockOnApp(
     reduceMotion: Boolean = false,
     /** Desktop's own title bar, drawn into the top band; null keeps the system's (and on phones). */
     chrome: WindowChrome? = null,
+    /** Platform work the boot screen waits for, such as warming up the deck editor off-screen. */
+    warmup: suspend () -> Unit = {},
 ) {
     val settings = container.settings
     val themeChoice by settings.theme.collectAsState()
@@ -223,6 +233,23 @@ fun LockOnApp(
             if (result == SnackbarResult.ActionPerformed) notice.action?.invoke()
         }
         LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
+        // The boot screen stays up until the decks are in, the screens under it have drawn their
+        // cards, and the platform's warm-up is done, so the first look at each tab doesn't stutter.
+        var bootStep by remember { mutableStateOf(BootStep.DECKS) }
+        if (!state.booted) LaunchedEffect(Unit) {
+            val started = TimeSource.Monotonic.markNow()
+            withTimeoutOrNull(BootLimit) {
+                container.decks.liveDecks.first()
+                bootStep = BootStep.CARDS
+                // The hidden screens compose now; give their images a moment to decode into memory.
+                delay(BootCardsTime)
+                bootStep = BootStep.EDITOR
+                warmup()
+            }
+            val shown = started.elapsedNow()
+            if (shown < BootMinimum) delay(BootMinimum - shown)
+            state.booted = true
+        }
         // At most weekly, only for people on the official card list, and only while checks are on.
         LaunchedEffect(Unit) {
             if (settings.catalogChecks.value) state.appScope.launch {
@@ -328,6 +355,12 @@ fun LockOnApp(
                                 }
                             }
                         }
+                        // While booting, the big tabs not on show draw unseen at full size, so their code is
+                        // warm and their card images sit in memory at the size they'll be shown.
+                        if (!state.booted) Box(Modifier.fillMaxSize().graphicsLayer { alpha = 0f }) {
+                            if (state.current != null || state.tab != Tab.DECKS) Column(Modifier.fillMaxSize()) { DeckLibraryScreen(container, state, files) }
+                            if (state.current != null || state.tab != Tab.CARDS) Column(Modifier.fillMaxSize()) { CardBrowserScreen(container, state, files, wide) }
+                        }
                     }
                     // Phones: the floating pill at the top level. Inside a deck the editor floats its own
                     // sections there instead, and back returns here (UX rules N3, N5).
@@ -355,12 +388,25 @@ fun LockOnApp(
                     }
                 }
             }
+            AnimatedVisibility(
+                !state.booted,
+                exit = if (LocalReduceMotion.current) fadeOut(tween(90))
+                    else fadeOut(tween(Motion.SIGNATURE, easing = Motion.emphasizedAccelerate)) + scaleOut(tween(Motion.SIGNATURE), targetScale = 1.06f),
+            ) {
+                BootScreen(bootStep, trailing = chrome?.controls)
+            }
             }
         }
     }
 }
 }
 }
+
+/** The boot screen shows at least this long, so it reads as a screen rather than a flash. */
+private val BootMinimum = 1.2.seconds
+/** And never longer than this, whatever is still loading. */
+private val BootLimit = 8.seconds
+private val BootCardsTime = 600.milliseconds
 
 /** How deep a destination sits: tabs, then a deck, then a conflict comparison. */
 private fun depthOf(destination: Any): Int = when (destination) {

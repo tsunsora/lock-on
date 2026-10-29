@@ -28,6 +28,8 @@ class AppState(val appScope: CoroutineScope) {
     var notice by mutableStateOf<Notice?>(null)
     /** Sync shows Send, or Receive when false. */
     var syncSending by mutableStateOf(true)
+    /** False while the boot screen covers the app and its screens fill in underneath. */
+    var booted by mutableStateOf(false)
     /** Bumped by Ctrl+F; the visible card search takes focus when it changes. */
     var searchFocusRequests by mutableIntStateOf(0)
         private set
