@@ -26,6 +26,7 @@ import coil3.decode.ImageSource
 import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
 import coil3.fetch.SourceFetchResult
+import coil3.key.Keyer
 import coil3.request.Options
 import coil3.request.crossfade
 import io.ktor.client.HttpClient
@@ -124,6 +125,7 @@ object ArtworkLoads : EventListener() {
 fun artworkImageLoader(context: PlatformContext, store: ArtworkStore): ImageLoader =
     ImageLoader.Builder(context)
         .components {
+            add(SizedArtworkKeyer)
             add(StoredArtworkFetcher.Factory(store))
             artworkDecoder()?.let { add(it) }
         }
@@ -131,6 +133,15 @@ fun artworkImageLoader(context: PlatformContext, store: ArtworkStore): ImageLoad
         .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.15).build() }
         .crossfade(CROSSFADE_MS)
         .build()
+
+/**
+ * Keys each image in the memory cache by its link and the size it's shown at. Coil keys by link
+ * alone, so a card decoded large for its hover preview would be reused by every small copy of it
+ * and shrunk while drawing, which leaves text and edges jagged; each size gets its own smooth decode.
+ */
+object SizedArtworkKeyer : Keyer<Uri> {
+    override fun key(data: Uri, options: Options): String = "$data#${options.size}"
+}
 
 /** Loads an artwork link from the [ArtworkStore], downloading it into the store the first time. */
 private class StoredArtworkFetcher(private val url: String, private val store: ArtworkStore, private val options: Options) : Fetcher {
