@@ -403,6 +403,16 @@ fun LockOnApp(
                     }
                 }
             }
+            // A fresh install gets the welcome tour once the boot screen has gone.
+            val welcomed by settings.welcomed.collectAsState()
+            LaunchedEffect(state.booted) { if (state.booted && !welcomed) state.touring = true }
+            AnimatedVisibility(state.touring, enter = fadeIn(motion()), exit = fadeOut(motion(Motion.SHORT))) {
+                WelcomeTour(container, state, trailing = chrome?.controls) {
+                    state.touring = false
+                    state.select(Tab.DECKS)
+                    state.appScope.launch { settings.setWelcomed() }
+                }
+            }
             AnimatedVisibility(
                 !state.booted,
                 exit = if (LocalReduceMotion.current) fadeOut(tween(90))
