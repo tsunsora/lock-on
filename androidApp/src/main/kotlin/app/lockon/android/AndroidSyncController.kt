@@ -50,6 +50,9 @@ import app.lockon.sync.sendDecks
 import app.lockon.sync.sendsDecks
 import app.lockon.sync.toOutgoing
 
+/** How long to wait before asking again when a desktop offers an invitation already answered. */
+private const val INVITE_RECHECK_MS = 5_000L
+
 /** The phone connects to a paired desktop. It starts every pairing and sync; the desktop only answers. */
 class AndroidSyncController(
     context: Context,
@@ -64,6 +67,8 @@ class AndroidSyncController(
     private val _nearby = MutableStateFlow<Map<String, NearbyDevice>>(emptyMap())
     private val _incomingInvite = MutableStateFlow<IncomingInvite?>(null)
     private val inviteWatchers = mutableMapOf<String, Job>()
+    /** The invitation last answered per desktop, so the same "Connect?" isn't asked twice. */
+    private val answeredInvites = mutableMapOf<String, String>()
     /** Every desktop seen on the network, paired or not, by service name. Decks can go to any of them. */
     private val _desktops = MutableStateFlow<Map<String, NearbyDevice>>(emptyMap())
     private val shareWatchers = mutableMapOf<String, Job>()
@@ -119,6 +124,7 @@ class AndroidSyncController(
     override fun answerInvite(accept: Boolean) {
         val invite = _incomingInvite.value ?: return
         _incomingInvite.value = null
+        synchronized(inviteWatchers) { answeredInvites[invite.desktop.deviceId] = invite.offer.inviteId }
         if (accept) {
             val d = invite.desktop
             pair(PairingInvite(d.host, d.port, pairingCode = "", fingerprint = d.fingerprint, name = d.name, inviteId = invite.offer.inviteId))
@@ -136,10 +142,17 @@ class AndroidSyncController(
                 while (true) {
                     if (container.devices.device(desktop.deviceId) != null) return@launch
                     try {
+                        val answered = synchronized(inviteWatchers) { answeredInvites[desktop.deviceId] }
                         val offer = pinnedHttpClient(desktop.fingerprint).use {
-                            awaitInvite(it, baseUrl(desktop.host, desktop.port), container.identity.deviceId)
+                            awaitInvite(it, baseUrl(desktop.host, desktop.port), container.identity.deviceId, answered)
                         }
                         backoff = 2_000L
+                        // A desktop from before "answered" hands the same invitation straight back; wait
+                        // rather than ask again or poll in a tight loop.
+                        if (offer != null && offer.inviteId == answered) {
+                            delay(INVITE_RECHECK_MS)
+                            continue
+                        }
                         if (offer != null && offer.hostDeviceId == desktop.deviceId) {
                             _incomingInvite.value = IncomingInvite(offer, desktop)
                             return@launch

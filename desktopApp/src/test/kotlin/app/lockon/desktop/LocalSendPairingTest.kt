@@ -92,9 +92,12 @@ class LocalSendPairingTest {
         assertEquals(invite.inviteId, offer.inviteId)
         assertEquals("Desk", offer.hostName)
         assertNull(awaitInvite(http, "", "someone-else"), "invitations are only offered to the device they name")
+        assertNull(awaitInvite(http, "", "phone", answered = invite.inviteId), "an answered invitation isn't offered again")
+        val again = pairing.invite("phone", "Pixel")
+        assertEquals(again.inviteId, awaitInvite(http, "", "phone", answered = invite.inviteId)?.inviteId, "a new invitation still gets through")
 
         val (prompt, response) = coroutineScope {
-            val result = async { requestPairing(http, "", PairRequest(deviceId = "phone", deviceName = "Pixel", nonce = "z", inviteId = offer.inviteId)) }
+            val result = async { requestPairing(http, "", PairRequest(deviceId = "phone", deviceName = "Pixel", nonce = "z", inviteId = again.inviteId)) }
             answerNext(accept = true) to result.await()
         }
         assertTrue(prompt.invited, "the desktop says the phone accepted its invitation")

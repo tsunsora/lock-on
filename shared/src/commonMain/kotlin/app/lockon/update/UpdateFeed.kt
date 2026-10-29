@@ -10,6 +10,9 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.contentLength
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.withContext
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -80,9 +83,10 @@ internal suspend fun httpGetText(url: String): String {
 
 /**
  * Streams [url] into [dest] and checks its SHA-256. A partial or mismatched file is deleted, so
- * only a verified installer is ever left at [dest].
+ * only a verified installer is ever left at [dest]. The file writes and the hash run on the IO
+ * dispatcher, since callers start this from the app's UI-thread scope.
  */
-internal suspend fun downloadVerified(url: String, dest: String, sha256: String, onProgress: (Float?) -> Unit) {
+internal suspend fun downloadVerified(url: String, dest: String, sha256: String, onProgress: (Float?) -> Unit): Unit = withContext(Dispatchers.IO) {
     val target = Path(dest)
     val partial = Path("$dest.part")
     target.parent?.let { SystemFileSystem.createDirectories(it) }

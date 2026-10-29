@@ -618,7 +618,7 @@ private fun DeckRow(
             }
         }
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to base, 0.4f to base, 0.68f to base.copy(alpha = 0.7f), 1f to base.copy(alpha = 0.25f))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, base.copy(alpha = if (dark) 0.6f else 0.3f)))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(base.copy(alpha = 0f), base.copy(alpha = if (dark) 0.6f else 0.3f)))))
         // Colour identity band along the top edge, one segment per deck colour.
         Row(Modifier.fillMaxWidth().height(4.dp)) {
             colors.sortedBy { it.ordinal }.ifEmpty { listOf(null) }.forEach { Box(Modifier.weight(1f).fillMaxHeight().background(cardColor(it))) }

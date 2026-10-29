@@ -192,7 +192,7 @@ fun SectionHeader(label: String, modifier: Modifier = Modifier, readout: String?
         Text(label, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
         Box(
             Modifier.weight(1f).padding(horizontal = 10.dp).height(1.dp)
-                .background(Brush.horizontalGradient(listOf(scheme.outlineVariant, Color.Transparent))),
+                .background(Brush.horizontalGradient(listOf(scheme.outlineVariant, scheme.outlineVariant.copy(alpha = 0f)))),
         )
         if (readout != null) CountPill(readout)
         trailing()

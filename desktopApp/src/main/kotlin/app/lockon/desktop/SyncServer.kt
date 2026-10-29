@@ -112,7 +112,7 @@ fun Application.lockOnSync(
         get("/v1/invites") {
             val device = call.request.queryParameters["device"]?.takeIf { it.isNotBlank() }
                 ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing device."))
-            val offer = pairing.awaitInvite(device, maxWaitMs)
+            val offer = pairing.awaitInvite(device, maxWaitMs, answered = call.request.queryParameters["answered"])
             if (offer == null) call.respond(HttpStatusCode.NoContent) else call.respond(offer)
         }
         post("/v1/pair") {
