@@ -69,6 +69,17 @@ import app.lockon.ui.components.ColorOrbToggle
 import app.lockon.ui.components.PillSearchField
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import app.lockon.ui.components.LocalReduceMotion
+import app.lockon.ui.components.Motion
+import app.lockon.ui.components.glide
 
 enum class CardSort(val label: String, val comparator: Comparator<Card>) {
     NUMBER("Number", compareBy(ReleaseOrder.comparator) { it.cardNumber }),
@@ -222,22 +233,42 @@ fun CardSearchPanel(
                 )
             }
         }
-        if (showMore) {
+        // The drawer unfolds from under the quick row and its lines deal in one after another, top
+        // first, so opening it reads as the row growing more filters rather than the grid jumping.
+        // Closing folds it away in one quick move.
+        val reduce = LocalReduceMotion.current
+        AnimatedVisibility(
+            visible = showMore,
+            enter = if (reduce) fadeIn(tween(90))
+            else expandVertically(glide(), expandFrom = Alignment.Top) + fadeIn(tween(Motion.SHORT)),
+            exit = if (reduce) fadeOut(tween(90))
+            else shrinkVertically(tween(Motion.MEDIUM, easing = Motion.emphasizedAccelerate), shrinkTowards = Alignment.Top) +
+                fadeOut(tween(Motion.SHORT)),
+        ) {
+            var line = 0
+            fun Modifier.dealt(): Modifier {
+                val delay = Motion.STAGGER * line++
+                return if (reduce) this else animateEnterExit(
+                    enter = slideInVertically(tween(Motion.LONG, delay, Motion.emphasizedDecelerate)) { -it / 2 } +
+                        fadeIn(tween(Motion.MEDIUM, delay)),
+                    exit = ExitTransition.None,
+                )
+            }
             Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (!wide) {
                     // On phones sort order and view live here, keeping the quick row for filters.
-                    ChipLine("Sort", CardSort.entries.map { it.label }, setOf(sort.label)) { label -> sort = CardSort.entries.first { it.label == label } }
-                    ChipLine("View", listOf("Grid", "List"), setOf(if (grid) "Grid" else "List")) { grid = it == "Grid" }
+                    ChipLine("Sort", CardSort.entries.map { it.label }, setOf(sort.label), Modifier.dealt()) { label -> sort = CardSort.entries.first { it.label == label } }
+                    ChipLine("View", listOf("Grid", "List"), setOf(if (grid) "Grid" else "List"), Modifier.dealt()) { grid = it == "Grid" }
                 }
-                ChipLine("Level", levels, query.levels) { query = query.copy(levels = query.levels.toggle(it)) }
-                ChipLine("Cost", costs, query.costs) { query = query.copy(costs = query.costs.toggle(it)) }
-                ChipLine("Set", sets, query.setCodes) { query = query.copy(setCodes = query.setCodes.toggle(it)) }
+                ChipLine("Level", levels, query.levels, Modifier.dealt()) { query = query.copy(levels = query.levels.toggle(it)) }
+                ChipLine("Cost", costs, query.costs, Modifier.dealt()) { query = query.copy(costs = query.costs.toggle(it)) }
+                ChipLine("Set", sets, query.setCodes, Modifier.dealt()) { query = query.copy(setCodes = query.setCodes.toggle(it)) }
                 OutlinedTextField(
                     value = query.trait,
                     onValueChange = { query = query.copy(trait = it) },
                     label = { Text("Trait") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().dealt(),
                 )
             }
         }
@@ -285,9 +316,9 @@ fun CardSearchPanel(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> ChipLine(label: String, values: List<T>, selected: Set<T>, onToggle: (T) -> Unit) {
+private fun <T> ChipLine(label: String, values: List<T>, selected: Set<T>, modifier: Modifier = Modifier, onToggle: (T) -> Unit) {
     if (values.isEmpty()) return
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.Center) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.Center) {
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 4.dp))
         values.forEach { value ->
             PillChip(selected = value in selected, onClick = { onToggle(value) }, label = { Text("$value") })
