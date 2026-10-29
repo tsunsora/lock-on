@@ -54,7 +54,10 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -95,6 +98,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -1061,6 +1065,92 @@ fun GameDialog(
             }
         },
         text = text,
+    )
+}
+
+/**
+ * A drop-down menu on a glass card: Material's placement and open animation, with the rounded
+ * panel shape, the glass rim and a soft shadow. Fill it with [GameMenuItem]s.
+ */
+@Composable
+fun GameMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    offset: DpOffset = DpOffset(0.dp, 6.dp),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val g = glassColors()
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier.widthIn(min = 180.dp).padding(horizontal = 6.dp),
+        offset = offset,
+        shape = LockOnShapes.panel,
+        // Opaque, or the shadow beneath shows through the glass as a grey box.
+        containerColor = g.strong.compositeOver(MaterialTheme.colorScheme.background),
+        tonalElevation = 0.dp,
+        shadowElevation = 10.dp,
+        border = BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))),
+        content = content,
+    )
+}
+
+/**
+ * One row of a [GameMenu]: a pill that lights teal on hover. [selected] marks the current choice
+ * with a check; [danger] paints a destructive action in the error colour.
+ */
+@Composable
+fun GameMenuItem(
+    text: String,
+    onClick: () -> Unit,
+    icon: ImageVector? = null,
+    selected: Boolean = false,
+    danger: Boolean = false,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val tone = when {
+        danger -> scheme.error
+        selected -> Accent
+        else -> scheme.onSurface
+    }
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val wash = when {
+        pressed -> 0.20f
+        hovered -> 0.12f
+        selected -> 0.10f
+        else -> 0f
+    }
+    val fill by animateColorAsState(tone.copy(alpha = wash), motion(Motion.SHORT), label = "menu-item")
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 40.dp)
+            .clip(PillShape)
+            .background(fill)
+            .hoverable(interaction)
+            .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (icon != null) Icon(icon, contentDescription = null, tint = tone, modifier = Modifier.size(18.dp))
+        Text(
+            text, color = tone, style = MaterialTheme.typography.labelLarge, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        )
+        if (selected) Icon(Icons.Default.Check, contentDescription = "Selected", tint = Accent, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** A hairline between groups of [GameMenuItem]s, such as before a destructive action. */
+@Composable
+fun GameMenuDivider() {
+    Box(
+        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).height(1.dp)
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     )
 }
 
