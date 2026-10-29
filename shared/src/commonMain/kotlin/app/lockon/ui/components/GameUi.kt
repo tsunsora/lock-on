@@ -130,6 +130,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.runtime.State
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.requireDensity
@@ -399,33 +401,58 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     val accent = Accent
     val onAccent = OnAccent
     val track = if (fill) Modifier.fillMaxWidth() else Modifier.horizontalScroll(rememberScrollState())
+    // Where each tab sits in the row, so one teal pill can slide between them (the tabs differ in width).
+    val spots = remember(labels.size) { Array(labels.size) { mutableStateOf<Pair<Float, Float>?>(null) } }
+    val target = spots.getOrNull(selected)?.value
+    val x = remember { Animatable(0f) }
+    val w = remember { Animatable(0f) }
+    val reduce = LocalReduceMotion.current
+    // The first placement jumps straight there, so a screen opens with its tab already lit; later
+    // changes slide.
+    var placed by remember { mutableStateOf(false) }
+    LaunchedEffect(target) {
+        if (target == null) return@LaunchedEffect
+        if (!placed || reduce) { x.snapTo(target.first); w.snapTo(target.second); placed = true; return@LaunchedEffect }
+        launch { x.animateTo(target.first, tween(Motion.MEDIUM, easing = Motion.emphasized)) }
+        w.animateTo(target.second, tween(Motion.MEDIUM, easing = Motion.emphasized))
+    }
     Box(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
-        Row(track.glass(LockOnShapes.button, strong = true).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            track.glass(LockOnShapes.button, strong = true).padding(4.dp).drawBehind {
+                val (px, pw) = if (placed) x.value to w.value else (target ?: (0f to 0f))
+                if (pw > 0f) drawRoundRect(accent, Offset(px, 0f), Size(pw, size.height), CornerRadius(size.height / 2))
+            },
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             labels.forEachIndexed { i, label ->
                 val isSelected = i == selected
                 val interaction = remember { MutableInteractionSource() }
                 val hovered by interaction.collectIsHoveredAsState()
                 val bg by animateColorAsState(
                     when {
-                        isSelected -> accent
-                        hovered -> scheme.onSurface.copy(alpha = 0.07f)
+                        // Until the sliding pill knows where the tabs are, the chosen tab lights itself.
+                        isSelected && !placed -> accent
+                        hovered && !isSelected -> scheme.onSurface.copy(alpha = 0.07f)
                         else -> Color.Transparent
                     },
                     motion(Motion.SHORT), label = "tab",
                 )
+                val text by animateColorAsState(if (isSelected) onAccent else scheme.onSurfaceVariant, motion(Motion.MEDIUM), label = "tab-text")
                 Box(
-                    (if (fill) Modifier.weight(1f) else Modifier).height(36.dp).clip(LockOnShapes.button).background(bg)
+                    (if (fill) Modifier.weight(1f) else Modifier).height(36.dp)
+                        .onPlaced { spots.getOrNull(i)?.value = it.positionInParent().x to it.size.width.toFloat() }
+                        .clip(LockOnShapes.button).background(bg)
                         .hoverable(interaction)
                         .selectable(isSelected, interaction, indication = null, role = Role.Tab) { onSelect(i) }
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(label, maxLines = 1, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
-                        color = if (isSelected) onAccent else scheme.onSurfaceVariant)
+                    Text(label, maxLines = 1, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, color = text)
                 }
             }
         }
     }
+
 }
 
 /**
@@ -1107,19 +1134,24 @@ fun PillChip(
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
+    // Material's chip switches colour at once; these fade, and stand in for both its states.
+    val fill by animateColorAsState(if (selected) Accent else g.strong, motion(Motion.MEDIUM), label = "chip-fill")
+    val text by animateColorAsState(if (selected) OnAccent else scheme.onSurface, motion(Motion.MEDIUM), label = "chip-text")
+    val rim by animateColorAsState(if (selected) lighten(Accent, 0.4f) else g.rimLow, motion(Motion.MEDIUM), label = "chip-rim")
     FilterChip(
         selected = selected, onClick = onClick, label = label, modifier = modifier, leadingIcon = leadingIcon,
         shape = LockOnShapes.button,
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = g.strong,
-            labelColor = scheme.onSurface,
-            selectedContainerColor = Accent,
-            selectedLabelColor = OnAccent,
-            selectedLeadingIconColor = OnAccent,
+            containerColor = fill,
+            labelColor = text,
+            iconColor = text,
+            selectedContainerColor = fill,
+            selectedLabelColor = text,
+            selectedLeadingIconColor = text,
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true, selected = selected,
-            borderColor = g.rimLow, selectedBorderColor = lighten(Accent, 0.4f),
+            borderColor = rim, selectedBorderColor = rim,
         ),
     )
 }
@@ -1175,6 +1207,20 @@ fun PillNavBar(
     val twilight = isTwilight()
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(36.dp)
     val reduce = LocalReduceMotion.current
+    // With every label showing (wide windows), one teal pill slides between the destinations, as the
+    // tabs do. On phones the chosen item grows into its pill instead, so each item keeps its own.
+    val spots = remember(items.size) { Array(items.size) { mutableStateOf<Pair<Float, Float>?>(null) } }
+    val target = if (labels) spots.getOrNull(selected)?.value else null
+    val x = remember { Animatable(0f) }
+    val w = remember { Animatable(0f) }
+    var placed by remember { mutableStateOf(false) }
+    LaunchedEffect(target) {
+        if (target == null) return@LaunchedEffect
+        if (!placed || reduce) { x.snapTo(target.first); w.snapTo(target.second); placed = true; return@LaunchedEffect }
+        launch { x.animateTo(target.first, tween(Motion.LONG, easing = Motion.emphasized)) }
+        w.animateTo(target.second, tween(Motion.LONG, easing = Motion.emphasized))
+    }
+    val sliding = labels && placed
     Row(
         modifier
             .graphicsLayer { this.shape = shape; shadowElevation = 16.dp.toPx(); ambientShadowColor = Color.Black.copy(alpha = 0.3f); spotShadowColor = Color.Black.copy(alpha = 0.3f) }
@@ -1184,25 +1230,34 @@ fun PillNavBar(
             .background(if (twilight) scheme.surfaceContainerHigh.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.9f))
             .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
             .height(PillNavHeight)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .drawBehind {
+                // As tall as an item's own pill: its icon and 10 dp above and below.
+                val h = minOf(size.height, 42.dp.toPx())
+                if (sliding) drawRoundRect(accent, Offset(x.value, (size.height - h) / 2), Size(w.value, h), CornerRadius(h / 2))
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         items.forEachIndexed { i, item ->
             val isSelected = i == selected
             // The selected item takes more of the bar, so its label has room (AnymeX's 2.4 : 1).
             val share by animateFloatAsState(if (labels || !isSelected) 1f else 2.4f, if (reduce) snap() else PillSpring, label = "pill-share")
-            val fill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
-            val content = if (isSelected) onAccent else scheme.onSurface.copy(alpha = 0.62f)
+            val itemFill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
+            // Once the shared pill slides, items draw no fill of their own; before then the chosen one lights itself.
+            val fill = if (!labels) itemFill else if (isSelected && !placed) accent else Color.Transparent
+            val content by animateColorAsState(if (isSelected) onAccent else scheme.onSurface.copy(alpha = 0.62f), motion(Motion.LONG), label = "pill-content")
             Box(
                 // With every label showing, items take their own width; otherwise they share the bar.
                 (if (labels) Modifier else Modifier.weight(share)).fillMaxHeight()
+                    .onPlaced { spots.getOrNull(i)?.value = it.positionInParent().x to it.size.width.toFloat() }
                     .selectable(isSelected, role = Role.Tab, interactionSource = null, indication = null) { onSelect(i) }
                     .semantics { contentDescription = item.label },
                 contentAlignment = Alignment.Center,
             ) {
                 Row(
-                    Modifier.clip(LockOnShapes.button).background(fill)
-                        .padding(horizontal = if (isSelected) 18.dp else 12.dp, vertical = 10.dp),
+                    Modifier
+                        .clip(LockOnShapes.button).background(fill)
+                        .padding(horizontal = if (labels) 16.dp else if (isSelected) 18.dp else 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CompositionLocalProvider(LocalContentColor provides content) {

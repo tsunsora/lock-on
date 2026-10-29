@@ -75,6 +75,21 @@ class AnimationPreviewTest {
         }
     }
 
+    @Test fun tabSlide() {
+        val tab = mutableStateOf(0)
+        record("tab-slide", 620, 140, frames = 14, onFrame = { i -> if (i == 2) tab.value = 3 }) {
+            app.lockon.ui.components.PillTabs(listOf("Deck", "Analysis", "Test", "Matches", "Versions"), tab.value, { tab.value = it }, fill = true)
+        }
+    }
+
+    @Test fun navSlide() {
+        val tab = mutableStateOf(0)
+        val items = listOf("Decks", "Cards", "Sync", "Settings").map { app.lockon.ui.components.BottomItem(it) {} }
+        record("nav-slide", 900, 160, frames = 16, onFrame = { i -> if (i == 2) tab.value = 3 }) {
+            app.lockon.ui.components.PillNavBar(items, tab.value, { tab.value = it }, Modifier.padding(12.dp), labels = true)
+        }
+    }
+
     @Test fun dealAndFlip() {
         val deck = DeckSnapshot(
             "Preview",
