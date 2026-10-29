@@ -132,6 +132,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.graphics.graphicsLayer
 
 private sealed interface LibraryDialog {
     data object New : LibraryDialog
@@ -140,7 +141,8 @@ private sealed interface LibraryDialog {
     data class Move(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
     data class Delete(val deck: DeckSummary) : LibraryDialog
-    data object NewFolder : LibraryDialog
+    /** [with] is a deck dropped on New folder, ticked to start with. */
+    data class NewFolder(val with: String? = null) : LibraryDialog
     data class RenameFolder(val folder: String) : LibraryDialog
     data class RemoveFolder(val folder: String, val decks: Int) : LibraryDialog
     data object Import : LibraryDialog
@@ -190,6 +192,26 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             folderFilter = FolderFilter.All
         }
     }
+    // Moves happen at once with Undo, from the Move dialog or a drop on a folder (UX rule C2).
+    fun move(deck: DeckSummary, folder: String?) {
+        val previous = deck.snapshot.folder
+        if (folder == previous) return
+        scope.launch {
+            val saved = container.decks.moveToFolder(listOf(deck.deckId), folder)
+            val message = if (saved == null) "Took ${deck.snapshot.name} out of its folder" else "Moved ${deck.snapshot.name} to $saved"
+            state.notify(message, "Undo") { scope.launch { container.decks.moveToFolder(listOf(deck.deckId), previous) } }
+        }
+    }
+    val drag = remember {
+        DeckDrag { deck, spot ->
+            when (spot) {
+                is DeckDropSpot.Folder -> move(deck, spot.name)
+                DeckDropSpot.NewFolder -> dialog = LibraryDialog.NewFolder(with = deck.deckId)
+            }
+        }
+    }
+    // A filed deck can be dropped on No folder even when no other deck is unfiled.
+    val showUnfiled = unfiled > 0 || drag.deck?.snapshot?.folder != null
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 840.dp
@@ -224,8 +246,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         Row(Modifier.fillMaxSize()) {
             if (wide && !list.isNullOrEmpty()) {
                 FolderRail(
-                    total = list.size, folders = folders, unfiled = unfiled, selected = folderFilter,
-                    onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder },
+                    total = list.size, folders = folders, unfiled = unfiled, showUnfiled = showUnfiled, selected = folderFilter, drag = drag,
+                    onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
                     onRename = renameFolder, onRemove = removeFolder,
                 )
             }
@@ -249,8 +271,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         ) {
                             if (showFolders) {
                                 FolderChips(
-                                    folders = folders, unfiled = unfiled, selected = folderFilter,
-                                    onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder },
+                                    folders = folders, unfiled = unfiled, showUnfiled = showUnfiled, selected = folderFilter, drag = drag,
+                                    onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
                                     onRename = renameFolder, onRemove = removeFolder,
                                 )
                                 if (tags.isNotEmpty()) Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -312,7 +334,9 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
                                     val cover = remember(deck, cards) { deckCover(deck.snapshot, cards) }
                                     DeckRow(
-                                        Modifier.animateItem(),
+                                        // The held deck stays in place, faded, while its plate follows the pointer.
+                                        Modifier.animateItem().deckDragSource(deck, drag)
+                                            .graphicsLayer { alpha = if (drag.deck?.deckId == deck.deckId) 0.45f else 1f },
                                         deck, legal, colors, ruleset, cover, compact = !wide,
                                         showFolder = folderFilter == FolderFilter.All,
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
@@ -342,6 +366,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             }
         }
         }
+        DeckDragGhost(drag, { deckCover(it.snapshot, cards) }, Modifier.matchParentSize())
     }
 
     when (val d = dialog) {
@@ -371,16 +396,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             current = d.deck.snapshot.folder, folders = folders.map { it.first }, onDismiss = { dialog = null },
         ) { folder ->
             dialog = null
-            val previous = d.deck.snapshot.folder
-            scope.launch {
-                val saved = container.decks.moveToFolder(listOf(d.deck.deckId), folder)
-                val message = if (saved == null) "Took ${d.deck.snapshot.name} out of its folder" else "Moved ${d.deck.snapshot.name} to $saved"
-                state.notify(message, "Undo") { scope.launch { container.decks.moveToFolder(listOf(d.deck.deckId), previous) } }
-            }
+            move(d.deck, folder)
         }
-        LibraryDialog.NewFolder -> NewFolderDialog(
+        is LibraryDialog.NewFolder -> NewFolderDialog(
             decks = list.orEmpty(),
-            preselected = if (folderFilter == FolderFilter.Unfiled) list.orEmpty().filter { it.snapshot.folder == null }.map { it.deckId }.toSet() else emptySet(),
+            preselected = if (d.with != null) setOf(d.with) else if (folderFilter == FolderFilter.Unfiled) list.orEmpty().filter { it.snapshot.folder == null }.map { it.deckId }.toSet() else emptySet(),
             onDismiss = { dialog = null },
         ) { name, ids ->
             dialog = null
@@ -451,50 +471,64 @@ private fun FolderRail(
     total: Int,
     folders: List<Pair<String, Int>>,
     unfiled: Int,
+    showUnfiled: Boolean,
     selected: FolderFilter,
+    drag: DeckDrag,
     onSelect: (FolderFilter) -> Unit,
     onNewFolder: () -> Unit,
     onRename: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
+    val over = drag.over
     Column(
         Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 12.dp, top = 4.dp, end = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        FolderItem("All decks", total, selected == FolderFilter.All) { onSelect(FolderFilter.All) }
+        FolderItem("All decks", total, selected == FolderFilter.All, dropOver = false, Modifier) { onSelect(FolderFilter.All) }
         folders.forEach { (name, count) ->
+            val spot = DeckDropSpot.Folder(name)
             FolderContextMenu(name, onRename, onRemove) {
-                FolderItem(name, count, selected == FolderFilter.Named(name)) { onSelect(FolderFilter.Named(name)) }
+                FolderItem(name, count, selected == FolderFilter.Named(name), over == spot, Modifier.deckDropSpot(drag, spot)) {
+                    onSelect(FolderFilter.Named(name))
+                }
             }
         }
-        if (folders.isNotEmpty() && unfiled > 0) {
-            FolderItem("No folder", unfiled, selected == FolderFilter.Unfiled) { onSelect(FolderFilter.Unfiled) }
+        if (folders.isNotEmpty() && showUnfiled) {
+            val spot = DeckDropSpot.Folder(null)
+            FolderItem("No folder", unfiled, selected == FolderFilter.Unfiled, over == spot, Modifier.deckDropSpot(drag, spot)) {
+                onSelect(FolderFilter.Unfiled)
+            }
         }
-        GameButton("New folder", onClick = onNewFolder, style = GameButtonStyle.GHOST, icon = Icons.Default.Add, compact = true,
-            modifier = Modifier.padding(top = 4.dp))
+        // Dropping a deck here names a new folder with that deck already ticked.
+        GameButton(
+            "New folder", onClick = onNewFolder, style = if (over == DeckDropSpot.NewFolder) GameButtonStyle.PRIMARY else GameButtonStyle.GHOST,
+            icon = Icons.Default.Add, compact = true, modifier = Modifier.padding(top = 4.dp).deckDropSpot(drag, DeckDropSpot.NewFolder),
+        )
     }
 }
 
 /**
  * A folder in the rail. The selected one is a teal pill, like every other selected pill (UX rule
  * V3); the rest are bare text that tints on hover. The pill's shape alone marks it: no edge bar.
+ * A deck held over it lights it the same way, so the drop target reads as the choice.
  */
 @Composable
-private fun FolderItem(label: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+private fun FolderItem(label: String, count: Int, selected: Boolean, dropOver: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val fill by animateColorAsState(
         when {
-            selected -> Accent
+            selected || dropOver -> Accent
             hovered -> scheme.onSurface.copy(alpha = 0.07f)
             else -> Color.Transparent
         },
         motion(Motion.SHORT), label = "folder",
     )
-    val ink = if (selected) OnAccent else scheme.onSurface
+    val lit = selected || dropOver
+    val ink = if (lit) OnAccent else scheme.onSurface
     Row(
-        Modifier.fillMaxWidth().height(ControlSize).clip(LockOnShapes.button).background(fill)
+        modifier.fillMaxWidth().height(ControlSize).clip(LockOnShapes.button).background(fill)
             .hoverable(interaction)
             .selectable(selected, interaction, indication = null, role = Role.Tab, onClick = onClick)
             .padding(horizontal = 16.dp),
@@ -503,7 +537,7 @@ private fun FolderItem(label: String, count: Int, selected: Boolean, onClick: ()
         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
             color = ink, modifier = Modifier.weight(1f))
         Text("$count", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-            color = if (selected) OnAccent else scheme.onSurfaceVariant)
+            color = if (lit) OnAccent else scheme.onSurfaceVariant)
     }
 }
 
@@ -545,29 +579,41 @@ private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove
 private fun FolderChips(
     folders: List<Pair<String, Int>>,
     unfiled: Int,
+    showUnfiled: Boolean,
     selected: FolderFilter,
+    drag: DeckDrag,
     onSelect: (FolderFilter) -> Unit,
     onNewFolder: () -> Unit,
     onRename: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
+    val over = drag.over
     if (folders.isNotEmpty()) {
         PillChip(selected = selected == FolderFilter.All, onClick = { onSelect(FolderFilter.All) }, label = { Text("All decks") })
         folders.forEach { (name, count) ->
+            val spot = DeckDropSpot.Folder(name)
             FolderContextMenu(name, onRename, onRemove) {
                 PillChip(
-                    selected = selected == FolderFilter.Named(name), onClick = { onSelect(FolderFilter.Named(name)) },
-                    label = { Text("$name · $count") },
+                    selected = selected == FolderFilter.Named(name) || over == spot, onClick = { onSelect(FolderFilter.Named(name)) },
+                    label = { Text("$name · $count") }, modifier = Modifier.deckDropSpot(drag, spot),
                 )
             }
         }
-        if (unfiled > 0) {
-            PillChip(selected = selected == FolderFilter.Unfiled, onClick = { onSelect(FolderFilter.Unfiled) }, label = { Text("No folder") })
+        if (showUnfiled) {
+            val spot = DeckDropSpot.Folder(null)
+            PillChip(
+                selected = selected == FolderFilter.Unfiled || over == spot, onClick = { onSelect(FolderFilter.Unfiled) },
+                label = { Text("No folder") }, modifier = Modifier.deckDropSpot(drag, spot),
+            )
         }
     }
-    AssistChip(
+    // Stays an assist chip, lighting up only while a deck is held over it.
+    if (over == DeckDropSpot.NewFolder) PillChip(
+        selected = true, onClick = onNewFolder, label = { Text("New folder") },
+        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
+    ) else AssistChip(
         onClick = onNewFolder, label = { Text("New folder") },
-        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
     )
 }
 
