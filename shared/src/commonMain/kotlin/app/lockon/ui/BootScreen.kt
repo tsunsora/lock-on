@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.rotateRad
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
@@ -65,9 +66,9 @@ enum class BootStep(val label: String) {
 
 /**
  * The launch screen: the Lock On mark under a slowly turning reticle while gunbits fly figure
- * eights around it, trailing thruster glow and now and then firing a short beam. It covers the app
- * while the screens underneath fill in, so the first look at decks and cards doesn't stutter.
- * With reduced motion the bits hold still in formation.
+ * eights around it, blade staves and wing pieces like Aerial's split-up shield, now and then firing
+ * a short beam. It covers the app while the screens underneath fill in, so the first look at decks
+ * and cards doesn't stutter. With reduced motion the bits hold still in formation.
  */
 @Composable
 fun BootScreen(step: BootStep, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
@@ -135,17 +136,18 @@ private const val LOOP_MS = 9_000
 
 /**
  * One gunbit's flight: a Lissajous curve, [a] and [b] turns across and up per loop, offset by
- * [phase] so the bits never bunch up. [fireAt] is where in the loop it shoots.
+ * [phase] so the bits never bunch up. [fireAt] is where in the loop it shoots. [stave] picks the
+ * long blade over the short wing piece; Aerial's shield splits into both.
  */
-private class Bit(val a: Int, val b: Int, val phase: Float, val rx: Float, val ry: Float, val scale: Float, val fireAt: Float)
+private class Bit(val a: Int, val b: Int, val phase: Float, val rx: Float, val ry: Float, val scale: Float, val fireAt: Float, val stave: Boolean = true)
 
 private val Bits = listOf(
     Bit(1, 2, 0.00f, 1.00f, 0.62f, 1.00f, 0.20f),
     Bit(1, 2, 0.50f, 1.00f, 0.62f, 1.00f, 0.70f),
-    Bit(2, 1, 0.15f, 0.78f, 0.80f, 0.85f, 0.45f),
-    Bit(2, 3, 0.35f, 1.18f, 0.72f, 0.75f, 0.05f),
+    Bit(2, 1, 0.15f, 0.78f, 0.80f, 1.00f, 0.45f, stave = false),
+    Bit(2, 3, 0.35f, 1.18f, 0.72f, 0.80f, 0.05f),
     Bit(1, 1, 0.70f, 1.30f, 0.48f, 0.90f, 0.85f),
-    Bit(3, 2, 0.85f, 0.92f, 0.95f, 0.70f, 0.60f),
+    Bit(3, 2, 0.85f, 0.92f, 0.95f, 0.90f, 0.60f, stave = false),
 )
 
 private fun Bit.at(t: Float, center: Offset, reach: Float): Offset {
@@ -158,51 +160,70 @@ private fun Bit.at(t: Float, center: Offset, reach: Float): Offset {
 
 private fun DrawScope.drawBit(bit: Bit, t: Float, center: Offset, reach: Float, trail: Color, beam: Color) {
     val here = bit.at(t, center, reach)
-    val ahead = bit.at(t + 0.002f, center, reach)
-    val heading = atan2(ahead.y - here.y, ahead.x - here.x)
-    val unit = 1.4.dp.toPx() * bit.scale
-    // Thruster trail: fading dots back along the path.
-    for (k in 1..10) {
-        val p = bit.at(t - k * 0.0045f, center, reach)
-        drawCircle(trail.copy(alpha = 0.32f * (1f - k / 11f)), radius = unit * (3.2f - k * 0.22f), center = p)
+    // Bits don't fly nose first: they drift sideways with their muzzles turned out from the reticle.
+    val heading = atan2(here.y - center.y, here.x - center.x)
+    val unit = 2.4.dp.toPx() * bit.scale
+    val shape = if (bit.stave) Stave else Wing
+    // No thruster: just a thin fading glow line back along the path.
+    var prev = here
+    for (k in 1..12) {
+        val p = bit.at(t - k * 0.004f, center, reach)
+        drawLine(trail.copy(alpha = 0.4f * (1f - k / 13f)), prev, p, unit * (1.6f - k * 0.1f), StrokeCap.Round)
+        prev = p
     }
     // A short beam for a moment once per loop.
     val sinceFire = ((t - bit.fireAt) % 1f + 1f) % 1f
     if (sinceFire < 0.035f) {
         val f = sinceFire / 0.035f
         val dir = Offset(cos(heading), sin(heading))
-        val from = here + dir * (unit * (14f + f * 50f))
+        val from = here + dir * (unit * (shape.tip + f * 50f))
         val to = from + dir * (unit * 34f)
         drawLine(beam.copy(alpha = 0.25f * (1f - f)), from, to, unit * 7f, StrokeCap.Round)
         drawLine(Color.White.copy(alpha = 0.9f * (1f - f)), from, to, unit * 2.2f, StrokeCap.Round)
     }
+    // The flat piece rolls as it flies, so it reads as a thin panel turning in space.
+    val roll = 0.8f + 0.2f * cos(2 * PI * (2 * t + bit.phase)).toFloat()
     translate(here.x, here.y) {
         rotateRad(heading, pivot = Offset.Zero) {
-            drawCircle(Brush.radialGradient(listOf(trail.copy(alpha = 0.7f), Color.Transparent), Offset(-unit * 9f, 0f), unit * 7f), unit * 7f, Offset(-unit * 9f, 0f))
-            drawPath(BitBody.scaled(unit), SuitColors.armorWhite)
-            drawPath(BitFins.scaled(unit), SuitColors.armorBlue)
-            drawCircle(SuitColors.chestRed, radius = unit * 1.6f, center = Offset(unit * 3f, 0f))
-            drawPath(BitBody.scaled(unit), SuitColors.cautionBlack.copy(alpha = 0.35f), style = Stroke(unit * 0.8f))
+            scale(1f, roll, pivot = Offset.Zero) {
+                drawCircle(Brush.radialGradient(listOf(trail.copy(alpha = 0.3f), Color.Transparent), Offset.Zero, unit * 13f), unit * 13f, Offset.Zero)
+                drawPath(shape.body.scaled(unit), SuitColors.armorWhite)
+                drawPath(shape.edge.scaled(unit), SuitColors.armorBlue)
+                drawPath(shape.inset.scaled(unit), SuitColors.cautionBlack.copy(alpha = 0.55f))
+                drawCircle(trail, radius = unit * 0.8f, center = shape.muzzle * unit)
+                drawPath(shape.body.scaled(unit), SuitColors.cautionBlack.copy(alpha = 0.35f), style = Stroke(unit * 0.6f))
+            }
         }
     }
 }
 
-/** The bit points along +x, its nose at 14 units: a long kite of a body with two swept fins behind. */
-private val BitBodyPoints = listOf(14f to 0f, 2f to -4f, -8f to -2.5f, -8f to 2.5f, 2f to 4f)
-private val BitFinPoints = listOf(listOf(-1f to -3.4f, -10f to -9f, -7f to -2.6f), listOf(-1f to 3.4f, -10f to 9f, -7f to 2.6f))
+/**
+ * A GUND-Bit as drawn from Aerial's split-up shield, pointing along +x with its clipped tip at
+ * [tip] units: a white face, a blue strip down one edge, a dark recessed panel, and a lit muzzle.
+ */
+private class BitShape(val tip: Float, val body: Outline, val edge: Outline, val inset: Outline, val muzzle: Offset)
 
-private object BitBody {
+/** The long blade stave, about five times as long as it is wide. */
+private val Stave = BitShape(
+    tip = 15f,
+    body = Outline(15f to -0.8f, 10f to -3.2f, -12f to -3.2f, -15f to -0.8f, -15f to 3.2f, 9f to 3.2f),
+    edge = Outline(11.4f to 1.6f, 9f to 3.2f, -15f to 3.2f, -15f to 1.6f),
+    inset = Outline(7f to -1.8f, -10f to -1.8f, -11.5f to 0.8f, 5.5f to 0.8f),
+    muzzle = Offset(11.5f, -1.1f),
+)
+
+/** The short wing piece from the shield's shoulders. */
+private val Wing = BitShape(
+    tip = 9f,
+    body = Outline(9f to -1f, 5f to -3.4f, -8f to -3.4f, -9f to -2.2f, -9f to 3.4f, 4f to 3.4f),
+    edge = Outline(5.4f to 2.2f, 4f to 3.4f, -9f to 3.4f, -9f to 2.2f),
+    inset = Outline(3f to -1.8f, -6f to -1.8f, -7f to 0.6f, 2f to 0.6f),
+    muzzle = Offset(6.3f, -0.8f),
+)
+
+private class Outline(vararg val points: Pair<Float, Float>) {
     fun scaled(unit: Float) = Path().apply {
-        BitBodyPoints.forEachIndexed { i, (x, y) -> if (i == 0) moveTo(x * unit, y * unit) else lineTo(x * unit, y * unit) }
+        points.forEachIndexed { i, (x, y) -> if (i == 0) moveTo(x * unit, y * unit) else lineTo(x * unit, y * unit) }
         close()
-    }
-}
-
-private object BitFins {
-    fun scaled(unit: Float) = Path().apply {
-        BitFinPoints.forEach { fin ->
-            fin.forEachIndexed { i, (x, y) -> if (i == 0) moveTo(x * unit, y * unit) else lineTo(x * unit, y * unit) }
-            close()
-        }
     }
 }
