@@ -34,7 +34,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * The app's own version and updates, at the foot of the Sync screen. This is the only place
+ * The app's own version and updates, at the foot of Settings. This is the only place
  * updates show up (UX rule C1). [scope] outlives the screen, so a download keeps going after
  * leaving it.
  */
@@ -42,7 +42,8 @@ import kotlinx.coroutines.launch
 fun AppUpdateCard(updater: AppUpdater?, scope: CoroutineScope) {
     GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionHeader("Lock On", readout = BuildInfo.VERSION)
+            SectionHeader("Lock On")
+            Text("Version ${BuildInfo.VERSION}", style = MaterialTheme.typography.titleSmall)
             if (updater == null || !updater.enabled) {
                 Text("This build doesn't check for updates.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
