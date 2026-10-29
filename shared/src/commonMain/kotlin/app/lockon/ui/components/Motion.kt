@@ -1,5 +1,8 @@
 package app.lockon.ui.components
 
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
@@ -99,6 +102,42 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
 @Composable
 fun <T> motion(durationMillis: Int = Motion.MEDIUM, delayMillis: Int = 0): FiniteAnimationSpec<T> =
     if (LocalReduceMotion.current) snap() else tween(durationMillis, delayMillis, Motion.emphasized)
+
+/**
+ * For things that move to where the pointer sent them (a sliding pill, a switch's knob): a spring,
+ * after Apple's motion guidance. It has no fixed length, so a second click mid-way redirects it
+ * with the speed it already had instead of starting over. Critically damped by default; [bounce]
+ * adds a slight settle for things the hand moves directly.
+ */
+@Composable
+fun <T> glide(bounce: Float = 0f): FiniteAnimationSpec<T> = glideSpec(LocalReduceMotion.current, bounce)
+
+/** A [glide] for use outside composition, given whether motion is reduced. */
+fun <T> glideSpec(reduce: Boolean, bounce: Float = 0f): FiniteAnimationSpec<T> =
+    if (reduce) snap() else spring(dampingRatio = 1f - bounce, stiffness = 420f)
+
+/**
+ * Pages that sit side by side, like an editor's tabs: the new page slides in from the side of the
+ * tab that was picked and the old one gives way the other way, a short distance, so the content
+ * moves the way the tab's pill did. With reduced motion it is a quick fade.
+ */
+@Composable
+fun SlidingPages(page: Int, modifier: Modifier = Modifier, content: @Composable (Int) -> Unit) {
+    val reduce = LocalReduceMotion.current
+    AnimatedContent(
+        targetState = page,
+        modifier = modifier,
+        transitionSpec = {
+            if (reduce) fadeIn(tween(90)) togetherWith fadeOut(tween(90))
+            else {
+                val dir = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(spring(dampingRatio = 1f, stiffness = 420f)) { dir * it / 12 } + fadeIn(tween(Motion.MEDIUM))) togetherWith
+                    (slideOutHorizontally(spring(dampingRatio = 1f, stiffness = 420f)) { -dir * it / 12 } + fadeOut(tween(Motion.SHORT)))
+            }
+        },
+        label = "pages",
+    ) { content(it) }
+}
 
 /**
  * A number that rolls up when it grows and down when it shrinks, so changes are noticed. It is plain

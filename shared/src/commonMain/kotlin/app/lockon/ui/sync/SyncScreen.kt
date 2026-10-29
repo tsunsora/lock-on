@@ -1,4 +1,6 @@
 package app.lockon.ui.sync
+import app.lockon.ui.components.glide
+import androidx.compose.animation.animateContentSize
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.LocalNavClearance
@@ -447,7 +449,8 @@ private fun HostSection(controller: HostSyncController, paired: Set<String>, sho
     ) { phone -> HostConnect(controller, phone, paired) }
 
     GlassCard {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Grows and shrinks to what it shows, rather than jumping, so the page below moves with it.
+        Column(Modifier.animateContentSize(glide()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionHeader("Other ways to connect") {
                 GameButton(if (showQr) "Hide" else "QR code or address", onClick = { showQr = !showQr }, style = GameButtonStyle.GHOST, compact = true)
             }
@@ -548,7 +551,7 @@ private fun ClientSection(controller: ClientSyncController, paired: Set<String>,
     }
 
     GlassCard {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.animateContentSize(glide()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionHeader("Other ways to connect") {
                 GameButton(if (other) "Hide" else "Show", onClick = { other = !other }, style = GameButtonStyle.GHOST, compact = true)
             }

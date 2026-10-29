@@ -90,6 +90,20 @@ class AnimationPreviewTest {
         }
     }
 
+    @Test fun pagesFollowTabs() {
+        val tab = mutableStateOf(0)
+        val names = listOf("Deck", "Analysis", "Test", "Matches", "Versions")
+        // Picks Matches, then changes its mind to Analysis before the pill arrives.
+        record("pages-follow-tabs", 900, 420, frames = 24, onFrame = { i -> if (i == 2) tab.value = 3; if (i == 5) tab.value = 1 }) {
+            Column {
+                app.lockon.ui.components.PillTabs(names, tab.value, { tab.value = it }, fill = true)
+                app.lockon.ui.components.SlidingPages(tab.value, Modifier.fillMaxSize().padding(16.dp)) { page ->
+                    Text(names[page], style = MaterialTheme.typography.displaySmall)
+                }
+            }
+        }
+    }
+
     @Test fun dealAndFlip() {
         val deck = DeckSnapshot(
             "Preview",

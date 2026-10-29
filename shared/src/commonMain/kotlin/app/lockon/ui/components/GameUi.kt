@@ -413,8 +413,8 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     LaunchedEffect(target) {
         if (target == null) return@LaunchedEffect
         if (!placed || reduce) { x.snapTo(target.first); w.snapTo(target.second); placed = true; return@LaunchedEffect }
-        launch { x.animateTo(target.first, tween(Motion.MEDIUM, easing = Motion.emphasized)) }
-        w.animateTo(target.second, tween(Motion.MEDIUM, easing = Motion.emphasized))
+        launch { x.animateTo(target.first, glideSpec(false)) }
+        w.animateTo(target.second, glideSpec(false))
     }
     Box(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
         Row(
@@ -1067,7 +1067,8 @@ fun GameDialog(
 fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
-    val position by animateFloatAsState(if (checked) 1f else 0f, motion(Motion.SHORT), label = "switch")
+    // The knob is moved by the hand, so it settles with a touch of give.
+    val position by animateFloatAsState(if (checked) 1f else 0f, glide(bounce = 0.25f), label = "switch")
     Box(
         modifier.size(width = 60.dp, height = 48.dp)
             .then(
@@ -1098,7 +1099,7 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
     val onAccent = OnAccent
     // One teal pill slides to the chosen option, so the eye follows the change instead of seeing one
     // pill vanish and another appear.
-    val slot by animateFloatAsState(selected.toFloat(), motion(Motion.MEDIUM), label = "segment-slide")
+    val slot by animateFloatAsState(selected.toFloat(), glide(), label = "segment-slide")
     Box(modifier.height(44.dp).glass(LockOnShapes.button, strong = true).padding(4.dp)) {
         if (selected in options.indices) {
             Canvas(Modifier.matchParentSize()) {
@@ -1217,8 +1218,8 @@ fun PillNavBar(
     LaunchedEffect(target) {
         if (target == null) return@LaunchedEffect
         if (!placed || reduce) { x.snapTo(target.first); w.snapTo(target.second); placed = true; return@LaunchedEffect }
-        launch { x.animateTo(target.first, tween(Motion.LONG, easing = Motion.emphasized)) }
-        w.animateTo(target.second, tween(Motion.LONG, easing = Motion.emphasized))
+        launch { x.animateTo(target.first, glideSpec(false)) }
+        w.animateTo(target.second, glideSpec(false))
     }
     val sliding = labels && placed
     Row(
