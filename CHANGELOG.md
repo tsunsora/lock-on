@@ -11,6 +11,7 @@ Drag decks onto folders, keep empty folders, and name and file a deck as you imp
 - Menus for sorting, deck actions and the editor are glass pills that tick the current choice, with **Delete** set apart in red.
 - The card database is managed from **Settings → Card database** only.
 - Calmer deck hangar: deck boxes and cards no longer glow or lean toward the pointer, and scroll bars sit clear of the last column.
+- Small cards stay sharp after the large hover preview has shown them, and switches light up under the pointer.
 
 ## 1.0.0 (2026-10-29)
 
