@@ -1,4 +1,5 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.CountPill
 import app.lockon.ui.components.LocalArtworkStore
 import app.lockon.ui.components.PillSwitch
 import app.lockon.ui.components.GameDialog
@@ -60,6 +61,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
     var problem by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<CatalogPreview?>(null) }
     var check by remember { mutableStateOf<CatalogUpdater.UpdateCheck?>(null) }
+    var otherSources by remember { mutableStateOf(info?.origin == CatalogOrigin.URL || info?.origin == CatalogOrigin.FILE) }
     val scope = state.appScope
 
     fun attempt(block: suspend () -> CatalogPreview?) {
@@ -86,34 +88,34 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                 if (pending != null) {
                     PreviewSummary(pending)
                 } else {
+                    val official = info?.origin == CatalogOrigin.GCG_API
+                    val muted = MaterialTheme.typography.bodySmall.merge(TabularNumbers)
                     info?.let { current ->
-                        SectionHeader("Installed", readout = "${current.cardCount} cards")
-                        Text(current.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            listOfNotNull(
-                                "Version ${current.version}",
-                                current.origin.label,
-                                current.installedAt?.let { "installed ${formatTimestamp(it)}" },
-                            ).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (current.source.isNotBlank()) {
-                            Text(current.source, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(current.name, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    listOfNotNull(
+                                        "Version ${current.version}",
+                                        current.origin.label.takeUnless { official },
+                                        current.installedAt?.let { "installed ${formatTimestamp(it)}" },
+                                    ).joinToString(" · "),
+                                    style = muted, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            CountPill("${current.cardCount} cards")
                         }
                     }
-                    HorizontalDivider()
-                    SectionHeader("Official card list")
-                    val official = info?.origin == CatalogOrigin.GCG_API
-                    Text(
-                        if (official) "Updated weekly from the official card list. Check whenever a new set is out."
-                        else "Download every card from the official card list in one step. It replaces the current catalog; your decks stay as they are.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (!official) {
+                        Text(
+                            "Get every card from the official card list. Your decks stay as they are.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         when (val result = check) {
                             is CatalogUpdater.UpdateCheck.Available ->
-                                GameButton("Download update", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy)
+                                GameButton("Download update", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, compact = true)
                             else -> if (official) {
                                 GameButton("Check for updates", onClick = {
                                     busy = true; problem = null
@@ -121,76 +123,70 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                         try { check = container.catalogUpdater.checkCardDatabase() } catch (e: CatalogException) { problem = e.message }
                                         busy = false
                                     }
-                                }, enabled = !busy)
+                                }, enabled = !busy, compact = true)
                                 if (result is CatalogUpdater.UpdateCheck.UpToDate) {
                                     Text("Up to date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
                                 }
                             } else {
-                                GameButton("Download card database", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy)
+                                GameButton("Download card database", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, compact = true)
                             }
                         }
                         if (busy) ReticleSpinner(size = 20.dp)
                     }
                     (check as? CatalogUpdater.UpdateCheck.Available)?.let {
-                        Text(
-                            "A newer card list is out: version ${it.version}, ${it.cardCount} entries, built ${it.builtAt}.",
-                            style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
-                        )
+                        Text("Version ${it.version} is out: ${it.cardCount} entries, built ${it.builtAt}.", style = muted)
                     }
-                    Text(GcgApi.ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                     HorizontalDivider()
                     val showArtwork by container.catalog.showArtwork.collectAsState()
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Show card artwork", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "Images download once from the card list's links and stay on this device, so cards show offline. They never sync.",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                             val images = LocalArtworkStore.current?.status?.collectAsState()?.value
-                            if (showArtwork && images != null && images.total > 0) {
-                                Text(
-                                    when {
-                                        images.complete -> "All ${images.total} card images are saved for offline use."
-                                        images.downloading -> "Saving card images for offline use: ${images.saved} of ${images.total}"
-                                        else -> "${images.saved} of ${images.total} card images saved. The rest download next time Lock On is online."
-                                    },
-                                    style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = MaterialTheme.colorScheme.secondary,
-                                )
-                            }
+                            Text(
+                                when {
+                                    !showArtwork || images == null || images.total == 0 -> "Saved on this device, never synced"
+                                    images.complete -> "${images.total} images saved offline"
+                                    images.downloading -> "Saving images: ${images.saved} of ${images.total}"
+                                    else -> "${images.saved} of ${images.total} images saved, the rest when online"
+                                },
+                                style = muted, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         PillSwitch(checked = showArtwork, onCheckedChange = { scope.launch { container.catalog.setShowArtwork(it) } })
                     }
                     HorizontalDivider()
-                    SectionHeader("Other sources")
-                    Text(
-                        "Paste the link to a Lock On catalog file. Lock On remembers it, so checking for updates later is one tap.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedTextField(
-                        url, { url = it.trim() },
-                        label = { Text("Catalog link (https://)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        GameButton(if (url == info?.updateUrl) "Check for update" else "Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy)
-                        GameButton("Import file", onClick = {
-                            attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
-                        }, style = GameButtonStyle.SECONDARY, enabled = !busy)
-                        if (busy) ReticleSpinner(size = 20.dp)
-                    }
-                    if (info?.origin != CatalogOrigin.BUNDLED) {
-                        GameButton("Go back to the sample catalog", onClick = {
-                            busy = true
-                            scope.launch {
-                                container.restoreSampleCatalog()
-                                busy = false
-                                state.notify("Sample catalog restored.")
+                    SectionHeader("Other sources", trailing = {
+                        GameButton(if (otherSources) "Hide" else "Show", onClick = { otherSources = !otherSources }, style = GameButtonStyle.GHOST, compact = true)
+                    })
+                    if (otherSources) {
+                        OutlinedTextField(
+                            url, { url = it.trim() },
+                            label = { Text("Lock On catalog link (https://)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            GameButton(if (url == info?.updateUrl) "Check for update" else "Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, compact = true)
+                            GameButton("Import file", onClick = {
+                                attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
+                            }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
+                            if (info?.origin != CatalogOrigin.BUNDLED) {
+                                GameButton("Restore sample", onClick = {
+                                    busy = true
+                                    scope.launch {
+                                        container.restoreSampleCatalog()
+                                        busy = false
+                                        state.notify("Sample catalog restored.")
+                                    }
+                                }, style = GameButtonStyle.GHOST, enabled = !busy, compact = true)
                             }
-                        }, style = GameButtonStyle.GHOST, enabled = !busy, compact = true)
+                        }
                     }
+                    // The installed gcg-api source already carries the ODbL credit, so it shows once.
+                    val source = info?.source?.takeIf { it.isNotBlank() && info?.origin != CatalogOrigin.BUNDLED }
+                    listOfNotNull(source, GcgApi.ATTRIBUTION.takeUnless { official && source != null })
+                        .forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
                 }
                 problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
             }

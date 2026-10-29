@@ -28,8 +28,8 @@ private fun ScrollBar(adapter: ScrollbarAdapter, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
     VerticalScrollbar(
         adapter,
-        // Inset from the panel's rounded corners, and a hair from its edge.
-        modifier.fillMaxHeight().padding(top = 10.dp, bottom = 10.dp, end = 3.dp),
+        // Inset from the panel's rounded corners, with room to breathe off its edge.
+        modifier.fillMaxHeight().padding(top = 14.dp, bottom = 14.dp, end = 6.dp),
         style = ScrollbarStyle(
             minimalHeight = 40.dp,
             thickness = 6.dp,

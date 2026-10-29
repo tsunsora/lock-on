@@ -332,7 +332,7 @@ fun LockOnApp(
                             Column(Modifier.fillMaxSize()) {
                                 when (tab) {
                                     Tab.DECKS -> DeckLibraryScreen(container, state, files)
-                                    Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
+                                    Tab.CARDS -> CardBrowserScreen(container, state, wide)
                                     Tab.SYNC -> {
                                         ScreenHeader("Sync")
                                         val decks by container.decks.decks.collectAsState(initial = emptyList())

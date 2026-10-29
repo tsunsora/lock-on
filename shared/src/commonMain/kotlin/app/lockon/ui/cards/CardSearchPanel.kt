@@ -29,8 +29,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import app.lockon.ui.components.GameMenu
+import app.lockon.ui.components.GameMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -166,9 +166,9 @@ fun CardSearchPanel(
         PillChip(selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") })
         Box {
             PillChip(selected = false, onClick = { sortMenu = true }, label = { Text("Sort: ${sort.label}") })
-            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+            GameMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                 CardSort.entries.forEach { option ->
-                    DropdownMenuItem(text = { Text(option.label) }, onClick = { sort = option; sortMenu = false })
+                    GameMenuItem(option.label, onClick = { sort = option; sortMenu = false }, selected = option == sort)
                 }
             }
         }
@@ -278,7 +278,8 @@ fun CardSearchPanel(
             if (grid) LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(if (wide) 136.dp else 104.dp),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 20.dp + LocalNavClearance.current),
+                // The wider end padding keeps the last column clear of the scroll bar's lane.
+                contentPadding = PaddingValues(start = 12.dp, end = if (wide) 24.dp else 12.dp, top = 10.dp, bottom = 20.dp + LocalNavClearance.current),
                 horizontalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
                 verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 10.dp),
             ) {
@@ -296,7 +297,7 @@ fun CardSearchPanel(
                     )
                 }
             }
-            else LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(bottom = LocalNavClearance.current)) {
+            else LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(end = if (wide) 14.dp else 0.dp, bottom = LocalNavClearance.current)) {
                 items(listed, key = { it.cardNumber }) { card ->
                     CardRow(card, Modifier.animateItem().cardDragSource(card, controls?.drag), onClick = { onCardClick(card) }, trailing = {
                         if (controls != null) {

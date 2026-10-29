@@ -26,8 +26,8 @@ import app.lockon.ui.components.SectionHeader
 
 /**
  * The card database in Settings: which catalog is installed, a quiet note when a newer one is out
- * (UX rule C1), and the Catalog dialog for updates, other sources and artwork. Cards keeps its own
- * Catalog button for the same dialog.
+ * (UX rule C1), and the Catalog dialog for updates, other sources and artwork. This is the only
+ * place the dialog opens from.
  */
 @Composable
 fun CardDatabaseCard(container: AppContainer, state: AppState, files: FileBridge) {
