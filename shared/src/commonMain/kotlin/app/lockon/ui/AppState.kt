@@ -30,6 +30,10 @@ class AppState(val appScope: CoroutineScope) {
     var syncSending by mutableStateOf(true)
     /** False while the boot screen covers the app and its screens fill in underneath. */
     var booted by mutableStateOf(false)
+    /** True while the welcome tour shows over the app: on a fresh install, or replayed from Settings. */
+    var touring by mutableStateOf(false)
+    /** Which of the tour's stops is showing. */
+    var tourStop by mutableIntStateOf(0)
     /** Bumped by Ctrl+F; the visible card search takes focus when it changes. */
     var searchFocusRequests by mutableIntStateOf(0)
         private set

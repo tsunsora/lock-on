@@ -56,7 +56,8 @@ class ScreenshotTest {
     private val out = File("build/screenshots").apply { mkdirs() }
 
     private val container = runBlocking {
-        AppContainer.create(LockOnDatabase.build(Room.inMemoryDatabaseBuilder<LockOnDatabase>()), "Test Desktop")
+        // A fresh database would open on the welcome tour; these shots want the screens themselves.
+        AppContainer.create(LockOnDatabase.build(Room.inMemoryDatabaseBuilder<LockOnDatabase>()), "Test Desktop").apply { settings.setWelcomed() }
     }
     private val deckId = runBlocking {
         val matches = listOf(
@@ -157,6 +158,12 @@ class ScreenshotTest {
             repeat(15) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
+    }
+
+    @Test fun renderWelcomeTour() {
+        repeat(6) { stop -> shoot("desktop-tour-$stop", 1980, 1290, dark = stop % 2 == 1) { touring = true; tourStop = stop } }
+        shoot("phone-tour-1", 600, 1260, dark = false) { touring = true; tourStop = 1 }
+        shoot("phone-tour-2", 600, 1260) { touring = true; tourStop = 2 }
     }
 
     @Test fun renderScreens() {
