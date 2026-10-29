@@ -60,6 +60,7 @@ import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.components.PillChip
 import app.lockon.ui.components.ReticleSpinner
 import app.lockon.ui.components.SlidingPages
+import app.lockon.ui.components.WithContentColor
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.glassFrame
@@ -121,7 +122,8 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
             .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } },
         contentAlignment = Alignment.Center,
     ) {
-        Column(
+        // Outside the app's Scaffold, so text would default to black; twilight needs it light.
+        WithContentColor(MaterialTheme.colorScheme.onSurface) { Column(
             Modifier.padding(16.dp).widthIn(max = 520.dp).fillMaxWidth()
                 .shadow(24.dp, LockOnShapes.panel, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 // Solid like a dialog, since the busy screen behind would show through glass.
@@ -170,7 +172,7 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
                 }
                 GameButton(next, onClick = { if (last) onDone() else state.tourStop++ }, compact = true)
             }
-        }
+        } }
         trailing?.let { Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { it() } }
     }
 }
