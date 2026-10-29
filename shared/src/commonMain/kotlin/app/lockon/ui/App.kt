@@ -132,6 +132,7 @@ import app.lockon.data.ArtworkStore
 import coil3.compose.setSingletonImageLoaderFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleOut
+import androidx.compose.ui.layout.Layout
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -303,26 +304,45 @@ fun LockOnApp(
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     Box(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
-                        // Going deeper drifts forward, coming back drifts back, and switching tabs
-                        // fades through, so motion always says where you went (UX rule V5).
+                        // Tabs are built once and kept: switching only shows a screen that's already laid
+                        // out, with its cards drawn. They fade through each other (UX rule V5).
+                        KeptTabs(if (state.current == null) state.tab else null, state.booted) { tab ->
+                            Column(Modifier.fillMaxSize()) {
+                                when (tab) {
+                                    Tab.DECKS -> DeckLibraryScreen(container, state, files)
+                                    Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
+                                    Tab.SYNC -> {
+                                        ScreenHeader("Sync")
+                                        val decks by container.decks.decks.collectAsState(initial = emptyList())
+                                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                                            Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(
+                                                sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted },
+                                                sending = state.syncSending, onSendingChange = { state.syncSending = it },
+                                            ) }
+                                        }
+                                    }
+                                    Tab.SETTINGS -> {
+                                        ScreenHeader("Settings")
+                                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                                            Box(Modifier.widthIn(max = 1240.dp)) { SettingsScreen(container, state, files) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Going deeper drifts forward and coming back drifts back, so motion always says
+                        // where you went (UX rule V5).
                         val reduce = LocalReduceMotion.current
                         AnimatedContent(
-                            targetState = state.current ?: state.tab,
+                            targetState = state.current,
                             modifier = Modifier.fillMaxSize(),
                             transitionSpec = {
-                                val from = depthOf(initialState)
-                                val to = depthOf(targetState)
-                                when {
-                                    reduce -> fadeIn(tween(90)) togetherWith fadeOut(tween(90))
-                                    to != from -> {
-                                        val dir = if (to > from) 1 else -1
-                                        (slideInHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) { dir * it / 20 } +
-                                            fadeIn(tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2))) togetherWith
-                                            (slideOutHorizontally(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { -dir * it / 30 } +
-                                                fadeOut(tween(Motion.SHORT)))
-                                    }
-                                    else -> fadeIn(tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2)) togetherWith fadeOut(tween(Motion.SHORT))
-                                }
+                                val dir = if (depthOf(targetState) > depthOf(initialState)) 1 else -1
+                                if (reduce) fadeIn(tween(90)) togetherWith fadeOut(tween(90))
+                                else (slideInHorizontally(tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) { dir * it / 20 } +
+                                    fadeIn(tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2))) togetherWith
+                                    (slideOutHorizontally(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { -dir * it / 30 } +
+                                        fadeOut(tween(Motion.SHORT)))
                             },
                             label = "navigation",
                         ) { destination ->
@@ -331,35 +351,9 @@ fun LockOnApp(
                                 is Screen.Conflict -> Box(Modifier.padding(top = LocalTopBand.current.height)) {
                                     ConflictScreen(container, state, destination.deckId, wide)
                                 }
-                                is Tab -> Column(Modifier.fillMaxSize()) {
-                                    when (destination) {
-                                        Tab.DECKS -> DeckLibraryScreen(container, state, files)
-                                        Tab.CARDS -> CardBrowserScreen(container, state, files, wide)
-                                        Tab.SYNC -> {
-                                            ScreenHeader("Sync")
-                                            val decks by container.decks.decks.collectAsState(initial = emptyList())
-                                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                                Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(
-                                                    sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted },
-                                                    sending = state.syncSending, onSendingChange = { state.syncSending = it },
-                                                ) }
-                                            }
-                                        }
-                                        Tab.SETTINGS -> {
-                                            ScreenHeader("Settings")
-                                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                                Box(Modifier.widthIn(max = 1240.dp)) { SettingsScreen(container, state, files) }
-                                            }
-                                        }
-                                    }
-                                }
+                                // The tabs show underneath.
+                                null -> Unit
                             }
-                        }
-                        // While booting, the big tabs not on show draw unseen at full size, so their code is
-                        // warm and their card images sit in memory at the size they'll be shown.
-                        if (!state.booted) Box(Modifier.fillMaxSize().graphicsLayer { alpha = 0f }) {
-                            if (state.current != null || state.tab != Tab.DECKS) Column(Modifier.fillMaxSize()) { DeckLibraryScreen(container, state, files) }
-                            if (state.current != null || state.tab != Tab.CARDS) Column(Modifier.fillMaxSize()) { CardBrowserScreen(container, state, files, wide) }
                         }
                     }
                     // Phones: the floating pill at the top level. Inside a deck the editor floats its own
@@ -408,11 +402,47 @@ private val BootMinimum = 1.2.seconds
 private val BootLimit = 8.seconds
 private val BootCardsTime = 600.milliseconds
 
-/** How deep a destination sits: tabs, then a deck, then a conflict comparison. */
-private fun depthOf(destination: Any): Int = when (destination) {
+/** How deep a destination sits: tabs (null), then a deck, then a conflict comparison. */
+private fun depthOf(destination: Screen?): Int = when (destination) {
     is Screen.Conflict -> 2
     is Screen.DeckEditor -> 1
     else -> 0
+}
+
+/**
+ * Every tab, composed once and kept. Only [shown] (and a tab still fading out) is measured, placed
+ * and drawn, so a kept tab costs nothing per frame; showing it again needs no new composition, which
+ * is what made a first look at Cards stutter. While not [booted], every tab lays out and draws under
+ * the opaque boot screen, so its card grid fills in and its images are decoded and on the GPU before
+ * anyone looks. They draw at just under full opacity, the way a crossfade draws them, since the GPU
+ * sets that up slowly the first time; a fully transparent layer wouldn't draw at all. [shown] is
+ * null under a deck.
+ */
+@Composable
+private fun KeptTabs(shown: Tab?, booted: Boolean, content: @Composable (Tab) -> Unit) {
+    val reduce = LocalReduceMotion.current
+    val alphas = Tab.entries.map { tab ->
+        animateFloatAsState(
+            if (tab == shown) 1f else 0f,
+            when {
+                reduce -> tween(90)
+                tab == shown -> tween(Motion.MEDIUM, delayMillis = Motion.SHORT / 2)
+                else -> tween(Motion.SHORT)
+            },
+            label = "tab",
+        )
+    }
+    Layout(
+        content = {
+            Tab.entries.forEachIndexed { i, tab ->
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (booted) alphas[i].value else 0.99f }) { content(tab) }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) { measurables, constraints ->
+        val placeables = measurables.mapIndexed { i, m -> if (!booted || alphas[i].value > 0f) m.measure(constraints) else null }
+        layout(constraints.maxWidth, constraints.maxHeight) { placeables.forEach { it?.place(0, 0) } }
+    }
 }
 
 /**
