@@ -1057,17 +1057,26 @@ fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier
     val accent = Accent
     // The knob is moved by the hand, so it settles with a touch of give.
     val position by animateFloatAsState(if (checked) 1f else 0f, glide(bounce = 0.25f), label = "switch")
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    // The track itself answers the pointer; a ripple over the whole 48 dp target reads as a stray square.
+    val lit by animateFloatAsState(if (hovered && enabled && onCheckedChange != null) 1f else 0f, motion(Motion.SHORT), label = "switch-hover")
     Box(
         modifier.size(width = 60.dp, height = 48.dp)
             .then(
-                if (onCheckedChange != null) Modifier.toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
-                else Modifier,
+                if (onCheckedChange != null) {
+                    Modifier.hoverable(interaction, enabled)
+                        .toggleable(checked, interaction, indication = null, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                } else Modifier,
             ),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier.size(width = 52.dp, height = 30.dp).clip(LockOnShapes.button)
-                .background(if (checked) Brush.verticalGradient(listOf(lighten(accent, 0.25f), accent)) else SolidColor(scheme.onSurface.copy(alpha = 0.12f))),
+                .background(
+                    if (checked) Brush.verticalGradient(listOf(lighten(accent, 0.25f + 0.15f * lit), lighten(accent, 0.12f * lit)))
+                    else SolidColor(scheme.onSurface.copy(alpha = 0.12f + 0.08f * lit)),
+                ),
         ) {
             Box(
                 Modifier.padding(3.dp).size(24.dp)

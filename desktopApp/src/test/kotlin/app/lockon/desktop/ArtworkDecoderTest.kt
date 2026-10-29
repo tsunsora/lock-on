@@ -1,5 +1,6 @@
 ﻿package app.lockon.desktop
 
+import app.lockon.ui.components.SizedArtworkKeyer
 import app.lockon.ui.components.SmoothArtworkDecoder
 import coil3.BitmapImage
 import coil3.ImageLoader
@@ -8,7 +9,10 @@ import coil3.decode.DataSource
 import coil3.decode.ImageSource
 import coil3.decode.SkiaImageDecoder
 import coil3.fetch.SourceFetchResult
+import coil3.request.ImageRequest
 import coil3.request.Options
+import coil3.request.SuccessResult
+import coil3.size.Precision
 import coil3.size.Scale
 import coil3.size.Size
 import kotlinx.coroutines.runBlocking
@@ -81,6 +85,22 @@ class ArtworkDecoderTest {
         assertTrue(smooth < 0.05, "smooth decoder left $smooth unblended")
         val coil = unblended(decode(file, 200, 279, smooth = false))
         assertTrue(coil > 0.5, "Coil's decoder now blends ($coil unblended); the smooth decoder may no longer be needed")
+    }
+
+    @Test
+    fun aSmallCardGetsItsOwnDecodeAfterALargeOne() = runBlocking {
+        // The hover preview decodes a card large; grid copies of it must not reuse that bitmap
+        // and shrink it while drawing, which is what made small cards look jagged. AsyncImage asks
+        // for inexact sizes, which is what lets Coil reuse a larger bitmap.
+        val sized = ImageLoader.Builder(context).components { add(SizedArtworkKeyer); add(SmoothArtworkDecoder.Factory()) }.build()
+        val uri = cardFile().toPath().toUri().toString()
+        suspend fun width(w: Int, h: Int): Int {
+            val result = sized.execute(ImageRequest.Builder(context).data(uri).size(w, h).scale(Scale.FIT).precision(Precision.INEXACT).build())
+            return ((result as SuccessResult).image as BitmapImage).bitmap.width
+        }
+        assertEquals(600, width(600, 838))
+        assertEquals(200, width(200, 279))
+        assertEquals(600, width(600, 838))
     }
 
     /** Writes build/artwork-decode/{coil,smooth}-N.png from real saved artwork, when there is some. */
