@@ -135,6 +135,7 @@ import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
 import app.lockon.ui.decks.DeckLibraryScreen
 import app.lockon.ui.sync.SyncScreen
+import app.lockon.ui.sync.SyncPrompts
 import app.lockon.ui.theme.LockOnTheme
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.SkyBackground
@@ -311,7 +312,10 @@ fun LockOnApp(
                                             ScreenHeader("Sync")
                                             val decks by container.decks.decks.collectAsState(initial = emptyList())
                                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                                                Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted }) }
+                                                Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(
+                                                    sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted },
+                                                    sending = state.syncSending, onSendingChange = { state.syncSending = it },
+                                                ) }
                                             }
                                         }
                                         Tab.SETTINGS -> {
@@ -340,6 +344,8 @@ fun LockOnApp(
                             CompositionLocalProvider(LocalChromeHeight provides ControlSize) { chrome.controls() }
                         }
                     }
+                    // Another device asking to send decks or pair, over whichever screen is open.
+                    SyncPrompts(sync)
                     if (wide) {
                         val density = LocalDensity.current
                         FloatingTopNav(deckCount, cardCount, state.tab, state::select, icon = { TabIcon(it) }, trailing = chrome?.controls) { start, end, height ->

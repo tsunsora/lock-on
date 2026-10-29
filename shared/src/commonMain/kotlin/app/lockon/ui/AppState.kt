@@ -26,6 +26,8 @@ class AppState(val appScope: CoroutineScope) {
     var tab by mutableStateOf(Tab.DECKS)
     val stack = mutableStateListOf<Screen>()
     var notice by mutableStateOf<Notice?>(null)
+    /** Sync shows Send, or Receive when false. */
+    var syncSending by mutableStateOf(true)
     /** Bumped by Ctrl+F; the visible card search takes focus when it changes. */
     var searchFocusRequests by mutableIntStateOf(0)
         private set

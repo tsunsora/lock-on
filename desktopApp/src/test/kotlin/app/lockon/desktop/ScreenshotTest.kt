@@ -187,6 +187,8 @@ class ScreenshotTest {
         sync.status.value = SyncStatus(message = "Could not reach the desktop. Check that Lock On is open on it.", isError = true)
         shoot("phone-sync-error", 600, 1260) { select(Tab.SYNC) }
         shoot("phone-sync-client", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("phone-sync-receive", 600, 1260, controller = client) { select(Tab.SYNC); syncSending = false }
+        shoot("desktop-sync-receive", 1980, 1290) { select(Tab.SYNC); syncSending = false }
         client.sharing.incoming.value = IncomingShare("s-1", "DESKTOP-VPP8OD2", listOf(
             DeckSnapshot(name = "Wing Control", entries = listOf(DeckEntry("SMP-003", 4))),
             DeckSnapshot(name = "Green test", entries = listOf(DeckEntry("SMP-015", 3))),
