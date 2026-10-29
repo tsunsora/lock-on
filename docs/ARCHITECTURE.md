@@ -12,7 +12,7 @@ The card catalog (`cards`, `printings`) is installed per device from a versioned
 - Deleting a deck writes a deletion revision. A device that still has an older copy receives that deletion as a newer revision, so it cannot restore the deck. A deletion that crosses an unsynced edit becomes a conflict, so the edit is not lost.
 - Revisions are ordered by their parent links, never by timestamps, so clock differences between devices do not matter.
 - Autosaves fold into the latest revision until that revision leaves the device, is kept as a version, or sits for 30 minutes. After that, revisions are immutable. Saving unchanged content adds nothing. This makes the revision history the deck's version history.
-- Folders, the cover card and the match log are part of each snapshot, so they sync like any other edit. A folder is only a name on its decks. Settling a conflict keeps the chosen version but takes matches from every head, deduplicated by match ID.
+- Folders, the cover card and the match log are part of each snapshot, so they sync like any other edit. A folder is only a name on its decks; each device also keeps a local list of the folders it has used, so an empty folder stays until removed. That list doesn't sync. Settling a conflict keeps the chosen version but takes matches from every head, deduplicated by match ID.
 
 Ruleset checks: a 50-card main deck (the resource deck isn't tracked, since every player brings 10 standard resources), at most two colors, and at most four copies per card number, with alternate art counting toward the same card number. Resource cards are unlimited unless the ruleset sets `resourceMaxCopies`. Rulesets can also ban cards, restrict cards to fewer copies, and ban combinations of cards.
 
