@@ -47,6 +47,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - **New folder** names the folder and can put decks in it in the same step; picking none makes an empty folder. A folder stays, even empty, until it is removed.
   - An open folder shows **Rename** and **Remove folder**. Removing asks first, says how many decks it holds, then only takes its decks out, with Undo.
   - **New deck** inside a folder puts the deck in it.
+  - Drag a deck onto a folder, or onto **No folder**, to move it, with Undo. A mouse drags at once; a finger holds the deck first so the list still scrolls. Dropping on **New folder** opens it with that deck ticked.
   - Folders sync with the decks.
 - **Actions:**
   - Bottom right: **New deck**.
