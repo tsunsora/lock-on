@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -420,15 +421,18 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
     BoxWithConstraints(modifier) {
         val sideBySide = maxWidth >= 640.dp
         val roomy = maxWidth >= 380.dp
-        val imageWidth = (maxWidth * 0.4f).coerceIn(240.dp, 360.dp)
+        val imageWidth = (maxWidth * 0.4f).coerceIn(260.dp, 380.dp)
         // The card sits in a pool of its own colour, like a card raised for inspection.
         val pool = cardColor(card.colors.firstOrNull())
         val image: @Composable (Modifier) -> Unit = { m ->
-            // The glow fades out within its own padding, so a scrolling column never cuts it off.
+            // The glow is an oval squeezed to the box, fading out within its own padding, so a scrolling
+            // column never cuts it off at the sides.
             Box(m.drawBehind {
                 val r = size.height / 2
-                drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), Color.Transparent), center, r), radius = r)
-            }.padding(vertical = 12.dp)) {
+                scale(scaleX = size.width / size.height, scaleY = 1f, pivot = center) {
+                    drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), Color.Transparent), center, r), radius = r)
+                }
+            }.padding(horizontal = 16.dp, vertical = 14.dp)) {
                 CardImage(card, Modifier.fillMaxWidth(), printingId = shown)
             }
         }
@@ -436,11 +440,19 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
             if (printings.size > 1) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SectionHeader("Printings", readout = "${printings.size}")
-                    Row(Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(end = 32.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // A wrapping grid rather than a scrolling strip, so every printing is in view at once.
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val gap = 8.dp
+                    val columns = ((maxWidth + gap) / (72.dp + gap)).toInt().coerceAtLeast(1)
+                    val tileWidth = (maxWidth - gap * (columns - 1)) / columns
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap),
+                        maxItemsInEachRow = columns,
+                    ) {
                         printings.forEach { p ->
                             val isShown = (shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId) == p.printingId
                             Column(
-                                Modifier.width(72.dp).clip(MaterialTheme.shapes.small).clickable { shown = p.printingId }.padding(2.dp),
+                                Modifier.width(tileWidth).clip(MaterialTheme.shapes.small).clickable { shown = p.printingId }.padding(2.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 CardImage(card, Modifier.fillMaxWidth().border(
@@ -451,6 +463,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
                                     color = if (isShown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
+                    }
                     }
                 }
             }
@@ -523,11 +536,15 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
 fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Unit, extraActions: (@Composable () -> Unit)? = null) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
+        // the panel rather than around it, so clicks inside never reach it.
+        Spacer(Modifier.fillMaxSize().clickable(interactionSource = null, indication = null, onClick = onDismiss))
         val maxHeight = maxHeight * 0.9f
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth(0.94f).widthIn(max = 920.dp).heightIn(max = maxHeight)
+            // The cap comes first: after fillMaxWidth the width is already fixed and widthIn can't shrink it.
+            modifier = Modifier.widthIn(max = 880.dp).fillMaxWidth(0.94f).heightIn(max = maxHeight)
                 .glassFrame(),
         ) {
             Column(Modifier.padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 16.dp)) {
