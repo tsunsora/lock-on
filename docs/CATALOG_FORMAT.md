@@ -2,9 +2,9 @@
 
 A catalog is one UTF-8 JSON file holding every card, its printings and, optionally, the deck rules. Each device installs its own copy. Catalogs never sync between devices; only decks do.
 
-Most people won't need this file format. **Cards → Catalog → Download the latest card database** fetches the official card list from gcg-api and converts it on the device. The format below is for other sources.
+Most people won't need this file format. **Download card database** (**Settings → Card database → Manage card database**) fetches the official card list from gcg-api and converts it on the device. The format below is for other sources.
 
-There are two ways to install a catalog file, both from **Cards → Catalog**:
+There are two ways to install a catalog file, both from **Settings → Card database → Manage card database**:
 
 - **Import file:** pick a `.json` file.
 - **Update from a link:** paste an `https://` link. Lock On remembers it, so **Check for update** downloads it again later.
