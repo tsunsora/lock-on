@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.SlidingPages
 import app.lockon.ui.components.LocalTopBand
 import app.lockon.ui.components.Accent
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -512,12 +513,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     .border(BorderStroke(2.dp, dropRim), LockOnShapes.panel)) {
                     Column {
                         PillTabs(listOf("Deck", "Analysis", "Test", "Matches", "Versions"), deckTab, { deckTab = it }, fill = true)
-                        if (stage >= 1) when (deckTab) {
-                            0 -> deckList(Modifier.fillMaxSize())
-                            1 -> analysis(Modifier.fillMaxSize())
-                            2 -> test(Modifier.fillMaxSize())
-                            3 -> matchLog(Modifier.fillMaxSize())
-                            else -> versions(Modifier.fillMaxSize())
+                        if (stage >= 1) SlidingPages(deckTab, Modifier.fillMaxSize()) { page ->
+                            when (page) {
+                                0 -> deckList(Modifier.fillMaxSize())
+                                1 -> analysis(Modifier.fillMaxSize())
+                                2 -> test(Modifier.fillMaxSize())
+                                3 -> matchLog(Modifier.fillMaxSize())
+                                else -> versions(Modifier.fillMaxSize())
+                            }
                         }
                     }
                 }
@@ -528,13 +531,15 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         } else {
             // The sections float in a pill over the content, which scrolls underneath it.
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (stage >= 1) when (phoneTab) {
-                    0 -> deckList(Modifier.fillMaxSize())
-                    1 -> search(Modifier.fillMaxSize())
-                    2 -> analysis(Modifier.fillMaxSize())
-                    3 -> test(Modifier.fillMaxSize())
-                    4 -> matchLog(Modifier.fillMaxSize())
-                    else -> versions(Modifier.fillMaxSize())
+                if (stage >= 1) SlidingPages(phoneTab, Modifier.fillMaxSize()) { page ->
+                    when (page) {
+                        0 -> deckList(Modifier.fillMaxSize())
+                        1 -> search(Modifier.fillMaxSize())
+                        2 -> analysis(Modifier.fillMaxSize())
+                        3 -> test(Modifier.fillMaxSize())
+                        4 -> matchLog(Modifier.fillMaxSize())
+                        else -> versions(Modifier.fillMaxSize())
+                    }
                 }
                 EditorNav(phoneTab) { phoneTab = it }
             }
