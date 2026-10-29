@@ -285,7 +285,7 @@ class ScreenshotTest {
             }
         }.use { scene ->
             repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 1) * 100_000_000L) }
-            val button = androidx.compose.ui.geometry.Offset(1020f, 1306f)
+            val button = androidx.compose.ui.geometry.Offset(905f, 1170f)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
             // Frames keep coming until the image arrives, as they would in a window.

@@ -6,7 +6,7 @@ import app.lockon.model.DeckEntry
 import app.lockon.model.ReleaseOrder
 
 /**
- * How an exported deck orders its cards. The list, image and print sheet all use the one chosen in
+ * How an exported deck orders its cards. The list and image both use the one chosen in
  * the Export dialog. Every order keeps the types apart: all the Units first, then Pilots, Commands
  * and Bases, each sorted by the chosen key within its group.
  */
