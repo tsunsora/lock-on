@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.0.0 (2026-10-29)
 
 First release for Android and Windows.
 
@@ -45,9 +45,10 @@ First release for Android and Windows.
 - Rajdhani display type for headings and numbers, and a branded launch screen.
 - A bright, game-style look inspired by anime game home screens: frosted glass panels over a sky (or starry twilight) backdrop, rounded Quicksand type, pill buttons and tabs, and floating navigation: a player card with deck and card counts, and a translucent pill nav bar whose selected tab expands with its label. **Settings** gathers sync, the card database and app updates. Hearthstone-style card strips in the deck list, deck boxes in the library, copy pips, deck gauges that turn gold when full, and a level curve beside the deck. Cards lift and lean toward the pointer on hover, flash when a copy is added or removed, and a shine with gold sparkles marks the moment a deck becomes legal. Built on Material 3.
 - Phones navigate from a bottom bar; the desktop has a top bar with multi-pane editing.
+- A **welcome tour** on first launch offers to download the official card database, then walks through Decks, Cards, Sync and Settings. Skip it at any point, or show it again from **Settings**, which also lists the app's version.
 
 **Desktop**
 - Windows installer that installs per user with shortcuts, and needs no administrator prompt.
 - Only one copy runs at a time, the window remembers its size and position, and logs go to `%APPDATA%\LockOn\lock-on.log`.
 
-Fresh installs start with a 20-card fictional sample; **Cards → Catalog → Download the latest card database** brings in the real card list. Card data comes from gcg-api (ODbL 1.0) and isn't affiliated with Bandai.
+Fresh installs start with a 20-card fictional sample until the real card list is downloaded, from the welcome tour or **Cards → Catalog → Download the latest card database**. Card data comes from gcg-api (ODbL 1.0) and isn't affiliated with Bandai.
