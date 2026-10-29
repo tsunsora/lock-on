@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 (2026-10-29)
+
+Drag decks onto folders, keep empty folders, and name and file a deck as you import it.
+
+- **Drag a deck onto a folder** to move it, with **Undo**. A mouse drags straight away; on phones, hold a deck first so the list still scrolls. Drop it on **No folder** to take it out, or on **New folder** to start one with that deck ticked.
+- **Empty folders** stay until you remove them, and **New folder** no longer needs a deck. Removing a folder now asks first and says how many decks it holds; its decks stay in your library.
+- Right-click a folder to **Rename** or **Remove** it.
+- **Import** lets you name the deck and pick its folder. A deck imported while a folder is open goes into it.
+- Menus for sorting, deck actions and the editor are glass pills that tick the current choice, with **Delete** set apart in red.
+- The card database is managed from **Settings → Card database** only.
+- Calmer deck hangar: deck boxes and cards no longer glow or lean toward the pointer, and scroll bars sit clear of the last column.
+
 ## 1.0.0 (2026-10-29)
 
 First release for Android and Windows.
@@ -16,7 +28,7 @@ First release for Android and Windows.
   - level and cost curves, and type and color counts
 - **Test hand** using the official setup: draw 5, redraw once, set 6 shields, then draw.
 - Deck library with tags, search, duplicate, rename, and delete with **Undo**.
-- **Deck folders**: a folder list beside the decks on desktop and folder chips on phones. Move decks between folders, create a folder empty or with its decks in one step, and rename or remove folders. Folders sync.
+- **Deck folders**: a folder list beside the decks on desktop and folder chips on phones. Move decks between folders, create a folder with its decks in one step, and rename or remove folders. Folders sync.
 - Pick any card as a deck's **cover**.
 - **Match log** per deck: wins, losses and draws with optional opponent, turn order and notes, and a record with win rate, going first and second, and results by opponent.
 - **Version history**: every version of a deck with what changed, a comparison with the deck now, and restoring an older version's cards.
