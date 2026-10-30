@@ -344,7 +344,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         }
                     }
                 }
-                // Phones export from the bar above the deck list instead.
+                // Phones export from the deck library's menu instead.
             }
             }
             if (!wide) {
@@ -644,8 +644,8 @@ private fun DeckList(
     // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
     Column(Modifier.fillMaxSize()) {
-    // Phones keep Export, the deck's first problem and the view switch above the list.
-    if (!compact && deck.entries.isNotEmpty()) DeckTopBar(legality, onOpenAnalysis, onExport, cardView, { cardView = it })
+    // Phones keep the deck's first problem and the view switch above the list.
+    if (!compact && deck.entries.isNotEmpty()) DeckTopBar(legality, onOpenAnalysis, cardView, { cardView = it })
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -781,20 +781,18 @@ private fun DeckList(
 }
 
 /**
- * The phone deck list's fixed top bar: Export and the card/list switch. Under it, the first legality
- * problem in words (UX rule I3), which opens Analysis.
+ * The phone deck list's fixed top bar: the card/list switch. Under it, the first legality
+ * problem in words (UX rule I3), which opens Analysis. Phones export from the deck library's menu.
  */
 @Composable
 private fun DeckTopBar(
     legality: DeckLegality,
     onOpenAnalysis: () -> Unit,
-    onExport: () -> Unit,
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp).glass(LockOnShapes.tile, strong = true).padding(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            GameButton("Export", onClick = onExport, style = GameButtonStyle.GHOST, icon = Icons.Default.Share, compact = true)
             Spacer(Modifier.weight(1f))
             CardViewButton(cardView, onCardView)
         }
