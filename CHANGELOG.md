@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.1 (2026-10-30)
+
+Base tokens stay out of decks.
+
+- **Axis** (T-037), a base token, no longer shows in the deck editor's card list. The official card list files it as a plain Base, so it now gets its own **Base token** type, which the Cards screen shows as a type chip.
+- If your installed card database has Axis as a Base, **Settings** offers the card database again. Installing it moves Axis to Base token.
+
 ## 1.9.0 (2026-10-30)
 
 A roomier phone deck editor.
