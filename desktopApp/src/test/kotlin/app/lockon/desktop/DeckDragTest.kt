@@ -70,7 +70,8 @@ class DeckDragTest {
             var time = 0L
             fun settle(frames: Int = 10) = repeat(frames) { Thread.sleep(40); time += 50_000_000L; scene.render(time) }
             fun shot(name: String) = File(out, "$name.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
-            settle(15)
+            // Past the boot screen, which shows for at least 2.5 s of real time.
+            settle(70)
             shot("deck-drag-before")
             // From the Beta box to the Testing folder in the rail, at this size and density.
             val from = Offset(800f, 440f)
