@@ -78,7 +78,7 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
   - Cards without artwork get a drawn placeholder in the same shape, so grids never shift when images load.
 - **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its colour band, level and type initial. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank.
 - **V8. Game deck-builder patterns.**
-  - **Deck cards:** the deck list shows each card small and whole, at its real shape, grouped by type. − ×count + and copy pips sit underneath. Desktop fits as many 104 dp cards as the panel holds, with 40 dp targets. Phones show 120 dp cards, three across, with 48 dp targets (R1).
+  - **Deck cards:** the deck list shows each card small and whole, at its real shape, grouped by type. − ×count + and copy pips sit underneath. Desktop fits as many 104 dp cards as the panel holds, with 40 dp targets. Phones show cards three across from about 390 dp, with 48 dp targets (R1).
   - **Deck strips** (as in Hearthstone) are the denser **List view**, a toggle in the stats strip. Each row has a glossy cost orb in the card's colour and the name over a crop of the art, fading in from the right. The side deck always uses strips, since its rows need the **To deck** action.
   - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal while filling, gold at the limit, and red past it.
   - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold when exactly full, and red when over. Nothing is drawn on the bar itself (K3).
