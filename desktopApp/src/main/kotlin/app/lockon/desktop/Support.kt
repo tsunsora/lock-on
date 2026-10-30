@@ -67,3 +67,12 @@ fun lanAddresses(): List<String> {
         .map { it.first }
         .distinct()
 }
+
+/** Logs how long after the process started each stage of launching was reached, for reports of slow starts. */
+object BootLog {
+    private val started = runCatching { java.lang.management.ManagementFactory.getRuntimeMXBean().startTime }.getOrDefault(System.currentTimeMillis())
+
+    fun mark(stage: String) {
+        org.slf4j.LoggerFactory.getLogger("LockOn").info("Launch: $stage at ${System.currentTimeMillis() - started} ms")
+    }
+}
