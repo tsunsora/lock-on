@@ -25,6 +25,7 @@ class AppUpdaterTest {
         val values = mutableMapOf<String, String>()
         override suspend fun get(key: String) = values[key]
         override suspend fun put(entry: MetaEntity) { values[entry.key] = entry.value }
+        override fun observe(key: String) = kotlinx.coroutines.flow.flowOf(values[key])
     }
     private val installs = mutableListOf<Pair<String, Boolean>>()
     private fun installer(platform: UpdatePlatform) = object : UpdateInstaller {
