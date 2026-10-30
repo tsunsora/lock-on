@@ -14,13 +14,13 @@ enum class CardColor(val label: String) {
 @Serializable
 enum class CardType(val label: String) {
     UNIT("Unit"), PILOT("Pilot"), COMMAND("Command"), BASE("Base"), RESOURCE("Resource"),
-    UNIT_TOKEN("Unit token"), EX_BASE("EX Base"), EX_RESOURCE("EX Resource");
+    UNIT_TOKEN("Unit token"), BASE_TOKEN("Base token"), EX_BASE("EX Base"), EX_RESOURCE("EX Resource");
 
     /** Resource cards live in the resource deck; everything else goes in the main deck. */
     val isResource: Boolean get() = this == RESOURCE
 
     /** Created during play, so they're listed with the cards but never go in a deck. */
-    val isToken: Boolean get() = this == UNIT_TOKEN || this == EX_BASE || this == EX_RESOURCE
+    val isToken: Boolean get() = this == UNIT_TOKEN || this == BASE_TOKEN || this == EX_BASE || this == EX_RESOURCE
 
     companion object {
         /** Takes the enum name or gcg-api's spelling ("UNIT TOKEN", "EX BASE"). */

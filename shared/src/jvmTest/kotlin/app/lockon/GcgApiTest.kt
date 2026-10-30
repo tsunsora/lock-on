@@ -100,6 +100,28 @@ class GcgApiTest {
         assertEquals(31, assertIs<CatalogUpdater.UpdateCheck.Available>(updater.checkCardDatabase()).version)
     }
 
+    private val baseToken = """{ "product_id": "T-037", "card_number": "T-037", "name": "Axis", "set_code": "GD06", "rarity": "C", "card_type": "BASE", "color": null }"""
+
+    @Test fun baseTokensListedAsBasesBecomeBaseTokens() {
+        val entries = GcgApi.parseCards(cards) + GcgApi.parseCards("[$baseToken]")
+        val axis = GcgApi.toCatalog(GcgApi.parseManifest(manifest(30)), entries).catalog.cards.single { it.cardNumber == "T-037" }
+        assertEquals(CardType.BASE_TOKEN, axis.type)
+        assertTrue(axis.type.isToken)
+    }
+
+    @Test fun anOfficialListWithABaseTokenAsABaseIsOfferedAgain() = runTest {
+        repo.load(File(resources, "catalog/sample-catalog.json").readText(), File(resources, "rulesets/rulesets.json").readText())
+        val all = GcgApi.parseCards(cards) + GcgApi.parseCards("[$baseToken]")
+        val old = GcgApi.toCatalog(GcgApi.parseManifest(manifest(30)), all).catalog
+        repo.install(old.copy(cards = old.cards.map { if (it.cardNumber == "T-037") it.copy(type = CardType.BASE) else it }), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
+        val updater = CatalogUpdater(repo, decks, fetch = { mapOf(GcgApi.MANIFEST_URL to manifest(30), GcgApi.CARDS_URL to "[${cards.trim().removePrefix("[").removeSuffix("]")}, $baseToken]").getValue(it) })
+
+        assertIs<CatalogUpdater.UpdateCheck.Available>(updater.checkCardDatabase(), "same run, but Axis was converted as a base")
+        updater.install(updater.latestCardDatabase())
+        assertEquals(CardType.BASE_TOKEN, repo.cards.value.getValue("T-037").type)
+        assertIs<CatalogUpdater.UpdateCheck.UpToDate>(updater.checkCardDatabase())
+    }
+
     @Test fun anOfficialListWithoutTokensIsOfferedAgain() = runTest {
         repo.load(File(resources, "catalog/sample-catalog.json").readText(), File(resources, "rulesets/rulesets.json").readText())
         val withoutTokens = GcgApi.parseCards(cards).filter { CardType.parse(it.cardType)?.isToken != true }

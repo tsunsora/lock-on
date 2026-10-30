@@ -65,6 +65,17 @@ object GcgApi {
     /** Summary of what conversion left out, for the preview. */
     data class Converted(val catalog: CatalogFile, val skippedUnknown: Int)
 
+    /**
+     * gcg-api files base tokens (T-037 Axis) as plain bases; a T- number is always a token, so those
+     * become Base tokens and stay out of decks.
+     */
+    private fun cardType(entry: Entry): CardType {
+        val type = CardType.parse(entry.cardType)!!
+        return if (type == CardType.BASE && isTokenNumber(entry.cardNumber)) CardType.BASE_TOKEN else type
+    }
+
+    fun isTokenNumber(cardNumber: String): Boolean = cardNumber.startsWith("T-")
+
     fun toCatalog(manifest: Manifest, entries: List<Entry>): Converted {
         // Tokens (Unit tokens, EX Base, EX Resource) are kept for the card list; decks leave them out.
         val (playable, unknown) = entries.partition { CardType.parse(it.cardType) != null }
@@ -75,7 +86,7 @@ object GcgApi {
             Card(
                 cardNumber = number,
                 name = base.name,
-                type = CardType.parse(base.cardType)!!,
+                type = cardType(base),
                 colors = listOfNotNull(base.color?.let { CardColor.parse(it) }),
                 level = base.level,
                 cost = base.cost,
