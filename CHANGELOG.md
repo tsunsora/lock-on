@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.3 (2026-10-30)
+
+The desktop window remembers being maximised.
+
+- **Windows:** close Lock On maximised and it opens maximised next time.
+- **Windows:** updates no longer bring back a desktop shortcut you deleted, or add a second one beside one you renamed. This takes effect from the update after this one, since the old version runs this update's installer.
+
 ## 1.9.2 (2026-10-30)
 
 Decks drop their tags.
