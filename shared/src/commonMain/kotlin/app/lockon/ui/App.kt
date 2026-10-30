@@ -572,9 +572,8 @@ private fun LevelBadge() {
     val accent = Accent
     Box(
         Modifier.size(64.dp).shadow(10.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-            // Solid underneath, so the plate behind never shows through the glass. A lifted tone rather than
-            // the page's own, so the badge reads as lit glass instead of a hole in the bar.
-            .background(scheme.surfaceContainerHighest, CircleShape).glass(CircleShape, strong = true)
+            // Solid underneath, so the plate behind never shows through the glass.
+            .background(scheme.background, CircleShape).glass(CircleShape, strong = true)
             .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent), endX = size.width * 0.7f)) },
         contentAlignment = Alignment.Center,
     ) {

@@ -106,7 +106,7 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
 - **V7. Decoration is never the only signal.**
   - **The sky:** a gradient with soft colour glows, a diagonal beam of light, bokeh, and a few fixed sparkles. Twilight adds stars.
   - **Sparkles** mark headings, the selected destination and celebration.
-  - **The Lock On mark:** a bold targeting reticle with a center dot, all in one colour. The app icon is flat: the mark in white on a solid tile of the twilight navy, with no gradients, glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
+  - **The Lock On mark:** a bold targeting reticle with a center dot, all in one colour. The app icon is flat: the mark in white on a tile of bright navy with a clear diagonal gradient from #4C66C0 at the top right to #1F2C5E at the bottom left, with no glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
   - **Yellow-and-black caution stripes** are reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
   - All of these are original shapes, not official logos or artwork.
 
