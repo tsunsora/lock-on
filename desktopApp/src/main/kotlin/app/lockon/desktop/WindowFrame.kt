@@ -243,8 +243,7 @@ internal fun BoxScope.TopResizeEdge(window: Window) {
 }
 
 /**
- * Minimise, maximise or restore, and close, in a small glass capsule matching the navigation pill
- * (UX rules N5, V9). Each is labelled for screen readers and has a tooltip (I5). Close turns red on
+ * Minimise, maximise or restore, and close, bare on the sky beside the navigation pill (UX rules N5, V9). Each is labelled for screen readers and has a tooltip (I5). Close turns red on
  * hover, as Windows' does, so it is never pressed by mistake for its neighbour.
  */
 @Composable
@@ -255,18 +254,11 @@ internal fun WindowControls(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val shade = glassColors().shade
     val compact = LocalChromeHeight.current < PillNavHeight
     Row(
         modifier
-            .shadow(10.dp, PillShape, ambientColor = shade, spotColor = shade)
-            .clip(PillShape)
-            // The navigation pill's own fill and hairline, so the two read as a pair.
-            .background(if (isTwilight()) scheme.surfaceContainerHigh.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.9f))
-            .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), PillShape)
-            // The pill's height and inset, and buttons the size of its unselected items, so the two
-            // capsules sit as one row. Round, icon-only buttons rank them below the labelled destinations.
+            // The pill's height and inset, and buttons the size of its unselected items, so the
+            // controls sit in one row with it. Round, icon-only buttons rank them below the labelled destinations.
             .height(LocalChromeHeight.current)
             .padding(horizontal = if (compact) 4.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -1221,11 +1221,11 @@ fun PillNavBar(
     val sliding = labels && placed
     Row(
         modifier
-            .graphicsLayer { this.shape = shape; shadowElevation = 16.dp.toPx(); ambientShadowColor = Color.Black.copy(alpha = 0.3f); spotShadowColor = Color.Black.copy(alpha = 0.3f) }
+            .graphicsLayer { this.shape = shape; shadowElevation = 16.dp.toPx(); ambientShadowColor = Color.Black.copy(alpha = 0.15f); spotShadowColor = Color.Black.copy(alpha = 0.15f) }
             .clip(shape)
-            // Somewhat transparent: colour and shape show through, but there is no backdrop blur on
-            // every platform, so it stays opaque enough that text underneath never competes.
-            .background(if (twilight) scheme.surfaceContainerHigh.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.9f))
+            // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
+            // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
+            .background((if (twilight) scheme.surfaceContainerHigh else Color.White).copy(alpha = if (labels) 0.2f else 0.72f))
             .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
             .height(PillNavHeight)
             .padding(horizontal = 8.dp, vertical = 4.dp)
