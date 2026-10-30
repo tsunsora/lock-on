@@ -11,6 +11,9 @@ import app.lockon.ui.components.FloatingPillNav
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.navClearance
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import app.lockon.ui.components.BottomItem
 import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.ProgressGauge
@@ -59,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -856,6 +860,7 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
     val artAlpha = if (wide) 0.3f else 0.55f
     // A frosted strip the full width of the window, so the sky shows through it and the floating
     // navigation sits over its ends. The cover art fades in from the right through an alpha mask.
+    // On phones it reaches up under the status bar; only the header clears it.
     Box(Modifier.fillMaxWidth().clipToBounds().background(glassFill).shineSweep(locked)) {
         Box(Modifier.matchParentSize()) {
             Box(
@@ -871,7 +876,7 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
                 }
             }
         }
-        Column { content() }
+        Column(Modifier.windowInsetsPadding(ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top))) { content() }
     }
 }
 

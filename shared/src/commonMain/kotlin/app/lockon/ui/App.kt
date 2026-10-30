@@ -44,6 +44,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -75,6 +77,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -306,6 +309,7 @@ fun LockOnApp(
             val caption = if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else CaptionHeight
             SkyBackground(if (chrome != null) chrome.dragArea(Modifier.fillMaxSize(), caption) else Modifier.fillMaxSize()) {
             var controlsWidth by remember { mutableStateOf(0.dp) }
+            val statusBarInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top)
             Scaffold(
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground,
@@ -313,7 +317,8 @@ fun LockOnApp(
                 snackbarHost = { SnackbarHost(snackbars, Modifier.padding(bottom = if (wide) 0.dp else navClearance() - 12.dp)) },
                 // Desktop navigation floats over each screen's header (below); phones keep it at the
                 // bottom, in thumb reach (UX rule N5).
-
+                // Screens clear the status bar themselves, so the deck banner's art can reach under it.
+                contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
             ) { padding ->
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     Box(Modifier.fillMaxSize()) {
@@ -321,7 +326,7 @@ fun LockOnApp(
                         // Tabs are built once and kept: switching only shows a screen that's already laid
                         // out, with its cards drawn. They fade through each other (UX rule V5).
                         KeptScreens(Tab.entries, if (state.current == null) state.tab else null, state.booted) { tab ->
-                            Column(Modifier.fillMaxSize()) {
+                            Column(Modifier.fillMaxSize().windowInsetsPadding(statusBarInsets)) {
                                 when (tab) {
                                     Tab.DECKS -> DeckLibraryScreen(container, state, files)
                                     Tab.CARDS -> CardBrowserScreen(container, state, wide)
@@ -364,7 +369,7 @@ fun LockOnApp(
                             },
                             label = "conflict",
                         ) { conflict ->
-                            if (conflict != null) Box(Modifier.padding(top = LocalTopBand.current.height)) {
+                            if (conflict != null) Box(Modifier.windowInsetsPadding(statusBarInsets).padding(top = LocalTopBand.current.height)) {
                                 ConflictScreen(container, state, conflict.deckId, wide)
                             }
                         }
