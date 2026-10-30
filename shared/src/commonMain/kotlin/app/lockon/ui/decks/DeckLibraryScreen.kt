@@ -10,6 +10,7 @@ import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.fadeEnd
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.MenuChip
 import app.lockon.ui.components.GameDialog
 
 import androidx.compose.foundation.clickable
@@ -226,12 +227,6 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             Box {
                 GlassIconButton(Icons.Default.MoreVert, "More actions", { menu = true })
                 GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    // The open folder's actions, which phones have no rail or right-click to reach.
-                    (folderFilter as? FolderFilter.Named)?.let { open ->
-                        GameMenuItem("Rename folder", onClick = { menu = false; renameFolder(open.name) })
-                        GameMenuItem("Remove folder", onClick = { menu = false; removeFolder(open.name) }, icon = Icons.Default.Delete, danger = true)
-                        GameMenuDivider()
-                    }
                     GameMenuItem("Back up all decks", onClick = {
                         menu = false
                         scope.launch {
@@ -272,7 +267,9 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         )
                         if (wide) actions()
                     }
-                    // Folders (phones only; desktop has the rail) and tags share one scrolling row.
+                    // Folders (phones only; desktop has the rail) and tags share one scrolling row. Phones pick a
+                    // folder from one chip's menu, which also holds New folder and the open folder's actions; while
+                    // a deck is held the folders spread out as chips again, so it can be dropped on one.
                     val tags = list.orEmpty().flatMap { it.snapshot.tags }.distinct().sorted()
                     val showFolders = !wide && !list.isNullOrEmpty()
                     if (showFolders || tags.isNotEmpty()) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -281,7 +278,14 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (showFolders) {
+                            if (showFolders && drag.deck == null) {
+                                FolderMenuChip(
+                                    total = list.size, folders = folders, unfiled = unfiled, selected = folderFilter,
+                                    onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
+                                    onRename = renameFolder, onRemove = removeFolder,
+                                )
+                                if (tags.isNotEmpty()) Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                            } else if (showFolders) {
                                 FolderChips(
                                     folders = folders, unfiled = unfiled, showUnfiled = showUnfiled, selected = folderFilter, drag = drag,
                                     onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
@@ -299,7 +303,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     }
                     // The folder's own actions live on the folder (its menu in the rail, or right-click) and in
                     // More actions, so the header only names it; its count is on the folder too.
-                    (folderFilter as? FolderFilter.Named)?.let { selected ->
+                    // Phones name the open folder on its chip instead.
+                    if (wide) (folderFilter as? FolderFilter.Named)?.let { selected ->
                         SectionHeader(selected.name, Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp))
                     }
                     when {
@@ -593,6 +598,40 @@ private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove
 }
 
 /** Phone folder chips: the same choices as the desktop list, at the start of the chip row. */
+/** Phones' folder picker: one chip naming the open folder, whose menu lists them all with their counts. */
+@Composable
+private fun FolderMenuChip(
+    total: Int,
+    folders: List<Pair<String, Int>>,
+    unfiled: Int,
+    selected: FolderFilter,
+    onSelect: (FolderFilter) -> Unit,
+    onNewFolder: () -> Unit,
+    onRename: (String) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    val label = when (selected) {
+        FolderFilter.All -> "All decks"
+        FolderFilter.Unfiled -> "No folder · $unfiled"
+        is FolderFilter.Named -> "${selected.name} · ${folders.firstOrNull { it.first == selected.name }?.second ?: 0}"
+    }
+    MenuChip(selected = selected != FolderFilter.All, label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) }) { close ->
+        GameMenuItem("All decks · $total", onClick = { onSelect(FolderFilter.All); close() }, selected = selected == FolderFilter.All)
+        folders.forEach { (name, count) ->
+            GameMenuItem("$name · $count", onClick = { onSelect(FolderFilter.Named(name)); close() }, selected = selected == FolderFilter.Named(name))
+        }
+        if (unfiled > 0 && folders.isNotEmpty()) {
+            GameMenuItem("No folder · $unfiled", onClick = { onSelect(FolderFilter.Unfiled); close() }, selected = selected == FolderFilter.Unfiled)
+        }
+        GameMenuDivider()
+        GameMenuItem("New folder", onClick = { close(); onNewFolder() }, icon = Icons.Default.Add)
+        (selected as? FolderFilter.Named)?.let { open ->
+            GameMenuItem("Rename ${open.name}", onClick = { close(); onRename(open.name) })
+            GameMenuItem("Remove ${open.name}", onClick = { close(); onRemove(open.name) }, icon = Icons.Default.Delete, danger = true)
+        }
+    }
+}
+
 @Composable
 private fun FolderChips(
     folders: List<Pair<String, Int>>,
