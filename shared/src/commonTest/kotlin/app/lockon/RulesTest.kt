@@ -52,6 +52,15 @@ class DeckValidatorTest {
         assertTrue(result.errors.any { "5 copies" in it.text && it.cardNumber == "T-001" })
     }
 
+    @Test fun tokensCantBeInADeck() {
+        val token = Card("T-011", "Fatum-00", CardType.UNIT_TOKEN, setCode = "GD01")
+        val deck = legalDeck().let { it.copy(entries = it.entries + DeckEntry("T-011", 1)) }
+        val result = DeckValidator.validate(deck, cards + (token.cardNumber to token), rules)
+        assertTrue(result.errors.any { "token" in it.text && it.cardNumber == "T-011" }, result.messages.joinToString())
+        assertEquals(CardType.UNIT_TOKEN, CardType.parse("UNIT TOKEN"))
+        assertEquals(CardType.EX_RESOURCE, CardType.parse("EX_RESOURCE"))
+    }
+
     @Test fun resourcesHaveNoCopyLimitByDefault() {
         assertTrue(DeckValidator.validate(legalDeck(), cards, rules).errors.none { it.cardNumber == "T-900" })
         val limited = rules.copy(resourceMaxCopies = 4)
