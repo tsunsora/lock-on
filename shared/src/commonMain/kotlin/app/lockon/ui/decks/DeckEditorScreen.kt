@@ -65,6 +65,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -411,11 +412,12 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     Text("Add to", label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     PillTabs(listOf("Deck", "Side deck"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs)
                 }
-                // A wide card list fits the switch at the end of the search row, so the cards get
-                // that row's height back (UX rule N4, space goes to cards).
+                // A wide card list fits the switch at the end of the search row, and phones fold it into
+                // one chip at the start of the quick filter row, so the cards get that row's height
+                // back (UX rule N4, space goes to cards).
                 val inline = wide && maxWidth >= 720.dp
                 Column {
-                    if (!inline) Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (wide && !inline) Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         AddTo(Modifier.weight(1f))
                     }
                     CardSearchPanel(
@@ -423,6 +425,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         focusRequests = focusSeen[0], deckColors = deckColors, wide = wide,
                         controls = controls, scrollToTop = cardsToTop,
                         trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max), Modifier.padding(start = 14.dp)) }) else null,
+                        // One tap flips it; lit while cards go to the side deck, since that isn't the usual target.
+                        quickLead = if (wide) null else ({
+                            PillChip(
+                                selected = addToSide.value, onClick = { addToSide.value = !addToSide.value },
+                                label = { Text(if (addToSide.value) "Add to: Side deck" else "Add to: Deck") },
+                            )
+                            VerticalDivider(Modifier.height(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                        }),
                     )
                 }
             }
