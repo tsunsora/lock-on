@@ -458,9 +458,9 @@ fun CardDetailContent(
             }
         }
         if (inspecting) CardInspectDialog(card, shown, onDismiss = { inspecting = false })
-        // Stacked, a deck's printing choice joins the other deck controls instead of trailing below them,
-        // where on a phone it starts off screen. Side by side it stays under the art it changes.
-        val printingsInPanel = onChoosePrinting != null && actions != null && !sideBySide
+        // A deck's printing choice joins the other deck controls instead of trailing below them, where on
+        // a phone it starts off screen.
+        val printingsInPanel = onChoosePrinting != null && actions != null
         val printingStrip: @Composable () -> Unit = {
             if (printings.size > 1) {
                 val shownId = shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId
@@ -488,16 +488,22 @@ fun CardDetailContent(
                             printings.forEach { p -> tile(p, Modifier.width(104.dp)) }
                         }
                     } else {
-                        // A wrapping grid rather than a scrolling strip, so every printing is in view at once.
+                        // A grid rather than a scrolling strip, so every printing is in view at once. The rows
+                        // share the printings evenly, so six read as two rows of three rather than four and two.
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
                             val gap = 8.dp
-                            val columns = ((maxWidth + gap) / (84.dp + gap)).toInt().coerceAtLeast(1)
-                            val tileWidth = (maxWidth - gap * (columns - 1)) / columns
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap),
-                                maxItemsInEachRow = columns,
-                            ) {
-                                printings.forEach { p -> tile(p, Modifier.width(tileWidth)) }
+                            val fit = ((maxWidth + gap) / (76.dp + gap)).toInt().coerceAtLeast(1)
+                            val rows = (printings.size + fit - 1) / fit
+                            val columns = (printings.size + rows - 1) / rows
+                            val tileWidth = ((maxWidth - gap * (columns - 1)) / columns).coerceAtMost(112.dp)
+                            // Fixed rows rather than a FlowRow: tile widths rounding a pixel past the line made
+                            // it wrap a column early.
+                            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                                printings.chunked(columns).forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                                        row.forEach { p -> tile(p, Modifier.width(tileWidth)) }
+                                    }
+                                }
                             }
                         }
                     }
@@ -563,13 +569,16 @@ fun CardDetailContent(
             }
         }
         if (sideBySide) {
+            // The printings sit in the wider text column, where a row holds three or four of them, rather
+            // than stacking two to a row under the art and leaving the text column half empty.
             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                // Printings pick which art is shown, so they sit with the art.
-                Column(Modifier.width(imageWidth).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.width(imageWidth).verticalScroll(rememberScrollState())) {
                     image(Modifier.fillMaxWidth(), false)
-                    printingStrip()
                 }
-                info(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 12.dp))
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    info(Modifier.fillMaxWidth())
+                    if (!printingsInPanel) printingStrip()
+                }
             }
         } else if (!roomy) {
             // Phones: the card shrinks to a thumbnail beside its numbers, so the text and the deck
@@ -628,7 +637,7 @@ fun CardDetailDialog(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainer,
             // The cap comes first: after fillMaxWidth the width is already fixed and widthIn can't shrink it.
-            modifier = Modifier.widthIn(max = 880.dp).fillMaxWidth(0.94f).heightIn(max = maxHeight)
+            modifier = Modifier.widthIn(max = 1040.dp).fillMaxWidth(0.94f).heightIn(max = maxHeight)
                 .glassFrame(),
         ) {
             Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = 8.dp, bottom = 16.dp)) {
