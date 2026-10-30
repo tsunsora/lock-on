@@ -1,4 +1,4 @@
-"""Draws the Lock On mark (V-fin over a targeting reticle with a red crest) for desktop packaging.
+"""Draws the Lock On mark (a bold targeting reticle with a red crest on a yellow tile) for desktop packaging.
 
 Uses the same 108-unit geometry as LockOnMark in the shared UI and the Android launcher icon.
 Run from the repo root:  python scripts/make_icons.py
@@ -8,9 +8,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-NAVY = (13, 19, 32, 255)
 YELLOW = (255, 201, 77, 255)
-WHITE = (233, 236, 242, 255)
+NAVY = (20, 33, 61, 255)
 RED = (211, 53, 43, 255)
 
 
@@ -19,28 +18,24 @@ def draw(size: int) -> Image.Image:
     s = size * scale
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Navy tile with armour-plate cut corners (top-left and bottom-right).
-    cut = s * 0.1
-    d.polygon([(cut, 0), (s, 0), (s, s - cut), (s - cut, s), (0, s), (0, cut)], fill=NAVY)
-
-    # Map the 108-unit grid into the middle 76% of the tile.
-    inset = s * 0.12
-    k = (s - 2 * inset) / 108
+    k = s / 108
 
     def p(x, y):
-        return inset + x * k, inset + (y - 4) * k
+        return x * k, y * k
 
-    d.polygon([p(54, 52), p(20, 18), p(32, 18), p(54, 40), p(76, 18), p(88, 18)], fill=YELLOW)
-    r = 20 * k
-    cx, cy = p(54, 62)
-    w = max(1, round(6 * k))
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=WHITE, width=w)
-    for a, b in [((54, 34), (54, 46)), ((54, 78), (54, 92)), ((24, 62), (38, 62)), ((70, 62), (84, 62))]:
-        d.line([p(*a), p(*b)], fill=WHITE, width=w)
+    # Yellow tile with rounded corners.
+    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=24 * k, fill=YELLOW)
+
+    w = round(8 * k)
+    r = 26 * k
+    cx, cy = p(54, 54)
+    d.ellipse([cx - r - w / 2, cy - r - w / 2, cx + r + w / 2, cy + r + w / 2], outline=NAVY, width=w)
+    for a, b in [((54, 14), (54, 34)), ((54, 74), (54, 94)), ((14, 54), (34, 54)), ((74, 54), (94, 54))]:
+        d.line([p(*a), p(*b)], fill=NAVY, width=w)
         for end in (a, b):
             ex, ey = p(*end)
-            d.ellipse([ex - w / 2, ey - w / 2, ex + w / 2, ey + w / 2], fill=WHITE)
-    d.polygon([p(54, 54), p(60, 62), p(54, 70), p(48, 62)], fill=RED)
+            d.ellipse([ex - w / 2, ey - w / 2, ex + w / 2, ey + w / 2], fill=NAVY)
+    d.polygon([p(54, 42), p(63, 54), p(54, 66), p(45, 54)], fill=RED)
     return img.resize((size, size), Image.LANCZOS)
 
 
