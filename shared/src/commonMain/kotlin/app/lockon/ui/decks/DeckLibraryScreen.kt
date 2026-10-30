@@ -218,9 +218,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         Column(Modifier.fillMaxSize()) {
         // The title row sits in the band beside the floating navigation on wide windows (UX rule N5).
         // The deck actions. Wide windows put them beside the search bar, so the band keeps space for the
-        // title; phones keep them beside the title. New deck is the first slot of the list on both, and
-        // offers Import beside a blank deck. Rarely used actions sit in a menu.
+        // title; phones keep Import beside the title and New deck in the thumb zone. Rarely used actions
+        // sit in a menu.
         val actions = @Composable {
+            if (wide) GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add, compact = true)
+            GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY, compact = true)
             var menu by remember { mutableStateOf(false) }
             Box {
                 GlassIconButton(Icons.Default.MoreVert, "More actions", { menu = true })
@@ -330,17 +332,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             LazyVerticalGrid(
                                 state = gridState,
                                 columns = GridCells.Adaptive(460.dp),
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + LocalNavClearance.current),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp + LocalNavClearance.current),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                // A slot ahead of the decks starts a new one, as in a game's deck list.
-                                item(key = "new-deck-slot") {
-                                    NewDeckSlot(
-                                        Modifier.animateItem(), compact = !wide,
-                                        onNew = { dialog = LibraryDialog.New }, onImport = { dialog = LibraryDialog.Import },
-                                    )
-                                }
                                 items(shown, key = { it.deckId }) { deck ->
                                     val colors = remember(deck, cards) {
                                         deck.snapshot.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
@@ -368,6 +363,12 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         }
                     }
                 }
+                // In thumb reach on phones (UX rule R3), and compact so it covers less of the last deck.
+                // Wide windows have it beside the search bar instead.
+                if (!wide) GameButton(
+                    "New", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 14.dp + LocalNavClearance.current),
+                )
             }
         }
         }
@@ -829,54 +830,6 @@ private fun DeckRow(
 
 private val DeckBoxHeight = 196.dp
 private val CompactDeckBoxHeight = 148.dp
-
-/** The empty deck slot: a dashed plate with a + that lights up on hover. It asks whether to start blank or import. */
-@Composable
-private fun NewDeckSlot(modifier: Modifier, compact: Boolean, onNew: () -> Unit, onImport: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    var menu by remember { mutableStateOf(false) }
-    val press = remember { MutableInteractionSource() }
-    val hovered by press.collectIsHoveredAsState()
-    val line = if (hovered) Accent else scheme.outline
-    Box(
-        // Phones get a short strip so the first decks stay in view.
-        modifier.fillMaxWidth().height(if (compact) 64.dp else DeckBoxHeight)
-            .hoverable(press)
-            .clip(LockOnShapes.panel)
-            .background(scheme.onSurface.copy(alpha = if (hovered) 0.06f else 0.025f))
-            .drawBehind {
-                // The panel's own rounded shape, dashed, so the slot reads as a box still to fill.
-                val inset = 0.75.dp.toPx()
-                drawRoundRect(
-                    line, Offset(inset, inset), Size(size.width - inset * 2, size.height - inset * 2), CornerRadius(22.dp.toPx()),
-                    style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 6.dp.toPx()))),
-                )
-            }
-            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = { menu = true }),
-        contentAlignment = Alignment.Center,
-    ) {
-        GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            GameMenuItem("Blank deck", onClick = { menu = false; onNew() }, icon = Icons.Default.Add)
-            GameMenuItem("Import deck list", onClick = { menu = false; onImport() })
-        }
-        val plus = @Composable {
-            val side = if (compact) 36.dp else 52.dp
-            Box(Modifier.size(side).clip(LockOnShapes.button).background(if (hovered) Accent else scheme.onSurface.copy(alpha = 0.08f)),
-                contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = if (hovered) OnAccent else scheme.onSurfaceVariant,
-                    modifier = Modifier.size(if (compact) 22.dp else 28.dp))
-            }
-        }
-        val label = @Composable {
-            Text("New deck", style = MaterialTheme.typography.titleMedium, color = if (hovered) scheme.onSurface else scheme.onSurfaceVariant)
-        }
-        if (compact) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { plus(); label() }
-        } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) { plus(); label() }
-        }
-    }
-}
 
 @Composable
 fun TextPromptDialog(
