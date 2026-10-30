@@ -227,6 +227,12 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             Box {
                 GlassIconButton(Icons.Default.MoreVert, "More actions", { menu = true })
                 GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    // The open folder's actions, which phones have no rail or right-click to reach.
+                    (folderFilter as? FolderFilter.Named)?.let { open ->
+                        GameMenuItem("Rename folder", onClick = { menu = false; renameFolder(open.name) })
+                        GameMenuItem("Remove folder", onClick = { menu = false; removeFolder(open.name) }, icon = Icons.Default.Delete, danger = true)
+                        GameMenuDivider()
+                    }
                     GameMenuItem("Back up all decks", onClick = {
                         menu = false
                         scope.launch {
@@ -286,12 +292,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         }
                         if (wide) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
                     }
+                    // The folder's own actions live on the folder (its menu in the rail, or right-click) and in
+                    // More actions, so the header only names it; its count is on the folder too.
                     (folderFilter as? FolderFilter.Named)?.let { selected ->
-                        val count = folders.firstOrNull { it.first == selected.name }?.second ?: 0
-                        SectionHeader(selected.name, Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp), readout = "$count") {
-                            GameButton("Rename", onClick = { renameFolder(selected.name) }, style = GameButtonStyle.GHOST, compact = true)
-                            GameButton("Remove folder", onClick = { removeFolder(selected.name) }, style = GameButtonStyle.GHOST, compact = true)
-                        }
+                        SectionHeader(selected.name, Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp))
                     }
                     when {
                         list == null -> Unit
@@ -487,8 +491,8 @@ private fun FolderRail(
         FolderItem("All decks", total, selected == FolderFilter.All, dropOver = false, Modifier) { onSelect(FolderFilter.All) }
         folders.forEach { (name, count) ->
             val spot = DeckDropSpot.Folder(name)
-            FolderContextMenu(name, onRename, onRemove) {
-                FolderItem(name, count, selected == FolderFilter.Named(name), over == spot, Modifier.deckDropSpot(drag, spot)) {
+            FolderContextMenu(name, onRename, onRemove) { openMenu ->
+                FolderItem(name, count, selected == FolderFilter.Named(name), over == spot, Modifier.deckDropSpot(drag, spot), onMenu = openMenu) {
                     onSelect(FolderFilter.Named(name))
                 }
             }
@@ -511,9 +515,13 @@ private fun FolderRail(
  * A folder in the rail. The selected one is a teal pill, like every other selected pill (UX rule
  * V3); the rest are bare text that tints on hover. The pill's shape alone marks it: no edge bar.
  * A deck held over it lights it the same way, so the drop target reads as the choice.
+ * A folder with [onMenu] swaps its count for a menu button while hovered, as sidebars do.
  */
 @Composable
-private fun FolderItem(label: String, count: Int, selected: Boolean, dropOver: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun FolderItem(
+    label: String, count: Int, selected: Boolean, dropOver: Boolean, modifier: Modifier,
+    onMenu: (() -> Unit)? = null, onClick: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -536,19 +544,30 @@ private fun FolderItem(label: String, count: Int, selected: Boolean, dropOver: B
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
             color = ink, modifier = Modifier.weight(1f))
-        Text("$count", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-            color = if (lit) OnAccent else scheme.onSurfaceVariant)
+        if (onMenu != null && hovered) {
+            Icon(
+                Icons.Default.MoreVert, contentDescription = "Folder actions", tint = ink,
+                modifier = Modifier.size(28.dp).clip(LockOnShapes.button).clickable(onClick = onMenu).padding(4.dp),
+            )
+        } else {
+            Text("$count", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                color = if (lit) OnAccent else scheme.onSurfaceVariant)
+        }
     }
 }
 
-/** Right-clicking a folder opens Rename and Remove folder where the pointer is. */
+/**
+ * Right-clicking a folder opens Rename and Remove folder where the pointer is. [content] gets a
+ * way to open the same menu from a button, which hangs it under the folder's end.
+ */
 @Composable
-private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove: (String) -> Unit, content: @Composable () -> Unit) {
+private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove: (String) -> Unit, content: @Composable (openMenu: () -> Unit) -> Unit) {
     var menuAt by remember { mutableStateOf<Offset?>(null) }
+    var width by remember { mutableStateOf(0) }
     var height by remember { mutableStateOf(0) }
     val density = LocalDensity.current
     Box(
-        Modifier.onSizeChanged { height = it.height }.pointerInput(Unit) {
+        Modifier.onSizeChanged { width = it.width; height = it.height }.pointerInput(Unit) {
             awaitPointerEventScope {
                 while (true) {
                     val event = awaitPointerEvent()
@@ -560,7 +579,7 @@ private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove
             }
         },
     ) {
-        content()
+        content { menuAt = Offset(width - with(density) { 180.dp.toPx() }, height.toFloat()) }
         val at = menuAt ?: Offset.Zero
         // The menu hangs from the item's bottom edge, so lift it back up to the click.
         GameMenu(
@@ -798,7 +817,7 @@ private fun DeckRow(
                 GameMenuItem("Move to folder", onClick = { menu = false; onMove() })
                 GameMenuItem("Edit tags", onClick = { menu = false; onTags() })
                 GameMenuItem("Duplicate", onClick = { menu = false; onDuplicate() })
-                GameMenuItem("Export list, image or sheet", onClick = { menu = false; onExport() })
+                GameMenuItem("Export deck", onClick = { menu = false; onExport() })
                 GameMenuDivider()
                 GameMenuItem("Delete", onClick = { menu = false; onDelete() }, icon = Icons.Default.Delete, danger = true)
             }

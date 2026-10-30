@@ -21,6 +21,7 @@ import app.lockon.update.UpdateInstaller
 import app.lockon.update.UpdatePlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.EncodedImageFormat
 import java.io.File
@@ -37,6 +38,7 @@ class UpdateCardScreenshotTest {
             val values = mutableMapOf<String, String>()
             override suspend fun get(key: String) = values[key]
             override suspend fun put(entry: MetaEntity) { values[entry.key] = entry.value }
+            override fun observe(key: String) = flowOf(values[key])
         },
         installer = object : UpdateInstaller {
             override val platform = platform

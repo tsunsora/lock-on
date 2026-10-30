@@ -66,6 +66,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -99,6 +101,7 @@ import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.PillChip
 import app.lockon.ui.components.PillSwitch
+import app.lockon.ui.components.PillSearchField
 import app.lockon.ui.components.PillTabs
 import app.lockon.ui.components.QrCodeView
 import app.lockon.ui.components.ReticleSpinner
@@ -483,13 +486,32 @@ private fun ChooseDecksDialog(
 ) {
     val sorted = remember(decks) { decks.sortedBy { it.snapshot.name.lowercase() } }
     var chosen by remember { mutableStateOf(preselected) }
+    var search by remember { mutableStateOf("") }
+    var listHeight by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
+    // Searching only hides decks: ones already ticked stay chosen while out of sight.
+    val shown = sorted.filter { deck ->
+        val q = search.trim()
+        deck.snapshot.name.contains(q, ignoreCase = true) || deck.snapshot.folder?.contains(q, ignoreCase = true) == true
+    }
     GameDialog(
         onDismissRequest = onDismiss,
         title = if (sendingTo != null) "Send to $sendingTo" else "Choose decks",
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                    sorted.forEach { deck ->
+                PillSearchField(
+                    search, { search = it }, placeholder = "Search decks or folders", modifier = Modifier.fillMaxWidth(),
+                    onClear = if (search.isEmpty()) null else ({ search = "" }),
+                )
+                // The list keeps the height it opened at, so the dialog doesn't re-centre and move the field while typing.
+                Column(
+                    Modifier.heightIn(min = listHeight, max = 360.dp)
+                        .onSizeChanged { with(density) { if (search.isEmpty()) listHeight = it.height.toDp() } }
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    if (shown.isEmpty()) Text("No decks match.", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
+                    shown.forEach { deck ->
                         val checked = deck.deckId in chosen
                         Row(
                             Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox) {
