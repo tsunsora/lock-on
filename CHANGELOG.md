@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.0 (2026-10-30)
+
+A new app icon, roomier card details on desktop, and lighter toasts.
+
+- A new **app icon**: a white crosshair with a center dot on a navy tile, on Windows, macOS and Android. The in-app Lock On mark uses the same center dot.
+- On desktop, the **card details** dialog is wider and lists printings beside the card text, in one row when they fit, instead of stacking them under the art.
+- **Toasts** are glass pills sized to their text, with the action as a ghost button.
+- The wide deck screen's header drops its Export button; Export stays in the deck panel's bar.
+
 ## 1.6.0 (2026-10-30)
 
 A test hand that fits on one screen, and folders and filters that fit on a phone.
