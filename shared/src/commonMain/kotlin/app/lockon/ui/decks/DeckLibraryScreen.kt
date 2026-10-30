@@ -139,7 +139,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 private sealed interface LibraryDialog {
     data object New : LibraryDialog
     data class Rename(val deck: DeckSummary) : LibraryDialog
-    data class Tags(val deck: DeckSummary) : LibraryDialog
     data class Move(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
     data class Delete(val deck: DeckSummary) : LibraryDialog
@@ -269,7 +268,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     }
                     // Phones' folders (desktop has the rail). They pick a folder from one chip's menu, flanked
                     // by New folder and the open folder's actions; while a deck is held the folders spread out
-                    // as chips again, so it can be dropped on one. There is no tag filter: a deck's tags show on it.
+                    // as chips again, so it can be dropped on one.
                     if (!wide && !list.isNullOrEmpty()) Row(
                         Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -340,7 +339,6 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                         showFolder = folderFilter == FolderFilter.All,
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                                         onRename = { dialog = LibraryDialog.Rename(deck) },
-                                        onTags = { dialog = LibraryDialog.Tags(deck) },
                                         onMove = { dialog = LibraryDialog.Move(deck) },
                                         onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated.") } },
                                         onExport = { dialog = LibraryDialog.Export(deck) },
@@ -379,14 +377,6 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         is LibraryDialog.Rename -> TextPromptDialog("Rename deck", "Deck name", d.deck.snapshot.name, confirm = "Rename", onDismiss = { dialog = null }) { name ->
             dialog = null
             if (name.isNotBlank()) scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(name = name.trim()), d.deck.headRevisionId) }
-        }
-        is LibraryDialog.Tags -> TextPromptDialog(
-            "Tags", "Comma-separated, e.g. tournament, blue-red", d.deck.snapshot.tags.joinToString(", "),
-            confirm = "Save", onDismiss = { dialog = null },
-        ) { text ->
-            dialog = null
-            val tags = text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-            scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(tags = tags), d.deck.headRevisionId) }
         }
         is LibraryDialog.Move -> MoveToFolderDialog(
             current = d.deck.snapshot.folder, folders = folders.map { it.first }, onDismiss = { dialog = null },
@@ -756,7 +746,6 @@ private fun DeckRow(
     showFolder: Boolean,
     onOpen: () -> Unit,
     onRename: () -> Unit,
-    onTags: () -> Unit,
     onMove: () -> Unit,
     onDuplicate: () -> Unit,
     onExport: () -> Unit,
@@ -823,13 +812,8 @@ private fun DeckRow(
                         Text("${record.winRate}% WIN", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface)
                     }
                     Text(
-                        // The record leads, so narrow tiles cut the edit time rather than the results.
-                        listOfNotNull(
-                            // "In" marks it as a folder, so a name like Testing doesn't read as the deck's state.
-                            deck.snapshot.folder?.takeIf { showFolder }?.let { "In $it" },
-                            deck.snapshot.tags.joinToString(" · ").ifBlank { null },
-                        // Narrow boxes show one detail beside the record, so nothing is cut mid-word.
-                        ).let { if (narrow) it.take(1) else it }.joinToString("  ·  "),
+                        // "In" marks it as a folder, so a name like Testing doesn't read as the deck's state.
+                        deck.snapshot.folder?.takeIf { showFolder }?.let { "In $it" }.orEmpty(),
                         style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                     )
@@ -843,7 +827,6 @@ private fun DeckRow(
             GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 GameMenuItem("Rename", onClick = { menu = false; onRename() })
                 GameMenuItem("Move to folder", onClick = { menu = false; onMove() })
-                GameMenuItem("Edit tags", onClick = { menu = false; onTags() })
                 GameMenuItem("Duplicate", onClick = { menu = false; onDuplicate() })
                 GameMenuItem("Export deck", onClick = { menu = false; onExport() })
                 GameMenuDivider()

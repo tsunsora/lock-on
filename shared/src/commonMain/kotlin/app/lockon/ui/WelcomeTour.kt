@@ -143,7 +143,7 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
                         TourStop.DECKS -> Feature(
                             GameIcons.Deck, "Decks", "Your decks live here. Create one, then tap + for each copy you want.",
                             "Each deck has Analysis, Test, Matches and Versions tabs: legality and curves, practice opening hands, a win–loss log and earlier versions to restore.",
-                            "Folders, tags and search keep a big collection tidy. Export a text list, a deck image or a registration sheet.",
+                            "Folders and search keep a big collection tidy. Export a text list, a deck image or a registration sheet.",
                         )
                         TourStop.CARDS -> Feature(
                             Icons.Default.Search, "Cards", "Search every card by name or text, and filter by color, type, level and cost.",
