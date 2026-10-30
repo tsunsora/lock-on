@@ -1225,7 +1225,7 @@ fun PillNavBar(
             .clip(shape)
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
-            .background((if (twilight) scheme.surfaceContainerHigh else Color.White).copy(alpha = if (labels) 0.2f else 0.72f))
+            .background((if (twilight) scheme.surfaceContainerHigh else Color.White).copy(alpha = if (labels) 0.2f else 0.94f))
             .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
             .height(PillNavHeight)
             .padding(horizontal = 8.dp, vertical = 4.dp)
