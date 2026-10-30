@@ -1,36 +1,18 @@
-"""Draws the Lock On app icon for desktop packaging, in the app's twilight theme: the Lock On mark
-(a targeting reticle with a red crest) in the twilight accent's teal, over a tile of the twilight
-sky with its teal and violet glows (Sky.kt).
+"""Draws the Lock On app icon for desktop packaging as a flat tile: the Lock On mark (a targeting
+reticle with a center dot) in white, on a solid tile of the twilight navy. No gradients, glows or
+shading, to match the Android launcher icon.
 
 Uses the same 108-unit geometry as LockOnMark in the shared UI and the Android launcher icon.
 Run from the repo root:  python scripts/make_icons.py
 """
 from pathlib import Path
 
-import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-SKY = [(0.0, (38, 52, 106)), (0.5, (25, 33, 63)), (1.0, (17, 23, 46))]  # TwilightSky
-TEAL_GLOW = (63, 198, 212)
-VIOLET_GLOW = (142, 107, 232)
-RING = np.array([94, 224, 230], np.float32)  # the twilight accent
-RING_LIGHT = np.array([158, 236, 240], np.float32)  # the accent lightened by 0.4, as in the badge
-CREST = (229, 72, 77, 255)
+TILE = (25, 33, 63, 255)  # #19213F, ic_launcher_background
+MARK = (255, 255, 255, 255)
 ARMS = [((54, 14), (54, 34)), ((54, 74), (54, 94)), ((14, 54), (34, 54)), ((74, 54), (94, 54))]
-
-
-def sky(s: int) -> Image.Image:
-    y, x = np.mgrid[0:s, 0:s].astype(np.float32) / s
-    rgb = np.zeros((s, s, 3), np.float32)
-    for (t0, c0), (t1, c1) in zip(SKY, SKY[1:]):
-        m = (y >= t0) & (y <= t1)
-        f = ((y - t0) / (t1 - t0))[..., None]
-        rgb[m] = (np.array(c0) * (1 - f) + np.array(c1) * f)[m]
-    for cx, cy, r, color, a in [(0.86, 0.02, 0.7, TEAL_GLOW, 0.32), (0.06, 0.95, 0.7, VIOLET_GLOW, 0.3)]:
-        k = (a * np.clip(1 - ((x - cx) ** 2 + (y - cy) ** 2) / (r * r), 0, 1) ** 2)[..., None]
-        rgb = rgb * (1 - k) + np.array(color) * k
-    return Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
 
 def reticle(d: ImageDraw.ImageDraw, p, k, width, fill):
@@ -49,35 +31,21 @@ def draw(size: int) -> Image.Image:
     scale = 4  # draw large, then downsample for smooth edges
     s = size * scale
     u = s / 108
-    img = sky(s)
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=24 * u, fill=TILE)
 
-    # The mark at 80%, so its arms keep clear of the tile's rounded corners.
-    f = 0.8
+    # The mark at 95%, leaving a margin between the arm tips and the tile's edges.
+    f = 0.95
     k = u * f
 
     def p(x, y):
         return (54 + (x - 54) * f) * u, (54 + (y - 54) * f) * u
 
-    mask = Image.new("L", (s, s), 0)
-    reticle(ImageDraw.Draw(mask), p, k, 8, 255)
-    # A soft teal glow behind the reticle, then the reticle shaded by angle like the badge's ring:
-    # light at 3 o'clock, full accent at 9.
-    halo = Image.new("RGBA", (s, s), tuple(int(v) for v in RING) + (0,))
-    halo.putalpha(mask.filter(ImageFilter.GaussianBlur(4 * u)).point(lambda a: a * 0.18))
-    img = Image.alpha_composite(img, halo)
-    y, x = np.mgrid[0:s, 0:s].astype(np.float32) + 0.5
-    c = s / 2
-    t = np.abs((np.degrees(np.arctan2(y - c, x - c)) + 360) % 360 - 180) / 180
-    teal = np.zeros((s, s, 4), np.uint8)
-    teal[..., :3] = (RING * (1 - t[..., None]) + RING_LIGHT * t[..., None]).astype(np.uint8)
-    teal[..., 3] = np.array(mask)
-    img = Image.alpha_composite(img, Image.fromarray(teal, "RGBA"))
-    ImageDraw.Draw(img).polygon([p(54, 42), p(63, 54), p(54, 66), p(45, 54)], fill=CREST)
-
-    # Round the tile's corners.
-    corners = Image.new("L", (s, s), 0)
-    ImageDraw.Draw(corners).rounded_rectangle([0, 0, s - 1, s - 1], radius=24 * u, fill=255)
-    img.putalpha(corners)
+    reticle(d, p, k, 8, MARK)
+    cx, cy = p(54, 54)
+    r = 8 * k
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=MARK)
     return img.resize((size, size), Image.LANCZOS)
 
 
