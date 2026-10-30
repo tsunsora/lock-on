@@ -69,8 +69,8 @@ class CatalogUpdater(
         }
         val converted = GcgApi.toCatalog(manifest, entries)
         val checked = catalog.validate(converted.catalog)
-        val note = "${converted.skippedTokens} token cards (EX Base, EX Resource, Unit tokens) are left out because they can't be put in a deck."
-        preview(checked.copy(warnings = checked.warnings + note), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
+        val note = "${converted.skippedUnknown} cards of a type Lock On doesn't know yet are left out.".takeIf { converted.skippedUnknown > 0 }
+        preview(checked.copy(warnings = checked.warnings + listOfNotNull(note)), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
     }
 
     sealed interface UpdateCheck {
@@ -83,7 +83,7 @@ class CatalogUpdater(
         val manifest = officialManifest()
         catalog.markUpdateChecked()
         val installed = catalog.info.value
-        val newer = installed?.catalogId != GcgApi.CATALOG_ID || manifest.run > installed.version
+        val newer = installed?.catalogId != GcgApi.CATALOG_ID || manifest.run > installed.version || convertedWithoutTokens()
         return if (newer) UpdateCheck.Available(manifest.run, manifest.cardCount, manifest.builtAt.take(10))
         else UpdateCheck.UpToDate(manifest.run)
     }
@@ -99,6 +99,10 @@ class CatalogUpdater(
         val result = runCatching { checkCardDatabase() }.getOrNull()
         if (result is UpdateCheck.Available) catalog.setUpdateAvailable("Card database update available")
     }
+
+    /** Official lists converted before tokens were kept have none, so the same version is worth downloading again. */
+    private fun convertedWithoutTokens(): Boolean =
+        catalog.info.value?.catalogId == GcgApi.CATALOG_ID && catalog.cards.value.values.none { it.type.isToken }
 
     private suspend fun officialManifest(): GcgApi.Manifest = try {
         GcgApi.parseManifest(fetchOrExplain(GcgApi.MANIFEST_URL))
@@ -125,7 +129,8 @@ class CatalogUpdater(
             origin = origin,
             url = url,
             isUpdate = installed?.catalogId == checked.file.catalogId,
-            isNewer = installed?.catalogId != checked.file.catalogId || checked.file.version > installed.version,
+            isNewer = installed?.catalogId != checked.file.catalogId || checked.file.version > installed.version ||
+                (origin == CatalogOrigin.GCG_API && convertedWithoutTokens()),
             missingFromDecks = used - numbers,
         )
     }

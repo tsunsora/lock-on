@@ -63,7 +63,8 @@ object DeckListFormat {
         printings: Map<String, List<Printing>> = emptyMap(),
     ): ParseResult {
         val problems = mutableListOf<String>()
-        val byName = cards.values.groupBy { it.name.lowercase() }
+        // Tokens share names with real cards (Zaku Ⅱ), and a list naming one means the card.
+        val byName = cards.values.filter { !it.type.isToken }.groupBy { it.name.lowercase() }
         val byPrinting = printings.values.flatten().associateBy { it.printingId.uppercase() }
         var name = defaultName
         var section = DeckSection.MAIN

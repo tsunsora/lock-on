@@ -41,6 +41,10 @@ object DeckValidator {
                 warn("${nameOf(number)} is not in the card catalog, so it cannot be fully checked.", number)
                 continue
             }
+            if (card.type.isToken) {
+                error("${nameOf(number)} is a token, made during play, and can't be put in a deck.", number)
+                continue
+            }
             if (section == DeckSection.MAIN && card.type.isResource) {
                 error("${nameOf(number)} is a resource card and belongs in the resource deck.", number)
             }

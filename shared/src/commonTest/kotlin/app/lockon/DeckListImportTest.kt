@@ -36,6 +36,13 @@ class DeckListImportTest {
         assertTrue(result.problems.isEmpty(), result.problems.toString())
     }
 
+    @Test fun aNameMeansTheCardNotTheTokenOfTheSameName() {
+        val token = Card("T-001", "Gundam", CardType.UNIT_TOKEN, setCode = "GD01")
+        val result = DeckListFormat.parse("4 Gundam", cards + (token.cardNumber to token))
+        assertEquals(4, result.snapshot.quantityOf("GD01-001", DeckSection.MAIN))
+        assertTrue(result.problems.isEmpty(), result.problems.toString())
+    }
+
     @Test fun aNameSharedByTwoCardsIsReportedNotGuessed() {
         val result = DeckListFormat.parse("4 Zaku II\n4 Gundam", cards)
         assertEquals(listOf("GD01-001"), result.snapshot.entries.map { it.cardNumber })

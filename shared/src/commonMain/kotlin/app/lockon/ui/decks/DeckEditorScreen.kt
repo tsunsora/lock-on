@@ -376,7 +376,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             )
         }
         // Resource cards stay out of the card list: the editor doesn't track the resource deck.
-        val addable = remember(cards) { cards.values.filter { !it.type.isResource } }
+        // Tokens are made during play, so they can't be added either.
+        val addable = remember(cards) { cards.values.filter { !it.type.isResource && !it.type.isToken } }
         // Copies by section and card number, looked up per card instead of scanning the deck.
         val counts = remember(deck) {
             deck.entries.groupBy { it.section }.mapValues { (_, entries) -> entries.groupingBy { it.cardNumber }.fold(0) { n, e -> n + e.quantity } }
