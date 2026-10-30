@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0 (2026-10-29)
+
+Hear when a sync brings changes, read card details on a phone without scrolling, and a twilight app icon.
+
+- After any sync that moved changes, auto-sync included, a short **snackbar** says what came and went, wherever you are. Syncs with nothing to move stay quiet.
+- **Card details on phones** put a smaller card beside its numbers, so the text and the deck controls fit on screen. Tap the card to see it full size.
+- **New deck** is a button again: beside the search bar on desktop, and the floating New button on phones, with Import beside the title.
+- The **deck search bar** always shows on desktop.
+- A **twilight app icon**: the teal Lock On crosshair and red crest on a twilight sky. Android supports themed icons.
+- A lighter, more see-through navigation bar, and window controls that sit straight on the sky.
+- The player card is now just a bold Lock On name plate, and the start-up screen has a new radar lock-on animation.
+
 ## 1.3.0 (2026-10-29)
 
 Send decks by folder, start a deck from the top of your library, and a new app icon.
