@@ -77,6 +77,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
 
         override fun cancelSend(deviceId: String) = outbox.cancel(deviceId)
         override fun answer(shareId: String, accept: Boolean) = inbox.answer(shareId, accept)
+        override fun dismiss(shareId: String) = inbox.dismiss(shareId)
     }
 
     fun start() {
