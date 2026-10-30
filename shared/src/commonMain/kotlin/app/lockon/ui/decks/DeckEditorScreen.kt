@@ -175,6 +175,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.rememberCoroutineScope
+import app.lockon.ui.components.fadeEnd
 
 private const val AUTOSAVE_DELAY_MS = 400L
 
@@ -319,9 +323,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val c = MaterialTheme.colorScheme
                         ColorPips(deckColors, size = 16.dp)
-                        // A tight band keeps the state and drops the detail; Analysis has the rest.
+                        // A tight band keeps the state and drops the detail; Analysis has the rest. Phones
+                        // drop the ruleset name too, so the stamp never gets cut off.
                         val tight = wide && !roomy
-                        if (legality.isLegal) Badge(if (tight) "Legal" else "Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
+                        if (legality.isLegal) Badge(if (!roomy) "Legal" else "Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
                         else Badge(if (tight) "Draft" else "Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
                     }
                 }
@@ -371,6 +376,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             DeckList(
                 deck, cards, ruleset, legality, modifier, compact = wide,
                 onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
+                onAddCards = if (wide) null else ({ phoneTab = 1 }),
                 onCardClick = { detail = it },
                 onChange = { card, delta -> change(card, delta) },
                 onSideChange = { card, delta -> change(card, delta, DeckSection.SIDE) },
@@ -616,6 +622,8 @@ private fun DeckList(
     /** Slimmer strips for wide windows. */
     compact: Boolean,
     onOpenAnalysis: () -> Unit,
+    /** Opens the card list; phones only, where it is a separate tab. */
+    onAddCards: (() -> Unit)?,
     onCardClick: (GameCard) -> Unit,
     onChange: (GameCard, Int) -> Unit,
     onSideChange: (GameCard, Int) -> Unit,
@@ -634,12 +642,37 @@ private fun DeckList(
     var cardView by rememberSaveable { mutableStateOf(true) }
     val gap = if (compact) 8.dp else 6.dp
     val listState = rememberLazyListState()
+    val side = remember(deck, cards) {
+        deck.entries.filter { it.section == DeckSection.SIDE }.sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
+    }
+    val scope = rememberCoroutineScope()
     BoxWithConstraints(modifier) {
     // The end padding clears the scroll bar's lane so section counts don't sit under it.
-    val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 120.dp) + gap)).toInt().coerceAtLeast(2)
+    // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
+    val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
+    // Where each section's header sits in the list, for the phone's jump bar. Mirrors the items below.
+    val jumps = buildList {
+        var index = (if (compact && deck.entries.isNotEmpty()) 1 else 0) + (if (deck.count(DeckSection.MAIN) == 0) 1 else 0)
+        for ((label, entries) in groups) {
+            add(SectionJump(label, entries.sumOf { it.quantity }, index))
+            index += 1 + if (cardView) (entries.size + columns - 1) / columns else entries.size
+        }
+        add(SectionJump("Side", side.sumOf { it.quantity }, index))
+    }
+    Column(Modifier.fillMaxSize()) {
+    // Phones keep the deck's sections, its first problem and the view switch above the list, so
+    // any part of a long deck is one tap away while building it.
+    if (!compact && deck.entries.isNotEmpty()) {
+        val curve = remember(deck, cards) { DeckAnalysis.stats(deck, cards).levelCurve }
+        DeckJumpBar(
+            legality, curve, jumps, onOpenAnalysis, cardView, { cardView = it },
+            onJump = { index -> scope.launch { listState.animateScrollToItem(index) } },
+        )
+    }
+    Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        if (deck.entries.isNotEmpty()) {
+        if (compact && deck.entries.isNotEmpty()) {
             // Whether the deck is legal and its level curve ride at the top of the list; the curve opens
             // Analysis, which has the counts too.
             item(key = "stats") {
@@ -662,16 +695,20 @@ private fun DeckList(
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
+                    if (onAddCards != null) GameButton("Add cards", onClick = onAddCards, icon = Icons.Default.Add, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         } else if (deck.count(DeckSection.MAIN) == 0) {
             item(key = "empty-main") {
-                Text(
-                    "Add Units, Pilots, Commands and Bases from the card list.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Add Units, Pilots, Commands and Bases from the card list.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (onAddCards != null) GameButton("Add cards", onClick = onAddCards, style = GameButtonStyle.GHOST, compact = true)
+                }
             }
         }
         for ((label, entries) in groups) {
@@ -716,8 +753,6 @@ private fun DeckList(
                 }
             }
         }
-        val side = deck.entries.filter { it.section == DeckSection.SIDE }
-            .sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
         item(key = "side-header") {
             SectionHeader(
                 "Side deck", Modifier.padding(start = 6.dp, end = 6.dp, top = 24.dp),
@@ -765,6 +800,53 @@ private fun DeckList(
         }
     }
     VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
+    }
+    }
+    }
+}
+
+/** A section of the deck list as the jump bar shows it: its name, its copies and its header's index. */
+private class SectionJump(val label: String, val copies: Int, val index: Int)
+
+/**
+ * The phone deck list's fixed top bar: the level curve (opens Analysis), a chip per section that
+ * scrolls the list to it, and the card/list switch. Under it, the first legality problem in words
+ * (UX rule I3), which also opens Analysis.
+ */
+@Composable
+private fun DeckJumpBar(
+    legality: DeckLegality,
+    curve: List<Pair<Int, Int>>,
+    jumps: List<SectionJump>,
+    onOpenAnalysis: () -> Unit,
+    cardView: Boolean,
+    onCardView: (Boolean) -> Unit,
+    onJump: (Int) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp).glass(LockOnShapes.tile, strong = true).padding(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MiniCurve(curve, onOpenAnalysis)
+            Row(
+                Modifier.weight(1f).fadeEnd(24.dp).horizontalScroll(rememberScrollState()).padding(end = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                jumps.forEach { jump ->
+                    PillChip(selected = false, onClick = { onJump(jump.index) }, label = { Text("${jump.label} ${jump.copies}") })
+                }
+            }
+            PillChip(selected = false, onClick = { onCardView(!cardView) }, label = { Text(if (cardView) "List" else "Cards") },
+                modifier = Modifier.padding(start = 4.dp))
+        }
+        legality.errors.firstOrNull()?.let { first ->
+            Text(
+                if (legality.errors.size == 1) first.text else "${first.text} (+${legality.errors.size - 1} more)",
+                style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth().clip(LockOnShapes.button).clickable(onClickLabel = "Open analysis", onClick = onOpenAnalysis)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
     }
 }
 
@@ -877,10 +959,6 @@ private fun MiniCurve(curve: List<Pair<Int, Int>>, onOpen: () -> Unit) {
 }
 
 /**
- * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3): Deck, Add,
- * Analysis and Test, with Matches and Versions under More so the bar keeps to five items.
- */
-/**
  * The divider between the card list and the deck: drag to resize, double-click to reset. A pill grip
  * sits in the gap, and lights up in the accent with a soft glow while hovered or dragged.
  */
@@ -925,6 +1003,11 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
     }
 }
 
+/**
+ * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3). Building the deck
+ * comes first, so the bar holds only Deck and Add cards; Analysis, Test, Matches and Versions sit
+ * under More, which takes the name and icon of whichever of them is open.
+ */
 @Composable
 private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
     var more by remember { mutableStateOf(false) }
@@ -932,17 +1015,23 @@ private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
         FloatingPillNav(
             listOf(
                 BottomItem("Deck") { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                BottomItem("Add") { Icon(Icons.Default.Add, contentDescription = null) },
-                BottomItem("Analysis") { Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                BottomItem("Test") { Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                BottomItem(when (tab) { 4 -> "Matches"; 5 -> "Versions"; else -> "More" }) { Icon(Icons.Default.MoreVert, contentDescription = null) },
+                BottomItem("Add cards") { Icon(Icons.Default.Add, contentDescription = null) },
+                BottomItem(when (tab) { 2 -> "Analysis"; 3 -> "Test"; 4 -> "Matches"; 5 -> "Versions"; else -> "More" }) {
+                    when (tab) {
+                        2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
+                        3 -> Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp))
+                        else -> Icon(Icons.Default.MoreVert, contentDescription = null)
+                    }
+                },
             ),
-            selected = minOf(tab, 4),
-            onSelect = { if (it == 4) more = true else onSelect(it) },
+            selected = minOf(tab, 2),
+            onSelect = { if (it == 2) more = true else onSelect(it) },
         )
         // Anchored over the right end of the pill, where More sits, so the menu opens above it.
-        Box(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.2f)) {
+        Box(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.3f)) {
             GameMenu(expanded = more, onDismissRequest = { more = false }) {
+                GameMenuItem("Analysis", onClick = { more = false; onSelect(2) }, selected = tab == 2)
+                GameMenuItem("Test hand", onClick = { more = false; onSelect(3) }, selected = tab == 3)
                 GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, selected = tab == 4)
                 GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, selected = tab == 5)
             }
