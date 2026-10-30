@@ -26,24 +26,19 @@ import app.lockon.ui.theme.SuitColors
 // never carry meaning on their own.
 
 /**
- * The Lock On mark: a V-fin over a targeting reticle with a red crest. Drawn on a 108-unit grid
- * shared with the Android launcher icon, so both stay identical.
+ * The Lock On mark: a bold targeting reticle with a red crest. Drawn on a 108-unit grid shared
+ * with the Android launcher icon, so both stay identical.
  */
 @Composable
 fun LockOnMark(modifier: Modifier = Modifier, size: Dp = 32.dp, reticleColor: Color = SuitColors.armorWhite) {
     Canvas(modifier.size(size)) {
         scale(this.size.minDimension / 108f, pivot = Offset.Zero) {
-            val fin = Path().apply {
-                moveTo(54f, 52f); lineTo(20f, 18f); lineTo(32f, 18f); lineTo(54f, 40f)
-                lineTo(76f, 18f); lineTo(88f, 18f); close()
+            drawCircle(reticleColor, radius = 26f, center = Offset(54f, 54f), style = Stroke(8f))
+            listOf(Offset(54f, 14f) to Offset(54f, 34f), Offset(54f, 74f) to Offset(54f, 94f),
+                Offset(14f, 54f) to Offset(34f, 54f), Offset(74f, 54f) to Offset(94f, 54f)).forEach { (a, b) ->
+                drawLine(reticleColor, a, b, strokeWidth = 8f, cap = StrokeCap.Round)
             }
-            drawPath(fin, SuitColors.vFinYellow)
-            drawCircle(reticleColor, radius = 20f, center = Offset(54f, 62f), style = Stroke(6f))
-            listOf(Offset(54f, 34f) to Offset(54f, 46f), Offset(54f, 78f) to Offset(54f, 92f),
-                Offset(24f, 62f) to Offset(38f, 62f), Offset(70f, 62f) to Offset(84f, 62f)).forEach { (a, b) ->
-                drawLine(reticleColor, a, b, strokeWidth = 6f, cap = StrokeCap.Round)
-            }
-            val crest = Path().apply { moveTo(54f, 54f); lineTo(60f, 62f); lineTo(54f, 70f); lineTo(48f, 62f); close() }
+            val crest = Path().apply { moveTo(54f, 42f); lineTo(63f, 54f); lineTo(54f, 66f); lineTo(45f, 54f); close() }
             drawPath(crest, SuitColors.chestRed)
         }
     }
