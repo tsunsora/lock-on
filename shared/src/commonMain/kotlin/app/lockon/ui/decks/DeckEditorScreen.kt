@@ -569,25 +569,43 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             chosenPrinting = deck.entries.firstOrNull { it.cardNumber == card.cardNumber && it.section == section }?.printingId,
             onChoosePrinting = if (choosing) { id -> draft = deck.withQuantity(card.cardNumber, section, inDeck, id) } else null,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                DetailActionRow(section.label) {
+            BoxWithConstraints {
+                // Phones: the deck and side deck steppers share one row under small labels, and the
+                // buttons say less, so the panel takes half the height of a row per control.
+                val narrow = maxWidth < 360.dp
+                val deckStepper: @Composable () -> Unit = {
                     PlateStepper(inDeck, "copy", onMinus = { change(card, -1) }, onPlus = { change(card, 1) }, limit = copyLimit(card, ruleset))
                 }
                 // The side deck sits beside the deck; moving keeps the total and never checks rules (UX rule S4).
-                DetailActionRow("Side deck") {
+                val sideStepper: @Composable () -> Unit = {
                     PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
                 }
-                // The library shows the deck by this card instead of its highest-level Unit.
-                val canCover = inDeck > 0 || deck.coverCard == card.cardNumber
-                if (side > 0 || inDeck > 0 || canCover) {
-                    FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        when {
-                            side > 0 -> GameButton("Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
-                            inDeck > 0 -> GameButton("Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
+                Column(verticalArrangement = Arrangement.spacedBy(if (narrow) 2.dp else 6.dp)) {
+                    if (narrow) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DetailActionCell(section.label, Modifier.weight(1f), deckStepper)
+                            DetailActionCell("Side deck", Modifier.weight(1f), sideStepper)
                         }
-                        if (canCover) {
-                            val isCover = deck.coverCard == card.cardNumber
-                            GameButton(if (isCover) "Stop using as deck cover" else "Use as deck cover", onClick = { draft = deck.copy(coverCard = if (isCover) null else card.cardNumber) }, style = GameButtonStyle.GHOST, compact = true)
+                    } else {
+                        DetailActionRow(section.label, deckStepper)
+                        DetailActionRow("Side deck", sideStepper)
+                    }
+                    // The library shows the deck by this card instead of its highest-level Unit.
+                    val canCover = inDeck > 0 || deck.coverCard == card.cardNumber
+                    if (side > 0 || inDeck > 0 || canCover) {
+                        FlowRow(Modifier.padding(top = if (narrow) 0.dp else 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            when {
+                                side > 0 -> GameButton(if (narrow) "1 to deck" else "Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
+                                inDeck > 0 -> GameButton(if (narrow) "1 to side" else "Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
+                            }
+                            if (canCover) {
+                                val isCover = deck.coverCard == card.cardNumber
+                                val label = when {
+                                    narrow -> if (isCover) "Remove cover" else "Set as cover"
+                                    else -> if (isCover) "Stop using as deck cover" else "Use as deck cover"
+                                }
+                                GameButton(label, onClick = { draft = deck.copy(coverCard = if (isCover) null else card.cardNumber) }, style = GameButtonStyle.GHOST, compact = true)
+                            }
                         }
                     }
                 }
@@ -831,6 +849,16 @@ private fun DetailActionRow(label: String, control: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f).padding(end = 12.dp))
+        control()
+    }
+}
+
+/** [DetailActionRow] for phones: the label sits over its control, so two fit side by side. */
+@Composable
+private fun DetailActionCell(label: String, modifier: Modifier, control: @Composable () -> Unit) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, modifier = Modifier.padding(start = 8.dp))
         control()
     }
 }
