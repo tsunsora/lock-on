@@ -364,6 +364,7 @@ fun GameButton(
  * An icon-only action as a round glass button, the same 44 dp as [GameButton] and the search field,
  * so a header row of mixed controls lines up (UX rule V1). [label] is read out and is the tooltip's
  * text on desktop (I5). Over art, [onArt] makes the disc a little more solid so the icon stays clear.
+ * [compact] shrinks it to a chip's height, for a row of chips.
  */
 @Composable
 fun GlassIconButton(
@@ -372,6 +373,7 @@ fun GlassIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.onSurface,
+    compact: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
@@ -385,7 +387,7 @@ fun GlassIconButton(
     val glyph by animateColorAsState(if (hovered) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
     Box(
         modifier
-            .size(ControlSize)
+            .size(if (compact) 32.dp else ControlSize)
             .graphicsLayer { scaleX = squish; scaleY = squish }
             .clip(CircleShape)
             .background(disc)
@@ -395,7 +397,7 @@ fun GlassIconButton(
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(if (compact) 18.dp else 22.dp))
     }
 }
 
