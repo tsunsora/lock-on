@@ -162,6 +162,52 @@ class ScreenshotTest {
         }
     }
 
+    /**
+     * The Test tab's panel on its own over the sky, at the size it gets on a phone (with the nav pill's
+     * clearance) or in the desktop editor's deck panel. [taps] are in pixels.
+     */
+    private fun shootHandPanel(name: String, width: Int, height: Int, dark: Boolean, phone: Boolean, taps: List<androidx.compose.ui.geometry.Offset> = emptyList()) {
+        val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        ImageComposeScene(width, height, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = dark) {
+                app.lockon.ui.components.SkyBackground(androidx.compose.ui.Modifier.fillMaxSize()) {
+                    androidx.compose.runtime.CompositionLocalProvider(app.lockon.ui.components.LocalNavClearance provides if (phone) 84.dp else 0.dp) {
+                        app.lockon.ui.decks.SampleHandPanel(deck, container.catalog.cards.value, androidx.compose.ui.Modifier.fillMaxSize())
+                    }
+                }
+            }
+        }.use { scene ->
+            var time = 0L
+            fun settle(frames: Int) = repeat(frames) { Thread.sleep(120); time += 100_000_000L; scene.render(time) }
+            settle(10)
+            for (tap in taps) {
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse,
+                    buttons = androidx.compose.ui.input.pointer.PointerButtons(isPrimaryPressed = true), button = androidx.compose.ui.input.pointer.PointerButton.Primary)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse,
+                    button = androidx.compose.ui.input.pointer.PointerButton.Primary)
+                settle(10)
+            }
+            File(out, "$name.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        }
+    }
+
+    @Test fun renderTestHandPanel() {
+        val keep = androidx.compose.ui.geometry.Offset(60f, 927f)
+        val keepDesktop = androidx.compose.ui.geometry.Offset(60f, 992f)
+        for (dark in listOf(true, false)) {
+            val theme = if (dark) "dark" else "light"
+            shootHandPanel("panel-phone-open-$theme", 600, 1095, dark, phone = true)
+            shootHandPanel("panel-phone-kept-$theme", 600, 1095, dark, phone = true, taps = listOf(keep, keep))
+            shootHandPanel("panel-desktop-open-$theme", 740, 1040, dark, phone = false)
+            shootHandPanel("panel-desktop-kept-$theme", 740, 1040, dark, phone = false, taps = listOf(keepDesktop, keepDesktop))
+            shootHandPanel("panel-phone-drawn-$theme", 600, 1095, dark, phone = true, taps = listOf(keep, keep, keep, keep))
+            // Reveal sits at the end of the Shields header.
+            shootHandPanel("panel-phone-revealed-$theme", 600, 1095, dark, phone = true, taps = listOf(keep, keep, androidx.compose.ui.geometry.Offset(518f, 672f)))
+            shootHandPanel("panel-desktop-revealed-$theme", 740, 1040, dark, phone = false, taps = listOf(keepDesktop, keepDesktop, androidx.compose.ui.geometry.Offset(658f, 728f)))
+        }
+    }
+
     /** Sends part way, waiting and done, and a receive saving then saved. */
     @Test fun renderSendAndReceive() {
         val decks = listOf(
@@ -201,6 +247,9 @@ class ScreenshotTest {
         shoot("phone-add-cards", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
         shoot("phone-side-deck", 600, 3200) { open(Screen.DeckEditor(deckId)) }
         shoot("phone-test-hand", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("light-phone-test-hand", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("desktop-test-hand", 1980, 1290) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("light-desktop-test-hand", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId, startTab = 3)) }
         shoot("phone-matches", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         shoot("phone-versions", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 5)) }
         shoot("light-desktop-editor", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId)) }
@@ -570,3 +619,4 @@ private class FrameThreadDispatcher : kotlinx.coroutines.CoroutineDispatcher() {
         while (true) (queue.poll() ?: return).run()
     }
 }
+

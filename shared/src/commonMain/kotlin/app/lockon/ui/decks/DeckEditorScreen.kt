@@ -367,7 +367,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
 
         // The wide deck panel's tab (Deck, Analysis, Test, Matches, Versions); phones use their own tab row.
-        var deckTab by rememberSaveable(deckId) { mutableStateOf(0) }
+        var deckTab by rememberSaveable(deckId) { mutableStateOf(if (startTab >= 2) startTab - 1 else 0) }
         var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
         // Kept for every deck, so the editor opens the way the person last arranged it.
         val split = remember { mutableFloatStateOf(DEFAULT_SPLIT) }
