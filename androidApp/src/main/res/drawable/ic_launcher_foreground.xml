@@ -1,33 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Lock On mark over the twilight sky: a teal reticle, shaded like the player card badge's
-     ring, with a red crest. Same 108-unit geometry as LockOnMark in the shared UI and the desktop
-     icon, scaled to stay inside the 66dp safe zone. -->
+<!-- The Lock On mark, flat: a white reticle with a white center dot. Same 108-unit geometry as
+     LockOnMark in the shared UI and the desktop icon, scaled to stay inside the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="0.72"
-        android:scaleY="0.72"
+        android:scaleX="0.75"
+        android:scaleY="0.75"
         android:pivotX="54"
         android:pivotY="54">
         <path
+            android:strokeColor="#FFFFFFFF"
             android:strokeWidth="8"
             android:strokeLineCap="round"
             android:fillColor="#00000000"
-            android:pathData="M54,28a26,26 0 1,1 0,52a26,26 0 1,1 0,-52zM54,14L54,34M54,74L54,94M14,54L34,54M74,54L94,54">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="sweep" android:centerX="54" android:centerY="54">
-                    <item android:offset="0" android:color="#FF9EECF0" />
-                    <item android:offset="0.5" android:color="#FF5EE0E6" />
-                    <item android:offset="1" android:color="#FF9EECF0" />
-                </gradient>
-            </aapt:attr>
-        </path>
+            android:pathData="M54,28a26,26 0 1,1 0,52a26,26 0 1,1 0,-52zM54,14L54,34M54,74L54,94M14,54L34,54M74,54L94,54" />
         <path
-            android:fillColor="#E5484D"
-            android:pathData="M54,42 L63,54 L54,66 L45,54 Z" />
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M54,46a8,8 0 1,1 0,16a8,8 0 1,1 0,-16z" />
     </group>
 </vector>
