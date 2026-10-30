@@ -120,7 +120,6 @@ import app.lockon.ui.components.CardThumb
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.Panel
 import app.lockon.ui.theme.LockOnShapes
-import app.lockon.ui.theme.SuitColors
 import app.lockon.ui.theme.cardColor
 import app.lockon.ui.components.CardArtwork
 import app.lockon.ui.components.CardBack
@@ -132,7 +131,6 @@ import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.PlateStepper
 import app.lockon.ui.components.glassFrame
-import app.lockon.ui.components.isTwilight
 import app.lockon.rules.DeckLegality
 import app.lockon.ui.components.glass
 import androidx.compose.foundation.background
@@ -333,9 +331,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(if (roomy) 20.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 104.dp))
-                        // A tight band drops the reticle: the Legal or Draft stamp says it in words (I4).
+                        // The Legal or Draft stamp says the deck's state in words (I4).
                         if (roomy) {
-                            LockReadout(legality.isLegal)
                             GameButton("Export", onClick = { exporting = true }, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
                         } else {
                             GlassIconButton(Icons.Default.Share, "Export deck", { exporting = true })
@@ -893,7 +890,7 @@ private fun DeckStatusBar(
     val scheme = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GameButton("Export", onClick = onExport, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
+            GameButton("Export", onClick = onExport, style = GameButtonStyle.GHOST, icon = Icons.Default.Share, compact = true)
             val first = legality.errors.firstOrNull()
             if (first == null) Spacer(Modifier.weight(1f)) else Text(
                 if (legality.errors.size == 1) first.text else "${first.text} (+${legality.errors.size - 1} more)",
@@ -983,20 +980,6 @@ private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
                 GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, selected = tab == 4)
                 GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, selected = tab == 5)
             }
-        }
-    }
-}
-
-/** The Lock On reticle with its state in words beside it, so the signature moment reads clearly. */
-@Composable
-private fun LockReadout(locked: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        LockIndicator(locked = locked, size = 52.dp)
-        Column(Modifier.padding(start = 4.dp)) {
-            Text(if (locked) "Locked on!" else "Not ready", style = MaterialTheme.typography.titleMedium,
-                color = if (!locked) MaterialTheme.colorScheme.onSurfaceVariant else if (isTwilight()) SuitColors.vFinYellow else MaterialTheme.colorScheme.primary)
-            Text(if (locked) "Tournament legal" else "Saved as a draft", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

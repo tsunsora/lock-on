@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,25 +25,30 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.rotateRad
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.lockon.ui.components.Accent
 import app.lockon.ui.components.Gold
 import app.lockon.ui.components.LocalReduceMotion
@@ -53,7 +59,6 @@ import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.theme.SuitColors
 import kotlin.math.PI
-import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -65,173 +70,190 @@ enum class BootStep(val label: String) {
 }
 
 /**
- * The launch screen: the Lock On mark under a slowly turning reticle while gunbits fly figure
- * eights around it, blade staves and wing pieces like Aerial's split-up shield, now and then firing
- * a short beam. It covers the app while the screens underneath fill in, so the first look at decks
- * and cards doesn't stutter. With reduced motion the bits hold still in formation.
+ * The launch screen: a targeting system locking on to the Lock On mark. A seeker reticle hunts
+ * across a radar field, catches the mark, closes its brackets on it and locks in V-fin yellow with
+ * a pulse, then lets go and hunts again. It covers the app while the screens underneath fill in,
+ * so the first look at decks and cards doesn't stutter. With reduced motion it holds the lock.
  */
 @Composable
 fun BootScreen(step: BootStep, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
     val reduce = LocalReduceMotion.current
     val loop = rememberInfiniteTransition(label = "boot")
-    // One shared clock; every bit's path is a whole number of turns per loop, so it never jumps.
+    // One shared clock; the hunt, the lock and the letting go are all fractions of one loop.
     val clock by loop.animateFloat(0f, 1f, infiniteRepeatable(tween(LOOP_MS, easing = LinearEasing)), label = "clock")
-    val time = { if (reduce) 0.12f else clock }
-    val beam = Accent
-    val trail = if (isTwilight()) SuitColors.teal else Accent
+    val time = { if (reduce) 0.82f else clock }
+    val scan = if (isTwilight()) SuitColors.teal else Accent
+    val ink = MaterialTheme.colorScheme.onSurface
+    val labels = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
     SkyBackground(
         modifier.fillMaxSize()
             // Nothing underneath takes a press while it boots.
             .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } },
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val t = time()
-            val reach = minOf(size.width, size.height * 1.4f) * 0.34f
-            Bits.forEach { bit -> drawBit(bit, t, center, reach, trail, beam) }
-        }
-        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(contentAlignment = Alignment.Center) {
-                Canvas(Modifier.size(176.dp)) {
-                    val turn = time() * 360f
-                    val ring = Stroke(3.dp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(18.dp.toPx(), 10.dp.toPx())))
-                    rotate(turn) { drawCircle(beam.copy(alpha = 0.55f), radius = size.minDimension / 2 - 4.dp.toPx(), style = ring) }
-                    rotate(-turn * 2) {
-                        val r = size.minDimension / 2 - 16.dp.toPx()
-                        repeat(4) { i ->
-                            rotate(i * 90f) { drawLine(Gold, Offset(center.x, center.y - r), Offset(center.x, center.y - r + 10.dp.toPx()), 3.dp.toPx(), StrokeCap.Round) }
-                        }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val reach = minOf(maxWidth, maxHeight * 1.4f) * 0.34f
+            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(contentAlignment = Alignment.Center) {
+                    // Sized to the mark but drawn well past its edges, so the field centres on the mark.
+                    Canvas(Modifier.size(176.dp)) {
+                        drawTargeting(time(), reach.toPx(), 62.dp.toPx(), scan, ink, labels, labelStyle)
                     }
-                }
-                Box(
-                    Modifier.size(124.dp).shadow(16.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-                        .clip(CircleShape).glass(CircleShape, strong = true),
-                    contentAlignment = Alignment.Center,
-                ) { LockOnMark(size = 84.dp, reticleColor = MaterialTheme.colorScheme.onSurface) }
-            }
-            Spacer(Modifier.height(20.dp))
-            Text("Lock On", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier.clip(CircleShape).glass(CircleShape).padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                BootStep.entries.forEach { s ->
-                    val done = s.ordinal < step.ordinal
-                    val now = s == step
                     Box(
-                        Modifier.size(width = if (now) 18.dp else 8.dp, height = 8.dp).clip(CircleShape)
-                            .background(if (done || now) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
-                    )
+                        Modifier.size(124.dp).shadow(16.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
+                            .clip(CircleShape).glass(CircleShape, strong = true),
+                        contentAlignment = Alignment.Center,
+                    ) { LockOnMark(size = 84.dp, reticleColor = MaterialTheme.colorScheme.onSurface) }
                 }
-                Spacer(Modifier.width(4.dp))
-                Text(step.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(20.dp))
+                Text("Lock On", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.clip(CircleShape).glass(CircleShape).padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    BootStep.entries.forEach { s ->
+                        val done = s.ordinal < step.ordinal
+                        val now = s == step
+                        Box(
+                            Modifier.size(width = if (now) 18.dp else 8.dp, height = 8.dp).clip(CircleShape)
+                                .background(if (done || now) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                        )
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    Text(step.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
         trailing?.let { Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { it() } }
     }
 }
 
-private const val LOOP_MS = 9_000
+/** One loop: hunt, close in, lock at [LOCK_AT], hold, let go. The first lock lands inside the boot screen's shortest showing. */
+private const val LOOP_MS = 3_400
+private const val LOCK_AT = 0.52f
 
-/**
- * One gunbit's flight: a Lissajous curve, [a] and [b] turns across and up per loop, offset by
- * [phase] so the bits never bunch up. [fireAt] is where in the loop it shoots. [stave] picks the
- * long blade over the short wing piece; Aerial's shield splits into both.
- */
-private class Bit(val a: Int, val b: Int, val phase: Float, val rx: Float, val ry: Float, val scale: Float, val fireAt: Float, val stave: Boolean = true)
-
-private val Bits = listOf(
-    Bit(1, 2, 0.00f, 1.00f, 0.62f, 1.00f, 0.20f),
-    Bit(1, 2, 0.50f, 1.00f, 0.62f, 1.00f, 0.70f),
-    Bit(2, 1, 0.15f, 0.78f, 0.80f, 1.00f, 0.45f, stave = false),
-    Bit(2, 3, 0.35f, 1.18f, 0.72f, 0.80f, 0.05f),
-    Bit(1, 1, 0.70f, 1.30f, 0.48f, 0.90f, 0.85f),
-    Bit(3, 2, 0.85f, 0.92f, 0.95f, 0.90f, 0.60f, stave = false),
-)
-
-private fun Bit.at(t: Float, center: Offset, reach: Float): Offset {
-    val angle = 2 * PI * (t + phase)
-    return Offset(
-        center.x + reach * rx * cos(a * angle).toFloat(),
-        center.y + reach * ry * sin(b * angle).toFloat(),
-    )
+private fun smooth(from: Float, to: Float, x: Float): Float {
+    val k = ((x - from) / (to - from)).coerceIn(0f, 1f)
+    return k * k * (3 - 2 * k)
 }
 
-private fun DrawScope.drawBit(bit: Bit, t: Float, center: Offset, reach: Float, trail: Color, beam: Color) {
-    val here = bit.at(t, center, reach)
-    // Bits don't fly nose first: they drift sideways with their muzzles turned out from the reticle.
-    val heading = atan2(here.y - center.y, here.x - center.x)
-    val unit = 2.4.dp.toPx() * bit.scale
-    val shape = if (bit.stave) Stave else Wing
-    // A thin fading glow line that leaves the back end and streams out behind it as the bit slides.
-    fun tailAt(k: Int): Offset {
-        val p = bit.at(t - k * 0.004f, center, reach)
-        val back = atan2(p.y - center.y, p.x - center.x) + PI.toFloat()
-        return p + Offset(cos(back), sin(back)) * (unit * (shape.tail + k * 1.2f))
+/** Faint contacts on the radar, as (bearing in turns, range as a share of reach); the sweep lights each as it passes. */
+private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.63f to 1.05f, 0.79f to 1.42f, 0.93f to 0.7f)
+
+/**
+ * Draws the whole targeting pass around the canvas centre (the mark), [reach] out, at loop time [t].
+ * [target] is the mark's radius, where the brackets come to rest.
+ */
+private fun DrawScope.drawTargeting(t: Float, reach: Float, target: Float, scan: Color, ink: Color, labels: TextMeasurer, labelStyle: TextStyle) {
+    val c = center
+    val line = 2.dp.toPx()
+    // The radar field: dashed range rings, a sweeping wedge, and contacts that glow as it passes.
+    val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 8.dp.toPx()))
+    listOf(0.55f, 1.05f, 1.55f).forEach { drawCircle(scan.copy(alpha = 0.16f), reach * it, c, style = Stroke(1.dp.toPx(), pathEffect = dash)) }
+    repeat(12) { i ->
+        val a = i / 12f * 2 * PI.toFloat()
+        val d = Offset(cos(a), sin(a))
+        drawLine(scan.copy(alpha = 0.22f), c + d * (reach * 1.55f - 6.dp.toPx()), c + d * (reach * 1.55f + 6.dp.toPx()), line)
     }
-    var prev = tailAt(0)
-    for (k in 1..12) {
-        val p = tailAt(k)
-        drawLine(trail.copy(alpha = 0.45f * (1f - k / 13f)), prev, p, unit * (1.6f - k * 0.1f), StrokeCap.Round)
-        prev = p
+    // Two sweeps per loop, so the wedge comes round again where it started.
+    val sweep = t * 2 * 360f
+    rotate(sweep, pivot = c) {
+        val r = reach * 1.6f
+        drawArc(
+            Brush.sweepGradient(0.88f to Color.Transparent, 1f to scan.copy(alpha = 0.14f), center = c),
+            startAngle = -43f, sweepAngle = 43f, useCenter = true, topLeft = c - Offset(r, r), size = Size(r * 2, r * 2),
+        )
+        drawLine(scan.copy(alpha = 0.45f), c, c + Offset(r, 0f), line)
     }
-    // A short beam for a moment once per loop.
-    val sinceFire = ((t - bit.fireAt) % 1f + 1f) % 1f
-    if (sinceFire < 0.035f) {
-        val f = sinceFire / 0.035f
-        val dir = Offset(cos(heading), sin(heading))
-        val from = here + dir * (unit * (shape.tip + f * 50f))
-        val to = from + dir * (unit * 34f)
-        drawLine(beam.copy(alpha = 0.25f * (1f - f)), from, to, unit * 7f, StrokeCap.Round)
-        drawLine(Color.White.copy(alpha = 0.9f * (1f - f)), from, to, unit * 2.2f, StrokeCap.Round)
+    Contacts.forEach { (bearing, range) ->
+        val since = (((sweep / 360f) - bearing) % 1f + 1f) % 1f
+        val glow = (1f - since).let { it * it * it }
+        val a = bearing * 2 * PI.toFloat()
+        val p = c + Offset(cos(a), sin(a)) * (reach * range)
+        val s = 4.dp.toPx()
+        rotate(45f, pivot = p) { drawRect(scan.copy(alpha = 0.15f + 0.6f * glow), p - Offset(s, s), Size(s * 2, s * 2)) }
     }
-    // The flat piece rolls as it flies, so it reads as a thin panel turning in space.
-    val roll = 0.8f + 0.2f * cos(2 * PI * (2 * t + bit.phase)).toFloat()
-    translate(here.x, here.y) {
-        rotateRad(heading, pivot = Offset.Zero) {
-            scale(1f, roll, pivot = Offset.Zero) {
-                drawCircle(Brush.radialGradient(listOf(trail.copy(alpha = 0.3f), Color.Transparent), Offset.Zero, unit * 13f), unit * 13f, Offset.Zero)
-                drawPath(shape.body.scaled(unit), SuitColors.armorWhite)
-                drawPath(shape.edge.scaled(unit), SuitColors.armorBlue)
-                drawPath(shape.inset.scaled(unit), SuitColors.cautionBlack.copy(alpha = 0.55f))
-                drawCircle(trail, radius = unit * 0.8f, center = shape.muzzle * unit)
-                drawPath(shape.body.scaled(unit), SuitColors.cautionBlack.copy(alpha = 0.35f), style = Stroke(unit * 0.6f))
+
+    val fadeIn = smooth(0f, 0.06f, t)
+    val release = smooth(0.86f, 1f, t)
+    val seen = fadeIn * (1f - release)
+    // Catching the mark: the seeker drifts in from its hunt and the brackets close.
+    val catch = smooth(0.18f, LOCK_AT, t)
+    val locked = t >= LOCK_AT && release < 1f
+    val sinceLock = if (t >= LOCK_AT) (t - LOCK_AT) / (1f - LOCK_AT) else -1f
+    val hunt = 2 * PI * t
+    val wander = Offset(cos(hunt * 1.3 + 0.6).toFloat() * reach * 0.95f, sin(hunt * 2.1 + 0.2).toFloat() * reach * 0.6f)
+    val at = c + wander * (1f - catch)
+    // The brackets squeeze a hair as they lock, then spring back out wide as it lets go.
+    val squeeze = if (sinceLock in 0f..0.12f) 1f - 0.12f * sin(PI.toFloat() * sinceLock / 0.12f) else 1f
+    val half = (target * 1.25f + (1f - catch) * target * 0.9f + release * target * 1.4f) * squeeze
+    val color = if (locked) lerp(scan, Gold, smooth(0f, 0.08f, sinceLock)) else scan
+
+    // The ring round the mark fills as the seeker closes, the lock's progress.
+    val ring = target + 7.dp.toPx()
+    drawCircle(ink.copy(alpha = 0.1f * seen), ring, c, style = Stroke(3.dp.toPx()))
+    drawArc(
+        color.copy(alpha = seen), -90f, 360f * smooth(0.28f, LOCK_AT, t), useCenter = false,
+        topLeft = c - Offset(ring, ring), size = Size(ring * 2, ring * 2), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round),
+    )
+
+    // A pulse rolls out from the mark the moment it locks.
+    if (sinceLock in 0f..0.45f) {
+        val k = sinceLock / 0.45f
+        drawCircle(Gold.copy(alpha = 0.7f * (1f - k)), ring + k * reach * 1.1f, c, style = Stroke((4f - 3f * k).dp.toPx()))
+    }
+
+    // The seeker: four corner brackets, turned while it hunts and square once it holds.
+    rotate((1f - catch) * 35f + release * 20f, pivot = at) {
+        val arm = half * 0.42f
+        val shadow = SuitColors.cautionBlack.copy(alpha = 0.22f * seen)
+        listOf(Offset(-1f, -1f), Offset(1f, -1f), Offset(-1f, 1f), Offset(1f, 1f)).forEach { d ->
+            val corner = at + Offset(d.x * half, d.y * half)
+            val bracket = Path().apply {
+                moveTo(corner.x - d.x * arm, corner.y)
+                lineTo(corner.x, corner.y)
+                lineTo(corner.x, corner.y - d.y * arm)
+            }
+            drawPath(bracket, shadow, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(bracket, color.copy(alpha = seen), style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+    // A crosshair rides the seeker while it hunts and gives way to the mark's own reticle as it closes.
+    val cross = seen * (1f - smooth(0.3f, LOCK_AT, t))
+    if (cross > 0f) {
+        listOf(Offset(0f, -1f), Offset(0f, 1f), Offset(-1f, 0f), Offset(1f, 0f)).forEach { d ->
+            drawLine(color.copy(alpha = 0.8f * cross), at + d * (half * 0.2f), at + d * (half * 0.6f), line, StrokeCap.Round)
+        }
+        drawCircle(color.copy(alpha = 0.8f * cross), 3.dp.toPx(), at)
+    }
+    // Red chevrons point in on the mark while the lock holds.
+    if (locked) {
+        val show = smooth(0f, 0.06f, sinceLock) * (1f - release)
+        val tip = ring + 10.dp.toPx() + 4.dp.toPx() * (1f - show)
+        val s = 6.dp.toPx()
+        repeat(4) { i ->
+            rotate(45f + i * 90f, pivot = c) {
+                val chevron = Path().apply {
+                    moveTo(c.x, c.y - tip)
+                    lineTo(c.x - s, c.y - tip - s * 1.3f)
+                    lineTo(c.x + s, c.y - tip - s * 1.3f)
+                    close()
+                }
+                drawPath(chevron, SuitColors.chestRed.copy(alpha = show))
             }
         }
     }
-}
-
-/**
- * A GUND-Bit as drawn from Aerial's split-up shield, pointing along +x with its clipped tip at
- * [tip] units and its back end [tail] units behind the middle: a white face, a blue strip down one
- * edge, a dark recessed panel, and a lit muzzle.
- */
-private class BitShape(val tip: Float, val tail: Float, val body: Outline, val edge: Outline, val inset: Outline, val muzzle: Offset)
-
-/** The long blade stave, about five times as long as it is wide. */
-private val Stave = BitShape(
-    tip = 15f,
-    tail = 15f,
-    body = Outline(15f to -0.8f, 10f to -3.2f, -12f to -3.2f, -15f to -0.8f, -15f to 3.2f, 9f to 3.2f),
-    edge = Outline(11.4f to 1.6f, 9f to 3.2f, -15f to 3.2f, -15f to 1.6f),
-    inset = Outline(7f to -1.8f, -10f to -1.8f, -11.5f to 0.8f, 5.5f to 0.8f),
-    muzzle = Offset(11.5f, -1.1f),
-)
-
-/** The short wing piece from the shield's shoulders. */
-private val Wing = BitShape(
-    tip = 9f,
-    tail = 9f,
-    body = Outline(9f to -1f, 5f to -3.4f, -8f to -3.4f, -9f to -2.2f, -9f to 3.4f, 4f to 3.4f),
-    edge = Outline(5.4f to 2.2f, 4f to 3.4f, -9f to 3.4f, -9f to 2.2f),
-    inset = Outline(3f to -1.8f, -6f to -1.8f, -7f to 0.6f, 2f to 0.6f),
-    muzzle = Offset(6.3f, -0.8f),
-)
-
-private class Outline(vararg val points: Pair<Float, Float>) {
-    fun scaled(unit: Float) = Path().apply {
-        points.forEachIndexed { i, (x, y) -> if (i == 0) moveTo(x * unit, y * unit) else lineTo(x * unit, y * unit) }
-        close()
+    // A readout under the seeker's bottom-right bracket says what it is doing.
+    val (word, wordColor) = when {
+        locked -> "LOCKED" to SuitColors.chestRed
+        catch > 0.35f -> "TRACKING" to ink.copy(alpha = 0.7f)
+        else -> "SEARCHING" to ink.copy(alpha = 0.55f)
+    }
+    if (seen > 0f) {
+        val laid = labels.measure(word, labelStyle.copy(color = wordColor))
+        val corner = at + Offset(half, half)
+        drawText(laid, topLeft = corner + Offset(-laid.size.width.toFloat(), 8.dp.toPx()), alpha = seen)
     }
 }

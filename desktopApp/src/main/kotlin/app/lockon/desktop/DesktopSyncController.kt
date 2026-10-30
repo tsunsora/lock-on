@@ -9,12 +9,16 @@ import app.lockon.sync.PairingInvite
 import app.lockon.sync.PairingPrompt
 import app.lockon.sync.SyncProtocol
 import app.lockon.sync.SyncStatus
+import app.lockon.sync.syncedMessage
 import io.ktor.server.engine.EmbeddedServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,12 +42,17 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     private val advertiser = LanAdvertiser(container.identity, tls.fingerprint)
     private val _hostInfo = MutableStateFlow<HostInfo?>(null)
     private val _status = MutableStateFlow(SyncStatus())
+    private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    /** Changes moved per phone since its last notice, with the job that posts it once the sync goes quiet. */
+    private val pendingChanges = mutableMapOf<String, Pair<Int, Int>>()
+    private val noticeJobs = mutableMapOf<String, Job>()
     private var addresses = lanAddresses()
     private var port = SyncProtocol.DEFAULT_PORT
     private var server: EmbeddedServer<*, *>? = null
 
     override val pairedDevices: Flow<List<PairedDevice>> = container.devices.pairedDevices
     override val status: StateFlow<SyncStatus> = _status.asStateFlow()
+    override val notices: Flow<String> = _notices.asSharedFlow()
     override val hostInfo: StateFlow<HostInfo?> = _hostInfo.asStateFlow()
     override val pairingPrompt: StateFlow<PairingPrompt?> = pairing.prompt
     override val liveClients: StateFlow<Set<String>> = live.ids
@@ -84,7 +93,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
         scope.launch(Dispatchers.IO) {
             try {
                 val (started, chosenPort) = startSyncServer(tls, SyncProtocol.DEFAULT_PORT) {
-                    lockOnSync(container.syncHost, container.devices, pairing, container.identity, live, inbox = inbox, outbox = outbox)
+                    lockOnSync(container.syncHost, container.devices, pairing, container.identity, live, inbox = inbox, outbox = outbox, onChanges = ::onChanges)
                 }
                 server = started
                 port = chosenPort
@@ -111,6 +120,19 @@ class DesktopSyncController(private val container: AppContainer, private val sco
                 val fresh = lanAddresses()
                 if (fresh.toSet() != addresses.toSet()) { addresses = fresh; publish() }
             }
+        }
+    }
+
+    /** A sync arrives as several push and pull batches; one notice covers them all. */
+    private fun onChanges(deviceId: String, sent: Int, received: Int) = synchronized(pendingChanges) {
+        val (s, r) = pendingChanges[deviceId] ?: (0 to 0)
+        pendingChanges[deviceId] = (s + sent) to (r + received)
+        noticeJobs[deviceId]?.cancel()
+        noticeJobs[deviceId] = scope.launch {
+            delay(NOTICE_QUIET_MS)
+            val (totalSent, totalReceived) = synchronized(pendingChanges) { noticeJobs.remove(deviceId); pendingChanges.remove(deviceId) } ?: return@launch
+            val name = container.devices.device(deviceId)?.name ?: "your phone"
+            _notices.tryEmit(syncedMessage(name, totalSent, totalReceived))
         }
     }
 
@@ -146,3 +168,6 @@ class DesktopSyncController(private val container: AppContainer, private val sco
         scope.launch { container.devices.forget(deviceId) }
     }
 }
+
+/** How long a phone's sync must go quiet before the desktop says what it moved. */
+private const val NOTICE_QUIET_MS = 1_500L
