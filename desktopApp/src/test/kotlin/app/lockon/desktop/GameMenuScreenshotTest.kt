@@ -43,7 +43,7 @@ class GameMenuScreenshotTest {
                             Box {
                                 GlassIconButton(GameIcons.Deck, "Deck actions", {})
                                 GameMenu(expanded = true, onDismissRequest = {}) {
-                                    listOf("Rename", "Move to folder", "Edit tags", "Duplicate", "Export list, image or sheet").forEach { GameMenuItem(it, onClick = {}) }
+                                    listOf("Rename", "Move to folder", "Edit tags", "Duplicate", "Export deck").forEach { GameMenuItem(it, onClick = {}) }
                                     GameMenuDivider()
                                     GameMenuItem("Delete", onClick = {}, icon = GameIcons.Deck, danger = true)
                                 }

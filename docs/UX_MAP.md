@@ -45,7 +45,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 - **Shows:** each deck as a tile with its cover card (the one picked in the editor, else its highest-level Unit, or a card back for an empty deck), a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50`, its folder, tags, win/loss record, and when it was last edited. On desktop the tiles form a grid.
 - **Folders:** a list beside the decks on desktop (**All decks**, each folder with its count, **No folder**, **New folder**), a chip row on phones. A folder is a filter, not a screen (N2).
   - **New folder** names the folder and can put decks in it in the same step; picking none makes an empty folder. A folder stays, even empty, until it is removed.
-  - An open folder shows **Rename** and **Remove folder**. Removing asks first, says how many decks it holds, then only takes its decks out, with Undo.
+  - **Rename** and **Remove folder** are on the folder: its ⋮ button on hover or a right-click in the desktop list, a right-click on a phone chip, and the **More actions** menu while the folder is open. Removing asks first, says how many decks it holds, then only takes its decks out, with Undo.
   - **New deck** inside a folder puts the deck in it.
   - Drag a deck onto a folder, or onto **No folder**, to move it, with Undo. A mouse drags at once; a finger holds the deck first so the list still scrolls. Dropping on **New folder** opens it with that deck ticked.
   - Folders sync with the decks.

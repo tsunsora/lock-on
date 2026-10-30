@@ -286,7 +286,9 @@ fun CardSearchPanel(
                     CardTile(
                         card,
                         onClick = { onCardClick(card) },
-                        modifier = Modifier.animateItem().cardDragSource(card, controls?.drag),
+                        // A filter can swap most of the results at once, so cards only fade in: sliding the kept ones
+                        // across the grid while dropped ones fade out in place stacks cards on top of each other.
+                        modifier = Modifier.animateItem(placementSpec = null, fadeOutSpec = null).cardDragSource(card, controls?.drag),
                         quantity = controls?.quantity?.invoke(card),
                         tag = { controls?.tag?.invoke(card) },
                         onMinus = controls?.let { c -> { c.change(card, -1) } },
@@ -298,7 +300,7 @@ fun CardSearchPanel(
             }
             else LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(end = if (wide) 14.dp else 0.dp, bottom = LocalNavClearance.current)) {
                 items(listed, key = { it.cardNumber }) { card ->
-                    CardRow(card, Modifier.animateItem().cardDragSource(card, controls?.drag), onClick = { onCardClick(card) }, trailing = {
+                    CardRow(card, Modifier.animateItem(placementSpec = null, fadeOutSpec = null).cardDragSource(card, controls?.drag), onClick = { onCardClick(card) }, trailing = {
                         if (controls != null) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 controls.tag(card)
