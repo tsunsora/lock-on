@@ -259,7 +259,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             }
             Box(Modifier.weight(1f).fillMaxSize()) {
                 Column(Modifier.fillMaxSize()) {
-                    val searchable = (list?.size ?: 0) > 3
+                    // Desktop always has the search bar beside the actions; phones only once there's a list to search.
+                    val searchable = (list?.size ?: 0) > 3 || (wide && !list.isNullOrEmpty())
                     if (searchable || wide) Row(
                         Modifier.fillMaxWidth().padding(start = 16.dp, end = if (wide) 12.dp else 16.dp, top = 4.dp, bottom = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
