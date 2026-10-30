@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 (2026-10-29)
+
+Send decks by folder, start a deck from the top of your library, and a new app icon.
+
+- **Send by folder**: pick a folder's chip to choose all its decks, and the chooser groups decks by folder. Wide windows show the sending and receiving columns side by side.
+- Sends and receives show a **progress bar**, and a gold tick when they're done.
+- **New deck** is the first slot in your deck list, on phones too. Tap it to start a blank deck or import a deck list.
+- **Export** sits at the top of the deck list in the editor, beside the card/list switch.
+- A **new app icon**: a bold navy reticle with a red crest on a yellow tile.
+- The start-up screen stays a little longer, so its animation plays through.
+
 ## 1.2.0 (2026-10-29)
 
 Look at any card full size, zoom into deck images, and build decks on your phone more easily.
