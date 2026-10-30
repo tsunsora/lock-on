@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 (2026-10-29)
+
+Look at any card full size, zoom into deck images, and build decks on your phone more easily.
+
+- **Click a card's image** in its details to see it as large as the window allows. It turns toward the pointer, or your finger, and catches the light. Click around it or press Esc to close it.
+- **Zoom the full-size deck image**: click, pinch or Ctrl+scroll to zoom, and drag or scroll to move around.
+- The **phone deck editor** puts building first, with **Deck**, **Add cards** and **More** sections, a bar to jump between them, and three cards across.
+- **Rename** and **Remove folder** are on the folder now: its ⋮ button when you hover it, a right-click, or **More actions** while the folder is open.
+- **Choose decks** to send or sync has a search box for deck and folder names. Decks you've ticked stay ticked while hidden.
+- Filtering cards fades the results in, instead of sliding cards over each other.
+
 ## 1.1.0 (2026-10-29)
 
 Drag decks onto folders, keep empty folders, and name and file a deck as you import it.
