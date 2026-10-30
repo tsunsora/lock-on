@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -26,13 +27,36 @@ interface DeckSharing {
     /** Decks another device wants to send here, waiting for [answer]. */
     val incoming: StateFlow<IncomingShare?>
     fun answer(shareId: String, accept: Boolean)
+    /** Closes an [IncomingShare] once its decks are saved. */
+    fun dismiss(shareId: String)
 }
 
-data class OutgoingShare(val deviceName: String, val deckCount: Int, val state: State, val message: String? = null) {
-    enum class State { WAITING, SAVED, DECLINED, FAILED }
+/**
+ * A send to one device. [SENDING] is the decks on their way, with [progress] from 0 to 1 when the
+ * transfer can measure it; [WAITING] is the other device holding them while its owner decides.
+ */
+data class OutgoingShare(
+    val deviceName: String,
+    val deckCount: Int,
+    val state: State,
+    val message: String? = null,
+    val progress: Float? = null,
+) {
+    enum class State { SENDING, WAITING, SAVED, DECLINED, FAILED }
+
+    val active get() = state == State.SENDING || state == State.WAITING
 }
 
-data class IncomingShare(val shareId: String, val senderName: String, val decks: List<DeckSnapshot>)
+/** Decks offered here: [ASKING] until answered, then [SAVING] them one by one ([saved] so far), then [SAVED]. */
+data class IncomingShare(
+    val shareId: String,
+    val senderName: String,
+    val decks: List<DeckSnapshot>,
+    val state: State = State.ASKING,
+    val saved: Int = 0,
+) {
+    enum class State { ASKING, SAVING, SAVED }
+}
 
 /**
  * The receiving side of [DeckSharing]: shows one offer at a time and saves the decks only once
@@ -55,6 +79,11 @@ class ShareInbox(
         if (_prompt.value?.shareId == shareId) pending?.complete(accept)
     }
 
+    /** Closes the finished offer [shareId]; one still being asked about or saved stays. */
+    fun dismiss(shareId: String) {
+        _prompt.update { if (it?.shareId == shareId && it.state == IncomingShare.State.SAVED) null else it }
+    }
+
     /** Asks this device's owner about [offer] and waits for the answer, which goes back to the sender. */
     suspend fun receive(offer: ShareOffer): ShareResponse {
         val incoming = offer.decks.filterNot { it.deleted }
@@ -73,17 +102,33 @@ class ShareInbox(
                 _prompt.value = IncomingShare(offer.shareId, offer.senderName.take(60), incoming)
             }
         }
-        val accepted = try {
-            withTimeoutOrNull(confirmTimeoutMs) { deferred.await() } ?: false
+        // The prompt stays up while the decks save, then shows they're done until dismissed.
+        var saved = 0
+        try {
+            val accepted = withTimeoutOrNull(confirmTimeoutMs) { deferred.await() } ?: false
+            if (!accepted) {
+                declinedUntil[offer.senderId] = now() + declineCooldownMs
+                return ShareResponse(accepted = false, declined = true)
+            }
+            _prompt.update { it?.copy(state = IncomingShare.State.SAVING) }
+            incoming.forEach { deck ->
+                decks.create(asCopy(deck))
+                saved++
+                _prompt.update { it?.copy(saved = saved) }
+            }
+            return ShareResponse(accepted = true, saved = saved)
         } finally {
-            lock.withLock { pending = null; _prompt.value = null }
+            lock.withLock {
+                pending = null
+                _prompt.update {
+                    when {
+                        it?.shareId != offer.shareId -> it
+                        saved == incoming.size -> it.copy(state = IncomingShare.State.SAVED)
+                        else -> null
+                    }
+                }
+            }
         }
-        if (!accepted) {
-            declinedUntil[offer.senderId] = now() + declineCooldownMs
-            return ShareResponse(accepted = false, declined = true)
-        }
-        incoming.forEach { decks.create(asCopy(it)) }
-        return ShareResponse(accepted = true, saved = incoming.size)
     }
 
     private fun refused(message: String) = ShareResponse(accepted = false, message = message)

@@ -1,6 +1,31 @@
 package app.lockon.ui.sync
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.selection.triStateToggleable
+import androidx.compose.material3.TriStateCheckbox
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.unit.Dp
+import app.lockon.sync.IncomingShare
+import app.lockon.ui.components.Accent
+import app.lockon.ui.components.ControlSize
+import app.lockon.ui.components.Gold
+import app.lockon.ui.components.Motion
+import app.lockon.ui.components.lighten
+import app.lockon.ui.components.motion
+import kotlin.math.roundToInt
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -39,7 +64,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Checkbox
@@ -146,16 +170,16 @@ fun SyncScreen(
     }
 }
 
-/** A page's scrolling column, centred and no wider than a phone so it reads the same everywhere. */
+/** A page's scrolling column, centred and no wider than [maxWidth] so it reads the same everywhere. */
 @Composable
-private fun SyncPage(centered: Boolean = false, content: @Composable () -> Unit) {
+private fun SyncPage(centered: Boolean = false, maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val scrollState = rememberScrollState()
         val clearance = LocalNavClearance.current
-        val height = maxHeight
+        val height = this.maxHeight
         Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
             Column(
-                Modifier.widthIn(max = 620.dp).fillMaxWidth()
+                Modifier.widthIn(max = maxWidth).fillMaxWidth()
                     .heightIn(min = if (centered) height - clearance else 0.dp)
                     .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + clearance),
                 verticalArrangement = if (centered) Arrangement.Center else Arrangement.spacedBy(14.dp),
@@ -209,7 +233,10 @@ private fun Beacon(modifier: Modifier = Modifier) {
     }
 }
 
-/** Send: what to send, then where. Tapping a device sends; a device tapped first asks which decks. */
+/**
+ * Send: what to send, then where. Tapping a device sends; a device tapped first asks which decks.
+ * Wide windows put the two side by side, so the choice and the devices are both in view.
+ */
 @Composable
 private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chosen: List<String>, onChosen: (List<String>) -> Unit) {
     val status by controller.status.collectAsState()
@@ -227,7 +254,6 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
     val devices = (targets + nearby).distinctBy { it.deviceId }
 
     var choosing by remember { mutableStateOf(false) }
-    var pickingFolder by remember { mutableStateOf(false) }
     // A device tapped before any decks were chosen: once they are, they go straight to it.
     var sendTo by remember { mutableStateOf<NearbyDevice?>(null) }
     var showPaired by remember { mutableStateOf(false) }
@@ -235,7 +261,6 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
     var troubleshoot by remember { mutableStateOf(false) }
     // Decks deleted since they were chosen drop out of the selection.
     val selected = chosen.mapNotNull { id -> decks.firstOrNull { it.deckId == id } }
-    val folders = remember(decks) { decks.mapNotNull { it.snapshot.folder }.distinct().sorted() }
     val isHost = controller is HostSyncController
 
     fun pair(device: NearbyDevice) = when (controller) {
@@ -243,25 +268,8 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
         is ClientSyncController -> controller.pair(PairingInvite(device.host, device.port, "", device.fingerprint, device.name))
     }
 
-    SyncPage {
-        StatusLine(status)
-        if (sharing != null) {
-            SectionHeader("Selection", readout = if (selected.isEmpty()) null else "${selected.size}")
-            if (selected.isEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val tile = Modifier.weight(1f)
-                    PickTile("Decks", Icons.Default.Add, tile, enabled = decks.isNotEmpty()) { choosing = true }
-                    if (folders.isNotEmpty()) PickTile("Folder", Icons.Default.List, tile) { pickingFolder = true }
-                    if (decks.size in 1..ShareInbox.MAX_DECKS) PickTile("All decks", Icons.Default.Done, tile) { onChosen(decks.map { it.deckId }) }
-                }
-                if (decks.isEmpty()) Text("Build a deck first, then send it from here.", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                SelectionCard(selected, onEdit = { choosing = true }, onClear = { onChosen(emptyList()) })
-            }
-        }
-
-        SectionHeader("Nearby devices") {
+    val where: @Composable () -> Unit = {
+        SectionHeader("Send to", Modifier.heightIn(min = ControlSize)) {
             GlassIconButton(Icons.Default.FavoriteBorder, "Paired devices", onClick = { showPaired = true })
             Spacer(Modifier.width(8.dp))
             GlassIconButton(Icons.Default.Add, "Connect by address or QR code", onClick = { showOther = true })
@@ -299,6 +307,24 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
         )
     }
 
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val sideBySide = sharing != null && maxWidth >= 840.dp
+        SyncPage(maxWidth = if (sideBySide) 980.dp else 620.dp) {
+            StatusLine(status)
+            val what: @Composable () -> Unit = {
+                WhatToSend(decks, selected, onChoose = { choosing = true }, onChosen = onChosen)
+            }
+            when {
+                sideBySide -> Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { what() }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { where() }
+                }
+                sharing != null -> { what(); where() }
+                else -> where()
+            }
+        }
+    }
+
     if (choosing) {
         ChooseDecksDialog(decks, chosen.toSet(), sendingTo = sendTo?.name, onDismiss = { choosing = false; sendTo = null }, onDone = {
             onChosen(it)
@@ -306,12 +332,6 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
             sendTo?.let { device -> if (it.isNotEmpty()) sharing?.send(device, it) }
             sendTo = null
         })
-    }
-    if (pickingFolder) {
-        ChooseFolderDialog(folders, decks, onDismiss = { pickingFolder = false }) { folder ->
-            onChosen(decks.filter { it.snapshot.folder == folder }.map { it.deckId }.take(ShareInbox.MAX_DECKS))
-            pickingFolder = false
-        }
     }
     if (showPaired) PairedDevicesDialog(controller, paired) { showPaired = false }
     if (showOther) OtherWaysDialog(controller) { showOther = false }
@@ -349,6 +369,52 @@ private fun StatusLine(status: SyncStatus) {
     }
 }
 
+private fun deckCount(n: Int) = if (n == 1) "1 deck" else "$n decks"
+
+/**
+ * What to send: pick decks, take them all, or tap a folder to add or drop its decks in one go.
+ * Folder chips stay below the selection, so a second folder is one more tap.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WhatToSend(decks: List<DeckSummary>, selected: List<DeckSummary>, onChoose: () -> Unit, onChosen: (List<String>) -> Unit) {
+    val ids = selected.map { it.deckId }
+    val folders = remember(decks) {
+        decks.groupBy { it.snapshot.folder }.mapNotNull { (folder, inIt) -> folder?.let { it to inIt.map { d -> d.deckId } } }
+            .sortedBy { it.first.lowercase() }
+    }
+    // As tall as Send to's header, so the two line up side by side.
+    SectionHeader("What to send", Modifier.heightIn(min = ControlSize), readout = if (selected.isEmpty()) null else "${selected.size}") {
+        if (selected.isNotEmpty()) GameButton("Clear", onClick = { onChosen(emptyList()) }, style = GameButtonStyle.GHOST, compact = true)
+    }
+    if (selected.isEmpty()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val tile = Modifier.weight(1f)
+            PickTile("Choose decks", Icons.Default.Add, tile, enabled = decks.isNotEmpty(), onClick = onChoose)
+            if (decks.size in 1..ShareInbox.MAX_DECKS) PickTile("All ${decks.size} decks", Icons.Default.Done, tile) { onChosen(decks.map { it.deckId }) }
+        }
+        if (decks.isEmpty()) Text("Build a deck first, then send it from here.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } else {
+        SelectionCard(selected, onEdit = onChoose)
+    }
+    if (folders.isNotEmpty()) {
+        Text("Folders", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            folders.forEach { (folder, inFolder) ->
+                val whole = inFolder.all { it in ids }
+                PillChip(
+                    selected = whole,
+                    onClick = { onChosen(if (whole) ids - inFolder.toSet() else (ids + inFolder).distinct().take(ShareInbox.MAX_DECKS)) },
+                    label = { Text("$folder · ${inFolder.size}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingIcon = if (whole) ({ Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }) else null,
+                    modifier = Modifier.widthIn(max = 260.dp),
+                )
+            }
+        }
+    }
+}
+
 /** One way to choose what to send, as a big glass tile. */
 @Composable
 private fun PickTile(label: String, icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
@@ -366,30 +432,45 @@ private fun PickTile(label: String, icon: ImageVector, modifier: Modifier = Modi
     }
 }
 
-/** The chosen decks, with Edit and Clear. */
+/** The chosen decks grouped by folder, so a selection built from folders reads back the same way. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SelectionCard(selected: List<DeckSummary>, onEdit: () -> Unit, onClear: () -> Unit) {
+private fun SelectionCard(selected: List<DeckSummary>, onEdit: () -> Unit) {
+    val groups = selected.groupBy { it.snapshot.folder }.entries
+        .sortedWith(compareBy({ it.key == null }, { it.key?.lowercase() }))
     GlassCard {
-        Column(Modifier.animateContentSize(glide()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(if (selected.size == 1) "1 deck" else "${selected.size} decks", style = MaterialTheme.typography.titleMedium)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                selected.take(12).forEach { deck ->
-                    Text(
-                        deck.snapshot.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 220.dp).clip(LockOnShapes.button)
-                            .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 5.dp),
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
+        Column(Modifier.animateContentSize(glide()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(deckCount(selected.size), style = MaterialTheme.typography.titleMedium)
+                    Text("Tap a device to send ${if (selected.size == 1) "it" else "them"}.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (selected.size > 12) Text("+${selected.size - 12} more", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 5.dp))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GameButton("Edit", onClick = onEdit, style = GameButtonStyle.SECONDARY, compact = true)
-                GameButton("Clear", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
             }
-            Text("Tap a device below to send.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            groups.forEach { (folder, inGroup) ->
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // A selection with no folders at all needs no "No folder" heading.
+                    if (folder != null || groups.size > 1) {
+                        Text(
+                            "${folder ?: "No folder"} · ${inGroup.size}", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        inGroup.take(8).forEach { deck ->
+                            Text(
+                                deck.snapshot.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 220.dp).clip(LockOnShapes.button)
+                                    .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 5.dp),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                        if (inGroup.size > 8) Text("+${inGroup.size - 8} more", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 5.dp))
+                    }
+                }
+            }
         }
     }
 }
@@ -415,7 +496,16 @@ private fun SearchingCard() {
     }
 }
 
-/** A nearby device. Tap it to send; the heart pairs it for automatic sync. */
+/** What a send's line under the device name says. */
+private fun OutgoingShare.label(): String = when (state) {
+    OutgoingShare.State.SENDING -> progress?.let { "Sending ${deckCount(deckCount)}… ${(it * 100).roundToInt()}%" }
+        ?: "Sending ${deckCount(deckCount)}…"
+    OutgoingShare.State.WAITING -> "Sent. Waiting for $deviceName to accept…"
+    OutgoingShare.State.SAVED -> "Done: ${deckCount(deckCount)} saved there"
+    else -> message.orEmpty()
+}
+
+/** A nearby device. Tap it to send; the heart pairs it for automatic sync. A send shows its progress under it. */
 @Composable
 private fun DeviceTile(
     device: NearbyDevice,
@@ -427,47 +517,129 @@ private fun DeviceTile(
     onCancel: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val waiting = send?.state == OutgoingShare.State.WAITING || inviting
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 76.dp).pressScale(interaction).glass(LockOnShapes.tile)
-            .clickable(interaction, indication = null, enabled = device.compatible && !waiting, role = Role.Button, onClick = onTap)
+    val scheme = MaterialTheme.colorScheme
+    val busy = send?.active == true || inviting
+    val celebrate = if (isTwilight()) Gold else scheme.tertiary
+    Column(
+        Modifier.fillMaxWidth().pressScale(interaction).glass(LockOnShapes.tile)
+            .clickable(interaction, indication = null, enabled = device.compatible && !busy, role = Role.Button, onClick = onTap)
+            .animateContentSize(glide())
             .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        DeviceGlyph(device.isDesktop)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            when {
-                !device.compatible -> Text("Needs a Lock On update", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                inviting -> Text("Waiting for ${device.name} to accept pairing…", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                send != null -> Text(
-                    if (send.state == OutgoingShare.State.WAITING) "Waiting for ${device.name} to accept…" else send.message.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = when (send.state) {
-                        OutgoingShare.State.SAVED -> MaterialTheme.colorScheme.secondary
-                        OutgoingShare.State.FAILED -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-                else -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Tag(if (device.isDesktop) "Computer" else "Phone")
-                    if (paired) Tag("Paired")
+        Row(Modifier.heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                DeviceGlyph(device.isDesktop)
+                if (send?.state == OutgoingShare.State.SAVED) DoneBadge(Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                when {
+                    !device.compatible -> Text("Needs a Lock On update", style = MaterialTheme.typography.bodySmall, color = scheme.error)
+                    inviting -> Text("Waiting for ${device.name} to accept pairing…", style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant)
+                    send != null -> Text(
+                        send.label(),
+                        style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                        color = when (send.state) {
+                            OutgoingShare.State.SAVED -> celebrate
+                            OutgoingShare.State.FAILED -> scheme.error
+                            else -> scheme.onSurfaceVariant
+                        },
+                    )
+                    else -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Tag(if (device.isDesktop) "Computer" else "Phone")
+                        if (paired) Tag("Paired")
+                    }
                 }
             }
+            if (busy) {
+                if (inviting) ReticleSpinner(size = 18.dp)
+                GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.GHOST, compact = true)
+            } else {
+                GlassIconButton(
+                    if (paired) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    if (paired) "Paired: syncs automatically" else "Pair to sync automatically",
+                    onClick = onHeart,
+                    tint = if (paired) scheme.primary else scheme.onSurfaceVariant,
+                )
+            }
         }
-        if (waiting) {
-            ReticleSpinner(size = 18.dp)
-            GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.GHOST, compact = true)
-        } else {
-            GlassIconButton(
-                if (paired) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                if (paired) "Paired: syncs automatically" else "Pair to sync automatically",
-                onClick = onHeart,
-                tint = if (paired) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        if (send != null) {
+            TransferBar(
+                fraction = when (send.state) {
+                    OutgoingShare.State.SENDING -> send.progress
+                    OutgoingShare.State.WAITING -> null
+                    else -> 1f
+                },
+                tone = when (send.state) {
+                    OutgoingShare.State.SAVED -> BarTone.DONE
+                    OutgoingShare.State.DECLINED -> BarTone.STOPPED
+                    OutgoingShare.State.FAILED -> BarTone.FAILED
+                    else -> BarTone.WORKING
+                },
+                modifier = Modifier.padding(end = 8.dp),
             )
         }
+    }
+}
+
+private enum class BarTone { WORKING, DONE, STOPPED, FAILED }
+
+/**
+ * How far a transfer has got. A [fraction] fills the bar; null sweeps it while the other side
+ * works or decides (still and half-filled with reduced motion). Done turns it gold, like a full gauge.
+ */
+@Composable
+private fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val reduce = LocalReduceMotion.current
+    val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
+    val accent = Accent
+    val fill = when (tone) {
+        BarTone.WORKING -> Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
+        BarTone.DONE -> Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
+        BarTone.STOPPED -> SolidColor(scheme.outline)
+        BarTone.FAILED -> SolidColor(scheme.error)
+    }
+    val filled by animateFloatAsState(fraction ?: 0f, motion(Motion.LONG), label = "transfer")
+    // Read only while drawing, so the sweep redraws the bar without recomposing it.
+    val sweep: State<Float>? = if (fraction != null || reduce) null else {
+        val t = rememberInfiniteTransition(label = "transfer-sweep")
+        t.animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "sweep")
+    }
+    Canvas(
+        modifier.fillMaxWidth().height(6.dp).clip(LockOnShapes.button).semantics {
+            progressBarRangeInfo = if (fraction == null) ProgressBarRangeInfo.Indeterminate else ProgressBarRangeInfo(fraction, 0f..1f)
+        },
+    ) {
+        val r = CornerRadius(size.height / 2)
+        drawRoundRect(track, cornerRadius = r)
+        when {
+            fraction != null -> if (filled > 0f) drawRoundRect(fill, size = Size(size.width * filled, size.height), cornerRadius = r)
+            sweep == null -> drawRoundRect(fill, size = Size(size.width / 2, size.height), cornerRadius = r, alpha = 0.6f)
+            else -> {
+                val segment = size.width * 0.35f
+                val x = -segment + (size.width + segment) * sweep.value
+                drawRoundRect(fill, topLeft = Offset(x, 0f), size = Size(segment, size.height), cornerRadius = r)
+            }
+        }
+    }
+}
+
+/** A gold tick that pops in when decks have arrived. */
+@Composable
+private fun DoneBadge(modifier: Modifier = Modifier, size: Dp = 20.dp) {
+    val reduce = LocalReduceMotion.current
+    val scale = remember { Animatable(if (reduce) 1f else 0f) }
+    LaunchedEffect(Unit) { scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow)) }
+    Box(
+        modifier.size(size).graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+            .clip(CircleShape).background(MaterialTheme.colorScheme.tertiary),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Default.Check, contentDescription = "Done", tint = MaterialTheme.colorScheme.onTertiary, modifier = Modifier.size(size * 0.7f))
     }
 }
 
@@ -480,20 +652,23 @@ private fun Tag(text: String) {
     )
 }
 
+/**
+ * Picks decks, grouped by folder. A folder's own box takes or drops all of its decks; searching
+ * matches deck or folder names and only hides decks, so ones already ticked stay chosen.
+ */
 @Composable
 private fun ChooseDecksDialog(
     decks: List<DeckSummary>, preselected: Set<String>, sendingTo: String?, onDismiss: () -> Unit, onDone: (List<String>) -> Unit,
 ) {
     val sorted = remember(decks) { decks.sortedBy { it.snapshot.name.lowercase() } }
+    val groups = remember(sorted) {
+        sorted.groupBy { it.snapshot.folder }.entries.sortedWith(compareBy({ it.key == null }, { it.key?.lowercase() }))
+    }
     var chosen by remember { mutableStateOf(preselected) }
     var search by remember { mutableStateOf("") }
     var listHeight by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
-    // Searching only hides decks: ones already ticked stay chosen while out of sight.
-    val shown = sorted.filter { deck ->
-        val q = search.trim()
-        deck.snapshot.name.contains(q, ignoreCase = true) || deck.snapshot.folder?.contains(q, ignoreCase = true) == true
-    }
+    val q = search.trim()
     GameDialog(
         onDismissRequest = onDismiss,
         title = if (sendingTo != null) "Send to $sendingTo" else "Choose decks",
@@ -509,26 +684,56 @@ private fun ChooseDecksDialog(
                         .onSizeChanged { with(density) { if (search.isEmpty()) listHeight = it.height.toDp() } }
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    if (shown.isEmpty()) Text("No decks match.", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
-                    shown.forEach { deck ->
-                        val checked = deck.deckId in chosen
-                        Row(
-                            Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox) {
-                                chosen = if (it) chosen + deck.deckId else chosen - deck.deckId
-                            },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(deck.snapshot.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    listOfNotNull("Main ${deck.snapshot.count(DeckSection.MAIN)}", deck.snapshot.folder).joinToString(" · "),
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                    var any = false
+                    groups.forEach { (folder, inGroup) ->
+                        val folderMatches = folder?.contains(q, ignoreCase = true) == true
+                        val shown = if (folderMatches) inGroup else inGroup.filter { it.snapshot.name.contains(q, ignoreCase = true) }
+                        if (shown.isEmpty()) return@forEach
+                        any = true
+                        // Decks with no folder only get a heading when there are folders to tell them apart from.
+                        if (folder != null || groups.size > 1) {
+                            val ids = inGroup.map { it.deckId }
+                            val count = ids.count { it in chosen }
+                            val box = when (count) {
+                                0 -> ToggleableState.Off
+                                ids.size -> ToggleableState.On
+                                else -> ToggleableState.Indeterminate
+                            }
+                            Row(
+                                Modifier.fillMaxWidth().padding(top = 4.dp).clip(LockOnShapes.thumb)
+                                    .triStateToggleable(box, role = Role.Checkbox) {
+                                        chosen = if (box == ToggleableState.On) chosen - ids.toSet() else chosen + ids
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TriStateCheckbox(box, onClick = null, modifier = Modifier.padding(12.dp))
+                                Text(folder ?: "No folder", style = MaterialTheme.typography.titleSmall, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text("$count/${ids.size}", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 12.dp))
+                            }
+                        }
+                        val indent = if (folder != null || groups.size > 1) 20.dp else 0.dp
+                        shown.forEach { deck ->
+                            val checked = deck.deckId in chosen
+                            Row(
+                                Modifier.fillMaxWidth().padding(start = indent).clip(LockOnShapes.thumb)
+                                    .toggleable(checked, role = Role.Checkbox) {
+                                        chosen = if (it) chosen + deck.deckId else chosen - deck.deckId
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(deck.snapshot.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("Main ${deck.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
+                    if (!any) Text("No decks match.", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
                 }
                 Text("They arrive as new decks with their cards, notes and tags. Folders and match logs stay here.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -539,37 +744,11 @@ private fun ChooseDecksDialog(
             GameButton(
                 when {
                     sendingTo == null -> "Done"
-                    ids.size == 1 -> "Send 1 deck"
-                    else -> "Send ${ids.size} decks"
+                    else -> "Send ${deckCount(ids.size)}"
                 },
                 onClick = { onDone(ids) }, compact = true, enabled = sendingTo == null || ids.size in 1..ShareInbox.MAX_DECKS,
             )
         },
-        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
-    )
-}
-
-@Composable
-private fun ChooseFolderDialog(folders: List<String>, decks: List<DeckSummary>, onDismiss: () -> Unit, onPick: (String) -> Unit) {
-    GameDialog(
-        onDismissRequest = onDismiss,
-        title = "Send a folder",
-        text = {
-            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                folders.forEach { folder ->
-                    val count = decks.count { it.snapshot.folder == folder }
-                    Row(
-                        Modifier.fillMaxWidth().clip(LockOnShapes.thumb).clickable { onPick(folder) }.padding(horizontal = 8.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(folder, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(if (count == 1) "1 deck" else "$count decks", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-        },
-        confirmButton = {},
         dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
     )
 }
@@ -799,43 +978,80 @@ fun SyncPrompts(controller: SyncController) {
     }
 }
 
-/** Receive: decks another device is sending, LocalSend-style, saved only if accepted. */
+/**
+ * Receive: decks another device is sending, LocalSend-style, saved only if accepted. Once accepted
+ * it fills a bar as they save, then shows a gold tick and the count until closed.
+ */
 @Composable
 private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
     val share by sharing.incoming.collectAsState()
     val s = share ?: return
-    Dialog(onDismissRequest = {}, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
+    val asking = s.state == IncomingShare.State.ASKING
+    val done = s.state == IncomingShare.State.SAVED
+    Dialog(
+        onDismissRequest = { if (done) sharing.dismiss(s.shareId) },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = done, dismissOnBackPress = done),
+    ) {
         val scheme = MaterialTheme.colorScheme
         Column(
             Modifier.padding(20.dp).widthIn(max = 460.dp).fillMaxWidth()
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest)
                 .glassFrame(MaterialTheme.shapes.extraLarge)
+                .animateContentSize(glide())
                 .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            DeviceGlyph(fromDesktop, size = 72)
+            Box {
+                DeviceGlyph(fromDesktop, size = 72)
+                if (done) DoneBadge(Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), size = 28.dp)
+            }
             Text(s.senderName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text("wants to send you ${if (s.decks.size == 1) "a deck" else "${s.decks.size} decks"}", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                when (s.state) {
+                    IncomingShare.State.ASKING -> "wants to send you ${if (s.decks.size == 1) "a deck" else "${s.decks.size} decks"}"
+                    IncomingShare.State.SAVING -> "Saving ${s.saved} of ${deckCount(s.decks.size)}…"
+                    IncomingShare.State.SAVED -> "Saved ${deckCount(s.saved)}"
+                },
+                style = MaterialTheme.typography.bodyLarge.merge(TabularNumbers),
+                color = if (done) (if (isTwilight()) Gold else scheme.tertiary) else scheme.onSurface,
+            )
+            if (!asking) {
+                TransferBar(
+                    fraction = s.saved.toFloat() / s.decks.size.coerceAtLeast(1),
+                    tone = if (done) BarTone.DONE else BarTone.WORKING,
+                )
+            }
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())
                     .clip(LockOnShapes.tile).background(scheme.onSurface.copy(alpha = 0.05f)).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                s.decks.forEach { deck ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                s.decks.forEachIndexed { i, deck ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(deck.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        if (!asking && i < s.saved) {
+                            Icon(Icons.Default.Check, contentDescription = "Saved", tint = scheme.primary, modifier = Modifier.size(16.dp))
+                        }
                         Text("Main ${deck.count(DeckSection.MAIN)}", style = MaterialTheme.typography.bodyMedium.merge(TabularNumbers),
                             color = scheme.onSurfaceVariant)
                     }
                 }
             }
-            Text("They're added as new decks. Nothing else changes.", style = MaterialTheme.typography.bodySmall,
-                color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Text(
+                if (done) "They're in your decks now." else "They're added as new decks. Nothing else changes.",
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
-                GameButton("Decline", onClick = { sharing.answer(s.shareId, false) }, style = GameButtonStyle.SECONDARY)
-                GameButton("Accept", onClick = { sharing.answer(s.shareId, true) }, icon = Icons.Default.Check)
+                when (s.state) {
+                    IncomingShare.State.ASKING -> {
+                        GameButton("Decline", onClick = { sharing.answer(s.shareId, false) }, style = GameButtonStyle.SECONDARY)
+                        GameButton("Accept", onClick = { sharing.answer(s.shareId, true) }, icon = Icons.Default.Check)
+                    }
+                    IncomingShare.State.SAVING -> GameButton("Saving…", onClick = {}, enabled = false)
+                    IncomingShare.State.SAVED -> GameButton("Done", onClick = { sharing.dismiss(s.shareId) })
+                }
             }
         }
     }
