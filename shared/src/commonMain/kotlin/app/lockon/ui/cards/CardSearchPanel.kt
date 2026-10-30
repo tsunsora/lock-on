@@ -111,6 +111,7 @@ private const val TILES_PER_FRAME = 4
  *
  * @param deckColors when set, offers "Deck colors only" so a two-color deck can hide the rest.
  * @param selected highlights the card shown in a side panel.
+ * @param scrollToTop goes up by one each time the results should go back to the top.
  * @param trailing extra controls at the end of the search row, such as the editor's Add to switch.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -124,6 +125,7 @@ fun CardSearchPanel(
     controls: DeckControls? = null,
     selected: String? = null,
     wide: Boolean = false,
+    scrollToTop: Int = 0,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
@@ -146,6 +148,9 @@ fun CardSearchPanel(
     // has warmed up, so the list starts with a few and adds more each frame until the screen is full.
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
+    LaunchedEffect(scrollToTop) {
+        if (scrollToTop > 0) { if (grid) gridState.animateScrollToItem(0) else listState.animateScrollToItem(0) }
+    }
     var shown by remember { mutableIntStateOf(TILES_PER_FRAME) }
     LaunchedEffect(Unit) {
         while (true) {
