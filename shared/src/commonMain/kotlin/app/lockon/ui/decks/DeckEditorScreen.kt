@@ -562,7 +562,13 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         val side = deck.quantityOf(card.cardNumber, DeckSection.SIDE)
         val cardPrintings = printings[card.cardNumber].orEmpty()
         val inDeck = deck.quantityOf(card.cardNumber, section)
-        CardDetailDialog(card, cardPrintings, onDismiss = { detail = null }) {
+        // Once the card is in the deck, the printings in the details choose which one the deck uses.
+        val choosing = cardPrintings.size > 1 && inDeck > 0
+        CardDetailDialog(
+            card, cardPrintings, onDismiss = { detail = null },
+            chosenPrinting = deck.entries.firstOrNull { it.cardNumber == card.cardNumber && it.section == section }?.printingId,
+            onChoosePrinting = if (choosing) { id -> draft = deck.withQuantity(card.cardNumber, section, inDeck, id) } else null,
+        ) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 DetailActionRow(section.label) {
                     PlateStepper(inDeck, "copy", onMinus = { change(card, -1) }, onPlus = { change(card, 1) }, limit = copyLimit(card, ruleset))
@@ -570,20 +576,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 // The side deck sits beside the deck; moving keeps the total and never checks rules (UX rule S4).
                 DetailActionRow("Side deck") {
                     PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
-                }
-                if (cardPrintings.size > 1 && inDeck > 0) {
-                    val preferred = deck.entries.firstOrNull { it.cardNumber == card.cardNumber && it.section == section }?.printingId
-                    DetailActionRow("Printing used") {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            cardPrintings.forEach { p ->
-                                PillChip(
-                                    selected = (preferred ?: cardPrintings.first().printingId) == p.printingId,
-                                    onClick = { draft = deck.withQuantity(card.cardNumber, section, inDeck, p.printingId) },
-                                    label = { Text(p.label.removePrefix("Reprint: ")) },
-                                )
-                            }
-                        }
-                    }
                 }
                 // The library shows the deck by this card instead of its highest-level Unit.
                 val canCover = inDeck > 0 || deck.coverCard == card.cardNumber
