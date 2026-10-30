@@ -339,10 +339,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                             GlassIconButton(Icons.Default.Share, "Export deck", { exporting = true })
                         }
                     }
-                } else {
-                    // Phones keep only Export here; the legality stamp says Legal or Draft in words (I4).
-                    GlassIconButton(Icons.Default.Share, "Export deck", { exporting = true })
                 }
+                // Phones export from the bar above the deck list instead.
             }
             }
             if (!wide) {
