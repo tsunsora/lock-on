@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.5 (2026-10-30)
+
+Card pictures load faster on Windows.
+
+- **Windows:** card pictures come up about a third faster, so scrolling through cards stutters less while new ones load.
+
 ## 1.9.4 (2026-10-30)
 
 Lock On opens faster on Windows.
