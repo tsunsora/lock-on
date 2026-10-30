@@ -485,17 +485,19 @@ fun CardDetailContent(
                             (if (more) Modifier.fadeEnd(32.dp) else Modifier).horizontalScroll(scroll),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            printings.forEach { p -> tile(p, Modifier.width(104.dp)) }
+                            printings.forEach { p -> tile(p, Modifier.width(88.dp)) }
                         }
                     } else {
-                        // A grid rather than a scrolling strip, so every printing is in view at once. The rows
-                        // share the printings evenly, so six read as two rows of three rather than four and two.
+                        // A grid rather than a scrolling strip, so every printing is in view at once. Five to a
+                        // row wherever they fit, so every card lays out alike. Narrower columns share the
+                        // printings evenly instead, so nine read as three rows of three rather than 4, 4 and 1.
+                        // Either way the tiles stretch to fill the width rather than leaving a gap at the end.
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
                             val gap = 8.dp
-                            val fit = ((maxWidth + gap) / (76.dp + gap)).toInt().coerceAtLeast(1)
+                            val fit = ((maxWidth + gap) / (76.dp + gap)).toInt().coerceIn(1, 5)
                             val rows = (printings.size + fit - 1) / fit
-                            val columns = (printings.size + rows - 1) / rows
-                            val tileWidth = ((maxWidth - gap * (columns - 1)) / columns).coerceAtMost(112.dp)
+                            val columns = if (fit == 5) 5 else (printings.size + rows - 1) / rows
+                            val tileWidth = (maxWidth - gap * (columns - 1)) / columns
                             // Fixed rows rather than a FlowRow: tile widths rounding a pixel past the line made
                             // it wrap a column early.
                             Column(verticalArrangement = Arrangement.spacedBy(gap)) {
@@ -534,8 +536,8 @@ fun CardDetailContent(
         val body: @Composable () -> Unit = {
             if (card.displayText.isNotBlank()) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
-                    Text(effectText(card.displayText), style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(if (roomy) 14.dp else 12.dp).fillMaxWidth())
+                    Text(effectText(card.displayText), style = if (roomy) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(if (roomy) 14.dp else 10.dp).fillMaxWidth())
                 }
             }
             if (card.correctedText != null) {
@@ -583,12 +585,19 @@ fun CardDetailContent(
         } else if (!roomy) {
             // Phones: the card shrinks to a thumbnail beside its numbers, so the text and the deck
             // controls fit on screen without scrolling. A tap still opens it full size.
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // The type joins the id line, traits read as a line of text rather than a chip each, and the
+            // text runs a size smaller, so the card text and printings start higher up.
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     image(Modifier.width(thumbWidth), true)
-                    Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        idLine()
-                        Text(card.type.label, style = MaterialTheme.typography.titleMedium)
+                    Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ColorPips(card.colors)
+                            Text(
+                                listOf(card.type.label, card.cardNumber, card.rarity).filter { it.isNotBlank() }.joinToString(" · "),
+                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         val stats = listOfNotNull(
                             card.level?.let { "Lv" to it }, card.cost?.let { "Cost" to it },
                             card.ap?.let { "AP" to it }, card.hp?.let { "HP" to it },
@@ -598,8 +607,18 @@ fun CardDetailContent(
                                 stats.forEach { (label, value) -> StatCell(label, "$value", Modifier.weight(1f)) }
                             }
                         }
-                        tags()
-                        link()
+                        if (card.traits.isNotEmpty()) {
+                            Text(card.traits.joinToString(" ") { "($it)" }, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (card.zones.isNotEmpty()) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                card.zones.forEach { Chip(it, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, compact = true) }
+                            }
+                        }
+                        card.link?.let {
+                            Text("Link  $it", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
                 body()
@@ -671,11 +690,11 @@ private fun StatBox(label: String, value: String) {
 private fun StatCell(label: String, value: String, modifier: Modifier) {
     Column(
         modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-        Text(value, style = MaterialTheme.typography.titleMedium.merge(TabularNumbers))
+        Text(value, style = MaterialTheme.typography.titleSmall.merge(TabularNumbers))
     }
 }
 
@@ -723,9 +742,13 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
 }
 
 @Composable
-private fun Chip(text: String, background: Color = MaterialTheme.colorScheme.surfaceVariant, foreground: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
-    Text(text, style = MaterialTheme.typography.labelMedium, color = foreground,
-        modifier = Modifier.clip(MaterialTheme.shapes.small).background(background).padding(horizontal = 10.dp, vertical = 5.dp))
+private fun Chip(
+    text: String, background: Color = MaterialTheme.colorScheme.surfaceVariant,
+    foreground: Color = MaterialTheme.colorScheme.onSurfaceVariant, compact: Boolean = false,
+) {
+    Text(text, style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium, color = foreground,
+        modifier = Modifier.clip(MaterialTheme.shapes.small).background(background)
+            .padding(horizontal = if (compact) 8.dp else 10.dp, vertical = if (compact) 3.dp else 5.dp))
 }
 
 /** Effect text with 【timing】 and <keyword> markers picked out, as on the printed card. */
