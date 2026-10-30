@@ -60,7 +60,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.SnackbarHost
+import app.lockon.ui.components.GameToastHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
@@ -294,7 +294,7 @@ fun DeckExportDialog(
                     }
                 }
             }
-            SnackbarHost(toasts, Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
+            GameToastHost(toasts, Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
             if (viewing) {
                 ZoomView(viewWidth, onClose = { viewing = false }) { DeckImage(deck, cards, ruleset, order) }
             }
