@@ -63,11 +63,11 @@ object GcgApi {
     fun parseCards(text: String): List<Entry> = json.decodeFromString(ListSerializer(Entry.serializer()), text)
 
     /** Summary of what conversion left out, for the preview. */
-    data class Converted(val catalog: CatalogFile, val skippedTokens: Int)
+    data class Converted(val catalog: CatalogFile, val skippedUnknown: Int)
 
     fun toCatalog(manifest: Manifest, entries: List<Entry>): Converted {
-        // Tokens (Unit tokens, EX Base, EX Resource) are created during play and can't be in a deck.
-        val (playable, tokens) = entries.partition { CardType.parse(it.cardType) != null }
+        // Tokens (Unit tokens, EX Base, EX Resource) are kept for the card list; decks leave them out.
+        val (playable, unknown) = entries.partition { CardType.parse(it.cardType) != null }
         val byNumber = playable.groupBy { it.cardNumber }
         val cards = byNumber.map { (number, printings) ->
             // Gameplay comes from the standard printing; later reprints can carry newer wording.
@@ -113,7 +113,7 @@ object GcgApi {
             cards = cards,
             printings = printings,
         )
-        return Converted(catalog, tokens.size)
+        return Converted(catalog, unknown.size)
     }
 
     /** "[Amuro Ray]" stays a pilot name; "(White Base Team) Trait" becomes the trait form analysis reads. */

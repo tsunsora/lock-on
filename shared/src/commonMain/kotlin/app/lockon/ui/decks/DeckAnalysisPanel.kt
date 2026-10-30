@@ -94,7 +94,8 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         HorizontalDivider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SectionHeader("Card types")
-            CardType.entries.forEach { type ->
+            // Tokens only show when a deck has one by mistake, which legality already flags.
+            CardType.entries.filter { !it.isToken || (stats.typeCounts[it] ?: 0) > 0 }.forEach { type ->
                 CountLine(type.label, stats.typeCounts[type] ?: 0)
             }
         }

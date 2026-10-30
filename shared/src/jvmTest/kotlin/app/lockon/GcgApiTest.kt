@@ -49,11 +49,12 @@ class GcgApiTest {
       { "product_id": "T-001", "card_number": "T-001", "name": "EX Base", "set_code": "T", "rarity": "-", "card_type": "EX BASE", "color": null }
     ]"""
 
-    @Test fun convertsPrintingsLinksAndSkipsTokens() {
+    @Test fun convertsPrintingsLinksAndTokens() {
         val converted = GcgApi.toCatalog(GcgApi.parseManifest(manifest(30)), GcgApi.parseCards(cards))
         val catalog = converted.catalog
-        assertEquals(1, converted.skippedTokens)
-        assertEquals(listOf("GD01-001", "GD01-010", "GD01-090", "R-001"), catalog.cards.map { it.cardNumber })
+        assertEquals(0, converted.skippedUnknown)
+        assertEquals(listOf("GD01-001", "GD01-010", "GD01-090", "R-001", "T-001"), catalog.cards.map { it.cardNumber })
+        assertEquals(CardType.EX_BASE, catalog.cards.last().type, "tokens are listed, under their own type")
         assertEquals(30, catalog.version)
         val gundam = catalog.cards.first()
         assertEquals("【When Paired】Draw 1.", gundam.text, "gameplay comes from the standard printing")
@@ -61,8 +62,9 @@ class GcgApiTest {
         assertEquals(listOf("Space", "Earth"), gundam.zones)
         assertEquals("LR", gundam.rarity)
         assertTrue(catalog.cards.single { it.cardNumber == "GD01-010" }.zones.isEmpty())
-        assertEquals(CardType.RESOURCE, catalog.cards.last().type)
-        assertTrue(catalog.cards.last().colors.isEmpty())
+        val resource = catalog.cards.single { it.cardNumber == "R-001" }
+        assertEquals(CardType.RESOURCE, resource.type)
+        assertTrue(resource.colors.isEmpty())
 
         val printings = catalog.printings.filter { it.cardNumber == "GD01-001" }.associateBy { it.printingId }
         assertEquals("Standard", printings.getValue("GD01-001").label)
@@ -83,10 +85,10 @@ class GcgApiTest {
         val updater = CatalogUpdater(repo, decks, fetch = { fetched += it; served.getValue(it) })
 
         val preview = updater.latestCardDatabase()
-        assertTrue(preview.checked.warnings.any { "token cards" in it })
         updater.install(preview)
         assertEquals(CatalogOrigin.GCG_API, repo.info.value!!.origin)
-        assertEquals(4, repo.cards.value.size)
+        assertEquals(5, repo.cards.value.size)
+        assertEquals(CardType.EX_BASE, repo.cards.value.getValue("T-001").type, "token types survive the database")
         // The original rules stay, since gcg-api ships no ban list.
         assertEquals(2, repo.rulesets.value.size)
 
@@ -96,6 +98,20 @@ class GcgApiTest {
 
         served[GcgApi.MANIFEST_URL] = manifest(31)
         assertEquals(31, assertIs<CatalogUpdater.UpdateCheck.Available>(updater.checkCardDatabase()).version)
+    }
+
+    @Test fun anOfficialListWithoutTokensIsOfferedAgain() = runTest {
+        repo.load(File(resources, "catalog/sample-catalog.json").readText(), File(resources, "rulesets/rulesets.json").readText())
+        val withoutTokens = GcgApi.parseCards(cards).filter { CardType.parse(it.cardType)?.isToken != true }
+        val old = GcgApi.toCatalog(GcgApi.parseManifest(manifest(30)), withoutTokens).catalog
+        repo.install(old, CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
+        val updater = CatalogUpdater(repo, decks, fetch = { mapOf(GcgApi.MANIFEST_URL to manifest(30), GcgApi.CARDS_URL to cards).getValue(it) })
+
+        assertIs<CatalogUpdater.UpdateCheck.Available>(updater.checkCardDatabase(), "same run, but converted before tokens were kept")
+        val preview = updater.latestCardDatabase()
+        assertTrue(preview.isNewer)
+        updater.install(preview)
+        assertIs<CatalogUpdater.UpdateCheck.UpToDate>(updater.checkCardDatabase())
     }
 
     @Test fun backgroundCheckIsWeeklyAndOnlyForTheOfficialList() = runTest {
