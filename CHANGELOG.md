@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.0 (2026-10-30)
+
+A roomier phone deck editor.
+
+- On phones, the **Add to** switch moves into the editor's header. While you add cards, a Side deck chip with its count sits beside the Main gauge, and whichever one the card list's + fills is the bright one. The card list gets back the row the switch used to take.
+- On phones, the deck editor's top bar has **Export** again, as on desktop.
+- On phones, the editor's bottom bar puts **Add cards** before Deck. Tapping the open Add cards or Deck tab again scrolls its list back to the top.
+
 ## 1.8.1 (2026-10-30)
 
 A brighter app icon.
