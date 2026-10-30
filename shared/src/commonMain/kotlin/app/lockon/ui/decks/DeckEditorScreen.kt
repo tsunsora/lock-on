@@ -27,7 +27,9 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import app.lockon.ui.components.glassColors
+import app.lockon.ui.components.Motion
 import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.motion
 import app.lockon.ui.components.shineSweep
 
 import androidx.compose.foundation.clickable
@@ -65,7 +67,6 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -288,6 +289,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val colorsNow = deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
     val deckColors = remember(colorsNow) { colorsNow }
 
+    // The phone editor's tab (0 Deck, 1 Add cards, then Analysis, Test, Matches, Versions).
+    var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
+
     Column(Modifier.fillMaxSize()) {
         // Header: a hero banner with the cover art behind it. Who the deck is sits on the left, its
         // health is grouped on the right (UX rule I2).
@@ -338,9 +342,26 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 if (wide) DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 104.dp))
             }
             }
-            if (!wide) {
+            // The row keeps one height on every tab, so the chip coming and going never moves the page.
+            if (!wide) Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 0.dp, bottom = 8.dp).heightIn(min = 36.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // While adding cards, the gauge doubles as the Add to switch: the side deck's chip sits
+                // beside it, and whichever the card list's + fills is the bright one.
+                val adding = phoneTab == 1
+                val gauge by animateFloatAsState(if (adding && addToSide.value) 0.45f else 1f, motion(Motion.MEDIUM), label = "add-to")
                 ProgressGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize,
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp), compact = true)
+                    Modifier.weight(1f).alpha(gauge).then(
+                        if (adding) Modifier.clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Add to deck") { addToSide.value = false }
+                        else Modifier,
+                    ),
+                    compact = true)
+                if (adding) PillChip(
+                    selected = addToSide.value, onClick = { addToSide.value = !addToSide.value },
+                    label = { Text("Side deck · ${deck.count(DeckSection.SIDE)}") },
+                    modifier = Modifier.height(32.dp),
+                )
             }
         }
         if (summary?.hasConflict == true) {
@@ -359,7 +380,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
 
         // The wide deck panel's tab (Deck, Analysis, Test, Matches, Versions); phones use their own tab row.
         var deckTab by rememberSaveable(deckId) { mutableStateOf(if (startTab >= 2) startTab - 1 else 0) }
-        var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
         // Tapping the open tab again on phones takes its list back to the top.
         var deckToTop by remember(deckId) { mutableIntStateOf(0) }
         var cardsToTop by remember(deckId) { mutableIntStateOf(0) }
@@ -412,9 +432,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     Text("Add to", label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     PillTabs(listOf("Deck", "Side deck"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs)
                 }
-                // A wide card list fits the switch at the end of the search row, and phones fold it into
-                // one chip at the start of the quick filter row, so the cards get that row's height
-                // back (UX rule N4, space goes to cards).
+                // A wide card list fits the switch at the end of the search row, and phones keep it in
+                // the header beside the Main gauge, so the cards get that row's height back (UX rule N4,
+                // space goes to cards).
                 val inline = wide && maxWidth >= 720.dp
                 Column {
                     if (wide && !inline) Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -425,14 +445,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         focusRequests = focusSeen[0], deckColors = deckColors, wide = wide,
                         controls = controls, scrollToTop = cardsToTop,
                         trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max), Modifier.padding(start = 14.dp)) }) else null,
-                        // One tap flips it; lit while cards go to the side deck, since that isn't the usual target.
-                        quickLead = if (wide) null else ({
-                            PillChip(
-                                selected = addToSide.value, onClick = { addToSide.value = !addToSide.value },
-                                label = { Text(if (addToSide.value) "Add to: Side deck" else "Add to: Deck") },
-                            )
-                            VerticalDivider(Modifier.height(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
-                        }),
                     )
                 }
             }
@@ -767,7 +779,10 @@ private fun DeckList(
                 readout = "${side.sumOf { it.quantity }}",
             )
             Text(
-                if (side.isEmpty()) "Cards kept beside the deck. Set the card list to Add to: Side deck, then add cards with +${if (compact) " or by dragging" else ""}."
+                if (side.isEmpty()) {
+                    if (compact) "Cards kept beside the deck. Set the card list to Add to: Side deck, then add cards with + or by dragging."
+                    else "Cards kept beside the deck. In Add cards, tap Side deck beside the Main gauge, then add cards with +."
+                }
                 else "Not counted toward the deck or its legality.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
