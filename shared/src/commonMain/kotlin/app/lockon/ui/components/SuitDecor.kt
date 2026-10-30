@@ -26,8 +26,8 @@ import app.lockon.ui.theme.SuitColors
 // never carry meaning on their own.
 
 /**
- * The Lock On mark: a bold targeting reticle with a red crest. Drawn on a 108-unit grid shared
- * with the Android launcher icon, so both stay identical.
+ * The Lock On mark: a bold targeting reticle with a center dot, all in one colour. Drawn on a
+ * 108-unit grid shared with the app icons, so they stay identical.
  */
 @Composable
 fun LockOnMark(modifier: Modifier = Modifier, size: Dp = 32.dp, reticleColor: Color = SuitColors.armorWhite) {
@@ -38,8 +38,7 @@ fun LockOnMark(modifier: Modifier = Modifier, size: Dp = 32.dp, reticleColor: Co
                 Offset(14f, 54f) to Offset(34f, 54f), Offset(74f, 54f) to Offset(94f, 54f)).forEach { (a, b) ->
                 drawLine(reticleColor, a, b, strokeWidth = 8f, cap = StrokeCap.Round)
             }
-            val crest = Path().apply { moveTo(54f, 42f); lineTo(63f, 54f); lineTo(54f, 66f); lineTo(45f, 54f); close() }
-            drawPath(crest, SuitColors.chestRed)
+            drawCircle(reticleColor, radius = 8f, center = Offset(54f, 54f))
         }
     }
 }
