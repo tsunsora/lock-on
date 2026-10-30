@@ -359,6 +359,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         // The wide deck panel's tab (Deck, Analysis, Test, Matches, Versions); phones use their own tab row.
         var deckTab by rememberSaveable(deckId) { mutableStateOf(if (startTab >= 2) startTab - 1 else 0) }
         var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
+        // Tapping the open tab again on phones takes its list back to the top.
+        var deckToTop by remember(deckId) { mutableIntStateOf(0) }
+        var cardsToTop by remember(deckId) { mutableIntStateOf(0) }
         // Kept for every deck, so the editor opens the way the person last arranged it.
         val split = remember { mutableFloatStateOf(DEFAULT_SPLIT) }
         LaunchedEffect(Unit) { container.database.metaDao().get(KEY_EDITOR_SPLIT)?.toFloatOrNull()?.let { split.floatValue = it } }
@@ -368,6 +371,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
                 onExport = { exporting = true },
                 onAddCards = if (wide) null else ({ phoneTab = 1 }),
+                scrollToTop = deckToTop,
                 onCardClick = { detail = it },
                 onChange = { card, delta -> change(card, delta) },
                 onSideChange = { card, delta -> change(card, delta, DeckSection.SIDE) },
@@ -417,7 +421,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     CardSearchPanel(
                         addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
                         focusRequests = focusSeen[0], deckColors = deckColors, wide = wide,
-                        controls = controls,
+                        controls = controls, scrollToTop = cardsToTop,
                         trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max), Modifier.padding(start = 14.dp)) }) else null,
                     )
                 }
@@ -533,8 +537,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         } else {
             // The sections float in a pill over the content, which scrolls underneath it.
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (stage >= 1) SlidingPages(phoneTab, Modifier.fillMaxSize()) { page ->
-                    when (page) {
+                // Pages slide in the bar's order, where the card list comes before the deck.
+                if (stage >= 1) SlidingPages(phoneNavSlot(phoneTab), Modifier.fillMaxSize()) { slot ->
+                    when (phoneNavSlot(slot)) {
                         0 -> deckList(Modifier.fillMaxSize())
                         1 -> search(Modifier.fillMaxSize())
                         2 -> analysis(Modifier.fillMaxSize())
@@ -543,7 +548,13 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         else -> versions(Modifier.fillMaxSize())
                     }
                 }
-                EditorNav(phoneTab) { phoneTab = it }
+                EditorNav(phoneTab) {
+                    when {
+                        it != phoneTab -> phoneTab = it
+                        it == 0 -> deckToTop++
+                        it == 1 -> cardsToTop++
+                    }
+                }
             }
         }
     }
@@ -627,6 +638,8 @@ private fun DeckList(
     onExport: () -> Unit,
     /** Opens the card list; phones only, where it is a separate tab. */
     onAddCards: (() -> Unit)?,
+    /** Goes up by one each time the list should go back to the top. */
+    scrollToTop: Int,
     onCardClick: (GameCard) -> Unit,
     onChange: (GameCard, Int) -> Unit,
     onSideChange: (GameCard, Int) -> Unit,
@@ -645,6 +658,7 @@ private fun DeckList(
     var cardView by rememberSaveable { mutableStateOf(true) }
     val gap = if (compact) 8.dp else 6.dp
     val listState = rememberLazyListState()
+    LaunchedEffect(scrollToTop) { if (scrollToTop > 0) listState.animateScrollToItem(0) }
     val side = remember(deck, cards) {
         deck.entries.filter { it.section == DeckSection.SIDE }.sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
     }
@@ -654,7 +668,7 @@ private fun DeckList(
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
     Column(Modifier.fillMaxSize()) {
     // Phones keep the deck's first problem and the view switch above the list.
-    if (!compact && deck.entries.isNotEmpty()) DeckTopBar(legality, onOpenAnalysis, cardView, { cardView = it })
+    if (!compact && deck.entries.isNotEmpty()) DeckTopBar(legality, onOpenAnalysis, onExport, cardView, { cardView = it })
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -790,18 +804,20 @@ private fun DeckList(
 }
 
 /**
- * The phone deck list's fixed top bar: the card/list switch. Under it, the first legality
- * problem in words (UX rule I3), which opens Analysis. Phones export from the deck library's menu.
+ * The phone deck list's fixed top bar: Export and the card/list switch, as on wide windows. Under
+ * them, the first legality problem in words (UX rule I3), which opens Analysis.
  */
 @Composable
 private fun DeckTopBar(
     legality: DeckLegality,
     onOpenAnalysis: () -> Unit,
+    onExport: () -> Unit,
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp).glass(LockOnShapes.tile, strong = true).padding(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            GameButton("Export", onClick = onExport, style = GameButtonStyle.GHOST, icon = Icons.Default.Share, compact = true)
             Spacer(Modifier.weight(1f))
             CardViewButton(cardView, onCardView)
         }
@@ -853,6 +869,12 @@ private fun DetailActionCell(label: String, modifier: Modifier, control: @Compos
         control()
     }
 }
+
+/**
+ * Where a phone editor tab sits in the bottom bar, which puts Add cards (tab 1) before Deck (tab 0).
+ * It is its own inverse, so it also turns a bar position back into a tab.
+ */
+private fun phoneNavSlot(tab: Int): Int = when (tab) { 0 -> 1; 1 -> 0; else -> tab }
 
 /** The copy limit for a card under [ruleset]: restricted, resource or the normal maximum. */
 private fun copyLimit(card: GameCard, ruleset: Ruleset): Int? =
@@ -970,8 +992,9 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
 
 /**
  * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3). Building the deck
- * comes first, so the bar holds only Deck and Add cards; Analysis, Test, Matches and Versions sit
- * under More, which takes the name and icon of whichever of them is open.
+ * comes first, so the bar holds only Add cards and Deck; Analysis, Test, Matches and Versions sit
+ * under More, which takes the name and icon of whichever of them is open. [tab] and [onSelect] use
+ * the editor's tab numbers (0 Deck, 1 Add cards); the bar shows the first two the other way round.
  */
 @Composable
 private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
@@ -979,8 +1002,8 @@ private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
     Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
         FloatingPillNav(
             listOf(
-                BottomItem("Deck") { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 BottomItem("Add cards") { Icon(Icons.Default.Add, contentDescription = null) },
+                BottomItem("Deck") { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 BottomItem(when (tab) { 2 -> "Analysis"; 3 -> "Test"; 4 -> "Matches"; 5 -> "Versions"; else -> "More" }) {
                     when (tab) {
                         2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -989,8 +1012,8 @@ private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
                     }
                 },
             ),
-            selected = minOf(tab, 2),
-            onSelect = { if (it == 2) more = true else onSelect(it) },
+            selected = minOf(phoneNavSlot(tab), 2),
+            onSelect = { if (it == 2) more = true else onSelect(phoneNavSlot(it)) },
         )
         // Anchored over the right end of the pill, where More sits, so the menu opens above it.
         Box(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.3f)) {
