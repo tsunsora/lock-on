@@ -84,7 +84,7 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
   - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold when exactly full, and red when over. Nothing is drawn on the bar itself (K3).
   - **Level curve** (as in MTG Arena): a compact curve sits at the top of the deck list.
   - **Deck boxes:** library tiles show the cover art behind the deck's name, its colour orbs, both gauges and the record.
-  - **Hero banner:** the editor header is a frosted strip with the cover art fading in from the right, and the Lock On readout (*Locked on!* or *Not ready*) in words.
+  - **Hero banner:** the editor header is a frosted strip with the cover art fading in from the right.
 - **V9. Navigation floats and fits the theme** (as on Stella Sora's home screen, N5).
   - **The player card** is the brand: the Lock On mark in a teal-ringed level badge, the name, and the deck and card counts in currency-style pills. They're plain counts, never badges or prompts (C1).
   - **The pill** (N5): destinations float in a translucent capsule, and the selected one is a teal pill with its label.
@@ -106,7 +106,7 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
 - **V7. Decoration is never the only signal.**
   - **The sky:** a gradient with soft colour glows, a diagonal beam of light, bokeh, and a few fixed sparkles. Twilight adds stars.
   - **Sparkles** mark headings, the selected destination and celebration.
-  - **The Lock On mark:** a bold targeting reticle with a red crest (on a yellow tile for the app icon). It appears in the player card's badge, on face-down shields and as the launcher icon.
+  - **The Lock On mark:** a bold targeting reticle with a red crest. The app icon is in the twilight theme: the mark in the accent teal, shaded like the badge ring, over a tile of the twilight sky with its teal and violet glows. It appears in the player card's badge, on face-down shields and as the launcher icon.
   - **Yellow-and-black caution stripes** are reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
   - All of these are original shapes, not official logos or artwork.
 
