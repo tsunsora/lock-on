@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.0 (2026-10-30)
+
+Tokens in the card list, simpler folder controls on phones, and a tidier card dialog.
+
+- The **Cards** tab lists tokens (Unit tokens, EX Bases and EX Resources) under their own types, so you can find and filter them. The deck editor doesn't offer them, a deck holding one is flagged, and a pasted list's card name never means a token. An official list converted without its tokens is offered again.
+- On phones the **folder chip**'s menu only picks a folder: New folder is a round + button before the chip, and the open folder's Rename and Remove are round buttons after it.
+- The **deck library** drops its tag filter chips. Decks still show and edit their tags.
+- On desktop the **card details** dialog lists printings five to a row wherever five fit, and narrower columns share them evenly. On phones the dialog is more compact, with the type in the id line, traits as a line of text, and smaller zone chips, stats, card text and printing tiles.
+- The Lock On badge sits on a lighter tone.
+
 ## 1.7.0 (2026-10-30)
 
 A new app icon, roomier card details on desktop, and lighter toasts.
