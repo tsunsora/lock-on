@@ -376,6 +376,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             DeckList(
                 deck, cards, ruleset, legality, modifier, compact = wide,
                 onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
+                onExport = { exporting = true },
                 onAddCards = if (wide) null else ({ phoneTab = 1 }),
                 onCardClick = { detail = it },
                 onChange = { card, delta -> change(card, delta) },
@@ -622,6 +623,7 @@ private fun DeckList(
     /** Slimmer strips for wide windows. */
     compact: Boolean,
     onOpenAnalysis: () -> Unit,
+    onExport: () -> Unit,
     /** Opens the card list; phones only, where it is a separate tab. */
     onAddCards: (() -> Unit)?,
     onCardClick: (GameCard) -> Unit,
@@ -645,39 +647,20 @@ private fun DeckList(
     val side = remember(deck, cards) {
         deck.entries.filter { it.section == DeckSection.SIDE }.sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
     }
-    val scope = rememberCoroutineScope()
     BoxWithConstraints(modifier) {
     // The end padding clears the scroll bar's lane so section counts don't sit under it.
     // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
-    // Where each section's header sits in the list, for the phone's jump bar. Mirrors the items below.
-    val jumps = buildList {
-        var index = (if (compact && deck.entries.isNotEmpty()) 1 else 0) + (if (deck.count(DeckSection.MAIN) == 0) 1 else 0)
-        for ((label, entries) in groups) {
-            add(SectionJump(label, entries.sumOf { it.quantity }, index))
-            index += 1 + if (cardView) (entries.size + columns - 1) / columns else entries.size
-        }
-        add(SectionJump("Side", side.sumOf { it.quantity }, index))
-    }
     Column(Modifier.fillMaxSize()) {
-    // Phones keep the deck's sections, its first problem and the view switch above the list, so
-    // any part of a long deck is one tap away while building it.
-    if (!compact && deck.entries.isNotEmpty()) {
-        val curve = remember(deck, cards) { DeckAnalysis.stats(deck, cards).levelCurve }
-        DeckJumpBar(
-            legality, curve, jumps, onOpenAnalysis, cardView, { cardView = it },
-            onJump = { index -> scope.launch { listState.animateScrollToItem(index) } },
-        )
-    }
+    // Phones keep Export, the deck's first problem and the view switch above the list.
+    if (!compact && deck.entries.isNotEmpty()) DeckTopBar(legality, onOpenAnalysis, onExport, cardView, { cardView = it })
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (compact && deck.entries.isNotEmpty()) {
-            // Whether the deck is legal and its level curve ride at the top of the list; the curve opens
-            // Analysis, which has the counts too.
+            // Export and whether the deck is legal ride at the top of the list.
             item(key = "stats") {
-                val curve = remember(deck, cards) { DeckAnalysis.stats(deck, cards).levelCurve }
-                DeckStatusBar(legality, curve, onOpenAnalysis, cardView, { cardView = it }, Modifier.padding(bottom = 4.dp))
+                DeckStatusBar(legality, onExport, cardView, { cardView = it }, Modifier.padding(bottom = 4.dp))
             }
         }
         if (deck.entries.isEmpty()) {
@@ -805,36 +788,22 @@ private fun DeckList(
     }
 }
 
-/** A section of the deck list as the jump bar shows it: its name, its copies and its header's index. */
-private class SectionJump(val label: String, val copies: Int, val index: Int)
-
 /**
- * The phone deck list's fixed top bar: the level curve (opens Analysis), a chip per section that
- * scrolls the list to it, and the card/list switch. Under it, the first legality problem in words
- * (UX rule I3), which also opens Analysis.
+ * The phone deck list's fixed top bar: Export and the card/list switch. Under it, the first legality
+ * problem in words (UX rule I3), which opens Analysis.
  */
 @Composable
-private fun DeckJumpBar(
+private fun DeckTopBar(
     legality: DeckLegality,
-    curve: List<Pair<Int, Int>>,
-    jumps: List<SectionJump>,
     onOpenAnalysis: () -> Unit,
+    onExport: () -> Unit,
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
-    onJump: (Int) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp).glass(LockOnShapes.tile, strong = true).padding(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MiniCurve(curve, onOpenAnalysis)
-            Row(
-                Modifier.weight(1f).fadeEnd(24.dp).horizontalScroll(rememberScrollState()).padding(end = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                jumps.forEach { jump ->
-                    PillChip(selected = false, onClick = { onJump(jump.index) }, label = { Text("${jump.label} ${jump.copies}") })
-                }
-            }
+            GameButton("Export", onClick = onExport, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
+            Spacer(Modifier.weight(1f))
             PillChip(selected = false, onClick = { onCardView(!cardView) }, label = { Text(if (cardView) "List" else "Cards") },
                 modifier = Modifier.padding(start = 4.dp))
         }
@@ -910,15 +879,13 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
 }
 
 /**
- * A slim bar at the top of the deck list: the level curve, which opens the full analysis, then the
- * first legality problem in words (UX rule I3), and the card/list view switch at the end. A legal
+ * A slim bar at the top of the deck list: Export, then the first legality problem in words (UX rule I3), and the card/list view switch at the end. A legal
  * deck shows no message: the Legal stamp in the header already says so.
  */
 @Composable
 private fun DeckStatusBar(
     legality: DeckLegality,
-    curve: List<Pair<Int, Int>>,
-    onOpenAnalysis: () -> Unit,
+    onExport: () -> Unit,
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -926,7 +893,7 @@ private fun DeckStatusBar(
     val scheme = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MiniCurve(curve, onOpenAnalysis)
+            GameButton("Export", onClick = onExport, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
             val first = legality.errors.firstOrNull()
             if (first == null) Spacer(Modifier.weight(1f)) else Text(
                 if (legality.errors.size == 1) first.text else "${first.text} (+${legality.errors.size - 1} more)",
@@ -935,25 +902,6 @@ private fun DeckStatusBar(
             )
             // How the deck below is shown: small whole cards, or denser strips.
             GameButton(if (cardView) "List view" else "Card view", onClick = { onCardView(!cardView) }, style = GameButtonStyle.GHOST, compact = true)
-        }
-    }
-}
-
-/** The level curve as small bars, the shape at a glance (UX rule V8); a tap opens Analysis. */
-@Composable
-private fun MiniCurve(curve: List<Pair<Int, Int>>, onOpen: () -> Unit) {
-    if (curve.isEmpty()) return
-    val most = curve.maxOf { it.second }.coerceAtLeast(1)
-    val bar = MaterialTheme.colorScheme.secondary
-    val description = "Level curve: " + curve.joinToString { (level, n) -> "level $level, $n" } + ". Opens Analysis."
-    Row(
-        Modifier.height(40.dp).clip(LockOnShapes.button).clickable(onClickLabel = "Open analysis", onClick = onOpen)
-            .semantics(mergeDescendants = true) { contentDescription = description }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom,
-    ) {
-        curve.forEach { (_, n) ->
-            Box(Modifier.width(7.dp).fillMaxHeight(maxOf(n / most.toFloat(), 0.08f)).clip(RoundedCornerShape(2.dp)).background(bar))
         }
     }
 }
