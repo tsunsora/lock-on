@@ -60,6 +60,9 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -161,6 +164,15 @@ fun DeckExportDialog(
     val clipboard = LocalClipboardManager.current
     val layer = rememberGraphicsLayer()
     val scheme = MaterialTheme.colorScheme
+    // The app's snackbars draw in the window under this dialog, so it shows its own.
+    val toasts = remember { SnackbarHostState() }
+    val toastScope = rememberCoroutineScope()
+    fun toast(message: String) {
+        toastScope.launch {
+            toasts.currentSnackbarData?.dismiss()
+            toasts.showSnackbar(message)
+        }
+    }
 
     val header = @Composable {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -188,10 +200,10 @@ fun DeckExportDialog(
             if (tab == 0) {
                 GameButton("Copy", onClick = {
                     clipboard.setText(AnnotatedString(text))
-                    state.notify("Deck list copied.")
+                    toast("Deck list copied.")
                 }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY)
                 GameButton("Save file", onClick = {
-                    state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) state.notify("Deck list saved.") }
+                    state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
                 }, Modifier.weight(1f))
             } else {
                 GameButton("Save image", onClick = {
@@ -200,7 +212,7 @@ fun DeckExportDialog(
                         // image takes seconds, so that happens off it and the window keeps responding.
                         val bitmap = layer.toImageBitmap()
                         val png = withContext(Dispatchers.Default) { encodePng(bitmap) }
-                        if (files.saveBytes("$baseName.png", "image/png", png)) state.notify("Deck image saved.")
+                        if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved.")
                     }
                 }, Modifier.weight(1f))
             }
@@ -282,6 +294,7 @@ fun DeckExportDialog(
                     }
                 }
             }
+            SnackbarHost(toasts, Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
             if (viewing) {
                 ZoomView(viewWidth, onClose = { viewing = false }) { DeckImage(deck, cards, ruleset, order) }
             }
