@@ -33,15 +33,15 @@ class ArtworkDecoderTest {
     private val loader = ImageLoader(context)
 
     /** A 600Ã—838 card-shaped image with fine one-pixel stripes, like small card text. */
-    private fun cardFile(): File {
+    private fun cardFile(format: EncodedImageFormat = EncodedImageFormat.PNG): File {
         val bitmap = Bitmap().apply { allocN32Pixels(600, 838) }
         Canvas(bitmap).apply {
             clear(0xFFFFFFFF.toInt())
             val ink = Paint().apply { color = 0xFF000000.toInt() }
             for (x in 0 until 600 step 3) drawRect(org.jetbrains.skia.Rect.makeXYWH(x.toFloat(), 0f, 1f, 838f), ink)
         }
-        val png = Image.makeFromBitmap(bitmap).encodeToData(EncodedImageFormat.PNG)!!.bytes
-        return File.createTempFile("card", ".png").apply { writeBytes(png); deleteOnExit() }
+        val encoded = Image.makeFromBitmap(bitmap).encodeToData(format, 100)!!.bytes
+        return File.createTempFile("card", ".${format.name.lowercase()}").apply { writeBytes(encoded); deleteOnExit() }
     }
 
     private fun decode(file: File, width: Int, height: Int, smooth: Boolean): Bitmap = runBlocking {
@@ -85,6 +85,18 @@ class ArtworkDecoderTest {
         assertTrue(smooth < 0.05, "smooth decoder left $smooth unblended")
         val coil = unblended(decode(file, 200, 279, smooth = false))
         assertTrue(coil > 0.5, "Coil's decoder now blends ($coil unblended); the smooth decoder may no longer be needed")
+    }
+
+    @Test
+    fun webpArtworkDecodesStraightToTheShownSizeJustAsSmoothly() {
+        // Card servers send WebP, which decodes at the shown size instead of full size and shrunk.
+        val file = cardFile(EncodedImageFormat.WEBP)
+        val bitmap = decode(file, 200, 400, smooth = true)
+        assertEquals(200, bitmap.width)
+        assertEquals(279, bitmap.height)
+        val smooth = unblended(bitmap)
+        assertTrue(smooth < 0.05, "WebP decode left $smooth unblended")
+        assertEquals(600, decode(file, 1200, 1676, smooth = true).width)
     }
 
     @Test
