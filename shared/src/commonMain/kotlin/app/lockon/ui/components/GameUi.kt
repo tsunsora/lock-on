@@ -52,6 +52,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -68,6 +69,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -1052,6 +1056,57 @@ fun GameMenuDivider() {
         Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).height(1.dp)
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     )
+}
+
+/**
+ * Where [GameToast]s show: Material's queue and timing, drawn as the app's glass pills instead of
+ * Material's dark bars.
+ */
+@Composable
+fun GameToastHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
+    SnackbarHost(state, modifier) { GameToast(it) }
+}
+
+/**
+ * A short notice on an opaque glass pill: a teal light, the message, and the action as a ghost
+ * button. It wraps its text, so a short notice makes a short pill.
+ */
+@Composable
+fun GameToast(data: SnackbarData) {
+    val scheme = MaterialTheme.colorScheme
+    val g = glassColors()
+    val accent = Accent
+    // A pill on one line; a wrapped notice keeps the round ends without ballooning into an oval.
+    val shape = RoundedCornerShape(24.dp)
+    val action = data.visuals.actionLabel
+    Row(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .widthIn(max = 560.dp)
+            .heightIn(min = 48.dp)
+            .graphicsLayer {
+                this.shape = shape
+                shadowElevation = 10.dp.toPx()
+                ambientShadowColor = g.shade; spotShadowColor = g.shade
+            }
+            .clip(shape)
+            // Opaque, so the screen under it doesn't muddy the text.
+            .background(g.strong.compositeOver(scheme.background))
+            .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+            .padding(start = 18.dp, end = if (action != null) 6.dp else 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Canvas(Modifier.size(10.dp)) {
+            drawCircle(accent.copy(alpha = 0.25f))
+            drawCircle(accent, size.minDimension * 0.3f)
+        }
+        Text(
+            data.visuals.message, color = scheme.onSurface, style = MaterialTheme.typography.bodyMedium,
+            maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).padding(vertical = 12.dp),
+        )
+        if (action != null) GameButton(action, onClick = { data.performAction() }, style = GameButtonStyle.GHOST, compact = true)
+    }
 }
 
 /** An on/off switch as a pill track with a round knob: teal when on. A 48 dp target. */

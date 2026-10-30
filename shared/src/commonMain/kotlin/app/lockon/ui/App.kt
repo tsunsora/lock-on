@@ -79,7 +79,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
+import app.lockon.ui.components.GameToastHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -314,7 +314,7 @@ fun LockOnApp(
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground,
                 // Snackbars sit above the floating nav bar on phones.
-                snackbarHost = { SnackbarHost(snackbars, Modifier.padding(bottom = if (wide) 0.dp else navClearance() - 12.dp)) },
+                snackbarHost = { GameToastHost(snackbars, Modifier.padding(bottom = if (wide) 0.dp else navClearance() - 12.dp)) },
                 // Desktop navigation floats over each screen's header (below); phones keep it at the
                 // bottom, in thumb reach (UX rule N5).
                 // Screens clear the status bar themselves, so the deck banner's art can reach under it.
