@@ -49,7 +49,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 
 ## 4. Calm by default
 
-- **C1. No nagging.** No badges, banners or pop-ups announce anything the person didn't just do. Sync status appears on the Sync screen and as a small dot on its navigation item, and nowhere else. (Aniimo's reward systems "scream at you from multiple menus.")
+- **C1. No nagging.** No badges, banners or pop-ups announce anything the person didn't just do. Sync status appears on the Sync screen and as a small dot on its navigation item. The one exception: a sync that actually moved changes, auto-sync included, says so in a short snackbar wherever you are; syncs with nothing to move stay silent, and failures show only the dot. (Aniimo's reward systems "scream at you from multiple menus.")
 - **C2. Undo instead of "Are you sure?"** Reversible actions such as deleting a deck or clearing a section happen immediately and offer **Undo** in a snackbar. A confirmation dialog is only for actions undo can't reverse, such as forgetting a paired device or overwriting from a backup.
 - **C3. One bulk action instead of many single ones.** When something applies to many items, offer it once, such as *Clear section* or *Sync now*. (Aniimo reviewers asked for a claim-all.)
 - **C4. Pick from options, don't type.** Wherever a value comes from a known list, such as a card name, a color, a tag already in use or a ruleset, offer it as a choice. Typing is the fallback.

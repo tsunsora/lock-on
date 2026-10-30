@@ -31,7 +31,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -61,6 +63,7 @@ class AndroidSyncController(
     private val scope: CoroutineScope,
 ) : ClientSyncController {
     private val _status = MutableStateFlow(SyncStatus())
+    private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 8)
     private val _verification = MutableStateFlow<String?>(null)
     private val _autoSync = MutableStateFlow(true)
     private val _autoStates = MutableStateFlow<Map<String, AutoSyncState>>(emptyMap())
@@ -109,6 +112,7 @@ class AndroidSyncController(
 
     override val pairedDevices: Flow<List<PairedDevice>> = container.devices.pairedDevices
     override val status: StateFlow<SyncStatus> = _status.asStateFlow()
+    override val notices: Flow<String> = _notices.asSharedFlow()
     override val pendingVerification: StateFlow<String?> = _verification.asStateFlow()
     override val canScanQr: Boolean get() = scanner != null
     override val autoSync: StateFlow<Boolean> = _autoSync.asStateFlow()
@@ -308,7 +312,9 @@ class AndroidSyncController(
         val (device, transport) = transportFor(hostId) ?: throw SyncException("Not paired.")
         val result = container.syncClient.sync(hostId, transport, recordErrors = false)
         if (result.sent > 0 || result.received > 0) {
-            _status.value = SyncStatus(message = syncedMessage(device.name, result.sent, result.received))
+            val message = syncedMessage(device.name, result.sent, result.received)
+            _status.value = SyncStatus(message = message)
+            _notices.tryEmit(message)
         }
     }
 
@@ -407,9 +413,9 @@ class AndroidSyncController(
             val result = pinnedHttpClient(fingerprint).use { client ->
                 container.syncClient.sync(hostId, HttpSyncTransport(client, baseUrl(host, port), token))
             }
-            _status.value = SyncStatus(
-                message = syncedMessage(device.name, result.sent, result.received),
-            )
+            val message = syncedMessage(device.name, result.sent, result.received)
+            _status.value = SyncStatus(message = message)
+            if (result.sent > 0 || result.received > 0) _notices.tryEmit(message)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

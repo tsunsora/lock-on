@@ -37,7 +37,10 @@ class SyncRoutesTest {
     private val pairing = PairingManager(desktopDevices, identity, fingerprint = "ab".repeat(32))
 
     @Test fun pairThenSyncBothWays() = testApplication {
-        application { lockOnSync(SyncHost(desktopDecks, desktopDevices), desktopDevices, pairing, identity) }
+        val moved = mutableListOf<Triple<String, Int, Int>>()
+        application {
+            lockOnSync(SyncHost(desktopDecks, desktopDevices), desktopDevices, pairing, identity) { id, sent, received -> moved += Triple(id, sent, received) }
+        }
         val http = createClient { lockOnDefaults() }
 
         // A wrong code is refused without bothering the person at the desktop.
@@ -61,6 +64,8 @@ class SyncRoutesTest {
         assertEquals(1, result.received)
         assertEquals("From phone", desktopDecks.currentSnapshot(id)?.name)
         assertEquals(setOf("From phone", "From desktop"), phoneDecks.decks.first().map { it.snapshot.name }.toSet())
+        // The desktop hears what each batch moved, so it can tell the person (C1).
+        assertEquals(listOf(Triple("phone-id", 0, 1), Triple("phone-id", 1, 0)), moved)
 
         // A stolen or stale token gets nothing.
         val stranger = SyncClient(phoneDecks, phoneDevices)

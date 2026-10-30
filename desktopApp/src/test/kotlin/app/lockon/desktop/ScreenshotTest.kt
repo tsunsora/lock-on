@@ -253,6 +253,26 @@ class ScreenshotTest {
                 File(out, "phone-export.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
             }
         }
+        // Card details at phone width, with deck controls, so the condensed layout can be checked.
+        run {
+            val card = container.catalog.cards.value.getValue("SMP-001")
+            ImageComposeScene(600, 1260, Density(1.5f)) {
+                app.lockon.ui.theme.LockOnTheme(dark = true) {
+                    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                        app.lockon.ui.components.CardDetailDialog(card, emptyList(), onDismiss = {}) {
+                            androidx.compose.foundation.layout.Column {
+                                app.lockon.ui.components.PlateStepper(4, "copy", onMinus = {}, onPlus = {}, limit = 4)
+                                app.lockon.ui.components.PlateStepper(0, "side deck copy", onMinus = {}, onPlus = {})
+                            }
+                        }
+                    }
+                }
+            }.use { scene ->
+                var image = scene.render()
+                repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+                File(out, "phone-card-detail.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+        }
         // The export dialog's Image tab, drawn on its own for the same reason.
         val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
         ImageComposeScene(1200, 1400, Density(1.5f)) {

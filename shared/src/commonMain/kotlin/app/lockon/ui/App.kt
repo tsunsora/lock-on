@@ -16,7 +16,6 @@ import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.Accent
 import app.lockon.ui.components.OnAccent
-import app.lockon.ui.components.Gold
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.SolidColor
 import app.lockon.ui.components.TopBand
@@ -29,7 +28,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.components.lighten
-import app.lockon.ui.theme.TabularNumbers
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.offset
@@ -38,8 +36,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 
@@ -62,8 +58,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -118,8 +112,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import app.lockon.ui.components.ArtworkSource
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.Motion
@@ -223,8 +215,6 @@ fun LockOnApp(
         val snackbars = remember { SnackbarHostState() }
         val syncStatus by sync.status.collectAsState()
         // Only the counts, so saving a deck or loading cards doesn't recompose the whole app.
-        val deckCount by remember { container.decks.liveDecks.map { it.size }.distinctUntilChanged() }.collectAsState(initial = 0)
-        val cardCount by remember { container.catalog.cards.map { it.size }.distinctUntilChanged() }.collectAsState(initial = container.catalog.cards.value.size)
         val rootFocus = remember { FocusRequester() }
         LaunchedEffect(state.notice) {
             val notice = state.notice ?: return@LaunchedEffect
@@ -235,6 +225,8 @@ fun LockOnApp(
             )
             if (result == SnackbarResult.ActionPerformed) notice.action?.invoke()
         }
+        // Syncs that moved changes, auto-sync included, say so wherever you are (C1).
+        LaunchedEffect(sync) { sync.notices.collect { state.notify(it) } }
         LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
         // The boot screen stays up until the decks are in and the screens under it, tabs and recent
         // decks' editors, have drawn their cards, so the first look at each doesn't stutter.
@@ -396,7 +388,7 @@ fun LockOnApp(
                     SyncPrompts(sync)
                     if (wide) {
                         val density = LocalDensity.current
-                        FloatingTopNav(deckCount, cardCount, state.tab, state::select, icon = { TabIcon(it) }, trailing = chrome?.controls) { start, end, height ->
+                        FloatingTopNav(state.tab, state::select, icon = { TabIcon(it) }, trailing = chrome?.controls) { start, end, height ->
                             band = with(density) { TopBand(height.toDp(), start.toDp(), end.toDp()) }
                         }
                     }
@@ -506,8 +498,6 @@ fun ArtworkProvider(container: AppContainer, artworkDir: String, content: @Compo
  */
 @Composable
 private fun FloatingTopNav(
-    decks: Int,
-    cards: Int,
     selected: Tab,
     onSelect: (Tab) -> Unit,
     icon: @Composable (Tab) -> Unit,
@@ -525,7 +515,7 @@ private fun FloatingTopNav(
         }
     }
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(12.dp)) {
-        Box(Modifier.align(Alignment.TopStart).onSizeChanged { start = it }) { PlayerCard(decks, cards) }
+        Box(Modifier.align(Alignment.TopStart).onSizeChanged { start = it }) { PlayerCard() }
         Row(
             Modifier.align(Alignment.TopEnd).onSizeChanged { end = it },
             verticalAlignment = Alignment.CenterVertically,
@@ -546,69 +536,41 @@ private val CaptionHeight = 64.dp
 
 private val TrayShape = RoundedCornerShape(24.dp)
 
-/**
- * The brand as a player card: a ringed badge with the Lock On mark overlapping a glass name plate,
- * with the collection's counts in pills like a game's currencies (plain counts, never prompts: C1).
- */
+/** The brand as a player card: a ringed badge with the Lock On mark overlapping a glass name plate. */
 @Composable
-private fun PlayerCard(decks: Int, cards: Int) {
-    val scheme = MaterialTheme.colorScheme
+private fun PlayerCard() {
+    val accent = Accent
     Box(contentAlignment = Alignment.CenterStart) {
-        Column(
-            Modifier.padding(start = 34.dp)
+        Box(
+            Modifier.padding(start = 30.dp)
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
-                .padding(start = 38.dp, end = 16.dp, top = 6.dp, bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                // Teal light spilling from the badge into the plate ties the two together.
+                .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.16f), Color.Transparent), endX = size.width * 0.7f)) }
+                .padding(start = 44.dp, end = 22.dp, top = 9.dp, bottom = 10.dp),
         ) {
-            Text("Lock On", style = MaterialTheme.typography.titleLarge, color = scheme.onSurface, lineHeight = 24.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Currency(Accent, decks, "decks")
-                Currency(Gold, cards, "cards")
-            }
+            Text(
+                "Lock On", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.ExtraBold, letterSpacing = 0.2.sp,
+            )
         }
-        LevelBadge(decks)
+        LevelBadge()
     }
 }
 
-private val NamePlate = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp)
+private val NamePlate = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 22.dp, bottomEnd = 22.dp)
 
-/** A count in a small pill with a coloured gem, like a game's currency counter. */
+/** The round badge: the Lock On mark on a lit disc, like a level badge. */
 @Composable
-private fun Currency(gem: Color, value: Int, label: String) {
-    Row(
-        Modifier.clip(LockOnShapes.button).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)).padding(start = 4.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
-        Box(Modifier.size(14.dp).clip(CircleShape).background(Brush.radialGradient(listOf(lighten(gem, 0.5f), gem))))
-        Text(groupDigits(value), style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurface)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-private fun groupDigits(n: Int): String = n.toString().reversed().chunked(3).joinToString(",").reversed()
-
-/** The round badge: the Lock On mark inside a teal ring on a white disc, like a level badge. */
-@Composable
-private fun LevelBadge(decks: Int) {
+private fun LevelBadge() {
     val scheme = MaterialTheme.colorScheme
-    val ring = Accent
-    val track = scheme.outlineVariant
+    val disc = if (isTwilight()) listOf(lighten(scheme.surfaceContainerHighest, 0.12f), scheme.surfaceContainerHigh) else listOf(Color.White, Color(0xFFEAF2FA))
     Box(
         Modifier.size(64.dp).shadow(10.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-            .clip(CircleShape).background(if (isTwilight()) scheme.surfaceContainerHighest else Color.White)
-            .drawBehind {
-                val stroke = 4.dp.toPx()
-                val inset = stroke / 2 + 3.dp.toPx()
-                val arc = Size(size.width - inset * 2, size.height - inset * 2)
-                drawArc(track, 0f, 360f, false, Offset(inset, inset), arc, style = Stroke(stroke))
-                drawArc(Brush.sweepGradient(listOf(lighten(ring, 0.4f), ring, lighten(ring, 0.4f))), 120f, 300f, false, Offset(inset, inset), arc,
-                    style = Stroke(stroke, cap = StrokeCap.Round))
-            },
+            .clip(CircleShape).background(Brush.verticalGradient(disc)),
         contentAlignment = Alignment.Center,
     ) {
-        LockOnMark(size = 34.dp, reticleColor = scheme.onSurface)
+        LockOnMark(size = 38.dp, reticleColor = scheme.onSurface)
     }
 }
 

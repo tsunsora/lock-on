@@ -134,7 +134,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - paired desktops with **Sync now**, last sync, the last manual-sync error, and a live line: *Live: changes sync automatically* or *Waiting for the desktop*
   - a verification code dialog while the desktop is confirming
 - **Always:** the line "Only decks sync. No account or cloud server."
-- A dot on the Sync tab is the only sync signal outside this screen (C1).
+- Outside this screen, a dot on the Sync tab marks a failed sync, and a snackbar such as *Up to date with Pixel 8: got 3 changes.* follows any sync that moved changes (C1).
 
 ### Settings (top level, beside Sync)
 - **Purpose:** this device's preferences. They are stored on the device and never sync.
