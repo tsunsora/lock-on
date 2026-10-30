@@ -539,8 +539,11 @@ fun CardDetailContent(
             if (actions != null) {
                 Column(Modifier.padding(top = 4.dp).fillMaxWidth().glass(LockOnShapes.tile)) {
                     PanelTitle("In this deck")
-                    Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)) { actions() }
-                    if (printingsInPanel) Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)) { printingStrip() }
+                    // Phones trim the panel's margins so the deck controls take less of a short screen; the
+                    // steppers' 48 dp targets keep their circles in line with the title.
+                    Box(if (roomy) Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)
+                        else Modifier.padding(start = 8.dp, end = 8.dp, bottom = 6.dp)) { actions() }
+                    if (printingsInPanel) Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = if (roomy) 14.dp else 10.dp)) { printingStrip() }
                 }
             }
         }
