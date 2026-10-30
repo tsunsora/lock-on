@@ -44,6 +44,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
@@ -799,10 +800,9 @@ private fun DeckTopBar(
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp).glass(LockOnShapes.tile, strong = true).padding(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            GameButton("Export", onClick = onExport, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
+            GameButton("Export", onClick = onExport, style = GameButtonStyle.GHOST, icon = Icons.Default.Share, compact = true)
             Spacer(Modifier.weight(1f))
-            PillChip(selected = false, onClick = { onCardView(!cardView) }, label = { Text(if (cardView) "List" else "Cards") },
-                modifier = Modifier.padding(start = 4.dp))
+            CardViewButton(cardView, onCardView)
         }
         legality.errors.firstOrNull()?.let { first ->
             Text(
@@ -899,10 +899,16 @@ private fun DeckStatusBar(
                 style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 color = scheme.error, modifier = Modifier.weight(1f),
             )
-            // How the deck below is shown: small whole cards, or denser strips.
-            GameButton(if (cardView) "List view" else "Card view", onClick = { onCardView(!cardView) }, style = GameButtonStyle.GHOST, compact = true)
+            CardViewButton(cardView, onCardView)
         }
     }
+}
+
+/** How the deck below is shown: small whole cards, or denser strips. The button offers the other one. */
+@Composable
+private fun CardViewButton(cardView: Boolean, onCardView: (Boolean) -> Unit) {
+    GameButton(if (cardView) "List view" else "Card view", onClick = { onCardView(!cardView) }, style = GameButtonStyle.GHOST,
+        icon = if (cardView) Icons.AutoMirrored.Filled.List else GameIcons.Deck, compact = true)
 }
 
 /**
