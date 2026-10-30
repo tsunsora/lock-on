@@ -333,18 +333,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         else Badge(if (tight) "Draft" else "Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
                     }
                 }
-                if (wide) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(if (roomy) 20.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 104.dp))
-                        // The Legal or Draft stamp says the deck's state in words (I4).
-                        if (roomy) {
-                            GameButton("Export", onClick = { exporting = true }, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Share, compact = true)
-                        } else {
-                            GlassIconButton(Icons.Default.Share, "Export deck", { exporting = true })
-                        }
-                    }
-                }
-                // Phones export from the deck library's menu instead.
+                // The deck panel's bar has Export, so the header keeps only the gauge.
+                if (wide) DeckGauge(if (roomy) "Main deck" else "Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.width(if (roomy) 200.dp else 104.dp))
             }
             }
             if (!wide) {
