@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.4 (2026-10-30)
+
+Lock On opens faster on Windows.
+
+- **Windows:** Lock On starts over a second sooner, and the launch screen keeps moving while it loads instead of freezing.
+- **Windows:** opening maximised no longer shows a white patch while the window grows.
+- **Windows:** updates never add a desktop shortcut. One already on your desktop stays. This takes effect from the update after this one, since the old version runs this update's installer.
+
 ## 1.9.3 (2026-10-30)
 
 The desktop window remembers being maximised.
