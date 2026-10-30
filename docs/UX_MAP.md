@@ -61,13 +61,14 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - name (tap to rename), color pips, legality tag, `Main n/50`
   - **Export**
   - a conflict banner when one exists
-- **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar (**Deck · Add · Analysis · Test · More**, with Matches and Versions under More):
+- **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar built around building the deck: **Deck · Add cards · More**, with Analysis, Test, Matches and Versions under More:
   1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
      - **Add to: Deck · Side deck** above the list picks where + and dropped cards go.
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color. Adding to the side deck, the counts are side deck copies, and a card already in the deck is tagged **Deck n**.
      - **Deck colors only** narrows the list to the deck's colors.
      - Sort by number, level, cost or name.
   2. **Deck:** grouped by type (Units, Pilots, Commands, then Bases), each with a HUD header and count, sorted by level and then cost, with − / + on every row.
+     - On phones a fixed bar above the list holds the level curve (opens Analysis), a chip per section with its count that jumps to it, **List / Cards**, and the first legality problem. An empty deck offers **Add cards**.
      - The **Side deck** comes after the deck, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − / +.
      - Card details have a side deck − / +, and **Move 1 to side deck** or **Move 1 to deck**, depending on where the card already is.
      - In the card list, a card with side deck copies is tagged **Side n**.
