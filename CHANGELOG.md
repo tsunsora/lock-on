@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.2 (2026-10-30)
+
+Decks drop their tags.
+
+- **Deck tiles** in the library no longer show tags, and a deck's menu no longer has **Edit tags**. Folders and search keep a collection tidy.
+- Tags already saved on a deck still appear in its text export and travel with it when shared.
+
 ## 1.9.1 (2026-10-30)
 
 Base tokens stay out of decks.
