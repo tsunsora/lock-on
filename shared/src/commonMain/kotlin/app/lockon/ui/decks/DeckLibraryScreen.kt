@@ -218,11 +218,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         Column(Modifier.fillMaxSize()) {
         // The title row sits in the band beside the floating navigation on wide windows (UX rule N5).
         // The deck actions. Wide windows put them beside the search bar, so the band keeps space for the
-        // title; phones keep Import beside the title and New deck in the thumb zone. Rarely used actions
-        // sit in a menu.
+        // title; phones keep New deck in the thumb zone. Importing a deck list is offered from New deck.
+        // Rarely used actions sit in a menu.
         val actions = @Composable {
             if (wide) GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add, compact = true)
-            GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY, compact = true)
             var menu by remember { mutableStateOf(false) }
             Box {
                 GlassIconButton(Icons.Default.MoreVert, "More actions", { menu = true })
@@ -309,10 +308,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             "No decks yet",
                             "Create a deck, import a deck list, or pair with another device to bring your decks over.",
                         ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add)
-                                GameButton("Import", onClick = { dialog = LibraryDialog.Import }, style = GameButtonStyle.SECONDARY)
-                            }
+                            GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add)
                         }
                         else -> {
                             val shown = list.filter {
@@ -378,7 +374,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
 
     when (val d = dialog) {
         null -> Unit
-        LibraryDialog.New -> TextPromptDialog("New deck", "Deck name", "", confirm = "Create", onDismiss = { dialog = null }) { name ->
+        LibraryDialog.New -> NewDeckDialog(onDismiss = { dialog = null }, onImport = { dialog = LibraryDialog.Import }) { name ->
             dialog = null
             // A deck made while a folder is open goes into that folder.
             val folder = (folderFilter as? FolderFilter.Named)?.name
@@ -831,6 +827,27 @@ private fun DeckRow(
 
 private val DeckBoxHeight = 196.dp
 private val CompactDeckBoxHeight = 148.dp
+
+/** Names a new empty deck, or hands over to [onImport] to bring in a deck list instead. */
+@Composable
+private fun NewDeckDialog(onDismiss: () -> Unit, onImport: () -> Unit, onCreate: (String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    GameDialog(
+        onDismissRequest = onDismiss,
+        title = "New deck",
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Deck name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                GameButton(
+                    "Import a deck list instead", onClick = onImport, style = GameButtonStyle.SECONDARY,
+                    compact = true, modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { GameButton("Create", onClick = { onCreate(name) }, compact = true) },
+        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
+    )
+}
 
 @Composable
 fun TextPromptDialog(
