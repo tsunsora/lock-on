@@ -131,7 +131,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.ui.layout.Layout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -183,6 +185,8 @@ fun LockOnApp(
     reduceMotion: Boolean = false,
     /** Desktop's own title bar, drawn into the top band; null keeps the system's (and on phones). */
     chrome: WindowChrome? = null,
+    /** Hears the theme's background colour, for the window behind the app. */
+    windowBackground: (Color) -> Unit = {},
 ) {
     val settings = container.settings
     val themeChoice by settings.theme.collectAsState()
@@ -215,6 +219,8 @@ fun LockOnApp(
     CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density) {
     ArtworkProvider(container, artworkDir) {
     LockOnTheme(useDark) {
+        val background = MaterialTheme.colorScheme.background
+        SideEffect { windowBackground(background) }
         val snackbars = remember { SnackbarHostState() }
         val syncStatus by sync.status.collectAsState()
         // Only the counts, so saving a deck or loading cards doesn't recompose the whole app.
@@ -246,19 +252,31 @@ fun LockOnApp(
             if (keptDecks.none { it.deckId == open.deckId }) keptDecks += open
             while (keptDecks.size > KeptDeckLimit) keptDecks.remove(keptDecks.maxBy { recentDecks.indexOf(it.deckId) })
         }
+        // Screens built under the boot screen so far. All of them at once took the first frame well over
+        // a second, with the window up but frozen, so they build one a frame while the boot screen plays.
+        val warmed = remember { mutableStateListOf<Any>() }
         if (!state.booted) LaunchedEffect(Unit) {
             val started = TimeSource.Monotonic.markNow()
             withTimeoutOrNull(BootLimit) {
-                // The decks changed most recently are the likeliest to be opened: build their editors now.
+                // The boot screen draws first, so the window opens on it.
+                repeat(2) { withFrameNanos { } }
+                // The decks changed most recently are the likeliest to be opened: build their editors too.
                 val recent = container.decks.liveDecks.first().filterNot { it.snapshot.deleted }
                     .sortedByDescending { it.updatedAt }.take(KeptDeckLimit).map { it.deckId }
                 recentDecks += recent
                 keptDecks += recent.map { Screen.DeckEditor(it) }
                 bootStep = BootStep.CARDS
-                // The hidden screens compose now and start loading their card images. Wait until no image
-                // has been loading for a moment, since more start as each screen fills in.
-                delay(BootCardsTime)
+                // The tab that opens first goes first. Each screen starts loading its card images as it builds.
+                for (tab in listOf(state.tab) + (Tab.entries - state.tab)) {
+                    warmed += tab
+                    withFrameNanos { }
+                }
                 bootStep = BootStep.EDITOR
+                for (id in recent) {
+                    warmed += id
+                    withFrameNanos { }
+                }
+                // Wait until no image has been loading for a moment, since more start as each screen fills in.
                 while (true) {
                     ArtworkLoads.inFlight.first { it == 0 }
                     if (withTimeoutOrNull(BootQuietTime) { ArtworkLoads.inFlight.first { it > 0 } } == null) break
@@ -325,7 +343,7 @@ fun LockOnApp(
                     CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
                         // Tabs are built once and kept: switching only shows a screen that's already laid
                         // out, with its cards drawn. They fade through each other (UX rule V5).
-                        KeptScreens(Tab.entries, if (state.current == null) state.tab else null, state.booted) { tab ->
+                        KeptScreens(Tab.entries, if (state.current == null) state.tab else null, state.booted, warmed) { tab ->
                             Column(Modifier.fillMaxSize().windowInsetsPadding(statusBarInsets)) {
                                 when (tab) {
                                     Tab.DECKS -> DeckLibraryScreen(container, state, files)
@@ -352,7 +370,7 @@ fun LockOnApp(
                         // Decks drift in from the side and back out as you leave, so motion says where you
                         // went (UX rule V5). A deck opened for the first time builds as it arrives.
                         val decksShown = if (openDeck == null || keptDecks.any { it.deckId == openDeck.deckId }) keptDecks.toList() else keptDecks + openDeck
-                        KeptScreens(decksShown.map { it.deckId }, openDeck?.deckId, state.booted, slide = true) { id ->
+                        KeptScreens(decksShown.map { it.deckId }, openDeck?.deckId, state.booted, warmed, slide = true) { id ->
                             DeckEditorScreen(container, state, files, id, wide, decksShown.firstOrNull { it.deckId == id }?.startTab ?: 0)
                         }
                         val reduce = LocalReduceMotion.current
@@ -424,11 +442,10 @@ fun LockOnApp(
 }
 }
 
-/** The boot screen shows at least this long, so its animation gets to play even when loading is quick. */
-private val BootMinimum = 2.5.seconds
+/** The boot screen shows at least this long, so its first lock lands even when loading is quick. */
+private val BootMinimum = 1.9.seconds
 /** And never longer than this, whatever is still loading. */
 private val BootLimit = 8.seconds
-private val BootCardsTime = 300.milliseconds
 private val BootQuietTime = 250.milliseconds
 
 /** How many deck editors stay built; opening a deck beyond these drops the one opened longest ago. */
@@ -438,14 +455,14 @@ private const val KeptDeckLimit = 4
  * Screens composed once and kept: the tabs, and the editors of recently opened decks. Only [shown]
  * (and a screen still fading out) is measured, placed and drawn, so a kept screen costs nothing per
  * frame; showing it again needs no new composition, which is what made a first look at Cards or a
- * deck stutter. While not [booted], every screen lays out and draws under the opaque boot screen, so
- * its cards fill in and their images are decoded and on the GPU before anyone looks. They draw at
+ * deck stutter. While not [booted], each screen in [warmed] lays out and draws under the opaque boot
+ * screen, so its cards fill in and their images are decoded and on the GPU before anyone looks. They draw at
  * just under full opacity, the way a crossfade draws them, since the GPU sets that up slowly the
  * first time; a fully transparent layer wouldn't draw at all. [slide] drifts screens in from the
  * side as they show and back out as they go.
  */
 @Composable
-private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, slide: Boolean = false, content: @Composable (K) -> Unit) {
+private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, warmed: List<Any>, slide: Boolean = false, content: @Composable (K) -> Unit) {
     val reduce = LocalReduceMotion.current
     val shows = keys.map { k ->
         key(k) {
@@ -471,7 +488,7 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, sli
                         val p = shows[i].value
                         alpha = if (booted) p else 0.99f
                         if (slide && booted) translationX = (1f - p) * size.width / 20f
-                    }) { content(k) }
+                    }) { if (booted || k in warmed) content(k) }
                 }
             }
         },

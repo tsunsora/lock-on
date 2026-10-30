@@ -25,6 +25,8 @@ It also writes `lock-on-update.json`, the update feed installed apps read. It li
 
 The first MSI build downloads the WiX toolset automatically.
 
+On Windows the MSI build also opens Lock On by itself for a minute or so, then closes it. That run records which classes the app starts with into `app/lock-on.jsa`, so installed copies start over a second faster. Leave it alone until it closes. The build folder's path must not contain spaces.
+
 ## Publish an update
 
 Installed apps check `lockon.updateFeed` in [gradle.properties](gradle.properties) once a day while they're open. It points at the **latest** GitHub release of this repo, so:
@@ -36,7 +38,7 @@ Installed apps check `lockon.updateFeed` in [gradle.properties](gradle.propertie
 
 What people see:
 
-- **Windows:** the update downloads in the background and installs when they close Lock On. **Sync → Restart and update** installs it right away. Either way the MSI runs with a progress bar and no questions, into the folder Lock On is already in, and keeps their decks. The install log is in `%APPDATA%\LockOn\updates\install.log`.
+- **Windows:** the update downloads in the background and installs when they close Lock On. **Sync → Restart and update** installs it right away. Either way the MSI runs with a progress bar and no questions, into the folder Lock On is already in, and keeps their decks. Updates never add a desktop shortcut; one that's already there stays. The install log is in `%APPDATA%\LockOn\updates\install.log`.
 - **Android:** the update downloads on Wi-Fi, then **Sync → Install update** hands it to Android. The first time, Android asks them to allow installs from Lock On and to confirm. On Android 12 and later, updates after that usually install without asking.
 
 Both can turn off **Update automatically** under Settings, and then updates only download when they tap **Download**. Each download is checked against the SHA-256 in the feed before it's used.

@@ -7,7 +7,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.Window
@@ -23,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
@@ -50,10 +53,15 @@ fun main() {
     // Installing an update now closes the window the normal way, so it is saved first.
     var closeWindow: () -> Unit = {}
     val updates = WindowsUpdateInstaller(requestExit = { closeWindow() })
+    BootLog.mark("database")
     val container = runBlocking { AppContainer.create(database, defaultDeviceName = hostName, updateInstaller = updates) }
+    BootLog.mark("container")
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    val sync = DesktopSyncController(container, appScope).also { it.start() }
-    container.updater?.start(appScope)
+    // Packaging runs the app once to record the classes it starts with (ClassArchiveTraining.kt). That run
+    // stays off the network and leaves the window's remembered place alone.
+    val training = System.getProperty("lockon.classArchiveTraining") == "true"
+    val sync = DesktopSyncController(container, appScope).also { if (!training) it.start() }
+    if (!training) container.updater?.start(appScope)
     val state = AppState(appScope)
     // For timing the app without the boot screen (TabSwitchProbe.kt).
     if (System.getProperty("lockon.skipBoot") == "true") state.booted = true
@@ -66,7 +74,7 @@ fun main() {
             size = saved.size,
         )
         // The window closes at once; the sync server and LAN announcement shut down after it.
-        val exit = { WindowMemory.save(windowState); exitApplication() }
+        val exit = { if (!training) WindowMemory.save(windowState); exitApplication() }
         closeWindow = exit
         Window(
             onCloseRequest = exit,
@@ -77,6 +85,9 @@ fun main() {
             // Which graphics API draws the window, for reports of slow scrolling: SOFTWARE means no GPU.
             LaunchedEffect(Unit) {
                 org.slf4j.LoggerFactory.getLogger("LockOn").info("Rendering with ${window.renderApi}")
+                BootLog.mark("window")
+                snapshotFlow { state.booted }.first { it }
+                BootLog.mark("booted")
             }
             // On Windows the app draws its own title bar in the sky's top band (UX rule N5). Elsewhere, or
             // if Windows refuses, the system's title bar stays and so do its controls.
@@ -93,6 +104,13 @@ fun main() {
                 LockOnApp(
                     container, state, sync, DesktopFileBridge(window),
                     artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
+                    // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
+                    // theme's sky colour rather than white.
+                    windowBackground = { color ->
+                        val awt = java.awt.Color(color.toArgb(), true)
+                        window.background = awt
+                        window.contentPane.background = awt
+                    },
                 )
                 if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
             }
@@ -100,6 +118,7 @@ fun main() {
             System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.tabProbe")?.let { TabSwitchProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.dividerProbe")?.let { DividerProbe(window, container, state, File(it), exit) }
+            if (training) ClassArchiveTraining(state, exit)
         }
     }
     sync.stop()
