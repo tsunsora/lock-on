@@ -427,8 +427,8 @@ fun LockOnApp(
 }
 }
 
-/** The boot screen shows at least this long, so it reads as a screen rather than a flash. */
-private val BootMinimum = 1.2.seconds
+/** The boot screen shows at least this long, so its animation gets to play even when loading is quick. */
+private val BootMinimum = 2.5.seconds
 /** And never longer than this, whatever is still loading. */
 private val BootLimit = 8.seconds
 private val BootCardsTime = 300.milliseconds
