@@ -61,6 +61,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
@@ -418,6 +420,7 @@ fun CompactStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
 @Composable
 fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier = Modifier, actions: (@Composable () -> Unit)? = null) {
     var shown by remember(card.cardNumber) { mutableStateOf<String?>(null) }
+    var inspecting by remember(card.cardNumber) { mutableStateOf(false) }
     BoxWithConstraints(modifier) {
         val sideBySide = maxWidth >= 640.dp
         val roomy = maxWidth >= 380.dp
@@ -433,9 +436,13 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
                     drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), pool.copy(alpha = 0f)), center, r), radius = r)
                 }
             }.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                CardImage(card, Modifier.fillMaxWidth(), printingId = shown)
+                // A click opens the card full size, to turn in the light.
+                val press = remember { MutableInteractionSource() }
+                CardImage(card, Modifier.fillMaxWidth().pressScale(press).pointerHoverIcon(PointerIcon.Hand)
+                    .clickable(press, indication = null, onClickLabel = "View larger") { inspecting = true }, printingId = shown)
             }
         }
+        if (inspecting) CardInspectDialog(card, shown, onDismiss = { inspecting = false })
         val printingStrip: @Composable () -> Unit = {
             if (printings.size > 1) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
