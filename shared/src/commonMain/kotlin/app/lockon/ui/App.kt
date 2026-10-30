@@ -551,7 +551,7 @@ private fun PlayerCard() {
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
                 // Teal light spilling from the badge into the plate ties the two together.
-                .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.16f), Color.Transparent), endX = size.width * 0.7f)) }
+                .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent), endX = size.width * 0.7f)) }
                 .padding(start = 44.dp, end = 22.dp, top = 9.dp, bottom = 10.dp),
         ) {
             Text(
@@ -565,17 +565,19 @@ private fun PlayerCard() {
 
 private val NamePlate = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 22.dp, bottomEnd = 22.dp)
 
-/** The round badge: the Lock On mark on a lit disc, like a level badge. */
+/** The round badge: the Lock On mark on the same teal-lit glass as the name plate, like a level badge. */
 @Composable
 private fun LevelBadge() {
     val scheme = MaterialTheme.colorScheme
-    val disc = if (isTwilight()) listOf(lighten(scheme.surfaceContainerHighest, 0.12f), scheme.surfaceContainerHigh) else listOf(Color.White, Color(0xFFEAF2FA))
+    val accent = Accent
     Box(
         Modifier.size(64.dp).shadow(10.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-            .clip(CircleShape).background(Brush.verticalGradient(disc)),
+            // Solid underneath, so the plate behind never shows through the glass.
+            .background(scheme.background, CircleShape).glass(CircleShape, strong = true)
+            .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent), endX = size.width * 0.7f)) },
         contentAlignment = Alignment.Center,
     ) {
-        LockOnMark(size = 38.dp, reticleColor = scheme.onSurface)
+        LockOnMark(size = 36.dp, reticleColor = scheme.onSurface)
     }
 }
 
