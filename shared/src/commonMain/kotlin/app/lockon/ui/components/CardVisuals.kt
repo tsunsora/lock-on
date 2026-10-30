@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -414,12 +416,17 @@ fun CompactStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
 /**
  * Everything about one card. Side by side (art and printings left) when there's room, stacked otherwise.
  * Used in the details dialog and in the desktop Cards side panel. [actions], when given, sit in an
- * "In this deck" panel under the card text.
+ * "In this deck" panel under the card text. With [onChoosePrinting] the printings choose which one the
+ * deck uses, starting from [chosenPrinting], instead of only previewing them.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier = Modifier, actions: (@Composable () -> Unit)? = null) {
-    var shown by remember(card.cardNumber) { mutableStateOf<String?>(null) }
+fun CardDetailContent(
+    card: Card, printings: List<Printing>, modifier: Modifier = Modifier, actions: (@Composable () -> Unit)? = null,
+    chosenPrinting: String? = null, onChoosePrinting: ((String) -> Unit)? = null,
+) {
+    // Starts over when choosing turns on (the card was just added), so the lit tile is the one the deck uses.
+    var shown by remember(card.cardNumber, onChoosePrinting != null) { mutableStateOf(chosenPrinting) }
     var inspecting by remember(card.cardNumber) { mutableStateOf(false) }
     BoxWithConstraints(modifier) {
         val sideBySide = maxWidth >= 640.dp
@@ -444,34 +451,48 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
             }
         }
         if (inspecting) CardInspectDialog(card, shown, onDismiss = { inspecting = false })
+        // Stacked, a deck's printing choice joins the other deck controls instead of trailing below them,
+        // where on a phone it starts off screen. Side by side it stays under the art it changes.
+        val printingsInPanel = onChoosePrinting != null && actions != null && !sideBySide
         val printingStrip: @Composable () -> Unit = {
             if (printings.size > 1) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SectionHeader("Printings", readout = "${printings.size}")
-                    // A wrapping grid rather than a scrolling strip, so every printing is in view at once.
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val gap = 8.dp
-                    val columns = ((maxWidth + gap) / (72.dp + gap)).toInt().coerceAtLeast(1)
-                    val tileWidth = (maxWidth - gap * (columns - 1)) / columns
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap),
-                        maxItemsInEachRow = columns,
-                    ) {
-                        printings.forEach { p ->
-                            val isShown = (shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId) == p.printingId
-                            Column(
-                                Modifier.width(tileWidth).clip(MaterialTheme.shapes.small).clickable { shown = p.printingId }.padding(2.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                CardImage(card, Modifier.fillMaxWidth().border(
-                                    BorderStroke(2.dp, if (isShown) MaterialTheme.colorScheme.primary else Color.Transparent), CardShape,
-                                ), printingId = p.printingId)
-                                Text(p.label.removePrefix("Reprint: "), style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-                                    color = if (isShown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                val shownId = shown ?: printings.firstOrNull { !it.isAlternateArt }?.printingId ?: printings.first().printingId
+                // Tapping the printing already shown opens it full size, since on phones the art above
+                // may have scrolled out of view.
+                val tile: @Composable (Printing, Modifier) -> Unit = { p, m ->
+                    PrintingTile(card, p, p.printingId == shownId, m, choosing = onChoosePrinting != null) {
+                        if (p.printingId == shownId) inspecting = true else {
+                            shown = p.printingId
+                            onChoosePrinting?.invoke(p.printingId)
                         }
                     }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionHeader(if (onChoosePrinting != null) "Printing in this deck" else "Printings", readout = "${printings.size}")
+                    if (!roomy) {
+                        // Phones: a sideways strip of tiles big enough to tell the art apart, rather than
+                        // a grid of slivers. The fade only shows while there is more to scroll to.
+                        val scroll = rememberScrollState()
+                        val more = scroll.value < scroll.maxValue
+                        Row(
+                            (if (more) Modifier.fadeEnd(32.dp) else Modifier).horizontalScroll(scroll),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            printings.forEach { p -> tile(p, Modifier.width(104.dp)) }
+                        }
+                    } else {
+                        // A wrapping grid rather than a scrolling strip, so every printing is in view at once.
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val gap = 8.dp
+                            val columns = ((maxWidth + gap) / (84.dp + gap)).toInt().coerceAtLeast(1)
+                            val tileWidth = (maxWidth - gap * (columns - 1)) / columns
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap),
+                                maxItemsInEachRow = columns,
+                            ) {
+                                printings.forEach { p -> tile(p, Modifier.width(tileWidth)) }
+                            }
+                        }
                     }
                 }
             }
@@ -512,6 +533,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
                 Column(Modifier.padding(top = 4.dp).fillMaxWidth().glass(LockOnShapes.tile)) {
                     PanelTitle("In this deck")
                     Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)) { actions() }
+                    if (printingsInPanel) Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)) { printingStrip() }
                 }
             }
         }
@@ -562,7 +584,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
                     }
                 }
                 body()
-                printingStrip()
+                if (!printingsInPanel) printingStrip()
             }
         } else {
             // Stacked, the card text comes before the printings so it isn't pushed off screen.
@@ -571,7 +593,7 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
                 // stays a readable size there; phones' dialogs keep the big card.
                 image(Modifier.fillMaxWidth(0.82f).widthIn(max = 280.dp).align(Alignment.CenterHorizontally), false)
                 info(Modifier.fillMaxWidth())
-                printingStrip()
+                if (!printingsInPanel) printingStrip()
             }
         }
     }
@@ -579,7 +601,11 @@ fun CardDetailContent(card: Card, printings: List<Printing>, modifier: Modifier 
 
 /** Card details over the current screen. Wide windows get a side-by-side layout. */
 @Composable
-fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Unit, extraActions: (@Composable () -> Unit)? = null) {
+fun CardDetailDialog(
+    card: Card, printings: List<Printing>, onDismiss: () -> Unit,
+    chosenPrinting: String? = null, onChoosePrinting: ((String) -> Unit)? = null,
+    extraActions: (@Composable () -> Unit)? = null,
+) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
@@ -601,7 +627,8 @@ fun CardDetailDialog(card: Card, printings: List<Printing>, onDismiss: () -> Uni
                         modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
                 }
-                CardDetailContent(card, printings, Modifier.weight(1f, fill = false).padding(end = 12.dp, top = 8.dp), actions = extraActions)
+                CardDetailContent(card, printings, Modifier.weight(1f, fill = false).padding(end = 12.dp, top = 8.dp), actions = extraActions,
+                    chosenPrinting = chosenPrinting, onChoosePrinting = onChoosePrinting)
             }
         }
         }
@@ -630,6 +657,49 @@ private fun StatCell(label: String, value: String, modifier: Modifier) {
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         Text(value, style = MaterialTheme.typography.titleMedium.merge(TabularNumbers))
+    }
+}
+
+/**
+ * One printing in the card details: its art and its name on a glass tile. The printing being shown
+ * is lit in the accent colour and carries a check.
+ */
+@Composable
+private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modifier: Modifier, choosing: Boolean, onClick: () -> Unit) {
+    val press = remember { MutableInteractionSource() }
+    val tileShape = LockOnShapes.thumb
+    Column(
+        modifier.pressScale(press)
+            .then(if (isShown) Modifier.clip(tileShape).background(Accent.copy(alpha = 0.16f)).border(2.dp, Accent, tileShape) else Modifier.glass(tileShape))
+            .clickable(press, indication = null, onClickLabel = when {
+                isShown -> "View larger"
+                choosing -> "Use this printing in the deck"
+                else -> "Show this printing"
+            }, onClick = onClick)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .semantics { selected = isShown }
+            .padding(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box {
+            CardImage(card, Modifier.fillMaxWidth(), printingId = printing.printingId, shadow = false)
+            if (isShown) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp).shadow(3.dp, CircleShape).background(Accent, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = OnAccent, modifier = Modifier.size(14.dp))
+                }
+            }
+        }
+        // Two lines, so names like "Parallel LR++" or a promo's set name read in full.
+        Text(
+            printing.label.removePrefix("Reprint: "), style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (isShown) FontWeight.Bold else null,
+            color = if (isShown) Accent else MaterialTheme.colorScheme.onSurface,
+            maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+        )
     }
 }
 
