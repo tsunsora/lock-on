@@ -2,6 +2,7 @@ package app.lockon.sync
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 /** What the sync screen shows and can do. The desktop hosts; phones connect to it. */
 sealed interface SyncController {
@@ -10,6 +11,8 @@ sealed interface SyncController {
     fun forget(deviceId: String)
     /** Sending copies of decks to nearby devices; null where this device can't. */
     val sharing: DeckSharing? get() = null
+    /** One line per sync that moved changes, auto-sync included, shown as a snackbar anywhere in the app. */
+    val notices: Flow<String> get() = emptyFlow()
 }
 
 data class SyncStatus(val working: Boolean = false, val message: String? = null, val isError: Boolean = false)

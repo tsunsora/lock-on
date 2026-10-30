@@ -45,6 +45,8 @@ fun Application.lockOnSync(
     /** Decks phones send here, and decks this desktop sends them. Null leaves sending off. */
     inbox: ShareInbox? = null,
     outbox: ShareOutbox? = null,
+    /** Called when a phone's push brought changes here or its pull took changes away. */
+    onChanges: (deviceId: String, sent: Int, received: Int) -> Unit = { _, _, _ -> },
 ) {
     install(ContentNegotiation) { json(SyncProtocol.json) }
 
@@ -132,7 +134,11 @@ fun Application.lockOnSync(
         }
         post("/v1/sync/push") {
             val client = call.client() ?: return@post call.unauthorized()
-            call.guard { call.respond(host.push(client.deviceId, call.receive<PushRequest>())) }
+            call.guard {
+                val response = host.push(client.deviceId, call.receive<PushRequest>())
+                if (response.received > 0) onChanges(client.deviceId, 0, response.received)
+                call.respond(response)
+            }
         }
         // Held open until something changes, so phones hear about desktop edits within moments.
         get("/v1/sync/wait") {
@@ -152,7 +158,9 @@ fun Application.lockOnSync(
             call.guard {
                 val after = call.request.queryParameters["after"]?.toLongOrNull() ?: 0
                 val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 200
-                call.respond(host.pull(client.deviceId, after, limit))
+                val page = host.pull(client.deviceId, after, limit)
+                if (page.revisions.isNotEmpty()) onChanges(client.deviceId, page.revisions.size, 0)
+                call.respond(page)
             }
         }
     }
