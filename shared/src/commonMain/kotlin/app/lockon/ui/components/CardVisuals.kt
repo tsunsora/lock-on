@@ -711,7 +711,7 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
 }
 
 @Composable
-private fun Chip(text: String, background: Color = MaterialTheme.colorScheme.surfaceVariant, foreground: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+private fun Chip(text: String,background: Color = MaterialTheme.colorScheme.surfaceVariant, foreground: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = foreground,
         modifier = Modifier.clip(MaterialTheme.shapes.small).background(background).padding(horizontal = 10.dp, vertical = 5.dp))
 }
