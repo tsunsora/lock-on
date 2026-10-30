@@ -84,6 +84,9 @@ fun main() {
             LaunchedEffect(Unit) {
                 while (!window.isDisplayable) delay(16)
                 ownTitleBar = WindowsFrame.install(window)
+                // The window opens floating even when told to open maximised (its state still claims
+                // maximised, then gives in), so it is maximised once it shows.
+                if (saved.placement == WindowPlacement.Maximized) window.extendedState = Frame.MAXIMIZED_BOTH
             }
             val chrome = if (ownTitleBar) rememberWindowChrome(window, windowState, exit) else null
             Box(Modifier.fillMaxSize()) {
