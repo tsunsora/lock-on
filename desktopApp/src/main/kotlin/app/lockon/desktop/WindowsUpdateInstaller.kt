@@ -25,10 +25,14 @@ class WindowsUpdateInstaller(private val requestExit: () -> Unit) : UpdateInstal
         val log = File(downloadDir, "install.log").absolutePath
         val script = buildString {
             appendLine("Wait-Process -Id ${ProcessHandle.current().pid()} -ErrorAction SilentlyContinue")
+            appendLine("\$arguments = ${ps("/i \"$path\" /passive /norestart /l* \"$log\" INSTALLDIR=\"$installDir\"")}")
+            // The upgrade removes the old desktop shortcut and makes a new one. Someone who deleted or
+            // renamed it would get it back, or a second one, so it is only remade when still there as installed.
             appendLine(
-                "\$p = Start-Process -FilePath msiexec.exe -Wait -PassThru -ArgumentList " +
-                    ps("/i \"$path\" /passive /norestart /l* \"$log\" INSTALLDIR=\"$installDir\""),
+                "if (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Lock On.lnk'))) " +
+                    "{ \$arguments += ' JP_INSTALL_DESKTOP_SHORTCUT=\"\"' }",
             )
+            appendLine("\$p = Start-Process -FilePath msiexec.exe -Wait -PassThru -ArgumentList \$arguments")
             appendLine("Add-Content -LiteralPath ${ps("$log.txt")} -Value \"\$(Get-Date -Format s) msiexec exit \$(\$p.ExitCode)\"")
             // Reopen even if the install failed: the MSI rolls back, so the old version still works.
             if (reopen) appendLine("Start-Process -FilePath ${ps(exe.absolutePath)}")
