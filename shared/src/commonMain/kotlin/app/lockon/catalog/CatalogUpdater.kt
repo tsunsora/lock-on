@@ -100,9 +100,15 @@ class CatalogUpdater(
         if (result is UpdateCheck.Available) catalog.setUpdateAvailable("Card database update available")
     }
 
-    /** Official lists converted before tokens were kept have none, so the same version is worth downloading again. */
-    private fun convertedWithoutTokens(): Boolean =
-        catalog.info.value?.catalogId == GcgApi.CATALOG_ID && catalog.cards.value.values.none { it.type.isToken }
+    /**
+     * Official lists converted before tokens were kept have none, and ones converted before base tokens
+     * had their own type list them as bases, so the same version is worth downloading again.
+     */
+    private fun convertedWithoutTokens(): Boolean {
+        if (catalog.info.value?.catalogId != GcgApi.CATALOG_ID) return false
+        val cards = catalog.cards.value.values
+        return cards.none { it.type.isToken } || cards.any { GcgApi.isTokenNumber(it.cardNumber) && !it.type.isToken }
+    }
 
     private suspend fun officialManifest(): GcgApi.Manifest = try {
         GcgApi.parseManifest(fetchOrExplain(GcgApi.MANIFEST_URL))
