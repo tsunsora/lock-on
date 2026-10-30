@@ -155,8 +155,9 @@ class ScreenshotTest {
         val titleBar = if (width > 600) chrome else null
         ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, chrome = titleBar) }.use { scene ->
             var image = scene.render()
-            // Let Room flows settle, and advance the frame clock so animations reach their end state.
-            repeat(15) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+            // Let Room flows settle and the boot screen's 2.5 s minimum pass, and advance the frame clock
+            // so animations reach their end state.
+            repeat(15) { frame -> Thread.sleep(200); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
     }
