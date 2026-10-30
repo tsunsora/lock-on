@@ -113,6 +113,7 @@ private const val TILES_PER_FRAME = 4
  * @param selected highlights the card shown in a side panel.
  * @param scrollToTop goes up by one each time the results should go back to the top.
  * @param trailing extra controls at the end of the search row, such as the editor's Add to switch.
+ * @param quickLead on phones, controls at the start of the quick filter row, such as the editor's Add to chip.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -127,6 +128,7 @@ fun CardSearchPanel(
     wide: Boolean = false,
     scrollToTop: Int = 0,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    quickLead: (@Composable RowScope.() -> Unit)? = null,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
@@ -250,6 +252,7 @@ fun CardSearchPanel(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            quickLead?.invoke(this)
             MenuChip(
                 selected = query.colors.isNotEmpty(),
                 label = {
