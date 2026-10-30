@@ -854,6 +854,8 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
     val art = cover?.let { LocalArtwork.current.urlFor(it.card.cardNumber, it.printingId) }
     val color = cardColor(cover?.card?.colors?.firstOrNull())
     val glassFill = glassColors().fill
+    // The cover art is fainter on wide windows, where the strip runs behind the navigation's labels.
+    val artAlpha = if (wide) 0.3f else 0.55f
     // A frosted strip the full width of the window, so the sky shows through it and the floating
     // navigation sits over its ends. The cover art fades in from the right through an alpha mask.
     Box(Modifier.fillMaxWidth().clipToBounds().background(glassFill).shineSweep(locked)) {
@@ -863,7 +865,7 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
                     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                     .drawWithContent {
                         drawContent()
-                        drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f))), blendMode = BlendMode.DstIn)
+                        drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = artAlpha))), blendMode = BlendMode.DstIn)
                     },
             ) {
                 CardArtwork(art, null, Modifier.fillMaxSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f)) {
