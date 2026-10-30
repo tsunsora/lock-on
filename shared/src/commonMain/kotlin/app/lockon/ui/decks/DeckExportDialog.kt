@@ -106,6 +106,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlin.math.roundToInt
+import kotlin.math.pow
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.unit.IntSize
 
 /**
  * Saved deck images are this many pixels wide on every device, whatever its screen density. With
@@ -265,20 +283,100 @@ fun DeckExportDialog(
                 }
             }
             if (viewing) {
-                // The image large over everything, scrolling when it is taller than the window; a click
-                // anywhere puts it away. It records into its own layer so the saved image is untouched.
-                val viewLayer = rememberGraphicsLayer()
-                Box(
-                    Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f))
-                        .clickable(interactionSource = null, indication = null, onClickLabel = "Close full size") { viewing = false }
-                        .verticalScroll(rememberScrollState()).padding(24.dp),
-                    contentAlignment = Alignment.TopCenter,
-                ) {
-                    CaptureAtFixedWidth(viewLayer, Modifier.width(viewWidth).clip(LockOnShapes.tile)) {
-                        DeckImage(deck, cards, ruleset, order)
+                ZoomView(viewWidth, onClose = { viewing = false }) { DeckImage(deck, cards, ruleset, order) }
+            }
+        }
+    }
+}
+
+private const val MAX_ZOOM = 4f
+private const val CLICK_ZOOM = 2.5f
+
+/**
+ * The deck image large over everything, [fitWidth] wide at first. A click on it zooms in there (and
+ * back out), as do pinching and Ctrl+scroll; dragging or scrolling moves it, and a click beside it
+ * puts it away. It records into its own layer so the saved image is untouched.
+ */
+@Composable
+private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () -> Unit) {
+    val viewLayer = rememberGraphicsLayer()
+    var zoom by remember { mutableFloatStateOf(1f) }
+    // Where the image's top left sits in the view; kept in bounds by [placed] when drawn.
+    var offset by remember { mutableStateOf(Offset(0f, Float.MAX_VALUE)) }
+    var base by remember { mutableStateOf(IntSize.Zero) }
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f))) {
+        val view = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
+        val margin = with(LocalDensity.current) { 24.dp.toPx() }
+        val step = with(LocalDensity.current) { 64.dp.toPx() }
+        // An axis that fits is centred; one that doesn't can move until its edge meets the margin.
+        fun axis(o: Float, length: Float, room: Float) =
+            if (length + 2 * margin <= room) (room - length) / 2 else o.coerceIn(room - margin - length, margin)
+        fun placed(o: Offset = offset, z: Float = zoom) =
+            Offset(axis(o.x, base.width * z, view.width), axis(o.y, base.height * z, view.height))
+        // Zooms to [to], keeping the point of the image under [at] where it is.
+        fun zoomAt(to: Float, at: Offset) {
+            val next = to.coerceIn(1f, MAX_ZOOM)
+            val o = placed()
+            offset = at - (at - o) * (next / zoom)
+            zoom = next
+            offset = placed()
+        }
+        fun onImage(at: Offset) = placed().let { o ->
+            at.x in o.x..(o.x + base.width * zoom) && at.y in o.y..(o.y + base.height * zoom)
+        }
+        val center = Offset(view.width / 2, view.height / 2)
+        Box(
+            Modifier.fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures { at ->
+                        if (!onImage(at)) onClose() else zoomAt(if (zoom > 1f) 1f else CLICK_ZOOM, at)
                     }
                 }
-            }
+                .pointerInput(Unit) {
+                    detectTransformGestures { centroid, pan, gestureZoom, _ ->
+                        if (gestureZoom != 1f) zoomAt(zoom * gestureZoom, centroid)
+                        offset = placed(placed() + pan)
+                    }
+                }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type != PointerEventType.Scroll) continue
+                            val change = event.changes.first()
+                            val delta = change.scrollDelta
+                            if (event.keyboardModifiers.isCtrlPressed) zoomAt(zoom * 1.2f.pow(-delta.y), change.position)
+                            else offset = placed(placed() - delta * step)
+                            change.consume()
+                        }
+                    }
+                },
+        ) {
+            CaptureAtFixedWidth(
+                viewLayer,
+                // Its full height, however tall, rather than squeezed into the window.
+                Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).width(fitWidth).onSizeChanged { base = it }
+                    .graphicsLayer {
+                        val o = placed()
+                        translationX = o.x; translationY = o.y
+                        scaleX = zoom; scaleY = zoom
+                        transformOrigin = TransformOrigin(0f, 0f)
+                    }
+                    .clip(LockOnShapes.tile),
+            ) { content() }
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) { Row(
+                Modifier.align(Alignment.TopEnd).padding(12.dp).glass(LockOnShapes.button, strong = true),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { zoomAt(zoom / 1.5f, center) }, enabled = zoom > 1f) {
+                    CenteredGlyph("−", LocalContentColor.current, 24.sp, Modifier.semantics { contentDescription = "Zoom out" })
+                }
+                Text("${(zoom * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers))
+                IconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM) {
+                    Icon(Icons.Default.Add, contentDescription = "Zoom in")
+                }
+                IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close full size") }
+            } }
         }
     }
 }
