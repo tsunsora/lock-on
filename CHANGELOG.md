@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.1 (2026-10-30)
+
+A brighter app icon.
+
+- The **app icon**'s tile is a brighter navy with a diagonal gradient, lighter at the top right and darker at the bottom left, on Windows, macOS, the window icon and the Android launcher. The splash screen keeps a solid navy.
+- The in-app Lock On badge goes back to the page background.
+
 ## 1.8.0 (2026-10-30)
 
 Tokens in the card list, simpler folder controls on phones, and a tidier card dialog.
