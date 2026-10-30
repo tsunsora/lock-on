@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0 (2026-10-29)
+
+Clearer printings, a roomier deck screen on phones, and importing from New deck.
+
+- **Printings** in card details are glass tiles with the shown one lit and checked. On phones they scroll sideways, and on a deck's card the tiles pick the printing the deck uses.
+- **New deck** offers *Import a deck list instead* under the name field, in place of the separate Import buttons.
+- On phones the **deck screen's cover art** reaches up under the status bar, and the − and + under each card sit evenly from either edge.
+- The phone deck bar's **Export** and **List view / Card view** switch match desktop, and the share icon leaves the header.
+- The deck header's cover art is fainter on desktop so the navigation reads clearly, and the phone's floating navigation bar is nearly solid.
+
 ## 1.4.0 (2026-10-29)
 
 Hear when a sync brings changes, read card details on a phone without scrolling, and a twilight app icon.
