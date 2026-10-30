@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.0 (2026-10-30)
+
+A test hand that fits on one screen, and folders and filters that fit on a phone.
+
+- The **test hand** shows its state as readouts, keeps all six shields in one row under the hand, and sizes cards so the hand and shields fit without scrolling. Cards drawn later are tagged, and Keep, Redraw and Draw are wide buttons.
+- On phones, **folders** are one chip naming the open folder. Its menu lists every folder with its count, New folder, and Rename and Remove. While you hold a deck, the folders spread out as chips to drop it on.
+- On phones, the card list's colour orbs and type chips fold into **Colors** and **Type** chips, and the Filters drawer scrolls, so every filter is reachable on a short screen.
+- The card details' **In this deck** panel takes less height on phones: the deck and side deck steppers share a row.
+- The **export dialog** shows its own messages when you copy or save the list or image.
+- Phones export from the deck library's menu instead of a button above the deck list, and the wide editor opens its deck panel on the start tab.
+- The Lock On badge is the same teal-lit glass as its name plate.
+
 ## 1.5.0 (2026-10-29)
 
 Clearer printings, a roomier deck screen on phones, and importing from New deck.
