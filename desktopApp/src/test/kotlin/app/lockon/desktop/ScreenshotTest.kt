@@ -134,6 +134,7 @@ class ScreenshotTest {
         override fun send(device: NearbyDevice, deckIds: List<String>) = Unit
         override fun cancelSend(deviceId: String) = Unit
         override fun answer(shareId: String, accept: Boolean) = Unit
+        override fun dismiss(shareId: String) = Unit
     }
 
     private val files = object : FileBridge {
@@ -158,6 +159,26 @@ class ScreenshotTest {
             repeat(15) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
+    }
+
+    /** Sends part way, waiting and done, and a receive saving then saved. */
+    @Test fun renderSendAndReceive() {
+        val decks = listOf(
+            DeckSnapshot(name = "Wing Control", entries = listOf(DeckEntry("SMP-003", 4))),
+            DeckSnapshot(name = "Green test", entries = listOf(DeckEntry("SMP-015", 3))),
+            DeckSnapshot(name = "Blue Red Aggro", entries = listOf(DeckEntry("SMP-001", 4))),
+        )
+        val sending = client.sharing.outgoing.value
+        client.sharing.outgoing.value = sending + ("desk-2" to OutgoingShare("Studio iMac", 3, OutgoingShare.State.SENDING, progress = 0.6f))
+        shoot("phone-sync-sending", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("desktop-sync-sending", 1980, 1290, controller = client) { select(Tab.SYNC) }
+        client.sharing.outgoing.value = sending
+        client.sharing.incoming.value = IncomingShare("s-2", "DESKTOP-VPP8OD2", decks, IncomingShare.State.SAVING, saved = 1)
+        shoot("phone-receive-saving", 600, 1260, controller = client) { select(Tab.SYNC) }
+        client.sharing.incoming.value = IncomingShare("s-2", "DESKTOP-VPP8OD2", decks, IncomingShare.State.SAVED, saved = 3)
+        shoot("phone-receive-saved", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("light-phone-receive-saved", 600, 1260, dark = false, controller = client) { select(Tab.SYNC) }
+        client.sharing.incoming.value = null
     }
 
     @Test fun renderWelcomeTour() {

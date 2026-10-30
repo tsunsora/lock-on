@@ -33,7 +33,7 @@ class ShareOutbox(
     fun send(deviceId: String, deviceName: String, decks: List<DeckSnapshot>) {
         val offer = ShareOffer(Uuid.random().toString(), identity.deviceId, identity.deviceName, decks = decks)
         pending.update { it + (deviceId to Pending(offer, deviceId, deviceName, now() + lifetimeMs)) }
-        _sends.update { it + (deviceId to OutgoingShare(deviceName, decks.size, OutgoingShare.State.WAITING)) }
+        _sends.update { it + (deviceId to OutgoingShare(deviceName, decks.size, OutgoingShare.State.SENDING)) }
     }
 
     fun cancel(deviceId: String) {
@@ -51,9 +51,17 @@ class ShareOutbox(
         }
     }
 
-    /** Held open by a phone; answers as soon as there are decks for it, or null after [timeoutMs]. */
+    /**
+     * Held open by a phone; answers as soon as there are decks for it, or null after [timeoutMs].
+     * Handing them over moves the send on to waiting for the phone's owner.
+     */
     suspend fun await(deviceId: String, timeoutMs: Long): ShareOffer? = withTimeoutOrNull(timeoutMs) {
         pending.first { map -> map[deviceId]?.let { it.expiresAt > now() } == true }[deviceId]?.offer
+    }?.also { offer ->
+        _sends.update { sends ->
+            val send = sends[deviceId]?.takeIf { it.state == OutgoingShare.State.SENDING && pending.value[deviceId]?.offer?.shareId == offer.shareId }
+            if (send == null) sends else sends + (deviceId to send.copy(state = OutgoingShare.State.WAITING))
+        }
     }
 
     /** Records the phone's answer. False when no such send is waiting for that phone. */

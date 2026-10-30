@@ -8,6 +8,7 @@ import app.lockon.model.DeckSnapshot
 import app.lockon.sync.DeviceRepository
 import app.lockon.sync.DeviceRole
 import app.lockon.sync.LocalIdentity
+import app.lockon.sync.IncomingShare
 import app.lockon.sync.OutgoingShare
 import app.lockon.sync.ShareAnswer
 import app.lockon.sync.ShareInbox
@@ -56,15 +57,24 @@ class DeckSendingTest {
         application { lockOnSync(SyncHost(decks, devices), devices, pairing, identity, inbox = inbox, outbox = outbox) }
         val http = createClient { lockOnDefaults() }
 
+        var sent = 0f
         val (prompt, response) = coroutineScope {
-            val result = async { sendDecks(http, "", offer(aggro, DeckSnapshot(name = "Wing Control"))) }
+            val result = async { sendDecks(http, "", offer(aggro, DeckSnapshot(name = "Wing Control"))) { sent = it } }
             val shown = answerNext(accept = true)
             shown to result.await()
         }
+        assertEquals(1f, sent, "the whole offer went before the answer came back")
         assertEquals("Pixel", prompt.senderName)
         assertEquals(listOf("Aggro Red", "Wing Control"), prompt.decks.map { it.name })
         assertTrue(response.accepted)
         assertEquals(2, response.saved)
+
+        // The prompt stays to say the decks are saved, until it's closed.
+        val done = assertNotNull(inbox.prompt.value)
+        assertEquals(IncomingShare.State.SAVED, done.state)
+        assertEquals(2, done.saved)
+        inbox.dismiss(done.shareId)
+        assertNull(inbox.prompt.value)
 
         val saved = decks.decks.first().map { it.snapshot }.sortedBy { it.name }
         assertEquals(listOf("Aggro Red", "Wing Control"), saved.map { it.name })
@@ -108,10 +118,11 @@ class DeckSendingTest {
 
         assertNull(awaitShare(http, "", "phone", authToken = null), "nothing to send yet")
         outbox.send("phone", "Pixel", listOf(aggro))
-        assertEquals(OutgoingShare.State.WAITING, outbox.sends.value["phone"]?.state)
+        assertEquals(OutgoingShare.State.SENDING, outbox.sends.value["phone"]?.state)
         assertNull(awaitShare(http, "", "someone-else", authToken = null), "decks go only to the phone they were sent to")
 
         val offer = assertNotNull(awaitShare(http, "", "phone", authToken = null))
+        assertEquals(OutgoingShare.State.WAITING, outbox.sends.value["phone"]?.state, "handed over, waiting for an answer")
         assertEquals("Desk", offer.senderName)
         assertEquals(listOf("Aggro Red"), offer.decks.map { it.name })
 

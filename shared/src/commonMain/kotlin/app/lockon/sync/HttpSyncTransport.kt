@@ -5,6 +5,7 @@ import io.ktor.client.HttpClientConfig
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.onUpload
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
@@ -87,13 +88,17 @@ suspend fun requestPairing(client: HttpClient, baseUrl: String, request: PairReq
     else throw SyncException(response.errorMessage())
 }
 
-/** Offers decks to a desktop and waits while its owner accepts or declines. */
-suspend fun sendDecks(client: HttpClient, baseUrl: String, offer: ShareOffer): ShareResponse {
+/**
+ * Offers decks to a desktop and waits while its owner accepts or declines. [onProgress] hears how
+ * much of the offer has gone, from 0 to 1; at 1 the desktop has it and is asking.
+ */
+suspend fun sendDecks(client: HttpClient, baseUrl: String, offer: ShareOffer, onProgress: (Float) -> Unit = {}): ShareResponse {
     val hello: HelloResponse = client.get("$baseUrl/v1/hello").read()
     if (!hello.receivesDecks) throw SyncException("Update Lock On on ${hello.deviceName} to send it decks.")
     val response = client.post("$baseUrl/v1/share") {
         json(offer)
         timeout { requestTimeoutMillis = 130_000 }
+        onUpload { sent, total -> if (total != null && total > 0) onProgress((sent.toFloat() / total).coerceIn(0f, 1f)) }
     }
     return if (response.status.isSuccess()) response.body() else throw SyncException(response.errorMessage())
 }

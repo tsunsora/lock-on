@@ -181,12 +181,19 @@ class AndroidSyncController(
         override val incoming: StateFlow<IncomingShare?> = inbox.prompt
 
         override fun send(device: NearbyDevice, deckIds: List<String>) {
-            _outgoing.update { it + (device.deviceId to OutgoingShare(device.name, deckIds.size, OutgoingShare.State.WAITING)) }
+            _outgoing.update { it + (device.deviceId to OutgoingShare(device.name, deckIds.size, OutgoingShare.State.SENDING)) }
             val job = scope.launch {
                 val result = try {
                     val decks = deckIds.mapNotNull { container.decks.currentSnapshot(it) }.filterNot { it.deleted }.map(ShareInbox::asCopy)
                     val offer = ShareOffer(Uuid.random().toString(), container.identity.deviceId, container.identity.deviceName, decks = decks)
-                    clientFor(device).use { sendDecks(it, baseUrl(device.host, device.port), offer) }.toOutgoing(device.name, decks.size)
+                    val response = clientFor(device).use { client ->
+                        sendDecks(client, baseUrl(device.host, device.port), offer) { sent ->
+                            val share = if (sent >= 1f) OutgoingShare(device.name, decks.size, OutgoingShare.State.WAITING)
+                                else OutgoingShare(device.name, decks.size, OutgoingShare.State.SENDING, progress = sent)
+                            _outgoing.update { if (it[device.deviceId]?.active == true) it + (device.deviceId to share) else it }
+                        }
+                    }
+                    response.toOutgoing(device.name, decks.size)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -203,6 +210,7 @@ class AndroidSyncController(
         }
 
         override fun answer(shareId: String, accept: Boolean) = inbox.answer(shareId, accept)
+        override fun dismiss(shareId: String) = inbox.dismiss(shareId)
     }
 
     /** A paired desktop is reached with the certificate pinned at pairing; others with the one they announce. */
