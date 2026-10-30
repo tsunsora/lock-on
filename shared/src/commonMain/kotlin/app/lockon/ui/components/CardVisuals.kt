@@ -254,24 +254,31 @@ fun CardTile(
             CardHoverPreview(card, null, hovered)
         }
         if (onMinus != null && onPlus != null) {
-            Row(
+            // Stacked, not a Row: on phone-width tiles 48 + count + 48 dp is wider than the card, and a
+            // Row squeezed the + against the edge. Pinned to either end, both buttons sit the same
+            // distance in, and their hit areas may overlap the count, which is never tapped.
+            Box(
                 Modifier.fillMaxWidth().padding(top = 6.dp).clip(SmallPlate)
                     .background(Brush.verticalGradient(listOf(scheme.surfaceContainerHighest.copy(alpha = 0.9f), scheme.surfaceContainerLow.copy(alpha = 0.9f))))
                     .border(BorderStroke(1.dp, if (count > 0) scheme.primary.copy(alpha = 0.5f) else scheme.outlineVariant), SmallPlate),
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+                contentAlignment = Alignment.Center,
             ) {
-                TileButton("−", "Remove one ${card.name}", enabled = count > 0) {
-                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus()
-                }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     RollingNumber(
                         count, MaterialTheme.typography.titleLarge.merge(TabularNumbers),
                         if (count > 0) scheme.primary else scheme.onSurfaceVariant, Modifier.bumpOnIncrease(count),
                     )
-                    if (limit != null) CopyPips(count, limit, pip = 6.dp)
+                    if (limit != null) CopyPips(count, limit, pip = 5.dp)
                 }
-                TileButton("+", "Add one ${card.name}", primary = limit == null || count < limit) {
-                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
+                Box(Modifier.align(Alignment.CenterStart)) {
+                    TileButton("−", "Remove one ${card.name}", enabled = count > 0) {
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus()
+                    }
+                }
+                Box(Modifier.align(Alignment.CenterEnd)) {
+                    TileButton("+", "Add one ${card.name}", primary = limit == null || count < limit) {
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
+                    }
                 }
             }
         }
@@ -780,10 +787,8 @@ fun DeckCard(
             CardImage(card, Modifier.fillMaxWidth(), printingId, shadow = false)
             CardHoverPreview(card, printingId, hovered)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            TileButton("−", "Remove one ${card.name}", enabled = quantity > 0, target = target) {
-                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus()
-            }
+        // Stacked, like CardTile's plate, so a narrow phone column can't squeeze the + against the edge.
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("×", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 1.dp))
@@ -791,8 +796,15 @@ fun DeckCard(
                 }
                 if (limit != null) CopyPips(quantity, limit, pip = 5.dp)
             }
-            TileButton("+", "Add one ${card.name}", primary = limit == null || quantity < limit, target = target) {
-                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
+            Box(Modifier.align(Alignment.CenterStart)) {
+                TileButton("−", "Remove one ${card.name}", enabled = quantity > 0, target = target) {
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus()
+                }
+            }
+            Box(Modifier.align(Alignment.CenterEnd)) {
+                TileButton("+", "Add one ${card.name}", primary = limit == null || quantity < limit, target = target) {
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
+                }
             }
         }
     }
