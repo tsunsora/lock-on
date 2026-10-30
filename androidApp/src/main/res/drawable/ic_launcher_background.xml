@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher icon's twilight sky, as behind every screen in the twilight theme: a navy gradient
+     with a teal glow at the top right and a violet glow at the bottom left. Matches the
+     desktop icon drawn by scripts/make_icons.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="18" android:endX="0" android:endY="90"
+                android:startColor="#FF26346A" android:centerColor="#FF19213F" android:endColor="#FF11172E" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="93" android:centerY="2" android:gradientRadius="76"
+                android:startColor="#523FC6D4" android:endColor="#003FC6D4" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="6" android:centerY="103" android:gradientRadius="76"
+                android:startColor="#4D8E6BE8" android:endColor="#008E6BE8" />
+        </aapt:attr>
+    </path>
+</vector>
