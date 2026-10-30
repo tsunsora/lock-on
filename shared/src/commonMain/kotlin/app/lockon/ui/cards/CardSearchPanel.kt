@@ -2,11 +2,15 @@ package app.lockon.ui.cards
 import app.lockon.ui.components.LocalNavClearance
 import androidx.compose.ui.graphics.Color
 import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.MenuChip
 import app.lockon.ui.components.fadeEnd
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import app.lockon.ui.components.PillTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,6 +72,7 @@ import app.lockon.ui.components.ColorOrbToggle
 import app.lockon.ui.components.PillSearchField
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.layout.width
+import app.lockon.ui.components.ColorDot
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -180,7 +185,7 @@ fun CardSearchPanel(
     Column(modifier) {
         // Two rows instead of a field and wrapped chips: the search with its count and view
         // controls, then colours as orbs and types as chips (UX rules N4, S5). On phones the view
-        // controls move into Filters, so the quick row starts with every colour in reach.
+        // controls move into Filters, and colours and types fold into a menu chip each.
         Row(
             Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -201,14 +206,14 @@ fun CardSearchPanel(
                 label = { Text(if (hiddenFilters > 0) "Filters · $hiddenFilters" else "Filters") })
             trailing?.invoke(this)
         }
-        // Phones scroll this row, and its far edge fades out to show there is more.
-        val rowModifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)
-        else Modifier.fillMaxWidth().fadeEnd()
-            .horizontalScroll(rememberScrollState()).padding(start = 6.dp, end = 32.dp, top = 2.dp, bottom = 2.dp)
-        FlowRow(rowModifier, horizontalArrangement = Arrangement.spacedBy(if (wide) 4.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        val deckColorsChip = deckColors != null && deckColors.isNotEmpty()
+        if (wide) FlowRow(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             CardColor.entries.forEach { color ->
                 Box(Modifier.align(Alignment.CenterVertically)) {
-                    ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors, target = if (wide) 38.dp else 48.dp,
+                    ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors,
                         outlined = color == CardColor.WHITE) {
                         query = query.copy(colors = query.colors.toggle(color))
                     }
@@ -220,16 +225,54 @@ fun CardSearchPanel(
                     selected = type in query.types,
                     onClick = { query = query.copy(types = query.types.toggle(type)) },
                     label = { Text(type.label) },
-                    modifier = Modifier.align(Alignment.CenterVertically).padding(end = if (wide) 0.dp else 4.dp),
+                    modifier = Modifier.align(Alignment.CenterVertically),
                 )
             }
-            if (deckColors != null && deckColors.isNotEmpty()) {
+            if (deckColorsChip) {
                 PillChip(
                     selected = deckColorsOnly,
                     onClick = { deckColorsOnly = !deckColorsOnly },
                     label = { Text("Deck colors only") },
                     modifier = Modifier.align(Alignment.CenterVertically),
                 )
+            }
+        }
+        // Phones fold colours and types into a chip each, whose menu toggles them and stays open, so the
+        // row fits the screen. It still scrolls on the narrowest, its far edge fading to show there is more.
+        else Row(
+            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState())
+                .padding(start = 10.dp, end = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MenuChip(
+                selected = query.colors.isNotEmpty(),
+                label = {
+                    Text("Colors")
+                    CardColor.entries.filter { it in query.colors }.forEach { color ->
+                        ColorDot(cardColor(color), onCardColor(color), "", size = 12.dp, outlined = color == CardColor.WHITE)
+                    }
+                },
+            ) {
+                CardColor.entries.forEach { color ->
+                    GameMenuItem(color.label, onClick = { query = query.copy(colors = query.colors.toggle(color)) },
+                        selected = color in query.colors,
+                        leading = { ColorDot(cardColor(color), onCardColor(color), color.label.take(1), size = 22.dp, outlined = color == CardColor.WHITE) })
+                }
+            }
+            MenuChip(
+                selected = query.types.isNotEmpty(),
+                label = {
+                    val picked = types.filter { it in query.types }
+                    Text(if (picked.isEmpty()) "Type" else picked.first().label + if (picked.size > 1) " +${picked.size - 1}" else "")
+                },
+            ) {
+                types.forEach { type ->
+                    GameMenuItem(type.label, onClick = { query = query.copy(types = query.types.toggle(type)) }, selected = type in query.types)
+                }
+            }
+            if (deckColorsChip) {
+                PillChip(selected = deckColorsOnly, onClick = { deckColorsOnly = !deckColorsOnly }, label = { Text("Deck colors") })
             }
         }
         // The drawer unfolds from under the quick row and its lines deal in one after another, top
@@ -253,22 +296,37 @@ fun CardSearchPanel(
                     exit = ExitTransition.None,
                 )
             }
-            Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            // On phones each line scrolls sideways instead of wrapping, and the drawer scrolls too, so a
+            // short screen such as the editor's Add cards can still reach the Trait field.
+            Column(
+                if (wide) Modifier.padding(horizontal = 12.dp)
+                else Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(vertical = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(if (wide) 4.dp else 0.dp),
+            ) {
                 if (!wide) {
                     // On phones sort order and view live here, keeping the quick row for filters.
-                    ChipLine("Sort", CardSort.entries.map { it.label }, setOf(sort.label), Modifier.dealt()) { label -> sort = CardSort.entries.first { it.label == label } }
-                    ChipLine("View", listOf("Grid", "List"), setOf(if (grid) "Grid" else "List"), Modifier.dealt()) { grid = it == "Grid" }
+                    Row(Modifier.padding(horizontal = 12.dp).dealt(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        LineLabel("Sort")
+                        MenuChip(selected = false, label = { Text(sort.label) }) { close ->
+                            CardSort.entries.forEach { option ->
+                                GameMenuItem(option.label, onClick = { sort = option; close() }, selected = option == sort)
+                            }
+                        }
+                        PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "Show as list" else "Show as grid") })
+                    }
                 }
-                ChipLine("Level", levels, query.levels, Modifier.dealt()) { query = query.copy(levels = query.levels.toggle(it)) }
-                ChipLine("Cost", costs, query.costs, Modifier.dealt()) { query = query.copy(costs = query.costs.toggle(it)) }
-                ChipLine("Set", sets, query.setCodes, Modifier.dealt()) { query = query.copy(setCodes = query.setCodes.toggle(it)) }
-                OutlinedTextField(
+                ChipLine("Level", levels, query.levels, Modifier.dealt(), wide) { query = query.copy(levels = query.levels.toggle(it)) }
+                ChipLine("Cost", costs, query.costs, Modifier.dealt(), wide) { query = query.copy(costs = query.costs.toggle(it)) }
+                ChipLine("Set", sets, query.setCodes, Modifier.dealt(), wide) { query = query.copy(setCodes = query.setCodes.toggle(it)) }
+                if (wide) OutlinedTextField(
                     value = query.trait,
                     onValueChange = { query = query.copy(trait = it) },
                     label = { Text("Trait") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().dealt(),
                 )
+                else PillTextField(query.trait, { query = query.copy(trait = it) }, "Trait",
+                    Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 4.dp).dealt())
             }
         }
         HorizontalDivider(Modifier.padding(top = 4.dp))
@@ -316,10 +374,31 @@ fun CardSearchPanel(
     }
 }
 
+/** The name at the start of a filter line, a fixed width on phones so the lines' chips start together. */
+@Composable
+private fun LineLabel(label: String, modifier: Modifier = Modifier) {
+    Text(label, style = MaterialTheme.typography.labelLarge, modifier = modifier.width(40.dp))
+}
+
+/** A filter line: wraps on wide panes; on phones one row that scrolls sideways under a fixed label. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> ChipLine(label: String, values: List<T>, selected: Set<T>, modifier: Modifier = Modifier, onToggle: (T) -> Unit) {
+private fun <T> ChipLine(label: String, values: List<T>, selected: Set<T>, modifier: Modifier = Modifier, wide: Boolean = true, onToggle: (T) -> Unit) {
     if (values.isEmpty()) return
+    if (!wide) {
+        Row(modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            LineLabel(label)
+            Row(
+                Modifier.weight(1f).fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 6.dp, end = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                values.forEach { value ->
+                    PillChip(selected = value in selected, onClick = { onToggle(value) }, label = { Text("$value") })
+                }
+            }
+        }
+        return
+    }
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.Center) {
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 4.dp))
         values.forEach { value ->

@@ -54,6 +54,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.DropdownMenu
@@ -994,7 +995,8 @@ fun GameMenu(
 
 /**
  * One row of a [GameMenu]: a pill that lights teal on hover. [selected] marks the current choice
- * with a check; [danger] paints a destructive action in the error colour.
+ * with a check; [danger] paints a destructive action in the error colour. [leading] stands in for
+ * [icon] when the row needs more than a glyph, such as a colour dot.
  */
 @Composable
 fun GameMenuItem(
@@ -1003,6 +1005,7 @@ fun GameMenuItem(
     icon: ImageVector? = null,
     selected: Boolean = false,
     danger: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val tone = when {
@@ -1032,7 +1035,8 @@ fun GameMenuItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (icon != null) Icon(icon, contentDescription = null, tint = tone, modifier = Modifier.size(18.dp))
+        if (leading != null) leading()
+        else if (icon != null) Icon(icon, contentDescription = null, tint = tone, modifier = Modifier.size(18.dp))
         Text(
             text, color = tone, style = MaterialTheme.typography.labelLarge, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
@@ -1152,6 +1156,29 @@ fun PillChip(
             borderColor = rim, selectedBorderColor = rim,
         ),
     )
+}
+
+/** A [PillChip] that opens a menu under it. Toggles leave it open so several can be picked; a single choice calls close. */
+@Composable
+fun MenuChip(
+    selected: Boolean,
+    label: @Composable RowScope.() -> Unit,
+    modifier: Modifier = Modifier,
+    items: @Composable ColumnScope.(close: () -> Unit) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        PillChip(
+            selected = selected, onClick = { open = true },
+            label = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    label()
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+            },
+        )
+        GameMenu(expanded = open, onDismissRequest = { open = false }) { items { open = false } }
+    }
 }
 
 /** One destination in a [PillNavBar]: its label and icon. */
