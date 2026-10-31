@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.11.0 (2026-10-31)
+
+On phones, the deck editor's bar can be arranged the way you like, and the deck list can be edited as text.
+
+- **Phones:** **Settings → Deck editor bar** puts More, Add cards and Deck in any order, and pages slide in that order.
+- **Phones:** Export and the new **Edit as text** open as pages of the deck editor, under More. Edit the list and apply it to the deck; lines it can't read are named first, and cards keep their art.
+- **Phones:** hold **Deck** to switch the deck list between cards and a list.
+- **Cards:** hold **Filters** to clear every filter and the sort, keeping what you typed.
+
 ## 1.10.0 (2026-10-31)
 
 New sets' alt arts arrive sooner, and the deck editor is easier to use on phones.
