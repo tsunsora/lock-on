@@ -99,6 +99,9 @@ class ScreenshotTest {
         override fun invite(device: app.lockon.sync.NearbyDevice) = Unit
         override fun cancelInvite(deviceId: String) = Unit
         override fun forget(deviceId: String) = Unit
+        override val transfers = MutableStateFlow(emptyMap<String, app.lockon.sync.SyncTransfer>())
+        override fun sync(deviceId: String, mode: app.lockon.sync.SyncMode) = Unit
+        override fun clearTransfer(deviceId: String) = Unit
         override val sharing = FakeSharing(nearby.value, mapOf("phone-2" to OutgoingShare("Pixel 9", 2, OutgoingShare.State.WAITING)))
     }
 
@@ -110,17 +113,21 @@ class ScreenshotTest {
         ))
         override val status = MutableStateFlow(SyncStatus(message = app.lockon.sync.syncedMessage("DESKTOP-VPP8OD2", 1, 0)))
         override val canScanQr = true
-        override val autoSync = MutableStateFlow(true)
+        override val merging = MutableStateFlow(setOf("desk-1"))
         override val autoStates = MutableStateFlow(mapOf("desk-1" to AutoSyncState.LIVE))
         override val nearby = MutableStateFlow(listOf(NearbyDevice("desk-2", "Studio iMac", "192.168.1.41", 53340, null, true)))
         override val pendingVerification = MutableStateFlow<String?>(null)
-        override fun setAutoSync(enabled: Boolean) = Unit
+        override fun setMerging(deviceId: String, on: Boolean) = Unit
+        override val incomingRequest = MutableStateFlow<app.lockon.sync.SyncRequest?>(null)
+        override fun answerRequest(accept: Boolean) = Unit
         override val incomingInvite = MutableStateFlow<app.lockon.sync.IncomingInvite?>(null)
         override fun answerInvite(accept: Boolean) = Unit
         override fun scanQr() = Unit
         override fun pair(invite: PairingInvite) = Unit
-        override fun syncNow(deviceId: String) = Unit
         override fun forget(deviceId: String) = Unit
+        override val transfers = MutableStateFlow(emptyMap<String, app.lockon.sync.SyncTransfer>())
+        override fun sync(deviceId: String, mode: app.lockon.sync.SyncMode) = Unit
+        override fun clearTransfer(deviceId: String) = Unit
         override val sharing = FakeSharing(
             listOf(NearbyDevice("desk-1", "DESKTOP-VPP8OD2", "192.168.1.20", 53340, null, true)) + nearby.value,
             mapOf("desk-1" to OutgoingShare("DESKTOP-VPP8OD2", 2, OutgoingShare.State.SAVED, "DESKTOP-VPP8OD2 saved 2 decks.")),
@@ -217,8 +224,8 @@ class ScreenshotTest {
         )
         val sending = client.sharing.outgoing.value
         client.sharing.outgoing.value = sending + ("desk-2" to OutgoingShare("Studio iMac", 3, OutgoingShare.State.SENDING, progress = 0.6f))
-        shoot("phone-sync-sending", 600, 1260, controller = client) { select(Tab.SYNC) }
-        shoot("desktop-sync-sending", 1980, 1290, controller = client) { select(Tab.SYNC) }
+        shoot("phone-sync-sending", 600, 1260, controller = client) { select(Tab.SYNC); syncSending = true }
+        shoot("desktop-sync-sending", 1980, 1290, controller = client) { select(Tab.SYNC); syncSending = true }
         client.sharing.outgoing.value = sending
         client.sharing.incoming.value = IncomingShare("s-2", "DESKTOP-VPP8OD2", decks, IncomingShare.State.SAVING, saved = 1)
         shoot("phone-receive-saving", 600, 1260, controller = client) { select(Tab.SYNC) }
@@ -226,6 +233,18 @@ class ScreenshotTest {
         shoot("phone-receive-saved", 600, 1260, controller = client) { select(Tab.SYNC) }
         shoot("light-phone-receive-saved", 600, 1260, dark = false, controller = client) { select(Tab.SYNC) }
         client.sharing.incoming.value = null
+    }
+
+    /** Sync devices: a paired desktop and one nearby to pair, then the paired one just matched. */
+    @Test fun renderDeviceSync() {
+        shoot("phone-sync-devices", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("light-phone-sync-devices", 600, 1260, dark = false, controller = client) { select(Tab.SYNC) }
+        val summary = app.lockon.sync.MirrorSummary(updated = 3, added = 2, removed = 1, settings = true)
+        client.transfers.value = mapOf("desk-1" to app.lockon.sync.SyncTransfer("DESKTOP-VPP8OD2", app.lockon.sync.SyncMode.TAKE,
+            app.lockon.sync.SyncTransfer.State.DONE, app.lockon.sync.matchedMessage("This phone", "DESKTOP-VPP8OD2", summary)))
+        shoot("phone-sync-matched", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("desktop-sync-devices", 1980, 1290, controller = client) { select(Tab.SYNC) }
+        client.transfers.value = emptyMap()
     }
 
     @Test fun renderWelcomeTour() {

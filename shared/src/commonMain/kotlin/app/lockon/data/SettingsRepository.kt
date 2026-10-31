@@ -36,8 +36,8 @@ enum class EditorBarOrder(val items: List<EditorBarItem>) {
 }
 
 /**
- * This device's preferences. They are kept with the device and never sync, so a phone and a
- * computer can each look the way their owner likes.
+ * This device's preferences. Merging leaves them alone, so a phone and a computer can each look the
+ * way their owner likes; making one device match another copies them over with everything else.
  */
 class SettingsRepository(private val meta: MetaDao) {
     private val _theme = MutableStateFlow(ThemeChoice.SYSTEM)
@@ -87,6 +87,24 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setWelcomed() { _welcomed.value = true; meta.put(MetaEntity(KEY_WELCOMED, "true")) }
     suspend fun setEditorBar(order: EditorBarOrder) { _editorBar.value = order; meta.put(MetaEntity(KEY_EDITOR_BAR, order.name)) }
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
+
+    /** The preferences a device takes on when it's made to match this one. Where Lock On was left and the welcome tour stay per device. */
+    fun synced(): Map<String, String> = mapOf(
+        KEY_THEME to _theme.value.name,
+        KEY_MOTION to _motion.value.name,
+        KEY_START to _start.value.name,
+        KEY_SIZE to _size.value.name,
+        KEY_CATALOG_CHECKS to _catalogChecks.value.toString(),
+    )
+
+    /** Takes on another device's [synced] preferences; keys this version doesn't know are skipped. */
+    suspend fun applySynced(values: Map<String, String>) {
+        values[KEY_THEME]?.let { setTheme(enumOr(it, _theme.value)) }
+        values[KEY_MOTION]?.let { setMotion(enumOr(it, _motion.value)) }
+        values[KEY_START]?.let { setStart(enumOr(it, _start.value)) }
+        values[KEY_SIZE]?.let { setSize(enumOr(it, _size.value)) }
+        values[KEY_CATALOG_CHECKS]?.toBooleanStrictOrNull()?.let { setCatalogChecks(it) }
+    }
 
     private inline fun <reified E : Enum<E>> enumOr(stored: String?, default: E): E =
         stored?.let { s -> enumValues<E>().firstOrNull { it.name == s } } ?: default

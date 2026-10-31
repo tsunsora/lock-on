@@ -26,8 +26,8 @@ class AppState(val appScope: CoroutineScope) {
     var tab by mutableStateOf(Tab.DECKS)
     val stack = mutableStateListOf<Screen>()
     var notice by mutableStateOf<Notice?>(null)
-    /** Sync shows Send, or Receive when false. */
-    var syncSending by mutableStateOf(true)
+    /** Sync shows Send decks, or Sync devices when false. */
+    var syncSending by mutableStateOf(false)
     /** False while the boot screen covers the app and its screens fill in underneath. */
     var booted by mutableStateOf(false)
     /** True while the welcome tour shows over the app: on a fresh install, or replayed from Settings. */

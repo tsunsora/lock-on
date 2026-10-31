@@ -4,7 +4,13 @@ import androidx.room.Room
 import app.lockon.data.DeckRepository
 import app.lockon.data.db.LockOnDatabase
 import app.lockon.model.DeckSnapshot
+import app.lockon.data.CatalogRepository
+import app.lockon.data.SettingsRepository
+import app.lockon.sync.DeviceMirror
 import app.lockon.sync.DeviceRepository
+import app.lockon.sync.SyncMode
+import app.lockon.sync.SyncRequestAnswer
+import app.lockon.sync.SyncTransfer
 import app.lockon.sync.DeviceRole
 import app.lockon.sync.HttpSyncTransport
 import app.lockon.sync.LocalIdentity
@@ -23,6 +29,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Pairing and sync through the real HTTP routes, with the shared client on the other end. */
@@ -92,6 +100,47 @@ class SyncRoutesTest {
         }
         assertTrue(live.ids.value.isEmpty())
         assertFailsWith<SyncException> { HttpSyncTransport(http, "", "wrong").waitForChanges(0) }
+    }
+
+    @Test fun matchEitherWayAndAnswerTheDesktopsRequest() = testApplication {
+        fun mirrorOf(db: LockOnDatabase, id: String, decks: DeckRepository) =
+            DeviceMirror(LocalIdentity(id, id), decks, SettingsRepository(db.metaDao()), CatalogRepository(db))
+        val requests = SyncRequests(identity)
+        val matched = mutableListOf<String>()
+        application {
+            lockOnSync(
+                SyncHost(desktopDecks, desktopDevices, mirrorOf(desktopDb, identity.deviceId, desktopDecks)), desktopDevices, pairing, identity,
+                maxWaitMs = 1_500, requests = requests, onMatched = { _, message -> matched += message },
+            )
+        }
+        val http = createClient { lockOnDefaults() }
+        desktopDevices.savePairing("phone-id", "Phone", DeviceRole.CLIENT, tokenHash = sha256Hex("tok".toByteArray()))
+        phoneDevices.savePairing("desktop-id", "Test Desktop", DeviceRole.HOST, "localhost", 0, "fp")
+        val transport = HttpSyncTransport(http, "", "tok")
+        val client = SyncClient(phoneDecks, phoneDevices, mirrorOf(phoneDb, "phone-id", phoneDecks))
+
+        desktopDecks.create(DeckSnapshot(name = "From desktop"))
+        phoneDecks.create(DeckSnapshot(name = "From phone"))
+        val took = client.take("desktop-id", transport)
+        assertEquals(1, took.added)
+        assertEquals(1, took.removed)
+        assertEquals(setOf("From desktop"), phoneDecks.decks.first().map { it.snapshot.name }.toSet())
+
+        // The desktop asks the phone to make the desktop match it; the phone picks it up, does it and answers.
+        phoneDecks.create(DeckSnapshot(name = "Second from phone"))
+        requests.request("phone-id", "Phone", SyncMode.TAKE)
+        val request = assertNotNull(transport.awaitRequest("phone-id"))
+        assertEquals(SyncMode.TAKE, request.mode)
+        val gave = client.give("desktop-id", transport, request.requestId)
+        assertEquals(1, gave.added)
+        assertEquals(SyncTransfer.State.DONE, requests.transfers.value["phone-id"]?.state)
+        assertEquals(listOf("This computer now matches Phone: 1 deck added."), matched)
+        transport.answerRequest(SyncRequestAnswer(request.requestId, "phone-id", done = true))
+        assertEquals(setOf("From desktop", "Second from phone"), desktopDecks.decks.first().map { it.snapshot.name }.toSet())
+
+        // Nothing waiting: the desktop holds the request, then says so. A stranger gets nothing.
+        assertNull(transport.awaitRequest("phone-id"))
+        assertFailsWith<SyncException> { HttpSyncTransport(http, "", "wrong").state() }
     }
 
     @Test fun declinedPairingStoresNothing() = testApplication {

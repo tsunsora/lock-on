@@ -62,9 +62,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -114,7 +115,10 @@ import app.lockon.sync.PairingInvite
 import app.lockon.sync.ShareInbox
 import app.lockon.sync.SyncController
 import app.lockon.sync.SyncProtocol
+import app.lockon.sync.DeviceRole
+import app.lockon.sync.SyncMode
 import app.lockon.sync.SyncStatus
+import app.lockon.sync.SyncTransfer
 import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
@@ -143,9 +147,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.time.Clock
 
 /**
- * Sync, LocalSend-style: Receive shows this device's name, ready for nearby devices to send to it;
- * Send is choose decks, then tap a nearby device. Pairing for automatic sync sits behind the heart on
- * each device, so the everyday path has nothing else on it.
+ * Sync: your paired devices, each a tap from being made to match this one or the other way round,
+ * which copies everything (decks with their history, folders, match logs, settings and the card
+ * list). Merging both ways is the softer option in the same place. Sending a few decks to anyone
+ * nearby, LocalSend-style, has its own page.
  */
 @Composable
 fun SyncScreen(
@@ -153,56 +158,52 @@ fun SyncScreen(
     deviceName: String,
     /** Decks that can be sent to a nearby device. */
     decks: List<DeckSummary> = emptyList(),
-    /** Which page shows: Send, or Receive. Kept by the caller so it survives leaving the tab. */
-    sending: Boolean = true,
+    /** Which page shows: Send decks, or Sync devices. Kept by the caller so it survives leaving the tab. */
+    sending: Boolean = false,
     onSendingChange: (Boolean) -> Unit = {},
 ) {
-    // The chosen decks stay chosen while flipping to Receive and back.
+    // The chosen decks stay chosen while flipping to Sync devices and back.
     var chosen by remember { mutableStateOf(emptyList<String>()) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            PillTabs(listOf("Receive", "Send"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier.width(300.dp), fill = true)
+            PillTabs(listOf("Sync devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier.width(320.dp), fill = true)
         }
         Crossfade(sending, Modifier.fillMaxSize(), label = "sync-page") { send ->
             if (send) SendPage(controller, decks, chosen) { chosen = it }
-            else ReceivePage(deviceName, isHost = controller is HostSyncController)
+            else DevicesPage(controller, deviceName)
         }
     }
 }
 
 /** A page's scrolling column, centred and no wider than [maxWidth] so it reads the same everywhere. */
 @Composable
-private fun SyncPage(centered: Boolean = false, maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
+private fun SyncPage(maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val scrollState = rememberScrollState()
         val clearance = LocalNavClearance.current
-        val height = this.maxHeight
         Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
             Column(
                 Modifier.widthIn(max = maxWidth).fillMaxWidth()
-                    .heightIn(min = if (centered) height - clearance else 0.dp)
                     .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp + clearance),
-                verticalArrangement = if (centered) Arrangement.Center else Arrangement.spacedBy(14.dp),
-                horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) { content() }
         }
         VerticalScrollBar(scrollState, Modifier.align(Alignment.TopEnd))
     }
 }
 
-/** Receive: nothing to do but be found. Offers arrive wherever you are in the app. */
+/** This device's name, with the beacon that says it can be found. */
 @Composable
-private fun ReceivePage(deviceName: String, isHost: Boolean) {
-    SyncPage(centered = true) {
-        Beacon(Modifier.size(190.dp))
-        Spacer(Modifier.height(32.dp))
-        Text(deviceName, style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Ready to receive. ${if (isHost) "Phones" else "Devices"} with Lock On open on this Wi-Fi can send you decks; you'll be asked first.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 380.dp),
-        )
+private fun ThisDevice(deviceName: String, isHost: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Beacon(Modifier.size(44.dp))
+        Column(Modifier.weight(1f)) {
+            Text(deviceName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${if (isHost) "This computer" else "This phone"} can be found by Lock On on the same Wi-Fi.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -234,74 +235,353 @@ private fun Beacon(modifier: Modifier = Modifier) {
 }
 
 /**
- * Send: what to send, then where. Tapping a device sends; a device tapped first asks which decks.
- * Wide windows put the two side by side, so the choice and the devices are both in view.
+ * Sync devices: paired devices first, each opening the choice of which way to sync; then devices
+ * nearby that aren't paired yet, where a tap pairs and then asks the same question.
  */
 @Composable
-private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chosen: List<String>, onChosen: (List<String>) -> Unit) {
+private fun DevicesPage(controller: SyncController, deviceName: String) {
     val status by controller.status.collectAsState()
     val paired by controller.pairedDevices.collectAsState(initial = emptyList())
-    val pairedIds = paired.map { it.deviceId }.toSet()
-    val sharing = controller.sharing
+    val transfers by controller.transfers.collectAsState()
     val nearby by when (controller) {
         is HostSyncController -> controller.nearby
         is ClientSyncController -> controller.nearby
     }.collectAsState()
+    val invited by ((controller as? HostSyncController)?.invited ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
+    val liveClients by ((controller as? HostSyncController)?.liveClients ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
+    val autoStates by ((controller as? ClientSyncController)?.autoStates ?: remember { MutableStateFlow(emptyMap()) }).collectAsState()
+    val merging by ((controller as? ClientSyncController)?.merging ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
+    val pairedIds = paired.map { it.deviceId }.toSet()
+    val unpaired = nearby.filter { it.deviceId !in pairedIds }
+    val isHost = controller is HostSyncController
+
+    var choosing by remember { mutableStateOf<String?>(null) }
+    // A nearby device tapped to pair: once it is, the choice of how to sync opens by itself.
+    var pairingWith by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pairingWith, pairedIds) {
+        if (pairingWith != null && pairingWith in pairedIds) { choosing = pairingWith; pairingWith = null }
+    }
+    var showOther by remember { mutableStateOf(false) }
+    var troubleshoot by remember { mutableStateOf(false) }
+
+    fun pair(device: NearbyDevice) {
+        pairingWith = device.deviceId
+        when (controller) {
+            is HostSyncController -> controller.invite(device)
+            is ClientSyncController -> controller.pair(PairingInvite(device.host, device.port, "", device.fingerprint, device.name))
+        }
+    }
+
+    SyncPage {
+        StatusLine(status)
+        ThisDevice(deviceName, isHost)
+        SectionHeader("Your devices", Modifier.heightIn(min = ControlSize)) {
+            GlassIconButton(Icons.Default.Add, "Connect by address or QR code", onClick = { showOther = true })
+        }
+        if (paired.isEmpty() && unpaired.isEmpty()) SearchingCard()
+        paired.forEach { device ->
+            PairedTile(
+                device = device,
+                transfer = transfers[device.deviceId],
+                live = when (controller) {
+                    is ClientSyncController -> autoStates[device.deviceId]?.let { it.label to (it == AutoSyncState.LIVE) }
+                    is HostSyncController -> if (device.deviceId in liveClients) "Merging automatically" to true else null
+                },
+                onTap = { choosing = device.deviceId },
+                onClear = { controller.clearTransfer(device.deviceId) },
+            )
+        }
+        if (unpaired.isNotEmpty()) {
+            Text(if (paired.isEmpty()) "Nearby" else "Nearby, not paired yet", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            unpaired.forEach { device ->
+                DeviceTile(
+                    device = device,
+                    send = null,
+                    inviting = device.deviceId in invited,
+                    hint = "Tap to pair and sync",
+                    onTap = { if (device.compatible) pair(device) },
+                    onCancel = { (controller as? HostSyncController)?.cancelInvite(device.deviceId); pairingWith = null },
+                )
+            }
+        }
+        Text(
+            "Syncing makes one device match the other: decks with their history, folders, match logs, settings, " +
+                "the ruleset and the card list. Devices pair once, after checking both show the same number.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
+        }
+    }
+
+    paired.firstOrNull { it.deviceId == choosing }?.let { device ->
+        SyncChoiceDialog(
+            device = device,
+            here = if (isHost) "this computer" else "this phone",
+            merging = if (controller is ClientSyncController) device.deviceId in merging else null,
+            onSync = { controller.sync(device.deviceId, it) },
+            onMerging = { (controller as? ClientSyncController)?.setMerging(device.deviceId, it) },
+            onForget = { controller.forget(device.deviceId) },
+            onDismiss = { choosing = null },
+        )
+    }
+    if (showOther) OtherWaysDialog(controller) { showOther = false }
+    if (troubleshoot) TroubleshootDialog(isHost, onDismiss = { troubleshoot = false }, onOtherWays = { troubleshoot = false; showOther = true })
+}
+
+@Composable
+private fun TroubleshootDialog(isHost: Boolean, onDismiss: () -> Unit, onOtherWays: (() -> Unit)?) {
+    GameDialog(
+        onDismissRequest = onDismiss,
+        title = "Can't see a device?",
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("• Both devices need Lock On open, on the same Wi-Fi network.")
+                Text("• Guest and office networks often hide devices from each other.")
+                if (isHost) Text("• Allow Lock On through the Windows firewall for private networks.")
+                else Text("• On the computer, allow Lock On through the Windows firewall for private networks.")
+                if (onOtherWays != null) {
+                    Text("Still nothing? Connect with a QR code or the computer's address instead.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        confirmButton = { if (onOtherWays != null) GameButton("QR code or address", onClick = onOtherWays, compact = true) },
+        dismissButton = { GameButton("Close", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
+    )
+}
+
+/** What a sync's line under the device name says while it runs and once it's done. */
+private fun SyncTransfer.label(): String = message ?: when (state) {
+    SyncTransfer.State.WAITING -> "Waiting for $deviceName…"
+    SyncTransfer.State.WORKING -> "Syncing…"
+    SyncTransfer.State.DONE -> "Synced"
+    SyncTransfer.State.DECLINED -> "$deviceName declined."
+    SyncTransfer.State.FAILED -> "Sync failed."
+}
+
+/**
+ * A paired device. Tap it to choose which way to sync; a sync shows its progress under it, then
+ * how it went until cleared.
+ */
+@Composable
+private fun PairedTile(device: PairedDevice, transfer: SyncTransfer?, live: Pair<String, Boolean>?, onTap: () -> Unit, onClear: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val scheme = MaterialTheme.colorScheme
+    val busy = transfer?.active == true
+    val celebrate = if (isTwilight()) Gold else scheme.tertiary
+    Column(
+        Modifier.fillMaxWidth().pressScale(interaction).glass(LockOnShapes.tile)
+            .clickable(interaction, indication = null, enabled = !busy, role = Role.Button, onClick = onTap)
+            .animateContentSize(glide())
+            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(Modifier.heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                DeviceGlyph(device.role == DeviceRole.HOST)
+                if (transfer?.state == SyncTransfer.State.DONE) DoneBadge(Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (transfer != null) {
+                    Text(
+                        transfer.label(), style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                        color = when (transfer.state) {
+                            SyncTransfer.State.DONE -> celebrate
+                            SyncTransfer.State.FAILED -> scheme.error
+                            else -> scheme.onSurfaceVariant
+                        },
+                    )
+                } else {
+                    live?.let { (label, healthy) ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.size(8.dp).clip(CircleShape).background(if (healthy) scheme.secondary else scheme.outline))
+                            Text(label, style = MaterialTheme.typography.bodySmall, color = if (healthy) scheme.secondary else scheme.onSurfaceVariant)
+                        }
+                    }
+                    Text(
+                        device.lastSyncAt?.let { "Last synced ${formatTimestamp(it)}" } ?: "Paired, not synced yet",
+                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                    )
+                    device.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error) }
+                }
+            }
+            when {
+                transfer?.state == SyncTransfer.State.WAITING -> GameButton("Cancel", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
+                busy -> ReticleSpinner(size = 18.dp, modifier = Modifier.padding(end = 12.dp))
+                transfer != null -> GameButton("OK", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
+                else -> GameButton("Sync", onClick = onTap, compact = true)
+            }
+        }
+        if (transfer != null) {
+            TransferBar(
+                fraction = if (busy) null else 1f,
+                tone = when (transfer.state) {
+                    SyncTransfer.State.DONE -> BarTone.DONE
+                    SyncTransfer.State.DECLINED -> BarTone.STOPPED
+                    SyncTransfer.State.FAILED -> BarTone.FAILED
+                    else -> BarTone.WORKING
+                },
+                modifier = Modifier.padding(end = 8.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Which way to sync with a paired device. Making one device match the other is the main choice and
+ * asks once more before replacing anything; merging both ways keeps everything from both.
+ * @param merging whether this phone keeps merging with the device on its own; null on the desktop, where phones decide.
+ */
+@Composable
+private fun SyncChoiceDialog(
+    device: PairedDevice,
+    here: String,
+    merging: Boolean?,
+    onSync: (SyncMode) -> Unit,
+    onMerging: (Boolean) -> Unit,
+    onForget: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var confirming by remember { mutableStateOf<SyncMode?>(null) }
+    var forgetting by remember { mutableStateOf(false) }
+    val hereTitle = here.replaceFirstChar { it.uppercase() }
+    GameDialog(
+        onDismissRequest = onDismiss,
+        title = "Sync with ${device.name}",
+        text = {
+            Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ModeOption(
+                    "Make $here match ${device.name}",
+                    "Everything here is replaced by what's on ${device.name}.",
+                    Icons.Default.KeyboardArrowDown, primary = true,
+                ) { confirming = SyncMode.TAKE }
+                ModeOption(
+                    "Make ${device.name} match $here",
+                    "Everything on ${device.name} is replaced by what's here.",
+                    Icons.Default.KeyboardArrowUp,
+                ) { confirming = SyncMode.GIVE }
+                Text("Or keep both", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp))
+                ModeOption(
+                    "Merge both ways",
+                    "Every deck from both ends up on both. Settings and the card list stay as they are, and a deck edited on both shows as a conflict.",
+                    Icons.Default.Refresh,
+                ) { onSync(SyncMode.MERGE); onDismiss() }
+                if (merging != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Keep merging", style = MaterialTheme.typography.titleSmall)
+                            Text("While Lock On is open on both, edits on either merge on their own.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        PillSwitch(checked = merging, onCheckedChange = onMerging)
+                    }
+                }
+            }
+        },
+        confirmButton = { GameButton("Close", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
+        dismissButton = { GameButton("Forget device", onClick = { forgetting = true }, style = GameButtonStyle.GHOST, compact = true) },
+    )
+    confirming?.let { mode ->
+        val target = if (mode == SyncMode.TAKE) hereTitle else device.name
+        val source = if (mode == SyncMode.TAKE) device.name else here
+        GameDialog(
+            onDismissRequest = { confirming = null },
+            title = "Replace everything on $target?",
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("$target will match $source: its decks, folders, match logs, settings, ruleset and card list are replaced.")
+                    Text("Decks that are only on $target are removed. Earlier versions of replaced decks stay in their history.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = { GameButton("Replace", onClick = { onSync(mode); confirming = null; onDismiss() }, compact = true) },
+            dismissButton = { GameButton("Cancel", onClick = { confirming = null }, style = GameButtonStyle.GHOST, compact = true) },
+        )
+    }
+    if (forgetting) {
+        GameDialog(
+            onDismissRequest = { forgetting = false },
+            title = "Forget ${device.name}?",
+            text = { Text("It will need to pair again before it can sync. Decks on both devices stay as they are.") },
+            confirmButton = { GameButton("Forget", onClick = { onForget(); forgetting = false; onDismiss() }, compact = true) },
+            dismissButton = { GameButton("Cancel", onClick = { forgetting = false }, style = GameButtonStyle.GHOST, compact = true) },
+        )
+    }
+}
+
+/** One way to sync, as a glass tile with what it does underneath. The [primary] one is tinted. */
+@Composable
+private fun ModeOption(title: String, detail: String, icon: ImageVector, primary: Boolean = false, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().pressScale(interaction).glass(LockOnShapes.tile)
+            .then(if (primary) Modifier.clip(LockOnShapes.tile).background(scheme.primary.copy(alpha = 0.08f)) else Modifier)
+            .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(if (primary) scheme.primary else scheme.secondaryContainer), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = if (primary) scheme.onPrimary else scheme.onSecondaryContainer, modifier = Modifier.size(22.dp))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * Send decks: what to send, then where. Tapping a device sends; a device tapped first asks which
+ * decks. Any nearby device can receive, paired or not. Wide windows put the two side by side.
+ */
+@Composable
+private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chosen: List<String>, onChosen: (List<String>) -> Unit) {
+    val status by controller.status.collectAsState()
+    val sharing = controller.sharing
     val targets by (sharing?.targets ?: remember { MutableStateFlow(emptyList()) }).collectAsState()
     val outgoing by (sharing?.outgoing ?: remember { MutableStateFlow(emptyMap()) }).collectAsState()
-    val invited by ((controller as? HostSyncController)?.invited ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
-    // Every device in reach once, whether it came from sending's list or pairing's.
-    val devices = (targets + nearby).distinctBy { it.deviceId }
 
     var choosing by remember { mutableStateOf(false) }
     // A device tapped before any decks were chosen: once they are, they go straight to it.
     var sendTo by remember { mutableStateOf<NearbyDevice?>(null) }
-    var showPaired by remember { mutableStateOf(false) }
-    var showOther by remember { mutableStateOf(false) }
     var troubleshoot by remember { mutableStateOf(false) }
     // Decks deleted since they were chosen drop out of the selection.
     val selected = chosen.mapNotNull { id -> decks.firstOrNull { it.deckId == id } }
     val isHost = controller is HostSyncController
 
-    fun pair(device: NearbyDevice) = when (controller) {
-        is HostSyncController -> controller.invite(device)
-        is ClientSyncController -> controller.pair(PairingInvite(device.host, device.port, "", device.fingerprint, device.name))
-    }
-
     val where: @Composable () -> Unit = {
-        SectionHeader("Send to", Modifier.heightIn(min = ControlSize)) {
-            GlassIconButton(Icons.Default.FavoriteBorder, "Paired devices", onClick = { showPaired = true })
-            Spacer(Modifier.width(8.dp))
-            GlassIconButton(Icons.Default.Add, "Connect by address or QR code", onClick = { showOther = true })
-        }
-        if (devices.isEmpty()) SearchingCard()
-        devices.forEach { device ->
-            val canSend = sharing != null && targets.any { it.deviceId == device.deviceId }
+        SectionHeader("Send to", Modifier.heightIn(min = ControlSize))
+        if (sharing == null) {
+            Text("This device can't send decks.", style = MaterialTheme.typography.bodyMedium)
+        } else if (targets.isEmpty()) SearchingCard()
+        targets.forEach { device ->
             DeviceTile(
                 device = device,
-                paired = device.deviceId in pairedIds,
                 send = outgoing[device.deviceId],
-                inviting = device.deviceId in invited,
+                inviting = false,
+                hint = null,
                 onTap = {
                     when {
                         !device.compatible -> Unit
-                        !canSend -> if (device.deviceId !in pairedIds) pair(device)
                         selected.isEmpty() -> { sendTo = device; choosing = true }
                         else -> sharing?.send(device, selected.map { it.deckId })
                     }
                 },
-                onHeart = { if (device.deviceId in pairedIds) showPaired = true else pair(device) },
-                onCancel = {
-                    if (device.deviceId in invited) (controller as? HostSyncController)?.cancelInvite(device.deviceId)
-                    else sharing?.cancelSend(device.deviceId)
-                },
+                onCancel = { sharing?.cancelSend(device.deviceId) },
             )
         }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
         }
         Text(
-            "Make sure the other device is on the same Wi-Fi with Lock On open.",
+            "Decks arrive as new copies and the other device is asked first. To make two devices match, use Sync devices.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
@@ -333,26 +613,7 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
             sendTo = null
         })
     }
-    if (showPaired) PairedDevicesDialog(controller, paired) { showPaired = false }
-    if (showOther) OtherWaysDialog(controller) { showOther = false }
-    if (troubleshoot) {
-        GameDialog(
-            onDismissRequest = { troubleshoot = false },
-            title = "Can't see a device?",
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("• Both devices need Lock On open, on the same Wi-Fi network.")
-                    Text("• Guest and office networks often hide devices from each other.")
-                    if (isHost) Text("• Allow Lock On through the Windows firewall for private networks.")
-                    else Text("• On the computer, allow Lock On through the Windows firewall for private networks.")
-                    Text("Still nothing? Connect with a QR code or the computer's address instead.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            confirmButton = { GameButton("QR code or address", onClick = { troubleshoot = false; showOther = true }, compact = true) },
-            dismissButton = { GameButton("Close", onClick = { troubleshoot = false }, style = GameButtonStyle.GHOST, compact = true) },
-        )
-    }
+    if (troubleshoot) TroubleshootDialog(isHost, onDismiss = { troubleshoot = false }, onOtherWays = null)
 }
 
 @Composable
@@ -505,15 +766,17 @@ private fun OutgoingShare.label(): String = when (state) {
     else -> message.orEmpty()
 }
 
-/** A nearby device. Tap it to send; the heart pairs it for automatic sync. A send shows its progress under it. */
+/**
+ * A nearby device: tap it to send decks, or on Sync devices to pair. A send or an invitation shows
+ * its progress under it. [hint] is the line shown while nothing is happening.
+ */
 @Composable
 private fun DeviceTile(
     device: NearbyDevice,
-    paired: Boolean,
     send: OutgoingShare?,
     inviting: Boolean,
+    hint: String?,
     onTap: () -> Unit,
-    onHeart: () -> Unit,
     onCancel: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -548,22 +811,15 @@ private fun DeviceTile(
                             else -> scheme.onSurfaceVariant
                         },
                     )
-                    else -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    else -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Tag(if (device.isDesktop) "Computer" else "Phone")
-                        if (paired) Tag("Paired")
+                        hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant) }
                     }
                 }
             }
             if (busy) {
                 if (inviting) ReticleSpinner(size = 18.dp)
                 GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.GHOST, compact = true)
-            } else {
-                GlassIconButton(
-                    if (paired) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    if (paired) "Paired: syncs automatically" else "Pair to sync automatically",
-                    onClick = onHeart,
-                    tint = if (paired) scheme.primary else scheme.onSurfaceVariant,
-                )
             }
         }
         if (send != null) {
@@ -753,88 +1009,6 @@ private fun ChooseDecksDialog(
     )
 }
 
-/** Paired devices keep every deck in sync on their own; this is where they're checked and forgotten. */
-@Composable
-private fun PairedDevicesDialog(controller: SyncController, devices: List<PairedDevice>, onDismiss: () -> Unit) {
-    val status by controller.status.collectAsState()
-    val liveHosts by ((controller as? ClientSyncController)?.autoStates ?: remember { MutableStateFlow(emptyMap()) }).collectAsState()
-    val liveClients by ((controller as? HostSyncController)?.liveClients ?: remember { MutableStateFlow(emptySet()) }).collectAsState()
-    val autoSync by ((controller as? ClientSyncController)?.autoSync ?: remember { MutableStateFlow(true) }).collectAsState()
-    var forgetting by remember { mutableStateOf<PairedDevice?>(null) }
-    GameDialog(
-        onDismissRequest = onDismiss,
-        title = "Paired devices",
-        text = {
-            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Paired devices keep all your decks in sync automatically while Lock On is open on both. Sending works without pairing.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (devices.isEmpty()) {
-                    Text("None yet. Tap the heart on a nearby device to pair it.", style = MaterialTheme.typography.bodyMedium)
-                }
-                if (controller is ClientSyncController && devices.isNotEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Auto-sync while Lock On is open", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                        PillSwitch(checked = autoSync, onCheckedChange = controller::setAutoSync)
-                    }
-                }
-                devices.forEach { device ->
-                    DeviceCard(
-                        device = device,
-                        working = status.working,
-                        live = when (controller) {
-                            is ClientSyncController -> liveHosts[device.deviceId]?.let { it.label to (it == AutoSyncState.LIVE) }
-                            is HostSyncController -> if (device.deviceId in liveClients) "Connected now: changes sync automatically" to true else null
-                        },
-                        onSync = (controller as? ClientSyncController)?.let { c -> { c.syncNow(device.deviceId) } },
-                        onForget = { forgetting = device },
-                    )
-                }
-            }
-        },
-        confirmButton = { GameButton("Done", onClick = onDismiss, compact = true) },
-    )
-    forgetting?.let { device ->
-        GameDialog(
-            onDismissRequest = { forgetting = null },
-            title = "Forget ${device.name}?",
-            text = { Text("It will need to pair again before it can sync. Decks on both devices stay as they are.") },
-            confirmButton = { GameButton("Forget", onClick = { controller.forget(device.deviceId); forgetting = null }, compact = true) },
-            dismissButton = { GameButton("Cancel", onClick = { forgetting = null }, style = GameButtonStyle.GHOST, compact = true) },
-        )
-    }
-}
-
-/** @param live auto-sync label and whether it is healthy, or null when auto-sync isn't running for this device. */
-@Composable
-private fun DeviceCard(device: PairedDevice, working: Boolean, live: Pair<String, Boolean>?, onSync: (() -> Unit)?, onForget: () -> Unit) {
-    GlassCard {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                live?.let { (label, healthy) ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Box(
-                            Modifier.size(8.dp).clip(CircleShape)
-                                .background(if (healthy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline),
-                        )
-                        Text(label, style = MaterialTheme.typography.bodySmall,
-                            color = if (healthy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Text(
-                    device.lastSyncAt?.let { "Last synced ${formatTimestamp(it)}" } ?: "Not synced yet",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                device.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                if (onSync != null) GameButton("Sync now", onClick = onSync, enabled = !working, compact = true)
-                GameButton("Forget", onClick = onForget, style = GameButtonStyle.GHOST, compact = true)
-            }
-        }
-    }
-}
-
 /** For networks that hide devices: the computer shows a QR code and address, the phone scans or types it. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -923,7 +1097,8 @@ private fun Field(label: String, value: String) {
 }
 
 /**
- * Questions from other devices: decks someone wants to send, and pairing requests. Shown over
+ * Questions from other devices: decks someone wants to send, pairing requests, and a desktop asking
+ * to make this phone match it. Shown over
  * whatever screen is open, so a send is never left waiting because Sync wasn't the open tab.
  */
 @Composable
@@ -940,7 +1115,7 @@ fun SyncPrompts(controller: SyncController) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("Pair only if ${p.deviceName} shows this same number:")
                             CheckNumber(p.verificationCode)
-                            Text("Paired devices sync decks automatically while Lock On is open on both.",
+                            Text("Paired devices can make each other match, or merge, whenever you sync.",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     },
@@ -956,9 +1131,25 @@ fun SyncPrompts(controller: SyncController) {
                 GameDialog(
                     onDismissRequest = { controller.answerInvite(false) },
                     title = "${i.offer.hostName} wants to pair",
-                    text = { Text("Pair to keep your decks in sync with this computer automatically? You'll confirm a number on both screens next.") },
+                    text = { Text("Pair so this phone and the computer can sync everything with each other? You'll confirm a number on both screens next.") },
                     confirmButton = { GameButton("Pair", onClick = { controller.answerInvite(true) }) },
                     dismissButton = { GameButton("Not now", onClick = { controller.answerInvite(false) }, style = GameButtonStyle.GHOST, compact = true) },
+                )
+            }
+            val request by controller.incomingRequest.collectAsState()
+            request?.let { r ->
+                GameDialog(
+                    onDismissRequest = { controller.answerRequest(false) },
+                    title = "Make this phone match ${r.hostName}?",
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("${r.hostName} wants to replace everything here with what's on it: decks, folders, match logs, settings, ruleset and card list.")
+                            Text("Decks that are only on this phone are removed. Earlier versions of replaced decks stay in their history.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    confirmButton = { GameButton("Replace", onClick = { controller.answerRequest(true) }) },
+                    dismissButton = { GameButton("Not now", onClick = { controller.answerRequest(false) }, style = GameButtonStyle.GHOST, compact = true) },
                 )
             }
             verification?.let { v ->

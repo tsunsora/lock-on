@@ -1,6 +1,7 @@
 package app.lockon.sync
 
 import app.lockon.BuildInfo
+import app.lockon.data.CatalogFile
 import app.lockon.model.DeckSnapshot
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -63,6 +64,10 @@ data class HelloResponse(
     val appVersion: String = BuildInfo.VERSION,
     /** True when this desktop takes decks sent to it ([ShareOffer]). Older desktops leave it out. */
     val receivesDecks: Boolean = false,
+    /** True when this desktop can be made to match a phone, or a phone to match it ([DeviceState]). Older desktops leave it out. */
+    val mirrors: Boolean = false,
+    /** The card list installed here as "catalogId@version", so a phone sends its own only when they differ. */
+    val catalog: String? = null,
 )
 
 @Serializable
@@ -135,6 +140,71 @@ data class ShareResponse(val accepted: Boolean, val saved: Int = 0, val declined
 /** A phone's answer to decks the desktop offered it. */
 @Serializable
 data class ShareAnswer(val shareId: String, val deviceId: String, val response: ShareResponse)
+
+/**
+ * Everything on a device that another can be made to match, besides the deck revisions themselves,
+ * which travel first through push and pull. [catalog] is "catalogId@version"; the card list itself
+ * comes separately as a [CatalogTransfer] when the two differ.
+ */
+@Serializable
+data class DeviceState(
+    val deviceId: String,
+    val deviceName: String,
+    val dataFormatVersion: Int = SyncProtocol.DATA_FORMAT_VERSION,
+    val decks: List<DeckHead>,
+    val keptFolders: List<String> = emptyList(),
+    /** Preferences by key, as [app.lockon.data.SettingsRepository.synced] and the catalog's own give them. */
+    val settings: Map<String, String> = emptyMap(),
+    val catalog: String? = null,
+)
+
+/** A deck as a device shows it: the revisions at its tip and the content on screen. */
+@Serializable
+data class DeckHead(val deckId: String, val heads: List<String>, val snapshot: DeckSnapshot)
+
+/** A whole installed card list, with where it came from so the other device can keep updating it the same way. */
+@Serializable
+data class CatalogTransfer(val file: CatalogFile, val origin: String, val updateUrl: String? = null)
+
+/** A phone's state for the desktop to take on. [requestId] is set when the desktop asked for it. */
+@Serializable
+data class MirrorPush(val state: DeviceState, val catalog: CatalogTransfer? = null, val requestId: String? = null)
+
+/** What making a device match changed there. */
+@Serializable
+data class MirrorSummary(
+    val updated: Int = 0,
+    val added: Int = 0,
+    val removed: Int = 0,
+    val settings: Boolean = false,
+    val catalog: Boolean = false,
+)
+
+/**
+ * What a sync does. [TAKE] makes this device match the other one, [GIVE] makes the other one match
+ * this, and [MERGE] keeps everything from both.
+ */
+@Serializable
+enum class SyncMode {
+    TAKE, GIVE, MERGE;
+
+    /** The same sync seen from the other device. */
+    val flipped: SyncMode get() = when (this) { TAKE -> GIVE; GIVE -> TAKE; MERGE -> MERGE }
+}
+
+/** A desktop asking a paired phone to sync. [mode] is from the desktop's side: [SyncMode.GIVE] makes the phone match it. */
+@Serializable
+data class SyncRequest(val requestId: String, val hostDeviceId: String, val hostName: String, val mode: SyncMode)
+
+/** How a [SyncRequest] ended on the phone. */
+@Serializable
+data class SyncRequestAnswer(
+    val requestId: String,
+    val deviceId: String,
+    val done: Boolean,
+    val declined: Boolean = false,
+    val message: String = "",
+)
 
 /** Answer to a change-wait: true when the desktop has revisions after the phone's cursor. */
 @Serializable

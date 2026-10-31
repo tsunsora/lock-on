@@ -17,8 +17,8 @@ import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
 
 enum class AutoSyncState(val label: String) {
-    SYNCING("Syncing…"),
-    LIVE("Live: changes sync automatically"),
+    SYNCING("Merging…"),
+    LIVE("Merging automatically"),
     WAITING("Waiting for the desktop"),
 }
 

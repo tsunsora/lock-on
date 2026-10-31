@@ -16,7 +16,7 @@ A **Gundam Card Game deck builder** for **Windows and Android**. Build decks, te
 - **Test hands:** the official setup of draw 5, redraw once, set 6 shields, then draw each turn.
 - **Deck folders, a match log and version history:** group decks into folders, record wins and losses per deck, and compare or restore earlier versions.
 - **Share decks:** export a text list, a deck image, or a printable deck registration sheet.
-- **Sync without an account:** phones and computers on the same Wi-Fi find each other, and edits reach the other device within seconds.
+- **Sync without an account:** phones and computers on the same Wi-Fi find each other. Make one device match the other, with everything on it, or keep them merging so edits reach the other device within seconds.
 - **Automatic updates:** new versions download in the background and install with a restart or a tap.
 - **A bright game look:** frosted glass panels over a sky backdrop, a floating player card and a translucent pill nav bar, card-strip deck lists, deck boxes, copy pips and gauges, with hover lift and add-card feedback. Light sky and twilight themes; motion follows your system's reduced-motion setting.
 
@@ -42,7 +42,7 @@ Requires **Android 8.0 or newer**.
 
 1. Choose **Download card database** in the welcome tour, or later under **Settings → Card database → Manage card database**. Until you do, Lock On shows 20 fictional sample cards.
 2. In **Decks**, create a deck and add cards from the search panel.
-3. To sync, open Lock On on your phone and computer on the same Wi-Fi, then go to **Settings**.
+3. To sync, open Lock On on your phone and computer on the same Wi-Fi, then go to **Sync**.
 
 ## Everyday use
 
@@ -71,13 +71,17 @@ You can also install a catalog from a file or an `https://` link. Every install 
 
 ### Sync your devices
 
-1. Open Lock On on a phone and a computer on the same Wi-Fi. Each appears in the other's **Nearby** list under **Settings**.
-2. Tap **Connect** on either one.
-3. Check that both screens show the same 6-digit number, then confirm.
+1. Open Lock On on a phone and a computer on the same Wi-Fi, and go to **Sync** → **Sync devices**. Each appears in the other's **Nearby** list.
+2. Tap the other device, check that both screens show the same 6-digit number, then confirm.
+3. Choose which way to sync:
+   - **Make this phone match the computer**, or **Make the computer match this phone**. Everything on the device being replaced is swapped for the other's: decks with their history, folders (empty ones too), match logs, settings, the chosen ruleset and the card list. Decks only on that device are removed; earlier versions of replaced decks stay in their history. Lock On asks once more before replacing anything.
+   - **Merge both ways** keeps every deck from both instead, and leaves settings and the card list alone. If the same deck was edited on both, both versions are kept and the deck is marked **Needs review**. On a phone, **Keep merging** makes edits merge within seconds whenever both apps are open.
 
-From then on, edits sync within seconds while both apps are open, and the phone follows a computer that changes address. Nothing runs in the background. Phones reach each other through a paired computer. If devices can't see each other, pair by QR code or by typing the computer's address instead.
+Either device can start a sync. A sync started on the computer is carried out by the phone, so Lock On must be open on it, and the phone asks before its own decks are replaced. Nothing runs in the background, and the phone follows a computer that changes address. Phones reach each other through a paired computer. If devices can't see each other, pair by QR code or by typing the computer's address instead (**+** next to Your devices).
 
-Only decks sync. Each device keeps its own card list. If the same deck is edited on two devices before they sync, both versions are kept and the deck is marked **Needs review** so you can choose. Deleted decks never come back.
+Card pictures aren't copied; each device downloads its own. Device names and pairings stay with each device.
+
+To hand someone a few decks without pairing, use **Sync** → **Send decks**: they arrive as new copies, and the other device is asked first.
 
 ### Import, export and back up
 

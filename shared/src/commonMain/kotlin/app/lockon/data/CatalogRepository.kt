@@ -9,6 +9,7 @@ import app.lockon.model.CardColor
 import app.lockon.model.CardType
 import app.lockon.model.Printing
 import app.lockon.model.Ruleset
+import app.lockon.sync.CatalogTransfer
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +22,8 @@ import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 
 /**
- * A downloadable card catalog. Each device updates its own copy; catalogs are never synced.
+ * A downloadable card catalog. Each device updates its own copy; making one device match another
+ * copies the whole catalog over.
  * The format is documented in docs/CATALOG_FORMAT.md.
  */
 @Serializable
@@ -188,6 +190,44 @@ class CatalogRepository(private val db: LockOnDatabase, private val now: () -> L
         val rules = _rulesets.value.firstOrNull { it.id == id } ?: return
         db.metaDao().put(MetaEntity(KEY_RULESET, id))
         _ruleset.value = rules
+    }
+
+    /** The installed catalog as "catalogId@version", which tells two devices' card lists apart. */
+    suspend fun installedKey(): String? = db.metaDao().get(KEY_CATALOG)
+
+    /** The installed catalog as a file another device can install, with where it came from. */
+    suspend fun export(): CatalogTransfer = withContext(Dispatchers.Default) {
+        val meta = db.metaDao()
+        val key = meta.get(KEY_CATALOG).orEmpty()
+        val rulesets = meta.get(KEY_RULESETS)?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { json.decodeFromString(RulesetFile.serializer(), it).rulesets }.getOrNull() }
+        CatalogTransfer(
+            file = CatalogFile(
+                catalogId = key.substringBefore('@'),
+                version = key.substringAfter('@', "0").toIntOrNull() ?: 0,
+                name = meta.get(KEY_NAME).orEmpty(),
+                source = meta.get(KEY_SOURCE).orEmpty(),
+                cards = db.catalogDao().cards().map { it.toModel() },
+                printings = db.catalogDao().printings().map { it.toModel() },
+                rulesets = rulesets,
+            ),
+            origin = meta.get(KEY_ORIGIN) ?: CatalogOrigin.BUNDLED.name,
+            updateUrl = meta.get(KEY_URL)?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    /** Installs another device's catalog as it had it, so both update it the same way afterwards. */
+    suspend fun installTransfer(transfer: CatalogTransfer) {
+        val origin = runCatching { CatalogOrigin.valueOf(transfer.origin) }.getOrDefault(CatalogOrigin.FILE)
+        install(validate(transfer.file).file, origin, transfer.updateUrl)
+    }
+
+    /** The catalog's preferences a device takes on when it's made to match this one. */
+    fun synced(): Map<String, String> = mapOf(KEY_SHOW_ARTWORK to _showArtwork.value.toString(), KEY_RULESET to _ruleset.value.id)
+
+    suspend fun applySynced(values: Map<String, String>) {
+        values[KEY_SHOW_ARTWORK]?.toBooleanStrictOrNull()?.let { setShowArtwork(it) }
+        values[KEY_RULESET]?.let { selectRuleset(it) }
     }
 
     /** Reloads the catalog into memory; thousands of cards, so it is converted off the main thread. */

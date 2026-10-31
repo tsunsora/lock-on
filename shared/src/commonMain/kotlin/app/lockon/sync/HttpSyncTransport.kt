@@ -59,8 +59,40 @@ class HttpSyncTransport(
             timeout { requestTimeoutMillis = (SyncProtocol.MAX_WAIT_SECONDS + 10) * 1000L }
         }.read()
 
+    override suspend fun state(): DeviceState =
+        client.get("$baseUrl/v1/mirror/state") { authed(); timeout { requestTimeoutMillis = TRANSFER_TIMEOUT_MS } }.read()
+
+    override suspend fun catalog(): CatalogTransfer =
+        client.get("$baseUrl/v1/mirror/catalog") { authed(); timeout { requestTimeoutMillis = TRANSFER_TIMEOUT_MS } }.read()
+
+    override suspend fun mirror(push: MirrorPush): MirrorSummary =
+        client.post("$baseUrl/v1/mirror") { authed(); json(push); timeout { requestTimeoutMillis = TRANSFER_TIMEOUT_MS } }.read()
+
+    /** Waits up to [SyncProtocol.MAX_WAIT_SECONDS] for the desktop to ask this phone to sync. */
+    suspend fun awaitRequest(deviceId: String): SyncRequest? {
+        val response = client.get("$baseUrl/v1/mirror/requests") {
+            authed()
+            parameter("device", deviceId)
+            timeout { requestTimeoutMillis = (SyncProtocol.MAX_WAIT_SECONDS + 10) * 1000L }
+        }
+        return when {
+            response.status.value == 200 -> response.body()
+            response.status.isSuccess() -> null
+            else -> throw SyncException(response.errorMessage())
+        }
+    }
+
+    /** Tells the desktop how its [SyncRequest] ended. */
+    suspend fun answerRequest(answer: SyncRequestAnswer) {
+        client.post("$baseUrl/v1/mirror/requests/answer") { authed(); json(answer) }
+            .let { if (!it.status.isSuccess()) throw SyncException(it.errorMessage()) }
+    }
+
     private fun HttpRequestBuilder.authed() = bearerAuth(authToken)
 }
+
+/** A whole device's decks or card list can be several megabytes on a slow phone. */
+private const val TRANSFER_TIMEOUT_MS = 180_000L
 
 /**
  * Waits up to [SyncProtocol.MAX_WAIT_SECONDS] for the desktop to invite this phone. Returns null

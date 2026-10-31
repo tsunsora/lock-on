@@ -43,17 +43,21 @@ class DeckDragTest {
         override val pairedDevices = flowOf(emptyList<app.lockon.sync.PairedDevice>())
         override val status = MutableStateFlow(app.lockon.sync.SyncStatus(message = ""))
         override val canScanQr = false
-        override val autoSync = MutableStateFlow(false)
+        override val merging = MutableStateFlow(emptySet<String>())
         override val autoStates = MutableStateFlow(emptyMap<String, app.lockon.sync.AutoSyncState>())
         override val nearby = MutableStateFlow(emptyList<app.lockon.sync.NearbyDevice>())
         override val pendingVerification = MutableStateFlow<String?>(null)
-        override fun setAutoSync(enabled: Boolean) = Unit
+        override fun setMerging(deviceId: String, on: Boolean) = Unit
+        override val incomingRequest = MutableStateFlow<app.lockon.sync.SyncRequest?>(null)
+        override fun answerRequest(accept: Boolean) = Unit
         override val incomingInvite = MutableStateFlow<app.lockon.sync.IncomingInvite?>(null)
         override fun answerInvite(accept: Boolean) = Unit
         override fun scanQr() = Unit
         override fun pair(invite: app.lockon.sync.PairingInvite) = Unit
-        override fun syncNow(deviceId: String) = Unit
         override fun forget(deviceId: String) = Unit
+        override val transfers = MutableStateFlow(emptyMap<String, app.lockon.sync.SyncTransfer>())
+        override fun sync(deviceId: String, mode: app.lockon.sync.SyncMode) = Unit
+        override fun clearTransfer(deviceId: String) = Unit
         override val sharing = ScreenshotTest.FakeSharing(emptyList(), emptyMap())
     }
     private val files = object : FileBridge {
