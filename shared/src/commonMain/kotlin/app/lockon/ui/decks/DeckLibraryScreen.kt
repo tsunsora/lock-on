@@ -317,6 +317,18 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                 )
                             }
                             val gridState = rememberLazyGridState()
+                            // A new deck (made, imported or duplicated) lands at the top, but the grid holds on to
+                            // the deck it showed first and would leave the new one above the view. It scrolls up to it.
+                            // Decks only revealed by a cleared search or another folder were there all along, so it
+                            // tracks the whole library, not what is shown.
+                            val seen = remember { mutableSetOf<String>() }
+                            LaunchedEffect(list) {
+                                val hadSome = seen.isNotEmpty()
+                                val added = list.map { it.deckId }.filter { it !in seen }
+                                seen += added
+                                val fresh = shown.indexOfFirst { it.deckId in added }
+                                if (hadSome && fresh >= 0) gridState.animateScrollToItem(fresh)
+                            }
                             Box(Modifier.weight(1f).fillMaxWidth()) {
                             LazyVerticalGrid(
                                 state = gridState,
