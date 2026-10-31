@@ -1,5 +1,6 @@
 package app.lockon.ui.decks
 import app.lockon.ui.components.fadeEnd
+import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.DeckGlance
 import app.lockon.io.ExportOrder
 import app.lockon.platform.encodeShareQr
@@ -90,10 +91,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.lockon.io.DeckListFormat
 import app.lockon.model.Card
-import app.lockon.model.Printing
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.graphics.SolidColor
 import app.lockon.model.CardType
 import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
@@ -146,8 +143,6 @@ private const val CARDS_PER_ROW = 5
  * Wide windows put the preview beside the controls and fit the whole image in view; phones get a
  * near full-screen sheet whose preview takes every row the controls leave.
  */
-@Suppress("DEPRECATION") // LocalClipboard needs ClipEntry, which differs per platform.
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DeckExportDialog(
     deck: DeckSnapshot,
@@ -157,23 +152,42 @@ fun DeckExportDialog(
     state: AppState,
     onDismiss: () -> Unit,
     startTab: Int = 0,
-    printings: Map<String, List<Printing>> = emptyMap(),
-    /** Given, the list can be edited in place and applied to the deck; the deck read back from it comes here. */
-    onEditList: ((DeckSnapshot) -> Unit)? = null,
+) = DeckExport(deck, cards, ruleset, files, state, onDismiss, startTab)
+
+/**
+ * The export as a page of the phone deck editor, laid out like the dialog's phone sheet but in
+ * place, with room left at the foot for the floating navigation.
+ */
+@Composable
+fun DeckExportPanel(
+    deck: DeckSnapshot,
+    cards: Map<String, Card>,
+    ruleset: Ruleset,
+    files: FileBridge,
+    state: AppState,
+    modifier: Modifier = Modifier,
+) = DeckExport(deck, cards, ruleset, files, state, onDismiss = null, modifier = modifier)
+
+/** The export's body: in a dialog when [onDismiss] is given, otherwise as a page in [modifier]. */
+@Suppress("DEPRECATION") // LocalClipboard needs ClipEntry, which differs per platform.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DeckExport(
+    deck: DeckSnapshot,
+    cards: Map<String, Card>,
+    ruleset: Ruleset,
+    files: FileBridge,
+    state: AppState,
+    onDismiss: (() -> Unit)?,
+    startTab: Int = 0,
+    modifier: Modifier = Modifier,
 ) {
     var tab by rememberSaveable { mutableStateOf(startTab.coerceIn(0, 1)) }
     // One order for both formats, so the list and image match.
     var order by rememberSaveable { mutableStateOf(ExportOrder.LEVEL) }
     // The image preview is shrunk to fit; a click opens it large over the dialog.
     var viewing by remember { mutableStateOf(false) }
-    val exported = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
-    // The list as edited in place; it starts over from the deck whenever the deck or order changes.
-    var edited by remember(exported) { mutableStateOf(TextFieldValue(exported)) }
-    val text = if (onEditList != null) edited.text else exported
-    val dirty = text != exported
-    val parsed = remember(text, cards, printings) {
-        if (dirty) DeckListFormat.parse(text, cards, defaultName = deck.name, printings = printings) else null
-    }
+    val text = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
     val baseName = deck.name.filter { it.isLetterOrDigit() || it in " -_" }.trim().ifBlank { "deck" }
     val clipboard = LocalClipboardManager.current
     val layer = rememberGraphicsLayer()
@@ -192,7 +206,7 @@ fun DeckExportDialog(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f))
-            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
+            if (onDismiss != null) IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
         }
     }
     val tabs = @Composable { PillTabs(listOf("List", "Image"), tab, { tab = it }, fill = true) }
@@ -202,41 +216,20 @@ fun DeckExportDialog(
         }
     }
     val listText = @Composable { modifier: Modifier ->
-        if (onEditList != null) Column(modifier) {
-            BasicTextField(
-                edited, { edited = it },
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, color = scheme.onSurface),
-                cursorBrush = SolidColor(scheme.primary),
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(12.dp).semantics { contentDescription = "Deck list" },
-            )
-            // Lines the deck can't read back say so before the list is applied, so nothing goes missing unnoticed.
-            parsed?.problems?.takeIf { it.isNotEmpty() }?.let { problems ->
-                Text(
-                    if (problems.size == 1) problems.first() else "${problems.first()} (+${problems.size - 1} more)",
-                    style = MaterialTheme.typography.bodySmall, color = scheme.error, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().background(scheme.errorContainer.copy(alpha = 0.4f)).padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
-        } else SelectionContainer(modifier) {
+        SelectionContainer(modifier) {
             Text(
                 text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
             )
         }
     }
-    val buttons = @Composable {
+    // Phones confirm a copy themselves, so the phone layout doesn't add a toast of its own.
+    val buttons = @Composable { phone: Boolean ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (tab == 0 && dirty && parsed != null && onEditList != null) {
-                // An edited list is applied to the deck, or put back as it was.
-                GameButton("Undo edits", onClick = { edited = TextFieldValue(exported) }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY)
-                GameButton("Apply to deck", onClick = {
-                    onEditList(parsed.snapshot)
-                    toast("Deck updated from the list.")
-                }, Modifier.weight(1f))
-            } else if (tab == 0) {
+            if (tab == 0) {
                 GameButton("Copy", onClick = {
                     clipboard.setText(AnnotatedString(text))
-                    toast("Deck list copied.")
+                    if (!phone) toast("Deck list copied.")
                 }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY)
                 GameButton("Save file", onClick = {
                     state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
@@ -255,6 +248,38 @@ fun DeckExportDialog(
         }
     }
     val pane = Modifier.clip(LockOnShapes.tile).background(scheme.surfaceContainerLow)
+    // The phone layout: tabs, a line of order chips, the preview in every row they leave, then the buttons.
+    val phone = @Composable { modifier: Modifier ->
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            tabs()
+            // One scrolling line of order chips, so the preview keeps the rows. Its edge fades
+            // to show there is more.
+            Row(
+                Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(end = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+            ) { orderChips() }
+            val preview = Modifier.weight(1f).fillMaxWidth()
+            if (tab == 0) listText(pane.then(preview))
+            else Box(pane.then(preview).verticalScroll(rememberScrollState())) {
+                CaptureAtFixedWidth(layer, Modifier.clickable(onClickLabel = "View full size") { viewing = true }) {
+                    DeckImage(deck, cards, ruleset, order)
+                }
+            }
+            buttons(true)
+        }
+    }
+
+    // A page of the editor: the deck's name is in the banner above, so it starts at the tabs.
+    if (onDismiss == null) {
+        BoxWithConstraints(modifier) {
+            phone(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + LocalNavClearance.current))
+            GameToastHost(toasts, Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp + LocalNavClearance.current))
+            if (viewing) {
+                ZoomView(minOf(maxWidth - 48.dp, 1080.dp), onClose = { viewing = false }) { DeckImage(deck, cards, ruleset, order) }
+            }
+        }
+        return
+    }
 
     // Esc closes the full-size view first, then the dialog.
     Dialog(onDismissRequest = { if (viewing) viewing = false else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -303,30 +328,14 @@ fun DeckExportDialog(
                                     }
                                 }
                                 Spacer(Modifier.weight(1f))
-                                buttons()
+                                buttons(false)
                             }
                         }
                     }
                 } else {
                     Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         header()
-                        Column(Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            tabs()
-                            // One scrolling line of order chips, so the preview keeps the rows. Its edge fades
-                            // to show there is more.
-                            Row(
-                                Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(end = 32.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
-                            ) { orderChips() }
-                            val preview = Modifier.weight(1f).fillMaxWidth()
-                            if (tab == 0) listText(pane.then(preview))
-                            else Box(pane.then(preview).verticalScroll(rememberScrollState())) {
-                                CaptureAtFixedWidth(layer, Modifier.clickable(onClickLabel = "View full size") { viewing = true }) {
-                                    DeckImage(deck, cards, ruleset, order)
-                                }
-                            }
-                            buttons()
-                        }
+                        phone(Modifier.weight(1f).padding(end = 8.dp))
                     }
                 }
             }
