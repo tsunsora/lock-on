@@ -99,7 +99,6 @@ import app.lockon.ui.components.Badge
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.io.ImportDialog
-import app.lockon.io.BackupFormat
 import kotlinx.coroutines.launch
 import app.lockon.ui.components.PillSearchField
 import app.lockon.ui.components.ScreenHeader
@@ -217,22 +216,9 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         // The title row sits in the band beside the floating navigation on wide windows (UX rule N5).
         // The deck actions. Wide windows put them beside the search bar, so the band keeps space for the
         // title; phones keep New deck in the thumb zone. Importing a deck list is offered from New deck.
-        // Rarely used actions sit in a menu.
+        // Backing up every deck is in Settings.
         val actions = @Composable {
             if (wide) GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add, compact = true)
-            var menu by remember { mutableStateOf(false) }
-            Box {
-                GlassIconButton(Icons.Default.MoreVert, "More actions", { menu = true })
-                GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    GameMenuItem("Back up all decks", onClick = {
-                        menu = false
-                        scope.launch {
-                            val backup = BackupFormat.encode(container.decks.exportBackup())
-                            if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
-                        }
-                    })
-                }
-            }
         }
         ScreenHeader(
             // Each deck box says Legal or Draft itself, so the title needs no tally under it.

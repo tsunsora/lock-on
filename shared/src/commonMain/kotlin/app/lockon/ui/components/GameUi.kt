@@ -1,4 +1,8 @@
 package app.lockon.ui.components
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberTransition
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -319,9 +323,11 @@ fun GameButton(
     val onAccent = OnAccent
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedAsState()
+    val pressed by interaction.collectIsPressedHeld()
     val lift by animateFloatAsState(if (hovered && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-hover")
-    val squish by animateFloatAsState(if (pressed) 0.98f else 1f, motion(Motion.SHORT), label = "button-press")
+    val squish by animateFloatAsState(if (pressed) 0.96f else 1f, motion(Motion.SHORT), label = "button-press")
+    // A press dims the face a touch as it sinks, so a tap reads even on a wide button whose scale barely shows.
+    val dim by animateFloatAsState(if (pressed && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-dim")
     val shape = LockOnShapes.button
     val fill: Brush
     val content: Color
@@ -329,11 +335,12 @@ fun GameButton(
     when {
         !enabled -> { fill = SolidColor(scheme.onSurface.copy(alpha = 0.06f)); content = scheme.outline; rim = Color.Transparent }
         style == GameButtonStyle.PRIMARY -> {
-            fill = Brush.verticalGradient(listOf(lighten(accent, 0.22f + 0.06f * lift), lighten(accent, 0.04f * lift)))
+            fill = Brush.verticalGradient(listOf(lighten(accent, 0.22f + 0.12f * lift), lighten(accent, 0.12f * lift)))
             content = onAccent; rim = lighten(accent, 0.45f)
         }
         style == GameButtonStyle.SECONDARY -> {
-            fill = SolidColor(lighten(g.strong, 0.06f * lift))
+            // Lightening white glass shows nothing, so hover washes it with the accent instead.
+            fill = SolidColor(accent.copy(alpha = 0.08f * lift).compositeOver(g.strong))
             content = accent; rim = accent.copy(alpha = 0.55f + 0.35f * lift)
         }
         else -> { fill = SolidColor(accent.copy(alpha = 0.10f * lift)); content = accent; rim = Color.Transparent }
@@ -351,6 +358,7 @@ fun GameButton(
             }
             .clip(shape)
             .background(fill)
+            .drawWithContent { drawContent(); if (dim > 0f) drawRect(Color.Black.copy(alpha = 0.08f * dim)) }
             .border(BorderStroke(1.dp, rim), shape)
             .hoverable(interaction, enabled)
             .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
@@ -387,7 +395,7 @@ fun GlassIconButton(
     val g = glassColors()
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedAsState()
+    val pressed by interaction.collectIsPressedHeld()
     val squish by animateFloatAsState(if (pressed) 0.94f else 1f, motion(Motion.SHORT), label = "icon-press")
     // Hover eases in rather than switching, like the buttons beside it.
     val disc by animateColorAsState(if (hovered) lighten(g.strong, 0.08f) else g.strong, motion(Motion.SHORT), label = "icon-disc")
@@ -964,11 +972,18 @@ fun GameDialog(
     text: (@Composable () -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
+    // The card fades in and grows from just under its size, so a dialog arrives rather than appears.
+    val shown = remember { MutableTransitionState(false) }.apply { targetState = true }
+    val appear by rememberTransition(shown, label = "dialog").animateFloat(
+        { if (LocalReduceMotion.current) snap() else tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate) }, label = "dialog-in",
+    ) { if (it) 1f else 0f }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = confirmButton,
         dismissButton = dismissButton,
-        modifier = modifier.glassFrame(MaterialTheme.shapes.extraLarge),
+        modifier = modifier
+            .graphicsLayer { alpha = appear; val s = 0.94f + 0.06f * appear; scaleX = s; scaleY = s }
+            .glassFrame(MaterialTheme.shapes.extraLarge),
         containerColor = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
         title = title?.let {
             {
@@ -1029,7 +1044,7 @@ fun GameMenuItem(
     }
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedAsState()
+    val pressed by interaction.collectIsPressedHeld()
     val wash = when {
         pressed -> 0.20f
         hovered -> 0.12f
@@ -1142,10 +1157,15 @@ fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier
     ) {
         Box(
             Modifier.size(width = 52.dp, height = 30.dp).clip(LockOnShapes.button)
-                .background(
-                    if (checked) Brush.verticalGradient(listOf(lighten(accent, 0.25f + 0.15f * lit), lighten(accent, 0.12f * lit)))
-                    else SolidColor(scheme.onSurface.copy(alpha = 0.12f + 0.08f * lit)),
-                ),
+                .background(SolidColor(scheme.onSurface.copy(alpha = 0.12f + 0.08f * lit)))
+                // The teal fills in as the knob travels, so the track and knob change together.
+                .drawBehind {
+                    val on = position.coerceIn(0f, 1f)
+                    if (on > 0f) drawRect(
+                        Brush.verticalGradient(listOf(lighten(accent, 0.25f + 0.15f * lit), lighten(accent, 0.12f * lit))),
+                        alpha = on,
+                    )
+                },
         ) {
             Box(
                 Modifier.padding(3.dp).size(24.dp)
@@ -1180,7 +1200,7 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
                 val text by animateColorAsState(if (isSelected) onAccent else scheme.onSurfaceVariant, motion(Motion.MEDIUM), label = "segment-text")
                 Box(
                     Modifier.weight(1f).fillMaxHeight().clip(LockOnShapes.button)
-                        .selectable(isSelected, role = Role.RadioButton) { onSelect(i) },
+                        .selectable(isSelected, interactionSource = null, indication = null, role = Role.RadioButton) { onSelect(i) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = text)
@@ -1228,13 +1248,25 @@ fun PillChip(
     else Modifier.semantics { onLongClick(onLongClickLabel) { onLongClick(); true } }
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
-    // Material's chip switches colour at once; these fade, and stand in for both its states.
-    val fill by animateColorAsState(if (selected) Accent else g.strong, motion(Motion.MEDIUM), label = "chip-fill")
-    val text by animateColorAsState(if (selected) OnAccent else scheme.onSurface, motion(Motion.MEDIUM), label = "chip-text")
-    val rim by animateColorAsState(if (selected) lighten(Accent, 0.4f) else g.rimLow, motion(Motion.MEDIUM), label = "chip-rim")
-    FilterChip(
+    val hovered by interactions.collectIsHoveredAsState()
+    val pressed by interactions.collectIsPressedHeld()
+    // Material's chip switches colour at once; these fade, and stand in for both its states. Hover and
+    // press tint the chip itself: Material's grey state layer and ripple turn the teal muddy as it fades in.
+    val fill by animateColorAsState(
+        when {
+            selected -> if (pressed) darken(Accent, 0.08f) else if (hovered) lighten(Accent, 0.08f) else Accent
+            else -> Accent.copy(alpha = if (pressed) 0.16f else if (hovered) 0.08f else 0f).compositeOver(g.strong)
+        },
+        motion(Motion.SHORT), label = "chip-fill",
+    )
+    val text by animateColorAsState(if (selected) OnAccent else scheme.onSurface, motion(Motion.SHORT), label = "chip-text")
+    val rim by animateColorAsState(
+        if (selected) lighten(Accent, 0.4f) else if (hovered) Accent.copy(alpha = 0.5f) else g.rimLow,
+        motion(Motion.SHORT), label = "chip-rim",
+    )
+    CompositionLocalProvider(LocalRippleConfiguration provides null) { FilterChip(
         selected = selected, onClick = { if (held[0]) held[0] = false else onClick() }, label = label,
-        modifier = modifier.then(longClickSemantics), leadingIcon = leadingIcon,
+        modifier = modifier.then(longClickSemantics).pressScale(interactions), leadingIcon = leadingIcon,
         shape = LockOnShapes.button, interactionSource = interactions,
         colors = FilterChipDefaults.filterChipColors(
             containerColor = fill,
@@ -1248,7 +1280,7 @@ fun PillChip(
             enabled = true, selected = selected,
             borderColor = rim, selectedBorderColor = rim,
         ),
-    )
+    ) }
 }
 
 /** A [PillChip] that opens a menu under it. Toggles leave it open so several can be picked; a single choice calls close. */

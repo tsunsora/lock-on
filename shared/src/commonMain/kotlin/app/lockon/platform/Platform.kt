@@ -27,3 +27,6 @@ expect fun encodeShareQr(text: String): app.lockon.sync.QrMatrix
 
 /** The pointer shown over a divider that resizes side by side areas. */
 expect val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIcon
+
+/** Whether Lock On runs on a phone or tablet, for settings that only apply there. */
+expect val isMobile: Boolean

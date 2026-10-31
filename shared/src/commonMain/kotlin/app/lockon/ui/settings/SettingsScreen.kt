@@ -34,7 +34,9 @@ import app.lockon.data.InterfaceSize
 import app.lockon.data.MotionChoice
 import app.lockon.data.StartChoice
 import app.lockon.data.ThemeChoice
+import app.lockon.io.BackupFormat
 import app.lockon.platform.FileBridge
+import app.lockon.platform.isMobile
 import app.lockon.ui.AppState
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
@@ -88,9 +90,22 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
             }
         }
 
-        SettingsGroup("Deck editor bar") {
-            Choice(null, "On phones, left to right. Pages slide in the same order.", EditorBarOrder.entries, editorBar, { it.label }) {
+        // The bar only shows on phones, so the computer leaves the choice out.
+        if (isMobile) SettingsGroup("Deck editor bar") {
+            Choice(null, "Left to right. Pages slide in the same order.", EditorBarOrder.entries, editorBar, { it.label }) {
                 scope.launch { settings.setEditorBar(it) }
+            }
+        }
+
+        SettingsGroup("Decks") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Back up all decks", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                GameButton("Back up", style = GameButtonStyle.SECONDARY, compact = true, onClick = {
+                    state.appScope.launch {
+                        val backup = BackupFormat.encode(container.decks.exportBackup())
+                        if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
+                    }
+                })
             }
         }
 

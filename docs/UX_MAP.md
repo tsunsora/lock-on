@@ -51,7 +51,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - Folders sync with the decks.
 - **Actions:**
   - Bottom right: **New deck**.
-  - Top: **Import** and **Back up all**.
+  - Import a deck list from **New deck**; **Back up all decks** is in Settings.
   - Search decks by name, and filter by folder and tag.
   - Each tile's menu: Rename, Move to folder (pick a folder in use, or type a new one), Edit tags, Duplicate (keeps folder and cover, not matches), Export, Delete (with Undo).
 - **Empty state:** explains the three ways to get a deck: create one, import one, or pair a device.
@@ -141,6 +141,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 - **Appearance:** **Theme** (Match system · Sky · Twilight), **Interface size** (Small · Default · Large · Larger, scaling everything together), **Animations** (Match system · Reduced · Full).
 - **Startup:** **Open on** Decks, Cards, or *Where I left off*.
 - **Cards:** **Show card artwork** and **Check for card list updates** (the weekly background check) switches, then the card database card with **Manage card database**.
+- **Decks:** **Back up all decks** saves every deck to one file.
 - **This device:** the name paired devices see, with **Rename** (used from the next launch).
 - **App updates** last.
 
