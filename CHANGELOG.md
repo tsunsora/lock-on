@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.12.0 (2026-10-31)
+
+Buttons answer every tap, and backing up your decks moves to Settings.
+
+- **Everywhere:** buttons, chips and switches visibly press even on a quick tap, and tint on hover. Dialogs grow in as they open.
+- **Settings:** **Decks → Back up all decks** saves every deck to one file. It's no longer in the Decks screen's menu.
+- **Computer:** **Edit as text** is next to Export in the deck editor and opens in a dialog. The deck editor bar setting only shows on phones.
+- **Export:** hold the image preview briefly to see it full size; a tap no longer opens it, so the phone preview scrolls freely.
+
 ## 1.11.0 (2026-10-31)
 
 On phones, the deck editor's bar can be arranged the way you like, and the deck list can be edited as text.
