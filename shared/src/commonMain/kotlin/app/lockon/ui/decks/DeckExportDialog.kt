@@ -128,6 +128,14 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.composed
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.onLongClick
 
 /**
  * Saved deck images are this many pixels wide on every device, whatever its screen density. With
@@ -185,7 +193,7 @@ private fun DeckExport(
     var tab by rememberSaveable { mutableStateOf(startTab.coerceIn(0, 1)) }
     // One order for both formats, so the list and image match.
     var order by rememberSaveable { mutableStateOf(ExportOrder.LEVEL) }
-    // The image preview is shrunk to fit; a click opens it large over the dialog.
+    // The image preview is shrunk to fit; a short hold opens it large over the dialog.
     var viewing by remember { mutableStateOf(false) }
     val text = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
     val baseName = deck.name.filter { it.isLetterOrDigit() || it in " -_" }.trim().ifBlank { "deck" }
@@ -261,7 +269,7 @@ private fun DeckExport(
             val preview = Modifier.weight(1f).fillMaxWidth()
             if (tab == 0) listText(pane.then(preview))
             else Box(pane.then(preview).verticalScroll(rememberScrollState())) {
-                CaptureAtFixedWidth(layer, Modifier.clickable(onClickLabel = "View full size") { viewing = true }) {
+                CaptureAtFixedWidth(layer, Modifier.holdToView { viewing = true }) {
                     DeckImage(deck, cards, ruleset, order)
                 }
             }
@@ -312,10 +320,10 @@ private fun DeckExport(
                         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                             if (tab == 0) listText(pane.then(previewBox))
                             else Box(previewBox, contentAlignment = Alignment.TopCenter) {
-                                // The whole picture in view at once, as it will be saved; a click shows it large.
+                                // The whole picture in view at once, as it will be saved; a short hold shows it large.
                                 CaptureAtFixedWidth(
                                     layer,
-                                    Modifier.clip(LockOnShapes.tile).clickable(onClickLabel = "View full size") { viewing = true },
+                                    Modifier.clip(LockOnShapes.tile).holdToView { viewing = true },
                                     fit = true,
                                 ) { DeckImage(deck, cards, ruleset, order) }
                             }
@@ -345,6 +353,30 @@ private fun DeckExport(
             }
         }
     }
+}
+
+/** How long the preview is held before it opens large: shorter than a long press, but not a tap. */
+private const val HOLD_TO_VIEW_MS = 250L
+
+/**
+ * Runs [onView] once a press on this has been held for [HOLD_TO_VIEW_MS] without lifting. A tap does
+ * nothing, and a press that turns into a scroll is let go, so the phone preview still scrolls.
+ */
+private fun Modifier.holdToView(onView: () -> Unit): Modifier = composed {
+    val haptics = LocalHapticFeedback.current
+    val view by rememberUpdatedState(onView)
+    semantics { onLongClick("View full size") { view(); true } }
+        .pointerInput(Unit) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                // Lifting, or the press being taken by a scroll, ends it early; still down at the timeout opens.
+                val ended = withTimeoutOrNull(HOLD_TO_VIEW_MS) { waitForUpOrCancellation(); true }
+                if (ended == null) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    view()
+                }
+            }
+        }
 }
 
 private const val MAX_ZOOM = 4f

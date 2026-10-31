@@ -76,6 +76,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.SuitColors
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.foundation.interaction.InteractionSource
+import kotlin.time.TimeSource
 
 /**
  * The motion system (UX rule V5). Durations and easings follow Material 3's emphasized curves.
@@ -290,6 +293,34 @@ private class PressScaleNode(private var interaction: MutableInteractionSource) 
             placeable.placeWithLayer(0, 0) { scaleX = scale.value; scaleY = scale.value }
         }
     }
+}
+
+/**
+ * Whether [this] is pressed, held for at least [Motion.SHORT] so a quick tap still plays its press.
+ * `collectIsPressedAsState` lets go as soon as the finger does, and a tap is often over before the
+ * press has drawn a frame, so the button looks as if it ignored the tap.
+ */
+@Composable
+fun InteractionSource.collectIsPressedHeld(): State<Boolean> {
+    val held = remember { mutableStateOf(false) }
+    LaunchedEffect(this) {
+        var presses = 0
+        var since = TimeSource.Monotonic.markNow()
+        interactions.collectLatest { event ->
+            when (event) {
+                is PressInteraction.Press -> { presses++; since = TimeSource.Monotonic.markNow(); held.value = true }
+                is PressInteraction.Release, is PressInteraction.Cancel -> {
+                    presses = (presses - 1).coerceAtLeast(0)
+                    if (presses == 0) {
+                        // A new press cancels the wait, so the button stays down.
+                        delay((Motion.SHORT - since.elapsedNow().inWholeMilliseconds).coerceAtLeast(0))
+                        held.value = false
+                    }
+                }
+            }
+        }
+    }
+    return held
 }
 
 /**

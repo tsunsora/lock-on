@@ -38,10 +38,63 @@ import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.GameToastHost
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.theme.LockOnShapes
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import app.lockon.ui.components.glassFrame
+import app.lockon.ui.components.isTwilight
 import kotlinx.coroutines.launch
 
+/** [DeckTextEditor] in a dialog, for wide windows, framed like the export dialog. */
+@Composable
+fun DeckTextDialog(
+    deck: DeckSnapshot,
+    cards: Map<String, Card>,
+    printings: Map<String, List<Printing>>,
+    onApply: (DeckSnapshot) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+            // Clicks beside the panel close it, as with the export dialog.
+            Spacer(Modifier.fillMaxSize().clickable(interactionSource = null, indication = null, onClick = onDismiss))
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
+                modifier = Modifier.padding(24.dp).glassFrame(MaterialTheme.shapes.extraLarge),
+            ) {
+                Column(Modifier.width(minOf(maxWidth - 48.dp, 520.dp)).height(minOf(maxHeight - 48.dp, 720.dp)).padding(top = 12.dp, bottom = 12.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f))
+                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
+                    }
+                    // No floating navigation here to leave room for.
+                    CompositionLocalProvider(LocalNavClearance provides 0.dp) {
+                        DeckTextEditor(deck, cards, printings, onApply, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
- * The deck as a text list to edit in place, a page of the phone deck editor. The deck read back
+ * The deck as a text list to edit in place, a page of the phone deck editor and the body of [DeckTextDialog]. The deck read back
  * from the edited list goes to [onApply]; lines it can't read are named before it is applied.
  */
 @Composable

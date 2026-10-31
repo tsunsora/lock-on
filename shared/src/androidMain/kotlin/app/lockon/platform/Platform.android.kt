@@ -42,3 +42,5 @@ actual fun encodeShareQr(text: String): app.lockon.sync.QrMatrix {
 
 actual val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIcon =
     androidx.compose.ui.input.pointer.PointerIcon(android.view.PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW)
+
+actual val isMobile: Boolean = true

@@ -270,6 +270,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     var detail by remember { mutableStateOf<GameCard?>(null) }
     var renaming by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
+    // Wide windows edit the deck as text in a dialog; phones have a page for it under More.
+    var editingText by remember { mutableStateOf(false) }
 
     // Changes read the draft itself, not this composition's copy, so quick taps never lose a copy
     // and the card list's controls stay the same object from one change to the next.
@@ -409,6 +411,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 deck, cards, ruleset, legality, modifier, compact = wide,
                 onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
                 onExport = { if (wide) exporting = true else phoneTab = 6 },
+                onEditText = { if (wide) editingText = true else phoneTab = 7 },
                 cardView = cardView, onCardView = { cardView = it },
                 onAddCards = if (wide) null else ({ phoneTab = 1 }),
                 scrollToTop = deckToTop,
@@ -673,6 +676,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             deck, cards, ruleset, files, state, onDismiss = { exporting = false },
         )
     }
+    if (editingText) {
+        DeckTextDialog(deck, cards, printings, onApply = ::applyList, onDismiss = { editingText = false })
+    }
 }
 
 @Composable
@@ -686,6 +692,7 @@ private fun DeckList(
     compact: Boolean,
     onOpenAnalysis: () -> Unit,
     onExport: () -> Unit,
+    onEditText: () -> Unit,
     /** Whole small cards rather than strips. */
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
@@ -727,7 +734,7 @@ private fun DeckList(
         if (compact && deck.entries.isNotEmpty()) {
             // Export and whether the deck is legal ride at the top of the list.
             item(key = "stats") {
-                DeckStatusBar(legality, onExport, cardView, onCardView, Modifier.padding(bottom = 4.dp))
+                DeckStatusBar(legality, onExport, onEditText, cardView, onCardView, Modifier.padding(bottom = 4.dp))
             }
         }
         if (deck.entries.isEmpty()) {
@@ -962,13 +969,14 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
 }
 
 /**
- * A slim bar at the top of the deck list: Export, then the first legality problem in words (UX rule I3), and the card/list view switch at the end. A legal
+ * A slim bar at the top of the deck list: Export and Edit as text, then the first legality problem in words (UX rule I3), and the card/list view switch at the end. A legal
  * deck shows no message: the Legal stamp in the header already says so.
  */
 @Composable
 private fun DeckStatusBar(
     legality: DeckLegality,
     onExport: () -> Unit,
+    onEditText: () -> Unit,
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -977,6 +985,7 @@ private fun DeckStatusBar(
     Column(modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GameButton("Export", onClick = onExport, style = GameButtonStyle.GHOST, icon = Icons.Default.Share, compact = true)
+            GameButton("Edit as text", onClick = onEditText, style = GameButtonStyle.GHOST, icon = Icons.Default.Edit, compact = true)
             val first = legality.errors.firstOrNull()
             if (first == null) Spacer(Modifier.weight(1f)) else Text(
                 if (legality.errors.size == 1) first.text else "${first.text} (+${legality.errors.size - 1} more)",
