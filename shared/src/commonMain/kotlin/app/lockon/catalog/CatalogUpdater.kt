@@ -9,8 +9,14 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /** Platform HTTP client for public downloads, trusting the normal certificate authorities. */
@@ -67,24 +73,98 @@ class CatalogUpdater(
         } catch (e: Exception) {
             throw CatalogException("The card database didn't download in a readable form. Try again later.")
         }
-        val converted = GcgApi.toCatalog(manifest, entries)
-        val checked = catalog.validate(converted.catalog)
-        val note = "${converted.skippedUnknown} cards of a type Lock On doesn't know yet are left out.".takeIf { converted.skippedUnknown > 0 }
-        preview(checked.copy(warnings = checked.warnings + listOfNotNull(note)), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
+        val extras = bandaiAltArts(entries)
+        val converted = GcgApi.toCatalog(manifest, entries + extras)
+        val file = converted.catalog.let { if (extras.isEmpty()) it else it.copy(source = it.source + " " + BANDAI_NOTE) }
+        val checked = catalog.validate(file)
+        val notes = listOfNotNull(
+            "${converted.skippedUnknown} cards of a type Lock On doesn't know yet are left out.".takeIf { converted.skippedUnknown > 0 },
+            "${extras.size} alt arts come from Bandai's card list, ahead of gcg-api.".takeIf { extras.isNotEmpty() },
+        )
+        preview(checked.copy(warnings = checked.warnings + notes), CatalogOrigin.GCG_API, GcgApi.MANIFEST_URL)
+    }
+
+    /**
+     * Alt arts on Bandai's card list that gcg-api doesn't have yet, as gcg-api entries copied from the
+     * standard printing. Only sets with no alt arts in gcg-api are looked up, and any failure just means
+     * none are added.
+     */
+    private suspend fun bandaiAltArts(entries: List<GcgApi.Entry>): List<GcgApi.Entry> {
+        val standards = entries.filter { it.productId == it.cardNumber }.associateBy { it.cardNumber }
+        val missing = missingBandaiPrintings(
+            entries.map { it.setCode to (it.productId != it.cardNumber) },
+            known = entries.map { it.productId }.toSet(),
+            cardNumbers = standards.keys,
+        )
+        if (missing.isEmpty()) return emptyList()
+        val gate = Semaphore(4)
+        return coroutineScope {
+            missing.map { listed ->
+                async {
+                    val detail = gate.withPermit {
+                        try {
+                            BandaiCardList.parseDetail(fetch(BandaiCardList.detailUrl(listed.printingId)))
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } ?: return@async null
+                    standards.getValue(listed.cardNumber).copy(
+                        productId = listed.printingId,
+                        rarity = detail.rarity,
+                        whereToGet = detail.whereToGet,
+                        imageUrl = listed.artworkUrl,
+                    )
+                }
+            }.awaitAll().filterNotNull()
+        }
+    }
+
+    /** Printings of known cards that Bandai lists in sets without alt arts and [known] lacks. Empty when Bandai can't be read. */
+    private suspend fun missingBandaiPrintings(
+        printings: List<Pair<String, Boolean>>,
+        known: Set<String>,
+        cardNumbers: Set<String>,
+    ): List<BandaiCardList.Listed> = try {
+        val sets = BandaiCardList.setsWithoutAltArts(printings)
+        if (sets.isEmpty()) return emptyList()
+        val packages = BandaiCardList.parsePackages(fetch(BandaiCardList.SEARCH_URL)).filter { it.code in sets }
+        packages.flatMap { pkg ->
+            BandaiCardList.parseListing(fetch(BandaiCardList.packageUrl(pkg.id)))
+                .filter { !it.isStandard && it.printingId !in known && it.cardNumber in cardNumbers }
+        }.distinctBy { it.printingId }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptyList()
     }
 
     sealed interface UpdateCheck {
         data class UpToDate(val version: Int) : UpdateCheck
-        data class Available(val version: Int, val cardCount: Int, val builtAt: String) : UpdateCheck
+        /** [newAltArts] counts alt arts on Bandai's card list that the installed list lacks. */
+        data class Available(val version: Int, val cardCount: Int, val builtAt: String, val newAltArts: Int = 0) : UpdateCheck
     }
 
-    /** Asks gcg-api for its latest version without downloading the cards (a small file). */
+    /**
+     * Asks gcg-api for its latest version without downloading the cards (a small file). When that
+     * isn't newer, Bandai's card list is checked for alt arts the installed list lacks.
+     */
     suspend fun checkCardDatabase(): UpdateCheck {
         val manifest = officialManifest()
         catalog.markUpdateChecked()
         val installed = catalog.info.value
         val newer = installed?.catalogId != GcgApi.CATALOG_ID || manifest.run > installed.version || convertedWithoutTokens()
-        return if (newer) UpdateCheck.Available(manifest.run, manifest.cardCount, manifest.builtAt.take(10))
+        if (newer) return UpdateCheck.Available(manifest.run, manifest.cardCount, manifest.builtAt.take(10))
+        val printings = catalog.printings.value.values.flatten()
+        val altArts = withContext(Dispatchers.Default) {
+            missingBandaiPrintings(
+                printings.map { it.setCode to it.isAlternateArt },
+                known = printings.map { it.printingId }.toSet(),
+                cardNumbers = catalog.cards.value.keys,
+            ).size
+        }
+        return if (altArts > 0) UpdateCheck.Available(manifest.run, manifest.cardCount, manifest.builtAt.take(10), altArts)
         else UpdateCheck.UpToDate(manifest.run)
     }
 
@@ -108,6 +188,12 @@ class CatalogUpdater(
         if (catalog.info.value?.catalogId != GcgApi.CATALOG_ID) return false
         val cards = catalog.cards.value.values
         return cards.none { it.type.isToken } || cards.any { GcgApi.isTokenNumber(it.cardNumber) && !it.type.isToken }
+    }
+
+    /** Same gcg-api version, but with alt arts from Bandai's card list that the installed one lacks. */
+    private fun addsPrintings(checked: CheckedCatalog): Boolean {
+        val installed = catalog.printings.value.values.flatten().map { it.printingId }.toSet()
+        return checked.file.printings.any { it.printingId !in installed }
     }
 
     private suspend fun officialManifest(): GcgApi.Manifest = try {
@@ -136,13 +222,14 @@ class CatalogUpdater(
             url = url,
             isUpdate = installed?.catalogId == checked.file.catalogId,
             isNewer = installed?.catalogId != checked.file.catalogId || checked.file.version > installed.version ||
-                (origin == CatalogOrigin.GCG_API && convertedWithoutTokens()),
+                (origin == CatalogOrigin.GCG_API && (convertedWithoutTokens() || addsPrintings(checked))),
             missingFromDecks = used - numbers,
         )
     }
 
     private companion object {
         const val WEEK_MS = 7L * 24 * 60 * 60 * 1000
+        const val BANDAI_NOTE = "Alt arts not yet in gcg-api are read from Bandai's official card list."
 
         suspend fun httpGet(url: String): String {
             val client = downloadClient()
