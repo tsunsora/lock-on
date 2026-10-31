@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.0 (2026-10-31)
+
+Syncing now makes one device match the other, with everything on it.
+
+- **Sync:** the Sync tab opens on **Sync devices**. Tap a paired device and choose **Make this phone match it** or **Make it match this phone**. The device being replaced takes on the other's decks with their history, folders (empty ones too), match logs, settings, chosen ruleset and card list. Decks only on that device are removed, and earlier versions of replaced decks stay in their history. Lock On asks before replacing anything.
+- **Merge:** **Merge both ways** is still there, beside matching, and keeps every deck from both devices. On a phone, **Keep merging** is now set per computer. Computers you'd already paired keep merging; a newly paired one doesn't until you turn it on, so a new phone can be matched first.
+- **Computer:** a sync started on the computer is carried out by the phone, so Lock On needs to be open on it. The phone asks before its own decks are replaced.
+- **Send decks:** sending a few decks to anyone nearby moves to its own page under Sync.
+- Both devices need this version to make one match the other.
+
 ## 1.12.0 (2026-10-31)
 
 Buttons answer every tap, and backing up your decks moves to Settings.
