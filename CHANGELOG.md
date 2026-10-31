@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.10.0 (2026-10-31)
+
+New sets' alt arts arrive sooner, and the deck editor is easier to use on phones.
+
+- **Card database:** alt arts that are already on Bandai's official card list but not yet in the weekly card database come straight from Bandai's site, so GD06's parallels are here now. **Check for updates** offers them even when the card database itself hasn't changed.
+- **Phones:** the deck editor's bar reads More, Add cards, Deck, and swiping along it switches between your deck and the card list. Export and the card/list switch are under More.
+- **Export:** the text list can be edited and applied back to the deck.
+- **Folders:** New folder just asks for a name. A deck dropped on New folder still goes into it, and a new deck scrolls into view in the library.
+
 ## 1.9.5 (2026-10-30)
 
 Card pictures load faster on Windows.
