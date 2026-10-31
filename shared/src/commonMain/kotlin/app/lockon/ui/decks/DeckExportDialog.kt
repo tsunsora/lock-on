@@ -90,6 +90,10 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.lockon.io.DeckListFormat
 import app.lockon.model.Card
+import app.lockon.model.Printing
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.graphics.SolidColor
 import app.lockon.model.CardType
 import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
@@ -153,13 +157,23 @@ fun DeckExportDialog(
     state: AppState,
     onDismiss: () -> Unit,
     startTab: Int = 0,
+    printings: Map<String, List<Printing>> = emptyMap(),
+    /** Given, the list can be edited in place and applied to the deck; the deck read back from it comes here. */
+    onEditList: ((DeckSnapshot) -> Unit)? = null,
 ) {
     var tab by rememberSaveable { mutableStateOf(startTab.coerceIn(0, 1)) }
     // One order for both formats, so the list and image match.
     var order by rememberSaveable { mutableStateOf(ExportOrder.LEVEL) }
     // The image preview is shrunk to fit; a click opens it large over the dialog.
     var viewing by remember { mutableStateOf(false) }
-    val text = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
+    val exported = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
+    // The list as edited in place; it starts over from the deck whenever the deck or order changes.
+    var edited by remember(exported) { mutableStateOf(TextFieldValue(exported)) }
+    val text = if (onEditList != null) edited.text else exported
+    val dirty = text != exported
+    val parsed = remember(text, cards, printings) {
+        if (dirty) DeckListFormat.parse(text, cards, defaultName = deck.name, printings = printings) else null
+    }
     val baseName = deck.name.filter { it.isLetterOrDigit() || it in " -_" }.trim().ifBlank { "deck" }
     val clipboard = LocalClipboardManager.current
     val layer = rememberGraphicsLayer()
@@ -188,7 +202,22 @@ fun DeckExportDialog(
         }
     }
     val listText = @Composable { modifier: Modifier ->
-        SelectionContainer(modifier) {
+        if (onEditList != null) Column(modifier) {
+            BasicTextField(
+                edited, { edited = it },
+                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, color = scheme.onSurface),
+                cursorBrush = SolidColor(scheme.primary),
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(12.dp).semantics { contentDescription = "Deck list" },
+            )
+            // Lines the deck can't read back say so before the list is applied, so nothing goes missing unnoticed.
+            parsed?.problems?.takeIf { it.isNotEmpty() }?.let { problems ->
+                Text(
+                    if (problems.size == 1) problems.first() else "${problems.first()} (+${problems.size - 1} more)",
+                    style = MaterialTheme.typography.bodySmall, color = scheme.error, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().background(scheme.errorContainer.copy(alpha = 0.4f)).padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        } else SelectionContainer(modifier) {
             Text(
                 text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
@@ -197,7 +226,14 @@ fun DeckExportDialog(
     }
     val buttons = @Composable {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (tab == 0) {
+            if (tab == 0 && dirty && parsed != null && onEditList != null) {
+                // An edited list is applied to the deck, or put back as it was.
+                GameButton("Undo edits", onClick = { edited = TextFieldValue(exported) }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY)
+                GameButton("Apply to deck", onClick = {
+                    onEditList(parsed.snapshot)
+                    toast("Deck updated from the list.")
+                }, Modifier.weight(1f))
+            } else if (tab == 0) {
                 GameButton("Copy", onClick = {
                     clipboard.setText(AnnotatedString(text))
                     toast("Deck list copied.")

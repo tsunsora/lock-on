@@ -20,6 +20,7 @@ import app.lockon.ui.components.ProgressGauge
 import androidx.compose.material.icons.filled.MoreVert
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuItem
+import app.lockon.ui.components.GameMenuDivider
 import androidx.compose.foundation.layout.size
 import app.lockon.ui.components.DeckCard
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -291,6 +292,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
 
     // The phone editor's tab (0 Deck, 1 Add cards, then Analysis, Test, Matches, Versions).
     var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
+    // Whole small cards or denser strips in the deck list; phones switch it from the bar's ⋮ menu.
+    var cardView by rememberSaveable(deckId) { mutableStateOf(true) }
 
     Column(Modifier.fillMaxSize()) {
         // Header: a hero banner with the cover art behind it. Who the deck is sits on the left, its
@@ -391,6 +394,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 deck, cards, ruleset, legality, modifier, compact = wide,
                 onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
                 onExport = { exporting = true },
+                cardView = cardView, onCardView = { cardView = it },
                 onAddCards = if (wide) null else ({ phoneTab = 1 }),
                 scrollToTop = deckToTop,
                 onCardClick = { detail = it },
@@ -559,9 +563,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         } else {
             // The sections float in a pill over the content, which scrolls underneath it.
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                // Pages slide in the bar's order, where the card list comes before the deck.
-                if (stage >= 1) SlidingPages(phoneNavSlot(phoneTab), Modifier.fillMaxSize()) { slot ->
-                    when (phoneNavSlot(slot)) {
+                // Pages slide in the bar's order: ⋮'s sections, then the card list, then the deck.
+                if (stage >= 1) SlidingPages(phonePagePosition(phoneTab), Modifier.fillMaxSize()) { position ->
+                    when (phonePagePosition(position)) {
                         0 -> deckList(Modifier.fillMaxSize())
                         1 -> search(Modifier.fillMaxSize())
                         2 -> analysis(Modifier.fillMaxSize())
@@ -570,13 +574,18 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         else -> versions(Modifier.fillMaxSize())
                     }
                 }
-                EditorNav(phoneTab) {
-                    when {
-                        it != phoneTab -> phoneTab = it
-                        it == 0 -> deckToTop++
-                        it == 1 -> cardsToTop++
-                    }
-                }
+                EditorNav(
+                    phoneTab, cardView,
+                    onSelect = {
+                        when {
+                            it != phoneTab -> phoneTab = it
+                            it == 0 -> deckToTop++
+                            it == 1 -> cardsToTop++
+                        }
+                    },
+                    onExport = { exporting = true },
+                    onCardView = { cardView = it; phoneTab = 0 },
+                )
             }
         }
     }
@@ -643,7 +652,18 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
     }
     if (exporting) {
-        DeckExportDialog(deck, cards, ruleset, files, state, onDismiss = { exporting = false })
+        DeckExportDialog(
+            deck, cards, ruleset, files, state, onDismiss = { exporting = false }, printings = printings,
+            onEditList = { edited ->
+                // A text list names cards, not their art, so cards still in the deck keep the printing they had.
+                val current = draft ?: deck
+                val art = current.entries.associate { (it.cardNumber to it.section) to it.printingId }
+                draft = current.copy(
+                    name = edited.name,
+                    entries = edited.entries.map { it.copy(printingId = it.printingId ?: art[it.cardNumber to it.section]) },
+                )
+            },
+        )
     }
 }
 
@@ -658,6 +678,9 @@ private fun DeckList(
     compact: Boolean,
     onOpenAnalysis: () -> Unit,
     onExport: () -> Unit,
+    /** Whole small cards rather than strips. */
+    cardView: Boolean,
+    onCardView: (Boolean) -> Unit,
     /** Opens the card list; phones only, where it is a separate tab. */
     onAddCards: (() -> Unit)?,
     /** Goes up by one each time the list should go back to the top. */
@@ -677,7 +700,6 @@ private fun DeckList(
         } + ("Unknown cards" to main.filter { cards[it.cardNumber] == null })
         byType.filter { it.second.isNotEmpty() }
     }
-    var cardView by rememberSaveable { mutableStateOf(true) }
     val gap = if (compact) 8.dp else 6.dp
     val listState = rememberLazyListState()
     LaunchedEffect(scrollToTop) { if (scrollToTop > 0) listState.animateScrollToItem(0) }
@@ -689,15 +711,15 @@ private fun DeckList(
     // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
     Column(Modifier.fillMaxSize()) {
-    // Phones keep the deck's first problem and the view switch above the list.
-    if (!compact && deck.entries.isNotEmpty()) DeckTopBar(legality, onOpenAnalysis, onExport, cardView, { cardView = it })
+    // Phones keep the deck's first problem above the list; Export and the view switch are in the bar's ⋮ menu.
+    if (!compact && deck.entries.isNotEmpty() && legality.errors.isNotEmpty()) DeckProblemBar(legality, onOpenAnalysis)
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (compact && deck.entries.isNotEmpty()) {
             // Export and whether the deck is legal ride at the top of the list.
             item(key = "stats") {
-                DeckStatusBar(legality, onExport, cardView, { cardView = it }, Modifier.padding(bottom = 4.dp))
+                DeckStatusBar(legality, onExport, cardView, onCardView, Modifier.padding(bottom = 4.dp))
             }
         }
         if (deck.entries.isEmpty()) {
@@ -829,23 +851,12 @@ private fun DeckList(
 }
 
 /**
- * The phone deck list's fixed top bar: Export and the card/list switch, as on wide windows. Under
- * them, the first legality problem in words (UX rule I3), which opens Analysis.
+ * The phone deck list's fixed top bar while the deck has problems: the first one in words (UX rule
+ * I3), which opens Analysis.
  */
 @Composable
-private fun DeckTopBar(
-    legality: DeckLegality,
-    onOpenAnalysis: () -> Unit,
-    onExport: () -> Unit,
-    cardView: Boolean,
-    onCardView: (Boolean) -> Unit,
-) {
+private fun DeckProblemBar(legality: DeckLegality, onOpenAnalysis: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp).glass(LockOnShapes.tile, strong = true).padding(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GameButton("Export", onClick = onExport, style = GameButtonStyle.GHOST, icon = Icons.Default.Share, compact = true)
-            Spacer(Modifier.weight(1f))
-            CardViewButton(cardView, onCardView)
-        }
         legality.errors.firstOrNull()?.let { first ->
             Text(
                 if (legality.errors.size == 1) first.text else "${first.text} (+${legality.errors.size - 1} more)",
@@ -896,10 +907,14 @@ private fun DetailActionCell(label: String, modifier: Modifier, control: @Compos
 }
 
 /**
- * Where a phone editor tab sits in the bottom bar, which puts Add cards (tab 1) before Deck (tab 0).
- * It is its own inverse, so it also turns a bar position back into a tab.
+ * Where a phone editor tab's page sits, left to right, in the bottom bar's order: ⋮'s sections
+ * (tabs 2 to 5, Analysis nearest the card list), then Add cards (tab 1), then Deck (tab 0). It is
+ * its own inverse, so it also turns a position back into a tab.
  */
-private fun phoneNavSlot(tab: Int): Int = when (tab) { 0 -> 1; 1 -> 0; else -> tab }
+private fun phonePagePosition(tab: Int): Int = 5 - tab
+
+/** The bottom bar's item for a phone editor tab: ⋮ (0), Add cards (1), Deck (2). */
+private fun phoneNavItem(tab: Int): Int = when (tab) { 0 -> 2; 1 -> 1; else -> 0 }
 
 /** The copy limit for a card under [ruleset]: restricted, resource or the normal maximum. */
 private fun copyLimit(card: GameCard, ruleset: Ruleset): Int? =
@@ -1017,18 +1032,47 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
 
 /**
  * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3). Building the deck
- * comes first, so the bar holds only Add cards and Deck; Analysis, Test, Matches and Versions sit
- * under More, which takes the name and icon of whichever of them is open. [tab] and [onSelect] use
- * the editor's tab numbers (0 Deck, 1 Add cards); the bar shows the first two the other way round.
+ * comes first, so the bar holds More, Add cards and Deck, left to right, with Deck under the right
+ * thumb. More holds Analysis, Test, Matches and Versions, and takes the name and icon of whichever
+ * of them is open, then Export and the deck list's card/list switch. Swiping along the bar moves
+ * between Add cards and Deck. [tab] and [onSelect] use the editor's tab numbers (0 Deck, 1 Add cards).
  */
 @Composable
-private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
+private fun BoxScope.EditorNav(
+    tab: Int,
+    cardView: Boolean,
+    onSelect: (Int) -> Unit,
+    onExport: () -> Unit,
+    onCardView: (Boolean) -> Unit,
+) {
     var more by remember { mutableStateOf(false) }
-    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+    val currentTab by rememberUpdatedState(tab)
+    val select by rememberUpdatedState(onSelect)
+    // How far a swipe along the bar must travel before it switches.
+    val swipe = with(LocalDensity.current) { 40.dp.toPx() }
+    Box(
+        Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+            .pointerInput(Unit) {
+                // One switch per swipe: right towards Deck, left towards Add cards (never into More).
+                var travelled = 0f
+                var switched = false
+                detectHorizontalDragGestures(
+                    onDragStart = { travelled = 0f; switched = false },
+                ) { change, dx ->
+                    change.consume()
+                    travelled += dx
+                    if (switched) return@detectHorizontalDragGestures
+                    val target = when {
+                        travelled > swipe -> if (currentTab == 1) 0 else if (currentTab >= 2) 1 else null
+                        travelled < -swipe -> if (currentTab == 0) 1 else null
+                        else -> null
+                    }
+                    if (target != null) { switched = true; select(target) }
+                }
+            },
+    ) {
         FloatingPillNav(
             listOf(
-                BottomItem("Add cards") { Icon(Icons.Default.Add, contentDescription = null) },
-                BottomItem("Deck") { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 BottomItem(when (tab) { 2 -> "Analysis"; 3 -> "Test"; 4 -> "Matches"; 5 -> "Versions"; else -> "More" }) {
                     when (tab) {
                         2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -1036,17 +1080,25 @@ private fun BoxScope.EditorNav(tab: Int, onSelect: (Int) -> Unit) {
                         else -> Icon(Icons.Default.MoreVert, contentDescription = null)
                     }
                 },
+                BottomItem("Add cards") { Icon(Icons.Default.Add, contentDescription = null) },
+                BottomItem("Deck") { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
             ),
-            selected = minOf(phoneNavSlot(tab), 2),
-            onSelect = { if (it == 2) more = true else onSelect(phoneNavSlot(it)) },
+            selected = phoneNavItem(tab),
+            onSelect = { if (it == 0) more = true else onSelect(if (it == 1) 1 else 0) },
         )
-        // Anchored over the right end of the pill, where More sits, so the menu opens above it.
-        Box(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.3f)) {
+        // Anchored over the left end of the pill, where More sits, so the menu opens above it.
+        Box(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.3f)) {
             GameMenu(expanded = more, onDismissRequest = { more = false }) {
                 GameMenuItem("Analysis", onClick = { more = false; onSelect(2) }, selected = tab == 2)
                 GameMenuItem("Test hand", onClick = { more = false; onSelect(3) }, selected = tab == 3)
                 GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, selected = tab == 4)
                 GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, selected = tab == 5)
+                GameMenuDivider()
+                GameMenuItem("Export", onClick = { more = false; onExport() }, icon = Icons.Default.Share)
+                GameMenuItem(
+                    if (cardView) "List view" else "Card view", onClick = { more = false; onCardView(!cardView) },
+                    icon = if (cardView) Icons.AutoMirrored.Filled.List else GameIcons.Deck,
+                )
             }
         }
     }
