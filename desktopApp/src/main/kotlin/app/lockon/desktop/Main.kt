@@ -28,6 +28,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import org.jetbrains.skiko.SkiaLayer
+import java.awt.Component
+import java.awt.Container
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -36,6 +39,8 @@ import javax.swing.JOptionPane
 import kotlin.system.exitProcess
 
 fun main() {
+    // Windows then fills the part of the window a resize uncovers with its background colour, not black.
+    System.setProperty("skiko.rendering.noerasebackground", "false")
     // Before anything logs: send logs to a file people can attach to a bug report.
     System.setProperty("org.slf4j.simpleLogger.logFile", File(AppDirs.data, "lock-on.log").absolutePath)
     System.setProperty("org.slf4j.simpleLogger.showDateTime", "true")
@@ -82,6 +87,10 @@ fun main() {
             icon = painterResource("lock-on-window.png"),
             state = windowState,
         ) {
+            // While the window grows, Direct3D shows white where it hasn't drawn yet. Drawn through
+            // DirectComposition instead, that strip shows the window's background (windowBackground below).
+            // The app paints an opaque sky over the whole window, so nothing else shows through.
+            remember { components(window).filterIsInstance<SkiaLayer>().firstOrNull()?.transparency = true }
             // Which graphics API draws the window, for reports of slow scrolling: SOFTWARE means no GPU.
             LaunchedEffect(Unit) {
                 org.slf4j.LoggerFactory.getLogger("LockOn").info("Rendering with ${window.renderApi}")
@@ -108,8 +117,8 @@ fun main() {
                     // theme's sky colour rather than white.
                     windowBackground = { color ->
                         val awt = java.awt.Color(color.toArgb(), true)
-                        window.background = awt
-                        window.contentPane.background = awt
+                        // Every layer, down to the one Direct3D draws on, so a resize uncovers this colour too.
+                        components(window).forEach { it.background = awt }
                     },
                 )
                 if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
@@ -125,6 +134,12 @@ fun main() {
     // With automatic updates on, a downloaded update installs as Lock On closes.
     container.updater?.let { runBlocking { it.installOnExit() } }
     exitProcess(0)
+}
+
+/** [root] and everything inside it, parents before children. */
+private fun components(root: Component): Sequence<Component> = sequence {
+    yield(root)
+    if (root is Container) root.components.forEach { yieldAll(components(it)) }
 }
 
 private class DesktopFileBridge(private val owner: Frame) : FileBridge {
