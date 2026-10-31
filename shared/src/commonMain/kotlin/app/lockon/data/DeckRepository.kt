@@ -14,6 +14,7 @@ import app.lockon.model.DeckSnapshot
 import app.lockon.model.DeckSummary
 import app.lockon.model.DeckVersion
 import app.lockon.model.MatchRecord
+import app.lockon.sync.DeckHead
 import app.lockon.sync.RevisionDto
 import app.lockon.sync.RevisionGraph
 import app.lockon.sync.SyncProtocol
@@ -114,7 +115,8 @@ class DeckRepository(
 
     // --- Folders ---
     // A folder is a name on each deck, so it syncs with the deck. This device also keeps the folders
-    // it has used, so one stays while it holds no deck until it is removed. That list doesn't sync.
+    // it has used, so one stays while it holds no deck until it is removed. That list doesn't merge;
+    // it's copied over only when one device is made to match another.
 
     /** Folders this device keeps, including empty ones. [liveDecks] has the folders that hold decks. */
     val keptFolders: Flow<List<String>> = meta.observe(KEY_FOLDERS).map(::decodeFolders).distinctUntilChanged()
@@ -316,6 +318,46 @@ class DeckRepository(
         touched.forEach { joinIdenticalHeads(it); rebuild(it) }
         alsoInTransaction()
         Applied(received, incoming.size - received)
+    }
+
+    /** Every deck shown here, with the revisions at its tip, for another device to be made to match. */
+    suspend fun heads(): List<DeckHead> = transaction {
+        decksDao.observeDecks().first().mapNotNull { deck ->
+            val current = currentInTransaction(deck.deckId) ?: return@mapNotNull null
+            val heads = RevisionGraph.heads(nodes(deck.deckId, revisions.forDeck(deck.deckId))).map { it.revisionId }
+            DeckHead(deck.deckId, heads, current)
+        }
+    }
+
+    /** The folders this device keeps, including empty ones, as [keptFolders] has them now. */
+    suspend fun keptFolderList(): List<String> = kept()
+
+    /**
+     * Makes this device's decks match another's: [source] is every deck the other device shows, and
+     * its revisions must already be here. A deck that differs gets one revision on top of all its
+     * heads with the other device's content, and a deck the other device doesn't show is deleted, so
+     * everything replaced stays in the history. Empty folders are taken over too.
+     */
+    suspend fun mirror(source: List<DeckHead>, keptFolders: List<String>) = transaction {
+        val shown = source.map { it.deckId }.toSet()
+        for (deck in source) {
+            val all = revisions.forDeck(deck.deckId)
+            val heads = RevisionGraph.heads(nodes(deck.deckId, all)).map { it.revisionId }
+            if (heads.isNotEmpty() && heads.toSet() == deck.heads.toSet()) continue
+            val before = decksDao.deck(deck.deckId)
+            val snapshot = deck.snapshot.copy(deleted = false)
+            if (before != null && !before.deleted && !before.hasConflict && currentInTransaction(deck.deckId) == snapshot) continue
+            insertRevision(deck.deckId, parents = heads, snapshot = snapshot)
+            rebuild(deck.deckId)
+        }
+        for (deck in decksDao.observeDecks().first()) {
+            if (deck.deckId in shown) continue
+            val current = currentInTransaction(deck.deckId) ?: continue
+            val heads = RevisionGraph.heads(nodes(deck.deckId, revisions.forDeck(deck.deckId))).map { it.revisionId }
+            insertRevision(deck.deckId, parents = heads, snapshot = current.copy(deleted = true))
+            rebuild(deck.deckId)
+        }
+        keepFolders(keptFolders)
     }
 
     /**

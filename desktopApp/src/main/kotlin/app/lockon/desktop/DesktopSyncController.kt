@@ -8,7 +8,9 @@ import app.lockon.sync.PairedDevice
 import app.lockon.sync.PairingInvite
 import app.lockon.sync.PairingPrompt
 import app.lockon.sync.SyncProtocol
+import app.lockon.sync.SyncMode
 import app.lockon.sync.SyncStatus
+import app.lockon.sync.SyncTransfer
 import app.lockon.sync.syncedMessage
 import io.ktor.server.engine.EmbeddedServer
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +41,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     private val live = LiveClients()
     private val inbox = ShareInbox(container.decks)
     private val outbox = ShareOutbox(container.identity)
+    private val requests = SyncRequests(container.identity)
     private val advertiser = LanAdvertiser(container.identity, tls.fingerprint)
     private val _hostInfo = MutableStateFlow<HostInfo?>(null)
     private val _status = MutableStateFlow(SyncStatus())
@@ -56,6 +59,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     override val hostInfo: StateFlow<HostInfo?> = _hostInfo.asStateFlow()
     override val pairingPrompt: StateFlow<PairingPrompt?> = pairing.prompt
     override val liveClients: StateFlow<Set<String>> = live.ids
+    override val transfers: StateFlow<Map<String, SyncTransfer>> = requests.transfers
     // Phones only: other desktops can't pair with this one yet.
     override val nearby: StateFlow<List<NearbyDevice>> = advertiser.nearby
         .map { found -> found.values.filter { !it.isDesktop }.distinctBy { it.deviceId }.sortedBy { it.name } }
@@ -70,6 +74,16 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     }
 
     override fun cancelInvite(deviceId: String) = pairing.cancelInvite(deviceId)
+
+    // The phone does the work; the desktop asks and waits for it to pick the request up.
+    override fun sync(deviceId: String, mode: SyncMode) {
+        scope.launch {
+            val device = container.devices.device(deviceId) ?: return@launch
+            requests.request(deviceId, device.name, mode)
+        }
+    }
+
+    override fun clearTransfer(deviceId: String) = requests.clear(deviceId)
 
     // Phones pick up decks sent to them with a held-open request, so any nearby phone can receive.
     override val sharing: DeckSharing = object : DeckSharing {
@@ -93,7 +107,10 @@ class DesktopSyncController(private val container: AppContainer, private val sco
         scope.launch(Dispatchers.IO) {
             try {
                 val (started, chosenPort) = startSyncServer(tls, SyncProtocol.DEFAULT_PORT) {
-                    lockOnSync(container.syncHost, container.devices, pairing, container.identity, live, inbox = inbox, outbox = outbox, onChanges = ::onChanges)
+                    lockOnSync(
+                        container.syncHost, container.devices, pairing, container.identity, live,
+                        inbox = inbox, outbox = outbox, requests = requests, onMatched = { _, message -> onMatched(message) }, onChanges = ::onChanges,
+                    )
                 }
                 server = started
                 port = chosenPort
@@ -117,6 +134,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
                 delay(15_000)
                 pairing.rotateIfExpired()
                 outbox.expire()
+                requests.expire()
                 val fresh = lanAddresses()
                 if (fresh.toSet() != addresses.toSet()) { addresses = fresh; publish() }
             }
@@ -134,6 +152,12 @@ class DesktopSyncController(private val container: AppContainer, private val sco
             val name = container.devices.device(deviceId)?.name ?: "your phone"
             _notices.tryEmit(syncedMessage(name, totalSent, totalReceived))
         }
+    }
+
+    /** This desktop took on a phone's state, whichever side asked. */
+    private fun onMatched(message: String) {
+        _status.value = SyncStatus(message = message)
+        _notices.tryEmit(message)
     }
 
     fun stop() {

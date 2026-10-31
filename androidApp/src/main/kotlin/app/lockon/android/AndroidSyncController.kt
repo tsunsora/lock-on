@@ -8,7 +8,17 @@ import app.lockon.sync.PairRequest
 import app.lockon.sync.PairedDevice
 import app.lockon.sync.PairingInvite
 import app.lockon.sync.SyncException
+import app.lockon.sync.SyncMode
+import app.lockon.sync.SyncRequest
+import app.lockon.sync.SyncRequestAnswer
 import app.lockon.sync.SyncStatus
+import app.lockon.sync.SyncTransfer
+import app.lockon.sync.matchedMessage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.withTimeoutOrNull
 import app.lockon.sync.syncedMessage
 import app.lockon.sync.baseUrl
 import app.lockon.sync.requestPairing
@@ -65,7 +75,9 @@ class AndroidSyncController(
     private val _status = MutableStateFlow(SyncStatus())
     private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 8)
     private val _verification = MutableStateFlow<String?>(null)
-    private val _autoSync = MutableStateFlow(true)
+    private val _transfers = MutableStateFlow<Map<String, SyncTransfer>>(emptyMap())
+    private val _incomingRequest = MutableStateFlow<SyncRequest?>(null)
+    private var requestAnswer: CompletableDeferred<Boolean>? = null
     private val _autoStates = MutableStateFlow<Map<String, AutoSyncState>>(emptyMap())
     private val _nearby = MutableStateFlow<Map<String, NearbyDevice>>(emptyMap())
     private val _incomingInvite = MutableStateFlow<IncomingInvite?>(null)
@@ -84,8 +96,8 @@ class AndroidSyncController(
     private val waitClients = mutableMapOf<String, HttpClient>()
 
     private val autoLoop = AutoSyncLoop(
-        hostIds = combine(container.devices.pairedDevices, _autoSync) { devices, on ->
-            if (on) devices.filter { it.role == DeviceRole.HOST }.map { it.deviceId } else emptyList()
+        hostIds = combine(container.devices.pairedDevices, container.devices.merging) { devices, merging ->
+            devices.filter { it.role == DeviceRole.HOST && it.deviceId in merging }.map { it.deviceId }
         },
         localChanges = container.decks.latestSeq,
         syncOnce = { hostId -> busy.withLock { autoSyncOnce(hostId) } },
@@ -104,7 +116,7 @@ class AndroidSyncController(
     )
 
     init {
-        scope.launch { _autoSync.value = container.devices.autoSyncEnabled() }
+        scope.launch { container.devices.migrateAutoSync() }
     }
 
     /** Set by the activity, which owns the camera scanner. */
@@ -115,7 +127,13 @@ class AndroidSyncController(
     override val notices: Flow<String> = _notices.asSharedFlow()
     override val pendingVerification: StateFlow<String?> = _verification.asStateFlow()
     override val canScanQr: Boolean get() = scanner != null
-    override val autoSync: StateFlow<Boolean> = _autoSync.asStateFlow()
+    override val merging: StateFlow<Set<String>> = container.devices.merging.stateIn(scope, SharingStarted.Eagerly, emptySet())
+    override val transfers: StateFlow<Map<String, SyncTransfer>> = _transfers.asStateFlow()
+    override val incomingRequest: StateFlow<SyncRequest?> = _incomingRequest.asStateFlow()
+
+    override fun answerRequest(accept: Boolean) {
+        requestAnswer?.complete(accept)
+    }
     override val autoStates: StateFlow<Map<String, AutoSyncState>> = _autoStates.asStateFlow()
     override val nearby: StateFlow<List<NearbyDevice>> =
         combine(_nearby, container.devices.pairedDevices) { found, paired ->
@@ -265,9 +283,8 @@ class AndroidSyncController(
         shareWatchers.clear()
     }
 
-    override fun setAutoSync(enabled: Boolean) {
-        _autoSync.value = enabled
-        scope.launch { container.devices.setAutoSync(enabled) }
+    override fun setMerging(deviceId: String, on: Boolean) {
+        scope.launch { container.devices.setMerging(deviceId, on) }
     }
 
     /**
@@ -278,13 +295,21 @@ class AndroidSyncController(
         if (visible) {
             if (foregroundJob?.isActive == true) return
             discovery.start(container.identity)
-            foregroundJob = scope.launch { autoLoop.run() }
+            foregroundJob = scope.launch {
+                launch { autoLoop.run() }
+                // Every paired desktop can ask this phone to sync while Lock On is open.
+                container.devices.pairedDevices
+                    .map { devices -> devices.filter { it.role == DeviceRole.HOST }.map { it.deviceId }.toSet() }
+                    .distinctUntilChanged()
+                    .collectLatest { ids -> coroutineScope { ids.forEach { id -> launch { watchRequests(id) } } } }
+            }
         } else {
             discovery.stop()
             stopWatchingInvites()
             stopWatchingShares()
             _desktops.value = emptyMap()
             _incomingInvite.value = null
+            requestAnswer?.complete(false)
             foregroundJob?.cancel()
             foregroundJob = null
             synchronized(waitClients) { waitClients.values.forEach { it.close() }; waitClients.clear() }
@@ -379,7 +404,7 @@ class AndroidSyncController(
                     host = invite.host, port = invite.port, certFingerprint = fingerprint,
                 )
                 _verification.value = null
-                runSync(hostId)
+                _status.value = SyncStatus(message = "Paired with ${response.hostDeviceName ?: "the desktop"}. Choose how to sync.")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -391,35 +416,114 @@ class AndroidSyncController(
         }
     }
 
-    override fun syncNow(deviceId: String) {
+    override fun sync(deviceId: String, mode: SyncMode) {
         scope.launch {
-            if (!busy.tryLock()) return@launch
-            try { runSync(deviceId) } finally { busy.unlock() }
+            if (!busy.tryLock()) {
+                _status.value = SyncStatus(message = "Another sync is still running.")
+                return@launch
+            }
+            // A failure already shows on the device and in the status line.
+            try { runSync(deviceId, mode) } catch (e: SyncException) { } finally { busy.unlock() }
         }
     }
 
-    private suspend fun runSync(hostId: String) {
-        val device = container.devices.device(hostId) ?: return
+    override fun clearTransfer(deviceId: String) = _transfers.update { if (it[deviceId]?.active == true) it else it - deviceId }
+
+    /**
+     * Runs one sync and shows how it went. Matching moves everything one way: [SyncMode.TAKE] makes
+     * this phone match the desktop, [SyncMode.GIVE] makes the desktop match this phone.
+     */
+    private suspend fun runSync(hostId: String, mode: SyncMode, requestId: String? = null): String {
+        val device = container.devices.device(hostId) ?: throw SyncException("Not paired.")
+        fun show(state: SyncTransfer.State, message: String) =
+            _transfers.update { it + (hostId to SyncTransfer(device.name, mode, state, message)) }
         val token = secrets.get(tokenKey(hostId))
         val host = device.host
         val port = device.port
         val fingerprint = device.certFingerprint
         if (token == null || host == null || port == null || fingerprint == null) {
-            _status.value = SyncStatus(message = "Pair with ${device.name} again to sync.", isError = true)
-            return
+            val message = "Pair with ${device.name} again to sync."
+            show(SyncTransfer.State.FAILED, message)
+            _status.value = SyncStatus(message = message, isError = true)
+            throw SyncException(message)
         }
-        _status.value = SyncStatus(working = true, message = "Syncing with ${device.name}…")
+        val working = when (mode) {
+            SyncMode.TAKE -> "Making this phone match ${device.name}…"
+            SyncMode.GIVE -> "Making ${device.name} match this phone…"
+            SyncMode.MERGE -> "Merging with ${device.name}…"
+        }
+        show(SyncTransfer.State.WORKING, working)
+        _status.value = SyncStatus(working = true, message = working)
         try {
-            val result = pinnedHttpClient(fingerprint).use { client ->
-                container.syncClient.sync(hostId, HttpSyncTransport(client, baseUrl(host, port), token))
+            val message = pinnedHttpClient(fingerprint).use { client ->
+                val transport = HttpSyncTransport(client, baseUrl(host, port), token)
+                when (mode) {
+                    SyncMode.TAKE -> matchedMessage("This phone", device.name, container.syncClient.take(hostId, transport))
+                    SyncMode.GIVE -> matchedMessage(device.name, "this phone", container.syncClient.give(hostId, transport, requestId))
+                    SyncMode.MERGE -> container.syncClient.sync(hostId, transport).let { syncedMessage(device.name, it.sent, it.received) }
+                }
             }
-            val message = syncedMessage(device.name, result.sent, result.received)
+            show(SyncTransfer.State.DONE, message)
             _status.value = SyncStatus(message = message)
-            if (result.sent > 0 || result.received > 0) _notices.tryEmit(message)
+            _notices.tryEmit(message)
+            return message
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _status.value = SyncStatus(message = friendly(e), isError = true)
+            val message = friendly(e)
+            show(SyncTransfer.State.FAILED, message)
+            _status.value = SyncStatus(message = message, isError = true)
+            throw SyncException(message, e)
+        }
+    }
+
+    /**
+     * Holds a request open with a paired desktop so it can ask this phone to sync. Making this phone
+     * match the desktop asks first; anything else runs straight away. Stops for desktops too old to ask.
+     */
+    private suspend fun watchRequests(hostId: String) {
+        var checked = false
+        var backoff = 2_000L
+        while (true) {
+            try {
+                val (_, transport) = transportFor(hostId) ?: return
+                if (!checked) {
+                    if (!transport.hello().mirrors) return
+                    checked = true
+                }
+                val request = transport.awaitRequest(container.identity.deviceId)
+                backoff = 2_000L
+                if (request == null || request.hostDeviceId != hostId) continue
+                val mode = request.mode.flipped
+                val accepted = mode != SyncMode.TAKE || askAbout(request)
+                val answer = if (!accepted) {
+                    SyncRequestAnswer(request.requestId, container.identity.deviceId, done = false, declined = true)
+                } else try {
+                    val message = busy.withLock { runSync(hostId, mode, request.requestId) }
+                    SyncRequestAnswer(request.requestId, container.identity.deviceId, done = true, message = message)
+                } catch (e: SyncException) {
+                    SyncRequestAnswer(request.requestId, container.identity.deviceId, done = false, message = e.message.orEmpty())
+                }
+                transport.answerRequest(answer)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                delay(backoff)
+                backoff = (backoff * 2).coerceAtMost(60_000L)
+            }
+        }
+    }
+
+    /** Shows the desktop's request until it's answered here, or for two minutes. */
+    private suspend fun askAbout(request: SyncRequest): Boolean {
+        val answer = CompletableDeferred<Boolean>()
+        requestAnswer = answer
+        _incomingRequest.value = request
+        return try {
+            withTimeoutOrNull(120_000) { answer.await() } ?: false
+        } finally {
+            _incomingRequest.value = null
+            requestAnswer = null
         }
     }
 

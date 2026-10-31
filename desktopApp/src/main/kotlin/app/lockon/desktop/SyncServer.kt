@@ -5,6 +5,9 @@ import app.lockon.sync.DeviceRole
 import app.lockon.sync.ErrorResponse
 import app.lockon.sync.HelloResponse
 import app.lockon.sync.LocalIdentity
+import app.lockon.sync.MirrorPush
+import app.lockon.sync.SyncRequestAnswer
+import app.lockon.sync.matchedMessage
 import app.lockon.sync.PairRequest
 import app.lockon.sync.PairedDevice
 import app.lockon.sync.PushRequest
@@ -45,6 +48,10 @@ fun Application.lockOnSync(
     /** Decks phones send here, and decks this desktop sends them. Null leaves sending off. */
     inbox: ShareInbox? = null,
     outbox: ShareOutbox? = null,
+    /** Syncs this desktop asks paired phones for. Null leaves asking off; phones can still start them. */
+    requests: SyncRequests? = null,
+    /** Called once this desktop has taken on a phone's state, with what it says to the person here. */
+    onMatched: (deviceId: String, message: String) -> Unit = { _, _ -> },
     /** Called when a phone's push brought changes here or its pull took changes away. */
     onChanges: (deviceId: String, sent: Int, received: Int) -> Unit = { _, _, _ -> },
 ) {
@@ -79,7 +86,12 @@ fun Application.lockOnSync(
 
     routing {
         get("/v1/hello") {
-            call.respond(HelloResponse(deviceId = identity.deviceId, deviceName = identity.deviceName, receivesDecks = inbox != null))
+            call.respond(
+                HelloResponse(
+                    deviceId = identity.deviceId, deviceName = identity.deviceName, receivesDecks = inbox != null,
+                    mirrors = host.mirrors, catalog = host.catalogKey(),
+                ),
+            )
         }
         if (inbox != null && outbox != null) {
             // A phone sending decks: held open while someone here accepts or declines.
@@ -150,6 +162,43 @@ fun Application.lockOnSync(
                     call.respond(host.waitForChanges(after, maxWaitMs))
                 } finally {
                     live.leave(client.deviceId)
+                }
+            }
+        }
+        // Making devices match: the phone reads this desktop's state, or hands over its own.
+        get("/v1/mirror/state") {
+            val client = call.client() ?: return@get call.unauthorized()
+            call.guard { call.respond(host.state(client.deviceId)) }
+        }
+        get("/v1/mirror/catalog") {
+            call.client() ?: return@get call.unauthorized()
+            call.guard { call.respond(host.catalog()) }
+        }
+        post("/v1/mirror") {
+            val client = call.client() ?: return@post call.unauthorized()
+            call.guard {
+                val push = call.receive<MirrorPush>()
+                val summary = host.mirror(client.deviceId, push)
+                val message = matchedMessage("This computer", client.name, summary)
+                push.requestId?.let { requests?.matched(client.deviceId, it, message) }
+                onMatched(client.deviceId, message)
+                call.respond(summary)
+            }
+        }
+        if (requests != null) {
+            // A paired phone with Lock On open holds this so the desktop can ask it to sync.
+            get("/v1/mirror/requests") {
+                val client = call.client() ?: return@get call.unauthorized()
+                val request = requests.await(client.deviceId, maxWaitMs)
+                if (request == null) call.respond(HttpStatusCode.NoContent) else call.respond(request)
+            }
+            post("/v1/mirror/requests/answer") {
+                val client = call.client() ?: return@post call.unauthorized()
+                call.guard {
+                    val answer = call.receive<SyncRequestAnswer>()
+                    if (answer.deviceId != client.deviceId) return@guard call.unauthorized()
+                    if (requests.answer(answer)) call.respond(HttpStatusCode.NoContent)
+                    else call.respond(HttpStatusCode.NotFound, ErrorResponse("The desktop stopped waiting for that sync."))
                 }
             }
         }

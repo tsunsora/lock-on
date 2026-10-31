@@ -47,6 +47,9 @@ class ScrollBenchmarkTest {
             override fun invite(device: app.lockon.sync.NearbyDevice) = Unit
             override fun cancelInvite(deviceId: String) = Unit
             override fun forget(deviceId: String) = Unit
+            override val transfers = MutableStateFlow(emptyMap<String, app.lockon.sync.SyncTransfer>())
+            override fun sync(deviceId: String, mode: app.lockon.sync.SyncMode) = Unit
+            override fun clearTransfer(deviceId: String) = Unit
         }
         val files = object : FileBridge {
             override suspend fun saveText(suggestedName: String, mimeType: String, content: String) = false

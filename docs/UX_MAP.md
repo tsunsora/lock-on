@@ -116,28 +116,25 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - always shows a preview before installing: an update or a replacement, warnings, and any cards your decks use that the new catalog lacks. **Update** / **Replace catalog** confirms, since this can't be undone (C2).
 
 ### Sync (top level)
-- **Send decks** (both devices, first after the status line), LocalSend-style:
+Two pages: **Sync devices** (first) and **Send decks**.
+- **Sync devices** (both devices):
+  - this device's name with a slowly turning beacon: it can be found on the same Wi-Fi
+  - **Your devices:** paired devices, each with last sync or the last error, a live line while it keeps merging (*Merging automatically* or *Waiting for the desktop*), and **Sync**. A running sync shows a bar and *Making this phone match Desk…*; then *This phone now matches Desk: 2 decks added, 1 deck removed, settings.* in gold with **OK**, or why it failed.
+  - **Sync** opens *Sync with Desk*: **Make this phone match Desk** (first, tinted), **Make Desk match this phone**, then under *Or keep both* **Merge both ways**. On a phone, a **Keep merging** switch per desktop (off for a newly paired one, so it can be matched first). **Forget device** is here too.
+  - Either match asks *Replace everything on Desk?*, naming what is replaced and that decks only there are removed, with **Replace** or **Cancel** (C2).
+  - **Nearby:** devices not paired yet, each *Tap to pair and sync*; once paired, the choice above opens by itself. A desktop shows *Waiting for Pixel to accept pairing…* with **Cancel** while it waits.
+  - **+** opens other ways to connect: the desktop's QR code, address, port and pairing code, or on a phone **Scan QR code** and address entry.
+  - A sync started on the desktop waits for the phone (*Waiting for Pixel… Open Lock On on it.*, with **Cancel**). A phone asked to match the desktop shows *Make this phone match Desk?* with **Replace** or **Not now**; other requests run without asking.
+- **Send decks** (both devices), LocalSend-style:
   - **Choose decks** opens a checklist of decks. The chosen names show on the card, with **Change**.
   - Every Lock On device nearby is listed, paired or not (phones on a computer, computers on a phone), each with **Send**.
   - While the other device decides, the row reads *Waiting for Pixel to accept…* with **Cancel**. Then it reads *Pixel saved 2 decks.*, *Pixel declined.*, or why it failed.
   - The receiver sees *"Desk wants to send you 2 decks"*, listing each deck and its main deck count, with **Accept** or **Decline**. Accepted decks are added as new decks with their cards, notes, tags and cover. Folders and match logs stay with the sender.
-- **Desktop:**
-  - **Nearby phones:** every phone with Lock On open on the network, each with **Connect** (an invitation the phone accepts) or *Waiting for the phone… Cancel*. Paired phones are marked.
-  - **Other ways to connect:** the QR code, address, port, pairing code and code expiry, shown by default only until a phone is paired
-  - paired phones with their last successful sync, and *Connected now* while a phone's auto-sync is live
-  - a dialog to confirm a pairing request: *"Pixel wants to connect"* or *"Pixel accepted"*, with the 6-digit number to compare
-- **Phone:**
-  - **Auto-sync while Lock On is open** switch (on by default), once a desktop is paired
-  - **Nearby computers** found on the network, each with **Connect** (no code to type; the computer confirms after comparing the 6-digit number)
-  - *"[Computer] wants to connect"* when a computer invites this phone, with **Connect** or **Not now**
-  - **Other ways to connect** (collapsed): **Scan QR code**, or address, port and an optional code
-  - paired desktops with **Sync now**, last sync, the last manual-sync error, and a live line: *Live: changes sync automatically* or *Waiting for the desktop*
-  - a verification code dialog while the desktop is confirming
-- **Always:** the line "Only decks sync. No account or cloud server."
+- **Pairing dialogs:** on the desktop, *"Pixel wants to pair"* or *"Pixel accepted"* with the 6-digit number to compare; on a phone, *"[Computer] wants to pair"* when a computer invites it, and the number while the computer confirms.
 - Outside this screen, a dot on the Sync tab marks a failed sync, and a snackbar such as *Up to date with Pixel 8: got 3 changes.* follows any sync that moved changes (C1).
 
 ### Settings (top level, beside Sync)
-- **Purpose:** this device's preferences. They are stored on the device and never sync.
+- **Purpose:** this device's preferences. Merging leaves them alone; making this device match another copies that device's over.
 - **Appearance:** **Theme** (Match system · Sky · Twilight), **Interface size** (Small · Default · Large · Larger, scaling everything together), **Animations** (Match system · Reduced · Full).
 - **Startup:** **Open on** Decks, Cards, or *Where I left off*.
 - **Cards:** **Show card artwork** and **Check for card list updates** (the weekly background check) switches, then the card database card with **Manage card database**.

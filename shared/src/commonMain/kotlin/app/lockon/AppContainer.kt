@@ -6,6 +6,7 @@ import app.lockon.data.DeckRepository
 import app.lockon.data.SettingsRepository
 import app.lockon.data.db.LockOnDatabase
 import app.lockon.resources.Res
+import app.lockon.sync.DeviceMirror
 import app.lockon.sync.DeviceRepository
 import app.lockon.sync.LocalIdentity
 import app.lockon.sync.SyncClient
@@ -20,13 +21,14 @@ class AppContainer private constructor(
     val catalog: CatalogRepository,
     val decks: DeckRepository,
     val devices: DeviceRepository,
-    /** This device's own preferences; they never sync. */
+    /** This device's own preferences; they sync only when a device is made to match another. */
     val settings: SettingsRepository,
     /** Null where this platform can't update itself. */
     val updater: AppUpdater?,
 ) {
-    val syncClient by lazy { SyncClient(decks, devices) }
-    val syncHost by lazy { SyncHost(decks, devices) }
+    val mirror by lazy { DeviceMirror(identity, decks, settings, catalog) }
+    val syncClient by lazy { SyncClient(decks, devices, mirror) }
+    val syncHost by lazy { SyncHost(decks, devices, mirror) }
     val catalogUpdater by lazy { CatalogUpdater(catalog, decks) }
 
     suspend fun restoreSampleCatalog() = catalog.restoreBundled(readBundledCatalog())
