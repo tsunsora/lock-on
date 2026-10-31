@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import app.lockon.model.CardColor
 import app.lockon.model.Ruleset
@@ -40,7 +39,6 @@ import app.lockon.ui.theme.cardColor
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -142,7 +140,7 @@ private sealed interface LibraryDialog {
     data class Move(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
     data class Delete(val deck: DeckSummary) : LibraryDialog
-    /** [with] is a deck dropped on New folder, ticked to start with. */
+    /** [with] is a deck dropped on New folder, which goes into it. */
     data class NewFolder(val with: String? = null) : LibraryDialog
     data class RenameFolder(val folder: String) : LibraryDialog
     data class RemoveFolder(val folder: String, val decks: Int) : LibraryDialog
@@ -396,14 +394,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dialog = null
             move(d.deck, folder)
         }
-        is LibraryDialog.NewFolder -> NewFolderDialog(
-            decks = list.orEmpty(),
-            preselected = if (d.with != null) setOf(d.with) else if (folderFilter == FolderFilter.Unfiled) list.orEmpty().filter { it.snapshot.folder == null }.map { it.deckId }.toSet() else emptySet(),
-            onDismiss = { dialog = null },
-        ) { name, ids ->
+        is LibraryDialog.NewFolder -> TextPromptDialog("New folder", "Folder name", "", confirm = "Create", onDismiss = { dialog = null }) { name ->
             dialog = null
-            scope.launch {
-                val saved = container.decks.moveToFolder(ids, name)
+            if (name.isNotBlank()) scope.launch {
+                val saved = container.decks.moveToFolder(listOfNotNull(d.with), name.trim())
                 folderFilter = saved?.let { FolderFilter.Named(it) } ?: FolderFilter.All
             }
         }
@@ -497,7 +491,7 @@ private fun FolderRail(
                 onSelect(FolderFilter.Unfiled)
             }
         }
-        // Dropping a deck here names a new folder with that deck already ticked.
+        // Dropping a deck here names a new folder and puts that deck in it.
         GameButton(
             "New folder", onClick = onNewFolder, style = if (over == DeckDropSpot.NewFolder) GameButtonStyle.PRIMARY else GameButtonStyle.GHOST,
             icon = Icons.Default.Add, compact = true, modifier = Modifier.padding(top = 4.dp).deckDropSpot(drag, DeckDropSpot.NewFolder),
@@ -663,51 +657,6 @@ private fun FolderChips(
     ) else AssistChip(
         onClick = onNewFolder, label = { Text("New folder") },
         leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
-    )
-}
-
-/** Name a folder and, if you like, pick decks to put in it. A folder can start empty. */
-@Composable
-private fun NewFolderDialog(
-    decks: List<DeckSummary>,
-    preselected: Set<String>,
-    onDismiss: () -> Unit,
-    onCreate: (String, List<String>) -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    var chosen by remember { mutableStateOf(preselected) }
-    GameDialog(
-        onDismissRequest = onDismiss,
-        title = "New folder",
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Folder name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                if (decks.isNotEmpty()) Text("Decks to put in it (optional)", style = MaterialTheme.typography.labelLarge)
-                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
-                    decks.sortedBy { it.snapshot.name.lowercase() }.forEach { deck ->
-                        val checked = deck.deckId in chosen
-                        Row(
-                            Modifier.fillMaxWidth().toggleable(checked, role = Role.Checkbox) {
-                                chosen = if (it) chosen + deck.deckId else chosen - deck.deckId
-                            },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(deck.snapshot.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                deck.snapshot.folder?.let {
-                                    Text("Now in $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            GameButton("Create", onClick = { onCreate(name.trim(), chosen.toList()) }, enabled = name.isNotBlank(), compact = true)
-        },
-        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
     )
 }
 
