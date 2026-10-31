@@ -207,8 +207,15 @@ fun CardSearchPanel(
                 color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 4.dp),
             )
             if (wide) ViewControls()
+            // Holding it clears every filter and the sort but keeps the search text.
             else PillChip(selected = showMore, onClick = { showMore = !showMore },
-                label = { Text(if (hiddenFilters > 0) "Filters · $hiddenFilters" else "Filters") })
+                label = { Text(if (hiddenFilters > 0) "Filters · $hiddenFilters" else "Filters") },
+                onLongClick = {
+                    query = CardQuery(text = query.text)
+                    deckColorsOnly = false
+                    sort = CardSort.NUMBER
+                },
+                onLongClickLabel = "Reset filters")
             trailing?.invoke(this)
         }
         val deckColorsChip = deckColors != null && deckColors.isNotEmpty()

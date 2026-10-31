@@ -20,6 +20,21 @@ enum class InterfaceSize(val label: String, val scale: Float) {
     SMALL("Small", 0.9f), DEFAULT("Default", 1f), LARGE("Large", 1.12f), LARGER("Larger", 1.25f)
 }
 
+/** A button on the deck editor's bar on phones. */
+enum class EditorBarItem(val label: String) { MORE("More"), ADD("Add cards"), DECK("Deck") }
+
+/** The deck editor's bar on phones, left to right. Its pages slide in the same order. */
+enum class EditorBarOrder(val items: List<EditorBarItem>) {
+    MORE_ADD_DECK(listOf(EditorBarItem.MORE, EditorBarItem.ADD, EditorBarItem.DECK)),
+    MORE_DECK_ADD(listOf(EditorBarItem.MORE, EditorBarItem.DECK, EditorBarItem.ADD)),
+    ADD_MORE_DECK(listOf(EditorBarItem.ADD, EditorBarItem.MORE, EditorBarItem.DECK)),
+    DECK_MORE_ADD(listOf(EditorBarItem.DECK, EditorBarItem.MORE, EditorBarItem.ADD)),
+    ADD_DECK_MORE(listOf(EditorBarItem.ADD, EditorBarItem.DECK, EditorBarItem.MORE)),
+    DECK_ADD_MORE(listOf(EditorBarItem.DECK, EditorBarItem.ADD, EditorBarItem.MORE));
+
+    val label: String get() = items.joinToString(" · ") { it.label }
+}
+
 /**
  * This device's preferences. They are kept with the device and never sync, so a phone and a
  * computer can each look the way their owner likes.
@@ -32,6 +47,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _size = MutableStateFlow(InterfaceSize.DEFAULT)
     private val _catalogChecks = MutableStateFlow(true)
     private val _welcomed = MutableStateFlow(true)
+    private val _editorBar = MutableStateFlow(EditorBarOrder.MORE_ADD_DECK)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -43,6 +59,7 @@ class SettingsRepository(private val meta: MetaDao) {
     val catalogChecks: StateFlow<Boolean> = _catalogChecks.asStateFlow()
     /** Whether the welcome tour has been seen or skipped; false only on a fresh install. */
     val welcomed: StateFlow<Boolean> = _welcomed.asStateFlow()
+    val editorBar: StateFlow<EditorBarOrder> = _editorBar.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -51,6 +68,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _lastTab.value = meta.get(KEY_LAST_TAB)
         _size.value = enumOr(meta.get(KEY_SIZE), InterfaceSize.DEFAULT)
         _catalogChecks.value = meta.get(KEY_CATALOG_CHECKS) != "false"
+        _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.MORE_ADD_DECK)
         // Lock On remembers its last tab from the first launch on, so a stored tab means someone
         // used it before the tour existed and needs no welcome.
         _welcomed.value = meta.get(KEY_WELCOMED)?.toBooleanStrictOrNull() ?: (_lastTab.value != null)
@@ -67,6 +85,7 @@ class SettingsRepository(private val meta: MetaDao) {
     }
     suspend fun setSize(size: InterfaceSize) { _size.value = size; meta.put(MetaEntity(KEY_SIZE, size.name)) }
     suspend fun setWelcomed() { _welcomed.value = true; meta.put(MetaEntity(KEY_WELCOMED, "true")) }
+    suspend fun setEditorBar(order: EditorBarOrder) { _editorBar.value = order; meta.put(MetaEntity(KEY_EDITOR_BAR, order.name)) }
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
 
     private inline fun <reified E : Enum<E>> enumOr(stored: String?, default: E): E =
@@ -80,5 +99,6 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_SIZE = "settings.size"
         const val KEY_CATALOG_CHECKS = "settings.catalogChecks"
         const val KEY_WELCOMED = "settings.welcomed"
+        const val KEY_EDITOR_BAR = "settings.editorBar"
     }
 }

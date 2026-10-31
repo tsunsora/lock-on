@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
+import app.lockon.data.EditorBarOrder
 import app.lockon.data.InterfaceSize
 import app.lockon.data.MotionChoice
 import app.lockon.data.StartChoice
@@ -58,6 +59,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val size by settings.size.collectAsState()
     val motion by settings.motion.collectAsState()
     val start by settings.start.collectAsState()
+    val editorBar by settings.editorBar.collectAsState()
     val catalogChecks by settings.catalogChecks.collectAsState()
     val showArtwork by container.catalog.showArtwork.collectAsState()
     // The name is read once at launch, so a new one shows here until then.
@@ -83,6 +85,12 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
         SettingsGroup("Open on") {
             Choice(null, null, StartChoice.entries, start, { it.label }) {
                 scope.launch { settings.setStart(it) }
+            }
+        }
+
+        SettingsGroup("Deck editor bar") {
+            Choice(null, "On phones, left to right. Pages slide in the same order.", EditorBarOrder.entries, editorBar, { it.label }) {
+                scope.launch { settings.setEditorBar(it) }
             }
         }
 

@@ -50,6 +50,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -149,6 +151,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.semantics.onLongClick
 import kotlinx.coroutines.withContext
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -1182,7 +1190,11 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
     }
 }
 
-/** A filter or choice chip as a pill: white glass, teal when selected, like every other selected pill (UX rule V3). */
+/**
+ * A filter or choice chip as a pill: white glass, teal when selected, like every other selected pill (UX rule V3).
+ *
+ * @param onLongClick runs when the chip is held, in place of [onClick]; [onLongClickLabel] names it for screen readers.
+ */
 @Composable
 fun PillChip(
     selected: Boolean,
@@ -1190,7 +1202,30 @@ fun PillChip(
     label: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     leadingIcon: (@Composable () -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
 ) {
+    // FilterChip takes no long click, so a press held past the timeout runs it and swallows the click on release.
+    val interactions = remember { MutableInteractionSource() }
+    val held = remember { booleanArrayOf(false) }
+    if (onLongClick != null) {
+        val timeout = LocalViewConfiguration.current.longPressTimeoutMillis
+        val haptics = LocalHapticFeedback.current
+        val longClick by rememberUpdatedState(onLongClick)
+        LaunchedEffect(interactions, timeout) {
+            interactions.interactions.collectLatest { interaction ->
+                if (interaction is PressInteraction.Press) {
+                    held[0] = false
+                    delay(timeout)
+                    held[0] = true
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    longClick()
+                }
+            }
+        }
+    }
+    val longClickSemantics = if (onLongClick == null) Modifier
+    else Modifier.semantics { onLongClick(onLongClickLabel) { onLongClick(); true } }
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
     // Material's chip switches colour at once; these fade, and stand in for both its states.
@@ -1198,8 +1233,9 @@ fun PillChip(
     val text by animateColorAsState(if (selected) OnAccent else scheme.onSurface, motion(Motion.MEDIUM), label = "chip-text")
     val rim by animateColorAsState(if (selected) lighten(Accent, 0.4f) else g.rimLow, motion(Motion.MEDIUM), label = "chip-rim")
     FilterChip(
-        selected = selected, onClick = onClick, label = label, modifier = modifier, leadingIcon = leadingIcon,
-        shape = LockOnShapes.button,
+        selected = selected, onClick = { if (held[0]) held[0] = false else onClick() }, label = label,
+        modifier = modifier.then(longClickSemantics), leadingIcon = leadingIcon,
+        shape = LockOnShapes.button, interactionSource = interactions,
         colors = FilterChipDefaults.filterChipColors(
             containerColor = fill,
             labelColor = text,
@@ -1238,8 +1274,16 @@ fun MenuChip(
     }
 }
 
-/** One destination in a [PillNavBar]: its label and icon. */
-class BottomItem(val label: String, val icon: @Composable () -> Unit)
+/**
+ * One destination in a [PillNavBar]: its label and icon. [onLongClick] runs when it is held, and
+ * [onLongClickLabel] names that for screen readers.
+ */
+class BottomItem(
+    val label: String,
+    val onLongClick: (() -> Unit)? = null,
+    val onLongClickLabel: String? = null,
+    val icon: @Composable () -> Unit,
+)
 
 /**
  * How far content must keep clear of the bottom on phones, because the floating nav bar sits over
@@ -1332,7 +1376,13 @@ fun PillNavBar(
                 // With every label showing, items take their own width; otherwise they share the bar.
                 (if (labels) Modifier else Modifier.weight(share)).fillMaxHeight()
                     .onPlaced { spots.getOrNull(i)?.value = it.positionInParent().x to it.size.width.toFloat() }
-                    .selectable(isSelected, role = Role.Tab, interactionSource = null, indication = null) { onSelect(i) }
+                    .then(
+                        if (item.onLongClick == null) Modifier.selectable(isSelected, role = Role.Tab, interactionSource = null, indication = null) { onSelect(i) }
+                        else Modifier.combinedClickable(
+                            interactionSource = null, indication = null, role = Role.Tab,
+                            onLongClickLabel = item.onLongClickLabel, onLongClick = item.onLongClick,
+                        ) { onSelect(i) }.semantics { this.selected = isSelected },
+                    )
                     .semantics { contentDescription = item.label },
                 contentAlignment = Alignment.Center,
             ) {
@@ -1362,13 +1412,19 @@ fun PillNavBar(
     }
 }
 
-/** A [PillNavBar] floating at the bottom centre of a phone screen, clear of the system's gesture area. */
+/**
+ * A [PillNavBar] floating at the bottom centre of a phone screen, clear of the system's gesture area,
+ * at most [widest] across (see [floatingPillWidth]).
+ */
 @Composable
-fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, onSelect: (Int) -> Unit) {
+fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp = 440.dp, onSelect: (Int) -> Unit) {
     BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)) {
-        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(minOf(maxWidth * 0.88f, 440.dp)))
+        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(floatingPillWidth(maxWidth, widest)))
     }
 }
+
+/** How wide a [FloatingPillNav] is on a screen [screen] wide: most of it, up to [widest]. */
+fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen * 0.88f, widest)
 
 /** Small drawn icons for the editor's sections, which Material's core icon set lacks. */
 object GameIcons {

@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import app.lockon.rules.DeckAnalysis
 import app.lockon.ui.components.FloatingPillNav
+import app.lockon.ui.components.floatingPillWidth
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.navClearance
 import androidx.compose.foundation.layout.BoxScope
@@ -96,6 +97,8 @@ import app.lockon.model.DeckVersion
 import app.lockon.model.MatchRecord
 import app.lockon.platform.formatTimestamp
 import app.lockon.data.DeckRepository
+import app.lockon.data.EditorBarItem
+import app.lockon.data.EditorBarOrder
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import app.lockon.platform.FileBridge
@@ -206,6 +209,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val cards by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
+    val barOrder by container.settings.editorBar.collectAsState()
     val allDecks by container.decks.liveDecks.collectAsState(initial = emptyList())
     val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
     var history by remember(deckId) { mutableStateOf<List<DeckVersion>>(emptyList()) }
@@ -281,6 +285,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         else current.move(card.cardNumber, DeckSection.SIDE, played)
     }
 
+    // A list edited as text replaces the deck. A text list names cards, not their art, so cards
+    // still in the deck keep the printing they had.
+    fun applyList(edited: DeckSnapshot) {
+        val current = draft ?: return
+        val art = current.entries.associate { (it.cardNumber to it.section) to it.printingId }
+        draft = current.copy(
+            name = edited.name,
+            entries = edited.entries.map { it.copy(printingId = it.printingId ?: art[it.cardNumber to it.section]) },
+        )
+    }
+
     // Where the card list's + and dropped cards go: the deck, or the side deck beside it.
     val addToSide = rememberSaveable(deckId) { mutableStateOf(false) }
     fun addTarget(card: GameCard) = if (addToSide.value) DeckSection.SIDE else DeckSection.playedIn(card)
@@ -290,7 +305,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val colorsNow = deck.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
     val deckColors = remember(colorsNow) { colorsNow }
 
-    // The phone editor's tab (0 Deck, 1 Add cards, then Analysis, Test, Matches, Versions).
+    // The phone editor's tab (0 Deck, 1 Add cards, then Analysis, Test, Matches, Versions, Export, Edit as text).
     var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
     // Whole small cards or denser strips in the deck list; phones switch it from the bar's ⋮ menu.
     var cardView by rememberSaveable(deckId) { mutableStateOf(true) }
@@ -393,7 +408,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             DeckList(
                 deck, cards, ruleset, legality, modifier, compact = wide,
                 onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
-                onExport = { exporting = true },
+                onExport = { if (wide) exporting = true else phoneTab = 6 },
                 cardView = cardView, onCardView = { cardView = it },
                 onAddCards = if (wide) null else ({ phoneTab = 1 }),
                 scrollToTop = deckToTop,
@@ -563,19 +578,22 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         } else {
             // The sections float in a pill over the content, which scrolls underneath it.
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                // Pages slide in the bar's order: ⋮'s sections, then the card list, then the deck.
-                if (stage >= 1) SlidingPages(phonePagePosition(phoneTab), Modifier.fillMaxSize()) { position ->
-                    when (phonePagePosition(position)) {
+                // Pages slide in the bar's order, as Settings sets it.
+                val pages = phonePages(barOrder)
+                if (stage >= 1) SlidingPages(pages.indexOf(phoneTab), Modifier.fillMaxSize()) { position ->
+                    when (pages.getOrElse(position) { 0 }) {
                         0 -> deckList(Modifier.fillMaxSize())
                         1 -> search(Modifier.fillMaxSize())
                         2 -> analysis(Modifier.fillMaxSize())
                         3 -> test(Modifier.fillMaxSize())
                         4 -> matchLog(Modifier.fillMaxSize())
-                        else -> versions(Modifier.fillMaxSize())
+                        5 -> versions(Modifier.fillMaxSize())
+                        6 -> DeckExportPanel(deck, cards, ruleset, files, state, Modifier.fillMaxSize())
+                        else -> DeckTextEditor(deck, cards, printings, onApply = ::applyList, Modifier.fillMaxSize())
                     }
                 }
                 EditorNav(
-                    phoneTab, cardView,
+                    phoneTab, barOrder, cardView,
                     onSelect = {
                         when {
                             it != phoneTab -> phoneTab = it
@@ -583,7 +601,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                             it == 1 -> cardsToTop++
                         }
                     },
-                    onExport = { exporting = true },
                     onCardView = { cardView = it; phoneTab = 0 },
                 )
             }
@@ -653,16 +670,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
     if (exporting) {
         DeckExportDialog(
-            deck, cards, ruleset, files, state, onDismiss = { exporting = false }, printings = printings,
-            onEditList = { edited ->
-                // A text list names cards, not their art, so cards still in the deck keep the printing they had.
-                val current = draft ?: deck
-                val art = current.entries.associate { (it.cardNumber to it.section) to it.printingId }
-                draft = current.copy(
-                    name = edited.name,
-                    entries = edited.entries.map { it.copy(printingId = it.printingId ?: art[it.cardNumber to it.section]) },
-                )
-            },
+            deck, cards, ruleset, files, state, onDismiss = { exporting = false },
         )
     }
 }
@@ -907,14 +915,16 @@ private fun DetailActionCell(label: String, modifier: Modifier, control: @Compos
 }
 
 /**
- * Where a phone editor tab's page sits, left to right, in the bottom bar's order: ⋮'s sections
- * (tabs 2 to 5, Analysis nearest the card list), then Add cards (tab 1), then Deck (tab 0). It is
- * its own inverse, so it also turns a position back into a tab.
+ * The phone editor's tabs, left to right, in the bottom bar's [order]: Add cards (tab 1), Deck
+ * (tab 0) and ⋮'s sections (tabs 7 down to 2), so pages slide the way the bar reads.
  */
-private fun phonePagePosition(tab: Int): Int = 5 - tab
+private fun phonePages(order: EditorBarOrder): List<Int> = order.items.flatMap {
+    when (it) { EditorBarItem.MORE -> (7 downTo 2).toList(); EditorBarItem.ADD -> listOf(1); EditorBarItem.DECK -> listOf(0) }
+}
 
-/** The bottom bar's item for a phone editor tab: ⋮ (0), Add cards (1), Deck (2). */
-private fun phoneNavItem(tab: Int): Int = when (tab) { 0 -> 2; 1 -> 1; else -> 0 }
+/** Which of the bottom bar's buttons a phone editor tab belongs to, counted from the left in [order]. */
+private fun phoneNavItem(tab: Int, order: EditorBarOrder): Int =
+    order.items.indexOf(when (tab) { 0 -> EditorBarItem.DECK; 1 -> EditorBarItem.ADD; else -> EditorBarItem.MORE })
 
 /** The copy limit for a card under [ruleset]: restricted, resource or the normal maximum. */
 private fun copyLimit(card: GameCard, ruleset: Ruleset): Int? =
@@ -1032,28 +1042,30 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
 
 /**
  * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3). Building the deck
- * comes first, so the bar holds More, Add cards and Deck, left to right, with Deck under the right
- * thumb. More holds Analysis, Test, Matches and Versions, and takes the name and icon of whichever
- * of them is open, then Export and the deck list's card/list switch. Swiping along the bar moves
- * between Add cards and Deck. [tab] and [onSelect] use the editor's tab numbers (0 Deck, 1 Add cards).
+ * comes first, so by default the bar holds More, Add cards and Deck, left to right, with Deck under
+ * the right thumb; Settings can put them in any [order]. More holds Analysis, Test, Matches, Versions, Export and Edit as text, and takes the name and icon of
+ * whichever of them is open. Holding Deck switches the deck list between cards and a list.
+ * Swiping along the bar moves between Add cards and Deck. [tab] and [onSelect] use the editor's tab numbers (0 Deck, 1 Add cards).
  */
 @Composable
 private fun BoxScope.EditorNav(
     tab: Int,
+    order: EditorBarOrder,
     cardView: Boolean,
     onSelect: (Int) -> Unit,
-    onExport: () -> Unit,
     onCardView: (Boolean) -> Unit,
 ) {
     var more by remember { mutableStateOf(false) }
     val currentTab by rememberUpdatedState(tab)
+    val currentOrder by rememberUpdatedState(order)
     val select by rememberUpdatedState(onSelect)
     // How far a swipe along the bar must travel before it switches.
     val swipe = with(LocalDensity.current) { 40.dp.toPx() }
-    Box(
+    BoxWithConstraints(
         Modifier.align(Alignment.BottomCenter).fillMaxWidth()
             .pointerInput(Unit) {
-                // One switch per swipe: right towards Deck, left towards Add cards (never into More).
+                // One switch per swipe, pushing the pages along like a pager: a swipe left opens the
+                // button to the right, a swipe right the one to the left, stepping over More (never into it).
                 var travelled = 0f
                 var switched = false
                 detectHorizontalDragGestures(
@@ -1062,44 +1074,65 @@ private fun BoxScope.EditorNav(
                     change.consume()
                     travelled += dx
                     if (switched) return@detectHorizontalDragGestures
-                    val target = when {
-                        travelled > swipe -> if (currentTab == 1) 0 else if (currentTab >= 2) 1 else null
-                        travelled < -swipe -> if (currentTab == 0) 1 else null
-                        else -> null
+                    val step = when {
+                        travelled < -swipe -> 1
+                        travelled > swipe -> -1
+                        else -> return@detectHorizontalDragGestures
                     }
+                    val items = currentOrder.items
+                    var slot = phoneNavItem(currentTab, currentOrder) + step
+                    while (items.getOrNull(slot) == EditorBarItem.MORE) slot += step
+                    val target = when (items.getOrNull(slot)) { EditorBarItem.ADD -> 1; EditorBarItem.DECK -> 0; else -> null }
                     if (target != null) { switched = true; select(target) }
                 }
             },
     ) {
-        FloatingPillNav(
-            listOf(
-                BottomItem(when (tab) { 2 -> "Analysis"; 3 -> "Test"; 4 -> "Matches"; 5 -> "Versions"; else -> "More" }) {
-                    when (tab) {
-                        2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
-                        3 -> Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp))
-                        else -> Icon(Icons.Default.MoreVert, contentDescription = null)
-                    }
-                },
-                BottomItem("Add cards") { Icon(Icons.Default.Add, contentDescription = null) },
-                BottomItem("Deck") { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
-            ),
-            selected = phoneNavItem(tab),
-            onSelect = { if (it == 0) more = true else onSelect(if (it == 1) 1 else 0) },
+        val buttons = mapOf(
+            EditorBarItem.MORE to BottomItem(when (tab) { 2 -> "Analysis"; 3 -> "Test"; 4 -> "Matches"; 5 -> "Versions"; 6 -> "Export"; 7 -> "Edit as text"; else -> "More" }) {
+                when (tab) {
+                    2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
+                    3 -> Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp))
+                    6 -> Icon(Icons.Default.Share, contentDescription = null)
+                    7 -> Icon(Icons.Default.Edit, contentDescription = null)
+                    else -> Icon(Icons.Default.MoreVert, contentDescription = null)
+                }
+            },
+            EditorBarItem.ADD to BottomItem("Add cards") { Icon(Icons.Default.Add, contentDescription = null) },
+            // Holding Deck flips the deck list between cards and a text list, and opens it.
+            EditorBarItem.DECK to BottomItem(
+                "Deck",
+                onLongClick = { onCardView(!cardView); onSelect(0) },
+                onLongClickLabel = if (cardView) "Show as list" else "Show as cards",
+            ) { Icon(GameIcons.Deck, contentDescription = null, modifier = Modifier.size(20.dp)) },
         )
-        // Anchored over the left end of the pill, where More sits, so the menu opens above it.
-        Box(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = navClearance() - 12.dp).fillMaxWidth(0.3f)) {
-            GameMenu(expanded = more, onDismissRequest = { more = false }) {
-                GameMenuItem("Analysis", onClick = { more = false; onSelect(2) }, selected = tab == 2)
-                GameMenuItem("Test hand", onClick = { more = false; onSelect(3) }, selected = tab == 3)
-                GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, selected = tab == 4)
-                GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, selected = tab == 5)
-                GameMenuDivider()
-                GameMenuItem("Export", onClick = { more = false; onExport() }, icon = Icons.Default.Share)
-                GameMenuItem(
-                    if (cardView) "List view" else "Card view", onClick = { more = false; onCardView(!cardView) },
-                    icon = if (cardView) Icons.AutoMirrored.Filled.List else GameIcons.Deck,
-                )
+        FloatingPillNav(
+            order.items.map { buttons.getValue(it) },
+            selected = phoneNavItem(tab, order),
+            onSelect = {
+                when (order.items[it]) {
+                    EditorBarItem.MORE -> more = true
+                    EditorBarItem.ADD -> onSelect(1)
+                    EditorBarItem.DECK -> onSelect(0)
+                }
+            },
+            widest = EDITOR_NAV_WIDTH,
+        )
+        // Anchored over the part of the pill where More sits, so the menu opens above it.
+        val moreAt = when (order.items.indexOf(EditorBarItem.MORE)) { 0 -> Alignment.BottomStart; 1 -> Alignment.BottomCenter; else -> Alignment.BottomEnd }
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = navClearance() - 12.dp).width(floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH))) {
+            Box(Modifier.align(moreAt).padding(horizontal = 8.dp).fillMaxWidth(0.4f)) {
+                GameMenu(expanded = more, onDismissRequest = { more = false }) {
+                    GameMenuItem("Analysis", onClick = { more = false; onSelect(2) }, selected = tab == 2)
+                    GameMenuItem("Test hand", onClick = { more = false; onSelect(3) }, selected = tab == 3)
+                    GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, selected = tab == 4)
+                    GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, selected = tab == 5)
+                    GameMenuItem("Export", onClick = { more = false; onSelect(6) }, selected = tab == 6)
+                    GameMenuItem("Edit as text", onClick = { more = false; onSelect(7) }, selected = tab == 7)
+                }
             }
         }
     }
 }
+
+/** The editor's bar holds only three items, so it stays short enough to cross with one thumb. */
+private val EDITOR_NAV_WIDTH = 300.dp
