@@ -65,7 +65,7 @@ Wide windows give most of the space to the card list and the deck. The deck pane
 
 ### Keep the card list current
 
-**Download card database** (in the welcome tour, or **Settings → Card database → Manage card database**) downloads the official card list from [gcg-api](https://gcgapi.com), about 1,200 cards and 2,000 printings, and converts it on your device. **Check for updates** reads only a small version file, and a weekly background check shows a quiet *Card database update available* under **Settings → Card database**. Card images are cached on each device and can be turned off with **Settings → Show card artwork**.
+**Download card database** (in the welcome tour, or **Settings → Card database → Manage card database**) downloads the official card list from [gcg-api](https://gcgapi.com), about 1,200 cards and 2,000 printings, and converts it on your device. Alt arts that are already on Bandai's official card list but not yet in gcg-api's weekly refresh are added from Bandai's site. **Check for updates** reads only a small version file, and a weekly background check shows a quiet *Card database update available* under **Settings → Card database**. Card images are cached on each device and can be turned off with **Settings → Show card artwork**.
 
 You can also install a catalog from a file or an `https://` link. Every install shows a preview first, including any cards your decks use that the new catalog lacks. Decks are never changed. The format is in [docs/CATALOG_FORMAT.md](docs/CATALOG_FORMAT.md), with a CSV converter in `scripts/`.
 
@@ -152,7 +152,7 @@ Kotlin **2.3.21**, Compose Multiplatform **1.10.3**, AGP **8.13.2** and Gradle *
 
 An unofficial fan project, unaffiliated with Bandai. Gundam, card text and card images are copyright Bandai. Card images load from Bandai's site and aren't included in Lock On.
 
-Card data comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai.
+Card data comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai. Alt arts not yet in gcg-api are read from Bandai's official card list on each device.
 
 The Quicksand font by the Quicksand Project Authors uses the SIL Open Font License 1.1; see the [font notice](licenses/Quicksand-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license. The Lock On mark and other decorations are original drawings.
 

@@ -31,6 +31,8 @@ class LiveGcgApiTest {
             preview.checked.warnings.forEach { println("warning: $it") }
             assertTrue(cards.size > 1000, "expected the full card list")
             assertTrue(cards.values.any { it.name == "Gundam" })
+            val sets = repo.printings.value.values.flatten().groupBy { it.setCode }
+            println("Alt arts per set: " + sets.mapValues { (_, p) -> p.count { it.isAlternateArt } }.toSortedMap())
         } finally {
             db.close()
         }
