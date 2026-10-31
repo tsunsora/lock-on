@@ -1,6 +1,7 @@
 package app.lockon
 
 import androidx.room.Room
+import app.lockon.catalog.BandaiCardList
 import app.lockon.catalog.CatalogUpdater
 import app.lockon.catalog.GcgApi
 import app.lockon.data.CatalogOrigin
@@ -94,7 +95,7 @@ class GcgApiTest {
 
         fetched.clear()
         assertIs<CatalogUpdater.UpdateCheck.UpToDate>(updater.checkCardDatabase())
-        assertEquals(listOf(GcgApi.MANIFEST_URL), fetched, "checking only reads the small version file")
+        assertEquals(listOf(GcgApi.MANIFEST_URL), fetched.filter { "gcg-api" in it }, "checking only reads gcg-api's small version file")
 
         served[GcgApi.MANIFEST_URL] = manifest(31)
         assertEquals(31, assertIs<CatalogUpdater.UpdateCheck.Available>(updater.checkCardDatabase()).version)
@@ -153,5 +154,104 @@ class GcgApiTest {
         now += 5L * 24 * 60 * 60 * 1000
         updater.quietWeeklyCheck(now)
         assertEquals("Card database update available", repo.updateAvailable.value)
+    }
+
+    /** GD06 as gcg-api has it before its parallels: standard printings only. */
+    private val gd06 = """
+      { "product_id": "GD06-002", "card_number": "GD06-002", "name": "Infinite Justice Gundam", "set_code": "GD06", "rarity": "LR", "card_type": "UNIT",
+        "color": "Red", "level": 6, "cost": 4, "ap": 5, "hp": 5, "effect": "【Deploy】Draw 1.", "where_to_get": "Stardust Trails [GD06]",
+        "image_url": "https://www.gundam-gcg.com/en/images/cards/card/GD06-002.webp" }"""
+
+    private val cardsWithGd06 get() = "[${cards.trim().removePrefix("[").removeSuffix("]")}, $gd06]"
+
+    /** Shaped like Bandai's pages, cut down: the product filter, one product's results and two detail pages. */
+    private val bandaiSearch = """
+      <a href="javascript:void(0);" class="js-selectBtn-package is-current" data-val="">ALL</a>
+      <a href="javascript:void(0);" class="js-selectBtn-package
+        " data-val="616101">Newtype Rising [GD01]</a>
+      <a href="javascript:void(0);" class="js-selectBtn-package
+        " data-val="616106">Stardust Trails [GD06]</a>
+      <a href="javascript:void(0);" class="js-selectBtn-package
+        " data-val="616901">Promotion card</a>
+      <input type="hidden" name="package" id="package_01" value="">"""
+
+    private fun bandaiItem(id: String) = """
+      <li class="cardItem">
+        <a href="javascript:void(0);" data-fancybox="cards" data-type="iframe" data-src="detail.php?detailSearch=$id" class="cardStr">
+          <img class="lazy" src="../images/cards/parts/dummy.gif" data-src="../images/cards/card/$id.webp?261016" alt="Card">                      </a>
+      </li>"""
+
+    private val bandaiGd06 = listOf("GD06-002", "GD06-002_p1", "GD06-002_p2", "GD06-099_p1", "GD01-001_p1").joinToString("") { bandaiItem(it) }
+
+    private fun bandaiDetail(rarity: String, whereToGet: String) = """
+      <div class="cardNoCol">
+        <div class="cardNo">
+          GD06-002              </div>
+        <div class="rarity">
+          $rarity              </div>
+      </div>
+      <dl class="dataBox">
+        <dt class="dataTit">Where to get it</dt>
+        <dd class="dataTxt isRegular">$whereToGet</dd>
+      </dl>"""
+
+    private fun bandaiServed() = mutableMapOf(
+        GcgApi.MANIFEST_URL to manifest(30),
+        GcgApi.CARDS_URL to cardsWithGd06,
+        BandaiCardList.SEARCH_URL to bandaiSearch,
+        BandaiCardList.packageUrl("616106") to bandaiGd06,
+        BandaiCardList.detailUrl("GD06-002_p1") to bandaiDetail("LR                +", "Stardust Trails [GD06]"),
+        BandaiCardList.detailUrl("GD06-002_p2") to bandaiDetail("LR                ++", "Stardust Trails [GD06]"),
+    )
+
+    @Test fun readsBandaiPages() {
+        assertEquals(listOf(BandaiCardList.Package("616101", "GD01"), BandaiCardList.Package("616106", "GD06")), BandaiCardList.parsePackages(bandaiSearch))
+        val listed = BandaiCardList.parseListing(bandaiGd06)
+        assertEquals(listOf("GD06-002", "GD06-002_p1", "GD06-002_p2", "GD06-099_p1", "GD01-001_p1"), listed.map { it.printingId })
+        assertEquals("https://www.gundam-gcg.com/en/images/cards/card/GD06-002_p1.webp", listed[1].artworkUrl)
+        assertEquals(BandaiCardList.Detail("LR++", "Stardust Trails [GD06]"), BandaiCardList.parseDetail(bandaiDetail("LR   ++", "Stardust Trails [GD06]")))
+        assertNull(BandaiCardList.parseDetail("<html>not a card</html>"))
+    }
+
+    @Test fun altArtsMissingFromGcgApiComeFromBandai() = runTest {
+        repo.load(File(resources, "catalog/sample-catalog.json").readText(), File(resources, "rulesets/rulesets.json").readText())
+        val fetched = mutableListOf<String>()
+        val served = bandaiServed()
+        val updater = CatalogUpdater(repo, decks, fetch = { fetched += it; served.getValue(it) })
+
+        val preview = updater.latestCardDatabase()
+        val printings = preview.checked.file.printings.filter { it.cardNumber == "GD06-002" }.associateBy { it.printingId }
+        assertEquals(setOf("GD06-002", "GD06-002_p1", "GD06-002_p2"), printings.keys)
+        assertEquals("Parallel LR+", printings.getValue("GD06-002_p1").label)
+        assertEquals("Parallel LR++", printings.getValue("GD06-002_p2").label)
+        assertTrue(printings.getValue("GD06-002_p2").isAlternateArt)
+        assertEquals("https://www.gundam-gcg.com/en/images/cards/card/GD06-002_p2.webp", printings.getValue("GD06-002_p2").artworkUrl)
+        assertEquals("【Deploy】Draw 1.", preview.checked.file.cards.single { it.cardNumber == "GD06-002" }.text)
+        assertTrue(preview.checked.file.printings.none { it.printingId == "GD06-099_p1" }, "cards gcg-api doesn't have are left out")
+        assertTrue(preview.checked.warnings.any { "2 alt arts come from Bandai" in it })
+        assertTrue("Bandai" in preview.checked.file.source)
+        assertTrue(fetched.none { "616101" in it }, "GD01 already has alt arts in gcg-api, so it isn't looked up")
+        assertTrue(fetched.none { "GD01-001_p1" in it }, "printings gcg-api has aren't looked up")
+    }
+
+    @Test fun bandaiAltArtsAreOfferedOnTheSameVersion() = runTest {
+        repo.load(File(resources, "catalog/sample-catalog.json").readText(), File(resources, "rulesets/rulesets.json").readText())
+        val served = bandaiServed()
+        val bandai = served.filterKeys { "gundam-gcg.com" in it }
+        served.keys.removeAll(bandai.keys)
+        val updater = CatalogUpdater(repo, decks, fetch = { served.getValue(it) })
+
+        // Bandai can't be reached: gcg-api's list still installs, without the extras.
+        updater.install(updater.latestCardDatabase())
+        assertEquals(listOf("GD06-002"), repo.printings.value.getValue("GD06-002").map { it.printingId })
+        assertIs<CatalogUpdater.UpdateCheck.UpToDate>(updater.checkCardDatabase())
+
+        served += bandai
+        assertEquals(2, assertIs<CatalogUpdater.UpdateCheck.Available>(updater.checkCardDatabase()).newAltArts)
+        val preview = updater.latestCardDatabase()
+        assertTrue(preview.isNewer, "same gcg-api version, but with more alt arts")
+        updater.install(preview)
+        assertEquals(3, repo.printings.value.getValue("GD06-002").size)
+        assertIs<CatalogUpdater.UpdateCheck.UpToDate>(updater.checkCardDatabase(), "GD06 has alt arts now, so Bandai isn't asked again")
     }
 }

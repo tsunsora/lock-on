@@ -134,7 +134,11 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         if (busy) ReticleSpinner(size = 20.dp)
                     }
                     (check as? CatalogUpdater.UpdateCheck.Available)?.let {
-                        Text("Version ${it.version} is out: ${it.cardCount} entries, built ${it.builtAt}.", style = muted)
+                        Text(
+                            if (it.newAltArts > 0) "${it.newAltArts} new alt arts are on Bandai's card list."
+                            else "Version ${it.version} is out: ${it.cardCount} entries, built ${it.builtAt}.",
+                            style = muted,
+                        )
                     }
                     HorizontalDivider()
                     val showArtwork by container.catalog.showArtwork.collectAsState()
