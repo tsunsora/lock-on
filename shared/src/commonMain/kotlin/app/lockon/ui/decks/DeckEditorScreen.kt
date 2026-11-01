@@ -1101,6 +1101,8 @@ private fun BoxScope.EditorNav(
                 when (tab) {
                     2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
                     3 -> Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp))
+                    4 -> Icon(GameIcons.Trophy, contentDescription = null, modifier = Modifier.size(20.dp))
+                    5 -> Icon(GameIcons.Clock, contentDescription = null, modifier = Modifier.size(20.dp))
                     6 -> Icon(Icons.Default.Share, contentDescription = null)
                     7 -> Icon(Icons.Default.Edit, contentDescription = null)
                     else -> Icon(Icons.Default.MoreVert, contentDescription = null)
@@ -1131,12 +1133,12 @@ private fun BoxScope.EditorNav(
         Box(Modifier.align(Alignment.BottomCenter).padding(bottom = navClearance() - 12.dp).width(floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH))) {
             Box(Modifier.align(moreAt).padding(horizontal = 8.dp).fillMaxWidth(0.4f)) {
                 GameMenu(expanded = more, onDismissRequest = { more = false }) {
-                    GameMenuItem("Analysis", onClick = { more = false; onSelect(2) }, selected = tab == 2)
-                    GameMenuItem("Test hand", onClick = { more = false; onSelect(3) }, selected = tab == 3)
-                    GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, selected = tab == 4)
-                    GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, selected = tab == 5)
-                    GameMenuItem("Export", onClick = { more = false; onSelect(6) }, selected = tab == 6)
-                    GameMenuItem("Edit as text", onClick = { more = false; onSelect(7) }, selected = tab == 7)
+                    GameMenuItem("Analysis", onClick = { more = false; onSelect(2) }, icon = GameIcons.Curve, selected = tab == 2)
+                    GameMenuItem("Test hand", onClick = { more = false; onSelect(3) }, icon = GameIcons.Hand, selected = tab == 3)
+                    GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, icon = GameIcons.Trophy, selected = tab == 4)
+                    GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, icon = GameIcons.Clock, selected = tab == 5)
+                    GameMenuItem("Export", onClick = { more = false; onSelect(6) }, icon = Icons.Default.Share, selected = tab == 6)
+                    GameMenuItem("Edit as text", onClick = { more = false; onSelect(7) }, icon = Icons.Default.Edit, selected = tab == 7)
                 }
             }
         }
