@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.1 (2026-10-31)
+
+Making the window bigger no longer flashes white and black.
+
+- **Computer:** while you drag the window larger, the new edge fills with the app's background instead of white and black strips.
+- **Phones:** the deck editor's **More** menu shows an icon beside each page, with new icons for **Matches** and **Versions**.
+
 ## 1.13.0 (2026-10-31)
 
 Syncing now makes one device match the other, with everything on it.
