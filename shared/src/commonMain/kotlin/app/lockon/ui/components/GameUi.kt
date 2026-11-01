@@ -1486,6 +1486,25 @@ object GameIcons {
         moveTo(9.5f, 4f); lineTo(14.5f, 4f); lineTo(14.5f, 17f); lineTo(9.5f, 17f); close()
         moveTo(15.6f, 6.4f); lineTo(21.8f, 8.6f); lineTo(17.6f, 20.4f); lineTo(11.4f, 18.2f); close()
     }
+
+    /** A trophy: the match log. */
+    val Trophy: ImageVector = icon("Trophy") {
+        moveTo(6f, 3f); lineTo(18f, 3f); lineTo(18f, 9f); quadTo(18f, 14f, 12f, 14f); quadTo(6f, 14f, 6f, 9f); close()
+        moveTo(6f, 4.5f); lineTo(2.5f, 4.5f); lineTo(2.5f, 7f); quadTo(2.5f, 10.5f, 6.5f, 11.2f); lineTo(6.9f, 9.6f)
+        quadTo(4.2f, 9f, 4.2f, 7f); lineTo(4.2f, 6.2f); lineTo(6f, 6.2f); close()
+        moveTo(18f, 4.5f); lineTo(21.5f, 4.5f); lineTo(21.5f, 7f); quadTo(21.5f, 10.5f, 17.5f, 11.2f); lineTo(17.1f, 9.6f)
+        quadTo(19.8f, 9f, 19.8f, 7f); lineTo(19.8f, 6.2f); lineTo(18f, 6.2f); close()
+        moveTo(10.8f, 13.5f); lineTo(13.2f, 13.5f); lineTo(13.2f, 17.5f); lineTo(10.8f, 17.5f); close()
+        moveTo(7.5f, 18f); lineTo(16.5f, 18f); lineTo(16.5f, 21f); lineTo(7.5f, 21f); close()
+    }
+
+    /** A clock face: the saved versions. */
+    val Clock: ImageVector = icon("Clock") {
+        // The ring winds against the face inside it, so the face stays hollow under the hands.
+        moveTo(21f, 12f); arcTo(9f, 9f, 0f, false, true, 3f, 12f); arcTo(9f, 9f, 0f, false, true, 21f, 12f); close()
+        moveTo(19f, 12f); arcTo(7f, 7f, 0f, false, false, 5f, 12f); arcTo(7f, 7f, 0f, false, false, 19f, 12f); close()
+        moveTo(11f, 7f); lineTo(13f, 7f); lineTo(13f, 11.4f); lineTo(16f, 13.2f); lineTo(15f, 14.9f); lineTo(11f, 12.6f); close()
+    }
 }
 
 /**
