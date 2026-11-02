@@ -3,6 +3,10 @@ import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.DeckGlance
 import app.lockon.io.ExportOrder
 import app.lockon.platform.encodeShareQr
+import app.lockon.sync.QrMatrix
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import app.lockon.rules.DeckAnalysis
 import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.QrCodeView
@@ -151,6 +155,24 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 
 /**
  * Saved deck images are this many pixels wide on every device, whatever its screen density. With
@@ -175,11 +197,13 @@ fun DeckExportDialog(
     state: AppState,
     onDismiss: () -> Unit,
     startTab: Int = 0,
-) = DeckExport(deck, cards, ruleset, files, state, onDismiss, startTab)
+    qrTab: Boolean = isMobile,
+) = DeckExport(deck, cards, ruleset, files, state, onDismiss, startTab, qrTab = qrTab)
 
 /**
  * The export as a page of the phone deck editor, laid out like the dialog's phone sheet but in
- * place, with room left at the foot for the floating navigation.
+ * place, with room left at the foot for the floating navigation. [qrTab] adds a third format, the
+ * deck as a QR code to show another phone; it is on for phones only.
  */
 @Composable
 fun DeckExportPanel(
@@ -189,7 +213,8 @@ fun DeckExportPanel(
     files: FileBridge,
     state: AppState,
     modifier: Modifier = Modifier,
-) = DeckExport(deck, cards, ruleset, files, state, onDismiss = null, modifier = modifier)
+    qrTab: Boolean = isMobile,
+) = DeckExport(deck, cards, ruleset, files, state, onDismiss = null, modifier = modifier, qrTab = qrTab)
 
 /** The export's body: in a dialog when [onDismiss] is given, otherwise as a page in [modifier]. */
 @Suppress("DEPRECATION") // LocalClipboard needs ClipEntry, which differs per platform.
@@ -204,13 +229,20 @@ private fun DeckExport(
     onDismiss: (() -> Unit)?,
     startTab: Int = 0,
     modifier: Modifier = Modifier,
+    qrTab: Boolean = false,
 ) {
-    var tab by rememberSaveable { mutableStateOf(startTab.coerceIn(0, 1)) }
+    var tab by rememberSaveable { mutableStateOf(startTab.coerceIn(0, if (qrTab) 2 else 1)) }
+    val formats = if (qrTab) listOf("List", "Image", "QR code") else listOf("List", "Image")
     // One order for both formats, so the list and image match.
     var order by rememberSaveable { mutableStateOf(ExportOrder.LEVEL) }
     // The image preview is shrunk to fit; a short hold opens it large over the dialog.
     var viewing by remember { mutableStateOf(false) }
+    // Where the preview is, so the large view grows out of it and shrinks back into it.
+    val viewSource = remember { ViewSource() }
     val text = remember(deck, cards, order) { DeckListFormat.export(deck, cards, order) }
+    // What the QR tab's code carries, the same as the code on the image.
+    val qrText = remember(deck, cards) { deckQrText(deck, cards) }
+    val qr = remember(qrText, qrTab) { if (qrTab) deckQr(qrText) else null }
     val baseName = deck.name.filter { it.isLetterOrDigit() || it in " -_" }.trim().ifBlank { "deck" }
     val clipboard = LocalClipboardManager.current
     val layer = rememberGraphicsLayer()
@@ -232,7 +264,7 @@ private fun DeckExport(
             if (onDismiss != null) IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
         }
     }
-    val tabs = @Composable { PillTabs(listOf("List", "Image"), tab, { tab = it }, fill = true) }
+    val tabs = @Composable { PillTabs(formats, tab, { tab = it }, fill = true) }
     val orderChips = @Composable {
         ExportOrder.entries.forEach { option ->
             PillChip(selected = order == option, onClick = { order = option }, label = { Text(option.label) })
@@ -261,6 +293,22 @@ private fun DeckExport(
                 GameButton("Save file", onClick = {
                     state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
                 }, Modifier.weight(1f))
+            } else if (tab == 2) {
+                GameButton(if (phone && copied) "Copied" else "Copy text", onClick = {
+                    clipboard.setText(AnnotatedString(qrText))
+                    if (phone) copied = true else toast("Deck list copied.")
+                }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) Icons.Default.Check else null)
+                GameButton(if (saving) "Saving…" else "Save QR", onClick = {
+                    val code = qr ?: return@GameButton
+                    saving = true
+                    state.appScope.launch {
+                        try {
+                            val png = withContext(Dispatchers.Default) { encodePng(qrBitmap(code)) }
+                            saving = false
+                            if (files.saveBytes("$baseName QR.png", "image/png", png)) toast("QR code saved.")
+                        } finally { saving = false }
+                    }
+                }, Modifier.weight(1f), enabled = !saving && qr != null)
             } else {
                 GameButton(if (saving) "Saving image…" else "Save image", onClick = {
                     saving = true
@@ -282,10 +330,11 @@ private fun DeckExport(
     // The phone layout: the format switch, one Order chip, the preview in every row they leave, then the buttons.
     val phone = @Composable { modifier: Modifier ->
         Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            PillSegmented(listOf("List", "Image"), tab, { tab = it }, Modifier.fillMaxWidth())
+            PillSegmented(formats, tab, { tab = it }, Modifier.fillMaxWidth())
             // The orders fold into one chip, like the card list's Colors and Type on phones (UX rule N4),
             // so none is cut off and the preview keeps the row.
-            MenuChip(selected = false, label = { Text("Order: ${order.label}") }) { close ->
+            // The QR's list always goes by card number, so it has no order to pick.
+            if (tab != 2) MenuChip(selected = false, label = { Text("Order: ${order.label}") }) { close ->
                 ExportOrder.entries.forEach { option ->
                     GameMenuItem(option.label, onClick = { order = option; close() }, selected = order == option)
                 }
@@ -294,9 +343,10 @@ private fun DeckExport(
             SlidingPages(tab, Modifier.weight(1f).fillMaxWidth()) { page ->
                 val glassPane = Modifier.fillMaxSize().glass(LockOnShapes.tile)
                 if (page == 0) DeckListPreview(deck, cards, order, glassPane)
+                else if (page == 2) QrPage(qr, glassPane)
                 else Box(glassPane.clip(LockOnShapes.tile)) {
                     Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        CaptureAtFixedWidth(layer, Modifier.holdToView { viewing = true }) {
+                        CaptureAtFixedWidth(layer, Modifier.viewSource(viewSource).holdToView { viewing = true }) {
                             DeckImage(deck, cards, ruleset, order)
                         }
                     }
@@ -314,9 +364,8 @@ private fun DeckExport(
         BoxWithConstraints(modifier) {
             phone(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + LocalNavClearance.current))
             GameToastHost(toasts, Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp + LocalNavClearance.current))
-            if (viewing) {
-                ZoomView(minOf(maxWidth - 48.dp, 1080.dp), onClose = { viewing = false }) { DeckImage(deck, cards, ruleset, order) }
-            }
+            // Over the whole window, so the deck's banner and the editor's bar don't sit on it.
+            ZoomView(viewing, viewSource, onClose = { viewing = false }, overWindow = true) { DeckImage(deck, cards, ruleset, order) }
         }
         return
     }
@@ -328,7 +377,6 @@ private fun DeckExport(
             // behind the panel rather than around it, so clicks inside (selecting the list) never reach it.
             Spacer(Modifier.fillMaxSize().clickable(interactionSource = null, indication = null, onClick = onDismiss))
             val wide = maxWidth >= 720.dp && maxHeight >= 480.dp
-            val viewWidth = minOf(maxWidth - 48.dp, 1080.dp)
             Surface(
                 shape = MaterialTheme.shapes.extraLarge,
                 color = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
@@ -351,17 +399,18 @@ private fun DeckExport(
                         header()
                         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                             if (tab == 0) listText(pane.then(previewBox))
+                            else if (tab == 2) QrPage(qr, pane.then(previewBox))
                             else Box(previewBox, contentAlignment = Alignment.TopCenter) {
                                 // The whole picture in view at once, as it will be saved; a short hold shows it large.
                                 CaptureAtFixedWidth(
                                     layer,
-                                    Modifier.clip(LockOnShapes.tile).holdToView { viewing = true },
+                                    Modifier.clip(LockOnShapes.tile).viewSource(viewSource).holdToView { viewing = true },
                                     fit = true,
                                 ) { DeckImage(deck, cards, ruleset, order) }
                             }
                             Column(Modifier.width(controlsWidth).fillMaxHeight().padding(end = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 tabs()
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (tab != 2) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SectionHeader("Order")
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         orderChips()
@@ -383,9 +432,7 @@ private fun DeckExport(
                 }
             }
             GameToastHost(toasts, Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
-            if (viewing) {
-                ZoomView(viewWidth, onClose = { viewing = false }) { DeckImage(deck, cards, ruleset, order) }
-            }
+            ZoomView(viewing, viewSource, onClose = { viewing = false }) { DeckImage(deck, cards, ruleset, order) }
         }
     }
 }
@@ -480,32 +527,99 @@ private fun DeckListRow(entry: DeckEntry, card: Card?, modifier: Modifier = Modi
 private const val MAX_ZOOM = 4f
 private const val CLICK_ZOOM = 2.5f
 
+/** Where the preview being viewed sits on screen: its whole box, and the part of it not scrolled out of sight. */
+private class ViewSource {
+    var bounds = Rect.Zero
+    var shown = Rect.Zero
+}
+
+private fun Modifier.viewSource(source: ViewSource): Modifier = onGloballyPositioned {
+    val onScreen = it.positionOnScreen()
+    source.bounds = Rect(onScreen, it.size.toSize())
+    source.shown = it.boundsInWindow().translate(onScreen - it.positionInWindow())
+}
+
+/** Puts a popup at the window's top left, so one that fills the window covers all of it. */
+private object WindowCorner : PopupPositionProvider {
+    override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
+        IntOffset.Zero
+}
+
 /**
- * The deck image large over everything, [fitWidth] wide at first; on a computer it also shrinks until
- * its whole height fits the window, and that is 100%. A click on it zooms in there (and back out), as
- * do pinching and Ctrl+scroll; dragging or scrolling moves it, and a click beside it puts it away. It
- * records into its own layer so the saved image is untouched.
+ * The deck image large over everything while [visible]. It grows out of the preview at [source] as
+ * the backdrop darkens, and shrinks back into it when put away. [overWindow] lifts it over the whole
+ * window, for the editor's Export page, which sits under the deck's banner and the editor's bar.
  */
 @Composable
-private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () -> Unit) {
+private fun ZoomView(visible: Boolean, source: ViewSource, onClose: () -> Unit, overWindow: Boolean = false, content: @Composable () -> Unit) {
+    val reduce = LocalReduceMotion.current
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(visible) {
+        // Opening eases out of the preview; putting it away is a touch quicker, as things leaving are.
+        shown.animateTo(
+            if (visible) 1f else 0f,
+            when {
+                reduce -> tween(Motion.SHORT)
+                visible -> tween(Motion.LONG + 80, easing = Motion.emphasized)
+                else -> tween(Motion.LONG, easing = Motion.emphasized)
+            },
+        )
+    }
+    val open by remember { derivedStateOf { shown.value > 0f } }
+    if (!visible && !open) return
+    val frame = @Composable {
+        ZoomFrame(visible, { shown.value }, reduce, source, onClose, content)
+    }
+    if (overWindow) Popup(WindowCorner, onDismissRequest = onClose, properties = PopupProperties(focusable = true)) { frame() }
+    else frame()
+}
+
+/**
+ * The view itself, at [progress] of the way out of the preview. Its image is as wide as the window
+ * allows; on a computer it also shrinks until its whole height fits, and that is 100%. A click on it
+ * zooms in there (and back out), as do pinching and Ctrl+scroll; dragging or scrolling moves it, and
+ * a click beside it puts it away. Narrow windows keep their controls in a strip above the image and
+ * zoom on a double tap, so nothing sits over the picture. It records into its own layer so the saved
+ * image is untouched.
+ */
+@Composable
+private fun ZoomFrame(
+    visible: Boolean,
+    progress: () -> Float,
+    reduce: Boolean,
+    source: ViewSource,
+    onClose: () -> Unit,
+    content: @Composable () -> Unit,
+) {
     val viewLayer = rememberGraphicsLayer()
+    val live by rememberUpdatedState(visible)
     var zoom by remember { mutableFloatStateOf(1f) }
     // Where the image's top left sits in the view; kept in bounds by [placed] when drawn.
     var offset by remember { mutableStateOf(Offset(0f, Float.MAX_VALUE)) }
     var base by remember { mutableStateOf(IntSize.Zero) }
-    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f))) {
+    // The view's own place on screen, to find the preview in it.
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    var topBar by remember { mutableStateOf(0) }
+    var bottomInset by remember { mutableStateOf(0) }
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionOnScreen() }) {
+        val compact = maxWidth < 600.dp
+        val density = LocalDensity.current
         val view = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
-        val margin = with(LocalDensity.current) { 24.dp.toPx() }
-        val step = with(LocalDensity.current) { 64.dp.toPx() }
+        val margin = with(density) { (if (compact) 12.dp else 24.dp).toPx() }
+        val step = with(density) { 64.dp.toPx() }
+        // On a narrow window the image starts below the strip with the close button and ends above the system bar.
+        val top = if (compact) topBar.toFloat() else margin
+        val bottom = if (compact) bottomInset + margin else margin
+        val fitWidth = if (compact) maxWidth - 24.dp else minOf(maxWidth - 48.dp, 1080.dp)
         // Phones scroll a tall image at full width; a computer window shows the whole of it at first.
         // [zoom] is relative to this, and clicking in or zooming all the way still reaches the same real size.
-        val fit = if (isMobile || base.width == 0 || base.height == 0) 1f
-            else minOf(1f, (view.width - 2 * margin) / base.width, (view.height - 2 * margin) / base.height).coerceAtLeast(0.05f)
-        // An axis that fits is centred; one that doesn't can move until its edge meets the margin.
-        fun axis(o: Float, length: Float, room: Float) =
-            if (length + 2 * margin <= room) (room - length) / 2 else o.coerceIn(room - margin - length, margin)
+        val fit = if (compact || isMobile || base.width == 0 || base.height == 0) 1f
+            else minOf(1f, (view.width - 2 * margin) / base.width, (view.height - top - bottom) / base.height).coerceAtLeast(0.05f)
+        // An axis that fits is centred between its margins; one that doesn't can move until its edge meets one.
+        fun axis(o: Float, length: Float, room: Float, lo: Float, hi: Float) =
+            if (length + lo + hi <= room) lo + (room - lo - hi - length) / 2 else o.coerceIn(room - hi - length, lo)
         fun placed(o: Offset = offset, z: Float = zoom) =
-            Offset(axis(o.x, base.width * z * fit, view.width), axis(o.y, base.height * z * fit, view.height))
+            Offset(axis(o.x, base.width * z * fit, view.width, margin, margin), axis(o.y, base.height * z * fit, view.height, top, bottom))
         // Zooms to [to], keeping the point of the image under [at] where it is.
         fun zoomAt(to: Float, at: Offset) {
             val next = to.coerceIn(1f, maxOf(1f, MAX_ZOOM / fit))
@@ -517,16 +631,37 @@ private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () 
         fun onImage(at: Offset) = placed().let { o ->
             at.x in o.x..(o.x + base.width * zoom * fit) && at.y in o.y..(o.y + base.height * zoom * fit)
         }
-        val center = Offset(view.width / 2, view.height / 2)
+        val center = Offset(view.width / 2, (view.height + top - bottom) / 2)
+        // How far along the move out of the preview is; with less motion it only fades.
+        fun moved() = if (reduce) 1f else progress()
+        // Controls come in over the last part of the move, once the image is nearly in place.
+        val controls = Modifier.graphicsLayer { alpha = ((progress() - 0.55f) / 0.45f).coerceIn(0f, 1f) }
+
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = progress() }.background(Color.Black.copy(alpha = if (compact) 0.88f else 0.72f)))
         Box(
             Modifier.fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures { at ->
+                // The part of the preview that was in sight opens out to the whole view.
+                .drawWithContent {
+                    val p = moved()
+                    val from = source.shown.translate(-origin)
+                    if (p >= 1f || from.isEmpty) drawContent()
+                    else {
+                        val clip = lerp(from, Rect(Offset.Zero, size), p)
+                        clipRect(clip.left, clip.top, clip.right, clip.bottom) { this@drawWithContent.drawContent() }
+                    }
+                }
+                .pointerInput(compact) {
+                    if (compact) detectTapGestures(
+                        onDoubleTap = { at -> if (live && onImage(at)) zoomAt(if (zoom > 1f) 1f else CLICK_ZOOM, at) },
+                        onTap = { at -> if (live && !onImage(at)) onClose() },
+                    ) else detectTapGestures { at ->
+                        if (!live) return@detectTapGestures
                         if (!onImage(at)) onClose() else zoomAt(if (zoom > 1f) 1f else CLICK_ZOOM / fit, at)
                     }
                 }
                 .pointerInput(Unit) {
                     detectTransformGestures { centroid, pan, gestureZoom, _ ->
+                        if (!live) return@detectTransformGestures
                         if (gestureZoom != 1f) zoomAt(zoom * gestureZoom, centroid)
                         offset = placed(placed() + pan)
                     }
@@ -535,7 +670,7 @@ private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () 
                     awaitPointerEventScope {
                         while (true) {
                             val event = awaitPointerEvent()
-                            if (event.type != PointerEventType.Scroll) continue
+                            if (event.type != PointerEventType.Scroll || !live) continue
                             val change = event.changes.first()
                             val delta = change.scrollDelta
                             if (event.keyboardModifiers.isCtrlPressed) zoomAt(zoom * 1.2f.pow(-delta.y), change.position)
@@ -550,27 +685,54 @@ private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () 
                 // Its full height, however tall, rather than squeezed into the window.
                 Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).width(fitWidth).onSizeChanged { base = it }
                     .graphicsLayer {
-                        val o = placed()
-                        translationX = o.x; translationY = o.y
-                        scaleX = zoom * fit; scaleY = zoom * fit
+                        val p = moved()
+                        val rest = placed()
+                        val restScale = zoom * fit
+                        val from = source.bounds.translate(-origin)
+                        // From the preview's place and size to its own, along the same path for both.
+                        val (start, startScale) = if (from.isEmpty || base.width == 0) rest to restScale
+                            else from.topLeft to from.width / base.width
+                        val at = lerp(start, rest, p)
+                        val scale = startScale + (restScale - startScale) * p
+                        translationX = at.x; translationY = at.y
+                        scaleX = scale; scaleY = scale
                         transformOrigin = TransformOrigin(0f, 0f)
+                        alpha = if (base == IntSize.Zero) 0f else if (reduce) progress() else 1f
                     }
                     .clip(LockOnShapes.tile),
             ) { content() }
-            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) { Row(
-                Modifier.align(Alignment.TopEnd).padding(12.dp).glass(LockOnShapes.button, strong = true),
+        }
+        if (compact) {
+            // A strip above the image: a quiet hint for the gestures, and the way out.
+            Row(
+                controls.fillMaxWidth().align(Alignment.TopCenter)
+                    .onSizeChanged { topBar = it.height }
+                    // The image scrolls up under the strip, so it fades to dark behind the hint and button.
+                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Black.copy(alpha = 0f))))
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                    .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { zoomAt(zoom / 1.5f, center) }, enabled = zoom > 1f) {
-                    CenteredGlyph("−", LocalContentColor.current, 24.sp, Modifier.semantics { contentDescription = "Zoom out" })
-                }
-                Text("${(zoom * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers))
-                IconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM / fit) {
-                    Icon(Icons.Default.Add, contentDescription = "Zoom in")
-                }
-                IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close full size") }
-            } }
-        }
+                Text(
+                    if (zoom > 1f) "Double-tap to fit" else "Pinch or double-tap to zoom",
+                    style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f),
+                )
+                GlassIconButton(Icons.Default.Close, "Close full size", onClick = onClose)
+            }
+            Spacer(Modifier.align(Alignment.BottomCenter).windowInsetsBottomHeight(WindowInsets.safeDrawing).onSizeChanged { bottomInset = it.height })
+        } else CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) { Row(
+            controls.align(Alignment.TopEnd).padding(12.dp).glass(LockOnShapes.button, strong = true),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { zoomAt(zoom / 1.5f, center) }, enabled = zoom > 1f) {
+                CenteredGlyph("−", LocalContentColor.current, 24.sp, Modifier.semantics { contentDescription = "Zoom out" })
+            }
+            Text("${(zoom * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers))
+            IconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM / fit) {
+                Icon(Icons.Default.Add, contentDescription = "Zoom in")
+            }
+            IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close full size") }
+        } }
     }
 }
 
@@ -611,8 +773,7 @@ private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Rul
     val main = deck.entries.filter { it.section == DeckSection.MAIN }
     val colors = main.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
-    // The QR holds the whole deck as a compact list (main and resource), so a scan rebuilds it exactly.
-    val qr = remember(deck, cards) { runCatching { encodeShareQr(DeckListFormat.export(deck, cards, ExportOrder.NUMBER, compact = true)) }.getOrNull() }
+    val qr = remember(deck, cards) { deckQr(deckQrText(deck, cards)) }
     // The same sky and glass as the app, so a shared deck looks like Lock On (UX rule V1).
     SkyBackground(Modifier.width(IMAGE_WIDTH)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -675,6 +836,61 @@ private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Rul
                 Spacer(Modifier.width(6.dp))
                 Text("Built with Lock On", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
             }
+        }
+    }
+}
+
+/** The QR's text: the whole deck as a compact list (main and resource), so a scan rebuilds it exactly. */
+private fun deckQrText(deck: DeckSnapshot, cards: Map<String, Card>) = DeckListFormat.export(deck, cards, ExportOrder.NUMBER, compact = true)
+
+/** The QR for [text], or null when it is too long for one. */
+private fun deckQr(text: String): QrMatrix? = runCatching { encodeShareQr(text) }.getOrNull()
+
+private const val QR_CELL_PX = 16
+
+/** [matrix] as a picture to save: black on white with the standard quiet zone, [QR_CELL_PX] pixels a module. */
+private fun qrBitmap(matrix: QrMatrix): ImageBitmap {
+    val quiet = 4
+    val side = (matrix.size + 2 * quiet) * QR_CELL_PX
+    val bitmap = ImageBitmap(side, side)
+    val canvas = Canvas(bitmap)
+    canvas.drawRect(0f, 0f, side.toFloat(), side.toFloat(), Paint().apply { color = Color.White })
+    val black = Paint().apply { color = Color.Black }
+    for (y in 0 until matrix.size) for (x in 0 until matrix.size) {
+        if (!matrix[x, y]) continue
+        val left = ((x + quiet) * QR_CELL_PX).toFloat()
+        val top = ((y + quiet) * QR_CELL_PX).toFloat()
+        canvas.drawRect(left, top, left + QR_CELL_PX, top + QR_CELL_PX, black)
+    }
+    return bitmap
+}
+
+/**
+ * The QR tab: the code as large as its pane allows, for another phone to scan across the table, with
+ * what a scan gives under it. The deck's name is already over the tabs.
+ */
+@Composable
+private fun QrPage(qr: QrMatrix?, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    BoxWithConstraints(modifier) {
+        // Room is left for the lines above and below it.
+        val side = minOf(maxWidth - 40.dp, maxHeight - 170.dp, 360.dp).coerceAtLeast(160.dp)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        ) {
+            if (qr != null) {
+                QrCodeView(qr, Modifier.size(side))
+                Text(
+                    "Scan with a phone camera to get the deck list, then paste it into Decks › ⋮ › Import.",
+                    style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+                    modifier = Modifier.widthIn(max = 360.dp),
+                )
+            } else Text(
+                "This deck is too long for a QR code. Share the list or the image instead.",
+                style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            )
         }
     }
 }
