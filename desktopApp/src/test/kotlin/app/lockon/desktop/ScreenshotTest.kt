@@ -398,6 +398,8 @@ class ScreenshotTest {
         exportShot("phone-export-list", 600, 1260, deck, tab = 0)
         exportShot("light-phone-export-list", 600, 1260, deck, tab = 0, dark = false)
         exportShot("light-phone-export-image", 600, 1260, deck, tab = 1, dark = false)
+        exportShot("phone-export-qr", 600, 1260, deck, tab = 2)
+        exportShot("light-phone-export-qr", 600, 1260, deck, tab = 2, dark = false)
     }
 
     private fun exportShot(name: String, width: Int, height: Int, deck: DeckSnapshot, tab: Int, dark: Boolean = true) {
@@ -406,7 +408,7 @@ class ScreenshotTest {
                 androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
                     app.lockon.ui.decks.DeckExportDialog(
                         deck, container.catalog.cards.value, container.catalog.ruleset.value, files,
-                        AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = tab,
+                        AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = tab, qrTab = tab == 2,
                     )
                 }
             }
@@ -415,6 +417,69 @@ class ScreenshotTest {
             repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
             File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
+    }
+
+    /**
+     * Holds on the export image to open it large, then puts it away, writing frames of both moves into
+     * build/animation-frames/<name>: the desktop dialog, and the phone editor's Export page.
+     */
+    @Test fun zoomViewFrames() {
+        val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        val cards = container.catalog.cards.value
+        val ruleset = container.catalog.ruleset.value
+        zoomFrames("zoom-desktop", 1980, 1290, at = androidx.compose.ui.geometry.Offset(750f, 700f), closeAt = androidx.compose.ui.geometry.Offset(60f, 640f)) {
+            app.lockon.ui.decks.DeckExportDialog(deck, cards, ruleset, files, AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, startTab = 1)
+        }
+        zoomFrames("zoom-phone", 600, 1260, at = androidx.compose.ui.geometry.Offset(300f, 700f), closeAt = androidx.compose.ui.geometry.Offset(549f, 45f),
+            first = androidx.compose.ui.geometry.Offset(450f, 232f)) {
+            app.lockon.ui.components.SkyBackground(androidx.compose.ui.Modifier.fillMaxSize()) {
+                androidx.compose.runtime.CompositionLocalProvider(app.lockon.ui.components.LocalNavClearance provides 84.dp) {
+                    app.lockon.ui.decks.DeckExportPanel(deck, cards, ruleset, files, AppState(CoroutineScope(Dispatchers.Default)),
+                        androidx.compose.ui.Modifier.fillMaxSize().padding(top = 120.dp))
+                }
+            }
+        }
+    }
+
+    /** Holds at [at] past the hold time, records the opening, then clicks [closeAt] and records the closing. */
+    private fun zoomFrames(name: String, width: Int, height: Int, at: androidx.compose.ui.geometry.Offset, closeAt: androidx.compose.ui.geometry.Offset, first: androidx.compose.ui.geometry.Offset? = null, content: @androidx.compose.runtime.Composable () -> Unit) {
+        val dir = File("build/animation-frames/$name").apply { deleteRecursively(); mkdirs() }
+        ImageComposeScene(width, height, Density(1.5f)) {
+            app.lockon.ui.theme.LockOnTheme(dark = true) {
+                androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) { content() }
+            }
+        }.use { scene ->
+            var time = 0L
+            var n = 0
+            fun frame(save: Boolean) {
+                Thread.sleep(20); time += 16_666_667L
+                val image = scene.render(time)
+                if (save) File(dir, "frame-%03d.png".format(n++)).writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+            repeat(40) { Thread.sleep(40); time += 100_000_000L; scene.render(time) }
+            val mouse = androidx.compose.ui.input.pointer.PointerType.Mouse
+            val primary = androidx.compose.ui.input.pointer.PointerButton.Primary
+            // A click to set the page up first, such as switching it to the image.
+            if (first != null) {
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, first, type = mouse,
+                    buttons = androidx.compose.ui.input.pointer.PointerButtons(isPrimaryPressed = true), button = primary)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, first, type = mouse, button = primary)
+                repeat(10) { Thread.sleep(40); time += 100_000_000L; scene.render(time) }
+            }
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, at, type = mouse)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, at, type = mouse,
+                buttons = androidx.compose.ui.input.pointer.PointerButtons(isPrimaryPressed = true), button = primary)
+            // The hold, then the opening.
+            repeat(40) { frame(it % 2 == 0) }
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, at, type = mouse, button = primary)
+            repeat(10) { frame(it == 9) }
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, closeAt, type = mouse)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, closeAt, type = mouse,
+                buttons = androidx.compose.ui.input.pointer.PointerButtons(isPrimaryPressed = true), button = primary)
+            scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, closeAt, type = mouse, button = primary)
+            repeat(24) { frame(it % 2 == 0) }
+        }
+        assertTrue(File(dir, "frame-000.png").exists())
     }
 
     /** Clicks Save image in the export dialog and checks the file is a 1080-pixel-wide PNG. */
