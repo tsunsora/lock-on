@@ -109,6 +109,7 @@ import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import app.lockon.platform.isMobile
 import kotlin.math.roundToInt
 import kotlin.math.pow
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -383,9 +384,10 @@ private const val MAX_ZOOM = 4f
 private const val CLICK_ZOOM = 2.5f
 
 /**
- * The deck image large over everything, [fitWidth] wide at first. A click on it zooms in there (and
- * back out), as do pinching and Ctrl+scroll; dragging or scrolling moves it, and a click beside it
- * puts it away. It records into its own layer so the saved image is untouched.
+ * The deck image large over everything, [fitWidth] wide at first; on a computer it also shrinks until
+ * its whole height fits the window, and that is 100%. A click on it zooms in there (and back out), as
+ * do pinching and Ctrl+scroll; dragging or scrolling moves it, and a click beside it puts it away. It
+ * records into its own layer so the saved image is untouched.
  */
 @Composable
 private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () -> Unit) {
@@ -398,28 +400,32 @@ private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () 
         val view = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
         val margin = with(LocalDensity.current) { 24.dp.toPx() }
         val step = with(LocalDensity.current) { 64.dp.toPx() }
+        // Phones scroll a tall image at full width; a computer window shows the whole of it at first.
+        // [zoom] is relative to this, and clicking in or zooming all the way still reaches the same real size.
+        val fit = if (isMobile || base.width == 0 || base.height == 0) 1f
+            else minOf(1f, (view.width - 2 * margin) / base.width, (view.height - 2 * margin) / base.height).coerceAtLeast(0.05f)
         // An axis that fits is centred; one that doesn't can move until its edge meets the margin.
         fun axis(o: Float, length: Float, room: Float) =
             if (length + 2 * margin <= room) (room - length) / 2 else o.coerceIn(room - margin - length, margin)
         fun placed(o: Offset = offset, z: Float = zoom) =
-            Offset(axis(o.x, base.width * z, view.width), axis(o.y, base.height * z, view.height))
+            Offset(axis(o.x, base.width * z * fit, view.width), axis(o.y, base.height * z * fit, view.height))
         // Zooms to [to], keeping the point of the image under [at] where it is.
         fun zoomAt(to: Float, at: Offset) {
-            val next = to.coerceIn(1f, MAX_ZOOM)
+            val next = to.coerceIn(1f, maxOf(1f, MAX_ZOOM / fit))
             val o = placed()
             offset = at - (at - o) * (next / zoom)
             zoom = next
             offset = placed()
         }
         fun onImage(at: Offset) = placed().let { o ->
-            at.x in o.x..(o.x + base.width * zoom) && at.y in o.y..(o.y + base.height * zoom)
+            at.x in o.x..(o.x + base.width * zoom * fit) && at.y in o.y..(o.y + base.height * zoom * fit)
         }
         val center = Offset(view.width / 2, view.height / 2)
         Box(
             Modifier.fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures { at ->
-                        if (!onImage(at)) onClose() else zoomAt(if (zoom > 1f) 1f else CLICK_ZOOM, at)
+                        if (!onImage(at)) onClose() else zoomAt(if (zoom > 1f) 1f else CLICK_ZOOM / fit, at)
                     }
                 }
                 .pointerInput(Unit) {
@@ -449,7 +455,7 @@ private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () 
                     .graphicsLayer {
                         val o = placed()
                         translationX = o.x; translationY = o.y
-                        scaleX = zoom; scaleY = zoom
+                        scaleX = zoom * fit; scaleY = zoom * fit
                         transformOrigin = TransformOrigin(0f, 0f)
                     }
                     .clip(LockOnShapes.tile),
@@ -462,7 +468,7 @@ private fun ZoomView(fitWidth: Dp, onClose: () -> Unit, content: @Composable () 
                     CenteredGlyph("−", LocalContentColor.current, 24.sp, Modifier.semantics { contentDescription = "Zoom out" })
                 }
                 Text("${(zoom * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers))
-                IconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM) {
+                IconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM / fit) {
                     Icon(Icons.Default.Add, contentDescription = "Zoom in")
                 }
                 IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close full size") }
