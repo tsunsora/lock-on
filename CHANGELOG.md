@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.11.1 (2026-11-02)
+
+Versions are now numbered by date, and Sync shows this device on its own panel.
+
+- **Versions:** numbers are now year, month and release, so this is the first release of November 2026. Updates from 1.13.4 arrive as usual.
+- **Sync:** this device has its own panel with how the last sync went, beside the device list on wide windows and above it on phones. Device tiles light up under the pointer and while they sync or send.
+- **Computer:** inside a deck, the Lock On plate in the corner turns into the way back to **Decks** (or back from **Compare versions**), in place of the editor's own back button.
+- **Export:** the full-size image grows out of its preview and shrinks back into it.
+- **Phones:** the full-size image fills the screen and zooms by pinch or double tap. Export has a third format, a large QR code of the deck, with **Copy text** and **Save QR**.
+
 ## 1.13.4 (2026-11-02)
 
 The divider in the deck editor stays where you put it, and Settings has a new layout.
