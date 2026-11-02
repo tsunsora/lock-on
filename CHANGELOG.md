@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.2 (2026-11-02)
+
+Once a deck has all its colors, adding cards shows only the ones that fit.
+
+- **Deck editor:** **Deck colors only** turns on by itself the first time the main deck reaches its color limit. Turn it off and it stays off.
+- **Settings:** a switch under **Decks** stops it turning on by itself. Sync copies it to your other devices.
+
 ## 1.13.1 (2026-10-31)
 
 Making the window bigger no longer flashes white and black.
