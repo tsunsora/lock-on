@@ -71,6 +71,14 @@ class AppUpdaterTest {
     }
 
     @Test
+    fun dateVersionsUpgradeOldNumbering() {
+        assertTrue(compareVersions("26.11.1", "1.13.4") > 0)
+        assertTrue(compareVersions("26.11.10", "26.11.9") > 0)
+        assertTrue(compareVersions("26.12.1", "26.11.30") > 0)
+        assertTrue(compareVersions("27.1.1", "26.12.5") > 0)
+    }
+
+    @Test
     fun filesResolveNextToTheFeed() {
         assertEquals("https://example.test/releases/latest/download/a.msi", resolveUpdateUrl(feed, "a.msi"))
         assertEquals("https://cdn.test/a.msi", resolveUpdateUrl(feed, "https://cdn.test/a.msi"))

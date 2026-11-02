@@ -51,7 +51,9 @@ Android only installs an update signed with the same key as the installed app, w
 
 Change `lockon.version` (and bump `lockon.versionCode` for Android) in [gradle.properties](gradle.properties). Everything else reads from there: the Android version name and code, the installer version, the version shown in Settings, and the version each device reports during sync.
 
-Installer formats need a major version above zero, which is why the first release is `1.0.0`. Keep `upgradeUuid` in [desktopApp/build.gradle.kts](desktopApp/build.gradle.kts) unchanged forever, so a new MSI upgrades an old install in place.
+Versions are dates: `YY.M.N`, where `N` counts the releases in that month from 1. The first release of November 2026 is `26.11.1`, the third is `26.11.3`, and the first of January 2027 is `27.1.1`. Don't pad the month (`27.1`, not `27.01`). `lockon.versionCode` doesn't reset; it goes up by one every release.
+
+Use the two-digit year: MSI versions can't go past 255 in the first part, so `2026.11.1` won't build. Every new version has to compare higher than the last one, or installed apps won't offer it; releases up to `1.13.4` used the old numbering, and `26.x` is higher than all of them. Keep `upgradeUuid` in [desktopApp/build.gradle.kts](desktopApp/build.gradle.kts) unchanged forever, so a new MSI upgrades an old install in place.
 
 ## Android signing
 
