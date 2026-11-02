@@ -159,7 +159,7 @@ class ScreenshotTest {
     /** Desktop-sized shots (phones are 600 px wide) include the title bar, as the Windows app shows it. */
     private fun shoot(
         name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync,
-        taps: List<androidx.compose.ui.geometry.Offset> = emptyList(), setup: AppState.() -> Unit,
+        taps: List<androidx.compose.ui.geometry.Offset> = emptyList(), hover: androidx.compose.ui.geometry.Offset? = null, setup: AppState.() -> Unit,
     ) {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
         val titleBar = if (width > 600) chrome else null
@@ -176,6 +176,11 @@ class ScreenshotTest {
                     buttons = androidx.compose.ui.input.pointer.PointerButtons(isPrimaryPressed = true), button = androidx.compose.ui.input.pointer.PointerButton.Primary)
                 scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse,
                     button = androidx.compose.ui.input.pointer.PointerButton.Primary)
+                repeat(8) { Thread.sleep(150); time += 100_000_000L; image = scene.render(time) }
+            }
+            // A mouse resting at [hover], for hover effects.
+            if (hover != null) {
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, hover, type = androidx.compose.ui.input.pointer.PointerType.Mouse)
                 repeat(8) { Thread.sleep(150); time += 100_000_000L; image = scene.render(time) }
             }
             File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
@@ -252,6 +257,12 @@ class ScreenshotTest {
     @Test fun renderDeviceSync() {
         shoot("phone-sync-devices", 600, 1260, controller = client) { select(Tab.SYNC) }
         shoot("light-phone-sync-devices", 600, 1260, dark = false, controller = client) { select(Tab.SYNC) }
+        shoot("desktop-sync-devices-idle", 1980, 1290, controller = client) { select(Tab.SYNC) }
+        shoot("desktop-sync-hover", 1980, 1290, controller = client, hover = androidx.compose.ui.geometry.Offset(1180f, 600f)) { select(Tab.SYNC) }
+        shoot("light-desktop-sync-hover", 1980, 1290, dark = false, controller = client, hover = androidx.compose.ui.geometry.Offset(1180f, 600f)) { select(Tab.SYNC) }
+        client.transfers.value = mapOf("desk-1" to app.lockon.sync.SyncTransfer("DESKTOP-VPP8OD2", app.lockon.sync.SyncMode.MERGE,
+            app.lockon.sync.SyncTransfer.State.WORKING, null))
+        shoot("phone-sync-working", 600, 1260, controller = client) { select(Tab.SYNC) }
         val summary = app.lockon.sync.MirrorSummary(updated = 3, added = 2, removed = 1, settings = true)
         client.transfers.value = mapOf("desk-1" to app.lockon.sync.SyncTransfer("DESKTOP-VPP8OD2", app.lockon.sync.SyncMode.TAKE,
             app.lockon.sync.SyncTransfer.State.DONE, app.lockon.sync.matchedMessage("This phone", "DESKTOP-VPP8OD2", summary)))

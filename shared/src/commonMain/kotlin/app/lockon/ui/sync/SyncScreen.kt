@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -138,6 +139,12 @@ import app.lockon.ui.components.VerticalScrollBar
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.glide
+import app.lockon.ui.components.Spotlight
+import app.lockon.ui.components.dealIn
+import app.lockon.ui.components.rememberSpotlight
+import app.lockon.ui.components.spotlightArea
+import app.lockon.ui.components.spotlit
+import app.lockon.ui.components.workingRim
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.components.pressScale
 import app.lockon.ui.theme.LockOnShapes
@@ -175,10 +182,16 @@ fun SyncScreen(
     }
 }
 
-/** A page's scrolling column, centred and no wider than [maxWidth] so it reads the same everywhere. */
+/** Windows at least this wide put a page's two parts side by side. */
+private val SideBySide = 840.dp
+
+/**
+ * A page's scrolling column, centred and no wider than [maxWidth] so it reads the same everywhere.
+ * Tiles marked with the [spotlight] catch a light that follows the pointer anywhere over the page.
+ */
 @Composable
-private fun SyncPage(maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+private fun SyncPage(spotlight: Spotlight, maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize().spotlightArea(spotlight)) {
         val scrollState = rememberScrollState()
         val clearance = LocalNavClearance.current
         Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
@@ -192,22 +205,51 @@ private fun SyncPage(maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
     }
 }
 
-/** This device's name, with the beacon that says it can be found. */
+/**
+ * This device: the beacon that says it can be found, its name, and how the last sync went, on one
+ * glass panel. [tall] stacks them round a bigger beacon, for the side column of a wide window.
+ */
 @Composable
-private fun ThisDevice(deviceName: String, isHost: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Beacon(Modifier.size(44.dp))
-        Column(Modifier.weight(1f)) {
-            Text(deviceName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                "${if (isHost) "This computer" else "This phone"} can be found by Lock On on the same Wi-Fi.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+private fun ThisDevicePanel(
+    deviceName: String,
+    status: SyncStatus,
+    tall: Boolean,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    more: @Composable ColumnScope.() -> Unit = {},
+) {
+    // A non-breaking hyphen, so "Wi-Fi" never splits over two lines.
+    val caption = "Visible to Lock On on this Wi‑Fi"
+    Column(
+        modifier.dealIn("this-device", 0).glass(LockOnShapes.panel)
+            .animateContentSize(glide())
+            .padding(horizontal = 18.dp, vertical = if (tall) 22.dp else 16.dp),
+        horizontalAlignment = if (tall) Alignment.CenterHorizontally else Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (tall) {
+            Beacon(Modifier.size(104.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(deviceName, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Beacon(Modifier.size(56.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(deviceName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
+        if (status.message != null) StatusStrip(status, Modifier.fillMaxWidth())
+        more()
     }
 }
 
-/** A dot in a ring of dashes that turns slowly: this device is listening. Still with reduced motion. */
+/**
+ * A dot in a ring of dashes that turns slowly over a soft glow: this device is listening. Still with
+ * reduced motion.
+ */
 @Composable
 private fun Beacon(modifier: Modifier = Modifier) {
     val reduce = LocalReduceMotion.current
@@ -219,9 +261,11 @@ private fun Beacon(modifier: Modifier = Modifier) {
     }
     Canvas(modifier) {
         val r = size.minDimension / 2
-        drawCircle(color, radius = r * 0.54f)
-        val stroke = r * 0.16f
-        val ring = r - stroke / 2
+        drawCircle(Brush.radialGradient(listOf(color.copy(alpha = 0.32f), color.copy(alpha = 0f)), center, r), radius = r)
+        drawCircle(color.copy(alpha = 0.18f), radius = r * 0.62f)
+        drawCircle(color, radius = r * 0.36f)
+        val stroke = r * 0.09f
+        val ring = r * 0.82f - stroke / 2
         rotate(angle?.value ?: 0f) {
             repeat(8) { i ->
                 drawArc(
@@ -272,14 +316,15 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
         }
     }
 
-    SyncPage {
-        StatusLine(status)
-        ThisDevice(deviceName, isHost)
+    val spotlight = rememberSpotlight()
+    val about = "Syncing makes one device match the other: decks with their history, folders, match logs, settings, " +
+        "the ruleset and the card list. Devices pair once, after checking both show the same number."
+    val devices: @Composable () -> Unit = {
         SectionHeader("Your devices", Modifier.heightIn(min = ControlSize)) {
             GlassIconButton(Icons.Default.Add, "Connect by address or QR code", onClick = { showOther = true })
         }
         if (paired.isEmpty() && unpaired.isEmpty()) SearchingCard()
-        paired.forEach { device ->
+        paired.forEachIndexed { i, device ->
             PairedTile(
                 device = device,
                 transfer = transfers[device.deviceId],
@@ -287,31 +332,53 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
                     is ClientSyncController -> autoStates[device.deviceId]?.let { it.label to (it == AutoSyncState.LIVE) }
                     is HostSyncController -> if (device.deviceId in liveClients) "Merging automatically" to true else null
                 },
+                spotlight = spotlight,
+                index = i + 1,
                 onTap = { choosing = device.deviceId },
                 onClear = { controller.clearTransfer(device.deviceId) },
             )
         }
         if (unpaired.isNotEmpty()) {
-            Text(if (paired.isEmpty()) "Nearby" else "Nearby, not paired yet", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            unpaired.forEach { device ->
+            SectionHeader(if (paired.isEmpty()) "Nearby" else "Nearby, not paired yet")
+            unpaired.forEachIndexed { i, device ->
                 DeviceTile(
                     device = device,
                     send = null,
                     inviting = device.deviceId in invited,
                     hint = "Tap to pair and sync",
+                    spotlight = spotlight,
+                    index = paired.size + i + 1,
                     onTap = { if (device.compatible) pair(device) },
                     onCancel = { (controller as? HostSyncController)?.cancelInvite(device.deviceId); pairingWith = null },
                 )
             }
         }
-        Text(
-            "Syncing makes one device match the other: decks with their history, folders, match logs, settings, " +
-                "the ruleset and the card list. Devices pair once, after checking both show the same number.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val sideBySide = maxWidth >= SideBySide
+        SyncPage(spotlight, maxWidth = if (sideBySide) 980.dp else 620.dp) {
+            if (sideBySide) {
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    // This device stays to the side, with what syncing does and where to turn when a device won't show.
+                    ThisDevicePanel(deviceName, status, tall = true, modifier = Modifier.width(340.dp)) {
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)))
+                        Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            GameButton("QR code or address", onClick = { showOther = true }, style = GameButtonStyle.GHOST, compact = true)
+                            GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
+                        }
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { devices() }
+                }
+            } else {
+                ThisDevicePanel(deviceName, status, tall = false)
+                devices()
+                Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
+                }
+            }
         }
     }
 
@@ -366,13 +433,22 @@ private fun SyncTransfer.label(): String = message ?: when (state) {
  * how it went until cleared.
  */
 @Composable
-private fun PairedTile(device: PairedDevice, transfer: SyncTransfer?, live: Pair<String, Boolean>?, onTap: () -> Unit, onClear: () -> Unit) {
+private fun PairedTile(
+    device: PairedDevice,
+    transfer: SyncTransfer?,
+    live: Pair<String, Boolean>?,
+    spotlight: Spotlight,
+    index: Int,
+    onTap: () -> Unit,
+    onClear: () -> Unit,
+) {
     val interaction = remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
     val busy = transfer?.active == true
     val celebrate = if (isTwilight()) Gold else scheme.tertiary
     Column(
-        Modifier.fillMaxWidth().pressScale(interaction).glass(LockOnShapes.tile)
+        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).glass(LockOnShapes.tile)
+            .spotlit(spotlight, LockOnShapes.tile).workingRim(busy, LockOnShapes.tile)
             .clickable(interaction, indication = null, enabled = !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
             .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
@@ -555,18 +631,21 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
     // Decks deleted since they were chosen drop out of the selection.
     val selected = chosen.mapNotNull { id -> decks.firstOrNull { it.deckId == id } }
     val isHost = controller is HostSyncController
+    val spotlight = rememberSpotlight()
 
     val where: @Composable () -> Unit = {
         SectionHeader("Send to", Modifier.heightIn(min = ControlSize))
         if (sharing == null) {
             Text("This device can't send decks.", style = MaterialTheme.typography.bodyMedium)
         } else if (targets.isEmpty()) SearchingCard()
-        targets.forEach { device ->
+        targets.forEachIndexed { i, device ->
             DeviceTile(
                 device = device,
                 send = outgoing[device.deviceId],
                 inviting = false,
-                hint = null,
+                hint = if (selected.isEmpty()) "Tap to choose decks" else "Tap to send ${deckCount(selected.size)}",
+                spotlight = spotlight,
+                index = i,
                 onTap = {
                     when {
                         !device.compatible -> Unit
@@ -588,11 +667,11 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val sideBySide = sharing != null && maxWidth >= 840.dp
-        SyncPage(maxWidth = if (sideBySide) 980.dp else 620.dp) {
-            StatusLine(status)
+        val sideBySide = sharing != null && maxWidth >= SideBySide
+        SyncPage(spotlight, maxWidth = if (sideBySide) 980.dp else 620.dp) {
+            StatusStrip(status, Modifier.fillMaxWidth())
             val what: @Composable () -> Unit = {
-                WhatToSend(decks, selected, onChoose = { choosing = true }, onChosen = onChosen)
+                WhatToSend(decks, selected, spotlight, onChoose = { choosing = true }, onChosen = onChosen)
             }
             when {
                 sideBySide -> Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -616,16 +695,29 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
     if (troubleshoot) TroubleshootDialog(isHost, onDismiss = { troubleshoot = false }, onOtherWays = null)
 }
 
+/**
+ * How the last sync went, on a tinted strip inside the panel: a spinner while it works, caution
+ * stripes when it failed (each with its words, UX rule V7), and a teal dot otherwise.
+ */
 @Composable
-private fun StatusLine(status: SyncStatus) {
+private fun StatusStrip(status: SyncStatus, modifier: Modifier = Modifier) {
     val message = status.message ?: return
-    Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (status.isError) CautionStripes(Modifier.width(8.dp).fillMaxHeight())
-        if (status.working) ReticleSpinner(size = 18.dp)
+    val scheme = MaterialTheme.colorScheme
+    val tone = if (status.isError) scheme.error else scheme.primary
+    Row(
+        modifier.height(IntrinsicSize.Min).clip(LockOnShapes.tile).background(tone.copy(alpha = 0.1f))
+            .padding(end = 12.dp, start = if (status.isError) 0.dp else 12.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        when {
+            status.isError -> CautionStripes(Modifier.width(8.dp).fillMaxHeight())
+            status.working -> ReticleSpinner(size = 16.dp)
+            else -> Box(Modifier.size(8.dp).clip(CircleShape).background(tone))
+        }
         Text(
-            message,
-            color = if (status.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
+            message, style = MaterialTheme.typography.bodySmall,
+            color = if (status.isError) scheme.error else scheme.onSurface, modifier = Modifier.weight(1f, fill = false),
         )
     }
 }
@@ -638,7 +730,9 @@ private fun deckCount(n: Int) = if (n == 1) "1 deck" else "$n decks"
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WhatToSend(decks: List<DeckSummary>, selected: List<DeckSummary>, onChoose: () -> Unit, onChosen: (List<String>) -> Unit) {
+private fun WhatToSend(
+    decks: List<DeckSummary>, selected: List<DeckSummary>, spotlight: Spotlight, onChoose: () -> Unit, onChosen: (List<String>) -> Unit,
+) {
     val ids = selected.map { it.deckId }
     val folders = remember(decks) {
         decks.groupBy { it.snapshot.folder }.mapNotNull { (folder, inIt) -> folder?.let { it to inIt.map { d -> d.deckId } } }
@@ -651,8 +745,8 @@ private fun WhatToSend(decks: List<DeckSummary>, selected: List<DeckSummary>, on
     if (selected.isEmpty()) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val tile = Modifier.weight(1f)
-            PickTile("Choose decks", Icons.Default.Add, tile, enabled = decks.isNotEmpty(), onClick = onChoose)
-            if (decks.size in 1..ShareInbox.MAX_DECKS) PickTile("All ${decks.size} decks", Icons.Default.Done, tile) { onChosen(decks.map { it.deckId }) }
+            PickTile("Choose decks", Icons.Default.Add, spotlight, tile, enabled = decks.isNotEmpty(), onClick = onChoose)
+            if (decks.size in 1..ShareInbox.MAX_DECKS) PickTile("All ${decks.size} decks", Icons.Default.Done, spotlight, tile) { onChosen(decks.map { it.deckId }) }
         }
         if (decks.isEmpty()) Text("Build a deck first, then send it from here.", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -678,11 +772,14 @@ private fun WhatToSend(decks: List<DeckSummary>, selected: List<DeckSummary>, on
 
 /** One way to choose what to send, as a big glass tile. */
 @Composable
-private fun PickTile(label: String, icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+private fun PickTile(
+    label: String, icon: ImageVector, spotlight: Spotlight, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit,
+) {
     val interaction = remember { MutableInteractionSource() }
     val ink = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Column(
         modifier.heightIn(min = 84.dp).pressScale(interaction).glass(LockOnShapes.tile)
+            .then(if (enabled) Modifier.spotlit(spotlight, LockOnShapes.tile) else Modifier)
             .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(vertical = 14.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -776,6 +873,8 @@ private fun DeviceTile(
     send: OutgoingShare?,
     inviting: Boolean,
     hint: String?,
+    spotlight: Spotlight,
+    index: Int,
     onTap: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -784,7 +883,8 @@ private fun DeviceTile(
     val busy = send?.active == true || inviting
     val celebrate = if (isTwilight()) Gold else scheme.tertiary
     Column(
-        Modifier.fillMaxWidth().pressScale(interaction).glass(LockOnShapes.tile)
+        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).glass(LockOnShapes.tile)
+            .spotlit(spotlight, LockOnShapes.tile).workingRim(busy, LockOnShapes.tile)
             .clickable(interaction, indication = null, enabled = device.compatible && !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
             .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
