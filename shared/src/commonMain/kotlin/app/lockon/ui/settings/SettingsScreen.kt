@@ -63,6 +63,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val start by settings.start.collectAsState()
     val editorBar by settings.editorBar.collectAsState()
     val catalogChecks by settings.catalogChecks.collectAsState()
+    val autoDeckColors by settings.autoDeckColors.collectAsState()
     val showArtwork by container.catalog.showArtwork.collectAsState()
     // The name is read once at launch, so a new one shows here until then.
     var deviceName by remember { mutableStateOf(container.identity.deviceName) }
@@ -98,6 +99,9 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
         }
 
         SettingsGroup("Decks") {
+            Toggle("Show only deck colors once a deck has all its colors", autoDeckColors) {
+                scope.launch { settings.setAutoDeckColors(it) }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Back up all decks", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                 GameButton("Back up", style = GameButtonStyle.SECONDARY, compact = true, onClick = {

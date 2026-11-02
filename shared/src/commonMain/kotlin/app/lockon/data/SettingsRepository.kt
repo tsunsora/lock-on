@@ -46,6 +46,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _lastTab = MutableStateFlow<String?>(null)
     private val _size = MutableStateFlow(InterfaceSize.DEFAULT)
     private val _catalogChecks = MutableStateFlow(true)
+    private val _autoDeckColors = MutableStateFlow(true)
     private val _welcomed = MutableStateFlow(true)
     private val _editorBar = MutableStateFlow(EditorBarOrder.MORE_ADD_DECK)
 
@@ -57,6 +58,8 @@ class SettingsRepository(private val meta: MetaDao) {
     val size: StateFlow<InterfaceSize> = _size.asStateFlow()
     /** Whether Lock On looks for a newer official card list once a week. On unless turned off. */
     val catalogChecks: StateFlow<Boolean> = _catalogChecks.asStateFlow()
+    /** Whether the editor's "Deck colors only" filter turns on once a deck reaches its color limit. On unless turned off. */
+    val autoDeckColors: StateFlow<Boolean> = _autoDeckColors.asStateFlow()
     /** Whether the welcome tour has been seen or skipped; false only on a fresh install. */
     val welcomed: StateFlow<Boolean> = _welcomed.asStateFlow()
     val editorBar: StateFlow<EditorBarOrder> = _editorBar.asStateFlow()
@@ -68,6 +71,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _lastTab.value = meta.get(KEY_LAST_TAB)
         _size.value = enumOr(meta.get(KEY_SIZE), InterfaceSize.DEFAULT)
         _catalogChecks.value = meta.get(KEY_CATALOG_CHECKS) != "false"
+        _autoDeckColors.value = meta.get(KEY_AUTO_DECK_COLORS) != "false"
         _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.MORE_ADD_DECK)
         // Lock On remembers its last tab from the first launch on, so a stored tab means someone
         // used it before the tour existed and needs no welcome.
@@ -87,6 +91,7 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setWelcomed() { _welcomed.value = true; meta.put(MetaEntity(KEY_WELCOMED, "true")) }
     suspend fun setEditorBar(order: EditorBarOrder) { _editorBar.value = order; meta.put(MetaEntity(KEY_EDITOR_BAR, order.name)) }
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
+    suspend fun setAutoDeckColors(on: Boolean) { _autoDeckColors.value = on; meta.put(MetaEntity(KEY_AUTO_DECK_COLORS, on.toString())) }
 
     /** The preferences a device takes on when it's made to match this one. Where Lock On was left and the welcome tour stay per device. */
     fun synced(): Map<String, String> = mapOf(
@@ -95,6 +100,7 @@ class SettingsRepository(private val meta: MetaDao) {
         KEY_START to _start.value.name,
         KEY_SIZE to _size.value.name,
         KEY_CATALOG_CHECKS to _catalogChecks.value.toString(),
+        KEY_AUTO_DECK_COLORS to _autoDeckColors.value.toString(),
     )
 
     /** Takes on another device's [synced] preferences; keys this version doesn't know are skipped. */
@@ -104,6 +110,7 @@ class SettingsRepository(private val meta: MetaDao) {
         values[KEY_START]?.let { setStart(enumOr(it, _start.value)) }
         values[KEY_SIZE]?.let { setSize(enumOr(it, _size.value)) }
         values[KEY_CATALOG_CHECKS]?.toBooleanStrictOrNull()?.let { setCatalogChecks(it) }
+        values[KEY_AUTO_DECK_COLORS]?.toBooleanStrictOrNull()?.let { setAutoDeckColors(it) }
     }
 
     private inline fun <reified E : Enum<E>> enumOr(stored: String?, default: E): E =
@@ -116,6 +123,7 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_LAST_TAB = "settings.lastTab"
         const val KEY_SIZE = "settings.size"
         const val KEY_CATALOG_CHECKS = "settings.catalogChecks"
+        const val KEY_AUTO_DECK_COLORS = "settings.autoDeckColors"
         const val KEY_WELCOMED = "settings.welcomed"
         const val KEY_EDITOR_BAR = "settings.editorBar"
     }
