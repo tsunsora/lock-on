@@ -157,7 +157,10 @@ class ScreenshotTest {
     )
 
     /** Desktop-sized shots (phones are 600 px wide) include the title bar, as the Windows app shows it. */
-    private fun shoot(name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync, setup: AppState.() -> Unit) {
+    private fun shoot(
+        name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync,
+        taps: List<androidx.compose.ui.geometry.Offset> = emptyList(), setup: AppState.() -> Unit,
+    ) {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
         val titleBar = if (width > 600) chrome else null
         ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, chrome = titleBar) }.use { scene ->
@@ -165,6 +168,16 @@ class ScreenshotTest {
             // Let Room flows settle and the boot screen's 2.5 s minimum pass, and advance the frame clock
             // so animations reach their end state.
             repeat(15) { frame -> Thread.sleep(200); image = scene.render((frame + 1) * 100_000_000L) }
+            // Taps are in pixels, each followed by time for what it opens to finish animating.
+            var time = 15 * 100_000_000L
+            for (tap in taps) {
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse,
+                    buttons = androidx.compose.ui.input.pointer.PointerButtons(isPrimaryPressed = true), button = androidx.compose.ui.input.pointer.PointerButton.Primary)
+                scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse,
+                    button = androidx.compose.ui.input.pointer.PointerButton.Primary)
+                repeat(8) { Thread.sleep(150); time += 100_000_000L; image = scene.render(time) }
+            }
             File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
     }
@@ -251,6 +264,19 @@ class ScreenshotTest {
         repeat(6) { stop -> shoot("desktop-tour-$stop", 1980, 1290, dark = stop % 2 == 1) { touring = true; tourStop = stop } }
         shoot("phone-tour-1", 600, 1260, dark = false) { touring = true; tourStop = 1 }
         shoot("phone-tour-2", 600, 1260) { touring = true; tourStop = 2 }
+    }
+
+    /** Settings in both layouts and themes, and the phone editor's More menu open over the Deck page. */
+    @Test fun renderSettingsAndMoreMenu() {
+        shoot("desktop-settings", 1980, 1290) { select(Tab.SETTINGS) }
+        shoot("light-desktop-settings", 1980, 1290, dark = false) { select(Tab.SETTINGS) }
+        shoot("phone-settings", 600, 1260) { select(Tab.SETTINGS) }
+        shoot("light-phone-settings", 600, 1260, dark = false) { select(Tab.SETTINGS) }
+        shoot("phone-settings-full", 600, 3000) { select(Tab.SETTINGS) }
+        // More is the bar's first button: the 300 dp pill is centred in the 400 dp phone, 30 dp above the bottom margin.
+        val more = androidx.compose.ui.geometry.Offset(150f, 1260f - 1.5f * 42f)
+        shoot("phone-more-menu", 600, 1260, taps = listOf(more)) { open(Screen.DeckEditor(deckId)) }
+        shoot("light-phone-more-menu", 600, 1260, dark = false, taps = listOf(more)) { open(Screen.DeckEditor(deckId)) }
     }
 
     @Test fun renderScreens() {

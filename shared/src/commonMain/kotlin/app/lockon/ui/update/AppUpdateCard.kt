@@ -43,13 +43,21 @@ fun AppUpdateCard(updater: AppUpdater?, scope: CoroutineScope) {
     GlassCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionHeader("Lock On")
-            Text("Version ${BuildInfo.VERSION}", style = MaterialTheme.typography.titleSmall)
-            if (updater == null || !updater.enabled) {
-                Text("This build doesn't check for updates.", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                UpdateBody(updater, scope)
-            }
+            AppUpdateSection(updater, scope)
+        }
+    }
+}
+
+/** What [AppUpdateCard] holds under its heading, for a screen that draws its own group around it. */
+@Composable
+fun AppUpdateSection(updater: AppUpdater?, scope: CoroutineScope) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Version ${BuildInfo.VERSION}", style = MaterialTheme.typography.titleSmall)
+        if (updater == null || !updater.enabled) {
+            Text("This build doesn't check for updates.", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            UpdateBody(updater, scope)
         }
     }
 }
