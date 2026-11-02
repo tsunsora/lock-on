@@ -110,6 +110,7 @@ private const val TILES_PER_FRAME = 4
  * whole cards; the list is denser. With [controls], each card gets the deck's − / + and tags.
  *
  * @param deckColors when set, offers "Deck colors only" so a two-color deck can hide the rest.
+ * @param maxColors the ruleset's color limit; reaching it turns "Deck colors only" on.
  * @param selected highlights the card shown in a side panel.
  * @param scrollToTop goes up by one each time the results should go back to the top.
  * @param trailing extra controls at the end of the search row, such as the editor's Add to switch.
@@ -122,6 +123,7 @@ fun CardSearchPanel(
     modifier: Modifier = Modifier,
     focusRequests: Int = 0,
     deckColors: Set<CardColor>? = null,
+    maxColors: Int? = null,
     controls: DeckControls? = null,
     selected: String? = null,
     wide: Boolean = false,
@@ -134,6 +136,15 @@ fun CardSearchPanel(
     // Whole-card grid by default: the card images are the clearest way to browse.
     var grid by rememberSaveable { mutableStateOf(true) }
     var deckColorsOnly by rememberSaveable { mutableStateOf(false) }
+    // The filter turns itself on once, when the deck reaches its color limit; turning it off sticks.
+    var deckColorsAutoOn by rememberSaveable { mutableStateOf(false) }
+    val deckColorsFull = maxColors != null && deckColors != null && deckColors.size >= maxColors
+    LaunchedEffect(deckColorsFull) {
+        if (deckColorsFull && !deckColorsAutoOn) {
+            deckColorsOnly = true
+            deckColorsAutoOn = true
+        }
+    }
     var sortMenu by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(focusRequests) { if (focusRequests > 0) runCatching { focus.requestFocus() } }

@@ -209,6 +209,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val cards by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
+    val autoDeckColors by container.settings.autoDeckColors.collectAsState()
     val barOrder by container.settings.editorBar.collectAsState()
     val allDecks by container.decks.liveDecks.collectAsState(initial = emptyList())
     val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
@@ -464,7 +465,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                     CardSearchPanel(
                         addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
-                        focusRequests = focusSeen[0], deckColors = deckColors, wide = wide,
+                        focusRequests = focusSeen[0], deckColors = deckColors, maxColors = ruleset.maxColors.takeIf { autoDeckColors }, wide = wide,
                         controls = controls, scrollToTop = cardsToTop,
                         trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max), Modifier.padding(start = 14.dp)) }) else null,
                     )
