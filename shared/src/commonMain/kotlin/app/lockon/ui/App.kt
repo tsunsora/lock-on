@@ -163,6 +163,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.lockon.ui.components.collectIsPressedHeld
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.DECKS -> Icons.Default.List
@@ -411,7 +418,10 @@ fun LockOnApp(
                     SyncPrompts(sync)
                     if (wide) {
                         val density = LocalDensity.current
-                        FloatingTopNav(state.tab, state::select, icon = { TabIcon(it) }, trailing = chrome?.controls) { start, end, height ->
+                        FloatingTopNav(
+                            state.tab, state::select, icon = { TabIcon(it) },
+                            back = when (state.current) { null -> null; is Screen.Conflict -> "Back"; else -> "Decks" }, onBack = state::goBack,
+                            trailing = chrome?.controls) { start, end, height ->
                             band = with(density) { TopBand(height.toDp(), start.toDp(), end.toDp()) }
                         }
                     }
@@ -523,6 +533,9 @@ private fun FloatingTopNav(
     selected: Tab,
     onSelect: (Tab) -> Unit,
     icon: @Composable (Tab) -> Unit,
+    /** Inside a deck: what the player card goes back to; null shows the brand. */
+    back: String?,
+    onBack: () -> Unit,
     /** The window controls on desktop, just right of the pill, so the band keeps clear of them too. */
     trailing: (@Composable () -> Unit)?,
     /** Reports, in pixels, the room the plates take at the start and end, and the band's height. */
@@ -537,7 +550,7 @@ private fun FloatingTopNav(
         }
     }
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(12.dp)) {
-        Box(Modifier.align(Alignment.TopStart).onSizeChanged { start = it }) { PlayerCard() }
+        Box(Modifier.align(Alignment.TopStart).onSizeChanged { start = it }) { PlayerCard(back, onBack) }
         Row(
             Modifier.align(Alignment.TopEnd).onSizeChanged { end = it },
             verticalAlignment = Alignment.CenterVertically,
@@ -558,43 +571,89 @@ private val CaptionHeight = 64.dp
 
 private val TrayShape = RoundedCornerShape(24.dp)
 
-/** The brand as a player card: a ringed badge with the Lock On mark overlapping a glass name plate. */
+/**
+ * The brand as a player card: a ringed badge with the Lock On mark overlapping a glass name plate.
+ * Inside a deck it becomes the way out ([back] names where it goes): the reticle turns into an
+ * arrow, the name gives way to [back], and the whole plate is the button, so going back keeps the
+ * corner people look to for it.
+ */
 @Composable
-private fun PlayerCard() {
+private fun PlayerCard(back: String?, onBack: () -> Unit) {
     val accent = Accent
-    Box(contentAlignment = Alignment.CenterStart) {
+    val scheme = MaterialTheme.colorScheme
+    // Kept while the plate turns back into the brand, so the label fades out rather than vanishing.
+    var lastBack by remember { mutableStateOf("Decks") }
+    if (back != null) lastBack = back
+    val turn by animateFloatAsState(if (back != null) 1f else 0f, motion(Motion.LONG), label = "player-card-back")
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedHeld()
+    val live = back != null
+    val squish by animateFloatAsState(if (live && pressed) 0.96f else 1f, motion(Motion.SHORT), label = "player-card-press")
+    val glow by animateFloatAsState(if (live && hovered) 0.38f else 0.2f, motion(Motion.SHORT), label = "player-card-glow")
+    val ring by animateColorAsState(if (live && hovered) accent.copy(alpha = 0.7f) else Color.Transparent, motion(Motion.SHORT), label = "player-card-ring")
+    val textStyle = MaterialTheme.typography.headlineSmall
+    Box(
+        Modifier.graphicsLayer { scaleX = squish; scaleY = squish }
+            .then(
+                if (live) Modifier.hoverable(interaction)
+                    .clickable(interaction, indication = null, role = Role.Button, onClickLabel = "Back to ${back.lowercase()}", onClick = onBack)
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .semantics { contentDescription = "Back to ${back.lowercase()}" }
+                else Modifier,
+            ),
+        contentAlignment = Alignment.CenterStart,
+    ) {
         Box(
             Modifier.padding(start = 30.dp)
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
+                .border(1.dp, ring, NamePlate)
                 // Teal light spilling from the badge into the plate ties the two together.
-                .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent), endX = size.width * 0.7f)) }
+                .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = glow), Color.Transparent), endX = size.width * 0.7f)) }
                 .padding(start = 44.dp, end = 22.dp, top = 9.dp, bottom = 10.dp),
         ) {
+            // Both names are laid out at once, so the plate keeps one width and nothing beside it moves.
             Text(
-                "Lock On", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface,
+                "Lock On", style = textStyle, color = scheme.onSurface, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.2.sp,
+                modifier = Modifier.graphicsLayer { alpha = 1f - turn; translationY = -turn * 10.dp.toPx() },
+            )
+            Text(
+                lastBack, style = textStyle, color = if (hovered && live) scheme.primary else scheme.onSurface,
                 fontWeight = FontWeight.ExtraBold, letterSpacing = 0.2.sp,
+                modifier = Modifier.graphicsLayer { alpha = turn; translationY = (1f - turn) * 10.dp.toPx() },
             )
         }
-        LevelBadge()
+        LevelBadge(turn, ring)
     }
 }
 
 private val NamePlate = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 22.dp, bottomEnd = 22.dp)
 
-/** The round badge: the Lock On mark on the same teal-lit glass as the name plate, like a level badge. */
+/**
+ * The round badge: the Lock On mark on the same teal-lit glass as the name plate, like a level
+ * badge. As [turn] goes to 1 the reticle spins away and a back arrow spins in where it was.
+ */
 @Composable
-private fun LevelBadge() {
+private fun LevelBadge(turn: Float, ring: Color) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
     Box(
         Modifier.size(64.dp).shadow(10.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
             // Solid underneath, so the plate behind never shows through the glass.
             .background(scheme.background, CircleShape).glass(CircleShape, strong = true)
+            .border(1.dp, ring, CircleShape)
             .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent), endX = size.width * 0.7f)) },
         contentAlignment = Alignment.Center,
     ) {
-        LockOnMark(size = 36.dp, reticleColor = scheme.onSurface)
+        LockOnMark(
+            size = 36.dp, reticleColor = scheme.onSurface,
+            modifier = Modifier.graphicsLayer { alpha = 1f - turn; rotationZ = turn * 90f; scaleX = 1f - turn * 0.4f; scaleY = 1f - turn * 0.4f },
+        )
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = scheme.onSurface,
+            modifier = Modifier.size(30.dp).graphicsLayer { alpha = turn; rotationZ = (turn - 1f) * 90f; scaleX = 0.6f + turn * 0.4f; scaleY = 0.6f + turn * 0.4f },
+        )
     }
 }
 

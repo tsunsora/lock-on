@@ -332,8 +332,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // A solid round button, so the way out reads as a control rather than a stray glyph.
-                GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back to decks", state::goBack)
-                Spacer(Modifier.width(14.dp))
+                // Wide windows go back from the player card in the corner instead.
+                if (!wide) {
+                    GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back to decks", state::goBack)
+                    Spacer(Modifier.width(14.dp))
+                }
                 if (wide && roomy) {
                     // A small cover that sits inside the band with air around it, not edge to edge.
                     val thumb = Modifier.padding(end = 14.dp).padding(vertical = 6.dp).height(48.dp)

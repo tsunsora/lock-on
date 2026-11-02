@@ -61,7 +61,8 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", state::goBack)
+            // Wide windows go back from the player card in the corner.
+            if (!wide) GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", state::goBack)
             // The versions side by side, each with Keep, say the rest.
             Text("Compare versions", style = MaterialTheme.typography.titleLarge)
         }
