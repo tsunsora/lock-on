@@ -404,6 +404,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         // Tapping the open tab again on phones takes its list back to the top.
         var deckToTop by remember(deckId) { mutableIntStateOf(0) }
         var cardsToTop by remember(deckId) { mutableIntStateOf(0) }
+        // The editor stays built after you leave (KeptScreens), so each time the deck opens again both
+        // lists start back at the top. It jumps while the screen is still faded out, so nothing shows it.
+        var opened by remember(deckId) { mutableIntStateOf(0) }
+        val showing = (state.current as? Screen.DeckEditor)?.deckId == deckId
+        LaunchedEffect(showing) { if (showing) opened++ }
         // Kept for every deck, so the editor opens the way the person last arranged it.
         val split = remember { mutableFloatStateOf(DEFAULT_SPLIT) }
         LaunchedEffect(Unit) { container.database.metaDao().get(KEY_EDITOR_SPLIT)?.toFloatOrNull()?.let { split.floatValue = it } }
@@ -416,6 +421,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 cardView = cardView, onCardView = { cardView = it },
                 onAddCards = if (wide) null else ({ phoneTab = 1 }),
                 scrollToTop = deckToTop,
+                jumpToTop = opened,
                 onCardClick = { detail = it },
                 onChange = { card, delta -> change(card, delta) },
                 onSideChange = { card, delta -> change(card, delta, DeckSection.SIDE) },
@@ -466,7 +472,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     CardSearchPanel(
                         addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
                         focusRequests = focusSeen[0], deckColors = deckColors, maxColors = ruleset.maxColors.takeIf { autoDeckColors }, wide = wide,
-                        controls = controls, scrollToTop = cardsToTop,
+                        controls = controls, scrollToTop = cardsToTop, jumpToTop = opened,
                         trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max), Modifier.padding(start = 14.dp)) }) else null,
                     )
                 }
@@ -701,6 +707,8 @@ private fun DeckList(
     onAddCards: (() -> Unit)?,
     /** Goes up by one each time the list should go back to the top. */
     scrollToTop: Int,
+    /** Goes up by one each time the list should be at the top at once, without scrolling there. */
+    jumpToTop: Int,
     onCardClick: (GameCard) -> Unit,
     onChange: (GameCard, Int) -> Unit,
     onSideChange: (GameCard, Int) -> Unit,
@@ -719,6 +727,7 @@ private fun DeckList(
     val gap = if (compact) 8.dp else 6.dp
     val listState = rememberLazyListState()
     LaunchedEffect(scrollToTop) { if (scrollToTop > 0) listState.animateScrollToItem(0) }
+    LaunchedEffect(jumpToTop) { if (jumpToTop > 0) listState.scrollToItem(0) }
     val side = remember(deck, cards) {
         deck.entries.filter { it.section == DeckSection.SIDE }.sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
     }
