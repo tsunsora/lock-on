@@ -1,5 +1,4 @@
 package app.lockon.ui.decks
-import app.lockon.ui.components.fadeEnd
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.DeckGlance
 import app.lockon.io.ExportOrder
@@ -22,8 +21,23 @@ import app.lockon.ui.components.SkyBackground
 import app.lockon.ui.components.PillTabs
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
+import app.lockon.ui.components.GameIcons
+import app.lockon.ui.components.GameMenuItem
+import app.lockon.ui.components.GlassIconButton
+import app.lockon.ui.components.LocalReduceMotion
+import app.lockon.ui.components.MenuChip
+import app.lockon.ui.components.PillSegmented
+import app.lockon.ui.components.SlidingPages
+import app.lockon.ui.components.dealIn
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.delay
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -232,46 +246,63 @@ private fun DeckExport(
             )
         }
     }
-    // Phones confirm a copy themselves, so the phone layout doesn't add a toast of its own.
+    // Phones confirm a copy in the button itself, so the phone layout doesn't add a toast of its own.
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { delay(1600); copied = false } }
+    // Encoding takes seconds, so the button says so, and a second tap can't start another.
+    var saving by remember { mutableStateOf(false) }
     val buttons = @Composable { phone: Boolean ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (tab == 0) {
-                GameButton("Copy", onClick = {
+                GameButton(if (phone && copied) "Copied" else "Copy", onClick = {
                     clipboard.setText(AnnotatedString(text))
-                    if (!phone) toast("Deck list copied.")
-                }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY)
+                    if (phone) copied = true else toast("Deck list copied.")
+                }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) Icons.Default.Check else null)
                 GameButton("Save file", onClick = {
                     state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
                 }, Modifier.weight(1f))
             } else {
-                GameButton("Save image", onClick = {
+                GameButton(if (saving) "Saving image…" else "Save image", onClick = {
+                    saving = true
                     state.appScope.launch {
-                        // The layer is drawn on the UI thread, so it's captured there; encoding a deck
-                        // image takes seconds, so that happens off it and the window keeps responding.
-                        val bitmap = layer.toImageBitmap()
-                        val png = withContext(Dispatchers.Default) { encodePng(bitmap) }
-                        if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved.")
+                        try {
+                            // The layer is drawn on the UI thread, so it's captured there; encoding a deck
+                            // image takes seconds, so that happens off it and the window keeps responding.
+                            val bitmap = layer.toImageBitmap()
+                            val png = withContext(Dispatchers.Default) { encodePng(bitmap) }
+                            saving = false
+                            if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved.")
+                        } finally { saving = false }
                     }
-                }, Modifier.weight(1f))
+                }, Modifier.weight(1f), enabled = !saving)
             }
         }
     }
     val pane = Modifier.clip(LockOnShapes.tile).background(scheme.surfaceContainerLow)
-    // The phone layout: tabs, a line of order chips, the preview in every row they leave, then the buttons.
+    // The phone layout: the format switch, one Order chip, the preview in every row they leave, then the buttons.
     val phone = @Composable { modifier: Modifier ->
-        Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            tabs()
-            // One scrolling line of order chips, so the preview keeps the rows. Its edge fades
-            // to show there is more.
-            Row(
-                Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(end = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
-            ) { orderChips() }
-            val preview = Modifier.weight(1f).fillMaxWidth()
-            if (tab == 0) listText(pane.then(preview))
-            else Box(pane.then(preview).verticalScroll(rememberScrollState())) {
-                CaptureAtFixedWidth(layer, Modifier.holdToView { viewing = true }) {
-                    DeckImage(deck, cards, ruleset, order)
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            PillSegmented(listOf("List", "Image"), tab, { tab = it }, Modifier.fillMaxWidth())
+            // The orders fold into one chip, like the card list's Colors and Type on phones (UX rule N4),
+            // so none is cut off and the preview keeps the row.
+            MenuChip(selected = false, label = { Text("Order: ${order.label}") }) { close ->
+                ExportOrder.entries.forEach { option ->
+                    GameMenuItem(option.label, onClick = { order = option; close() }, selected = order == option)
+                }
+            }
+            // Switching formats slides the preview the way the switch's pill went.
+            SlidingPages(tab, Modifier.weight(1f).fillMaxWidth()) { page ->
+                val glassPane = Modifier.fillMaxSize().glass(LockOnShapes.tile)
+                if (page == 0) DeckListPreview(deck, cards, order, glassPane)
+                else Box(glassPane.clip(LockOnShapes.tile)) {
+                    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        CaptureAtFixedWidth(layer, Modifier.holdToView { viewing = true }) {
+                            DeckImage(deck, cards, ruleset, order)
+                        }
+                    }
+                    // Holding the image opens it too; this shows that it opens.
+                    GlassIconButton(GameIcons.Expand, "View full size", onClick = { viewing = true },
+                        Modifier.align(Alignment.BottomEnd).padding(12.dp))
                 }
             }
             buttons(true)
@@ -342,9 +373,12 @@ private fun DeckExport(
                         }
                     }
                 } else {
-                    Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        header()
-                        phone(Modifier.weight(1f).padding(end = 8.dp))
+                    // The sky behind the sheet, as on the editor's Export page, so the preview's glass reads.
+                    SkyBackground(Modifier.fillMaxSize()) {
+                        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            header()
+                            phone(Modifier.weight(1f).padding(end = 8.dp))
+                        }
                     }
                 }
             }
@@ -361,23 +395,86 @@ private const val HOLD_TO_VIEW_MS = 250L
 
 /**
  * Runs [onView] once a press on this has been held for [HOLD_TO_VIEW_MS] without lifting. A tap does
- * nothing, and a press that turns into a scroll is let go, so the phone preview still scrolls.
+ * nothing, and a press that turns into a scroll is let go, so the phone preview still scrolls. While
+ * held, a soft teal light grows under the finger, so the hold reads as doing something.
  */
 private fun Modifier.holdToView(onView: () -> Unit): Modifier = composed {
     val haptics = LocalHapticFeedback.current
     val view by rememberUpdatedState(onView)
+    val reduce = LocalReduceMotion.current
+    val accent = MaterialTheme.colorScheme.primary
+    val glow = remember { Animatable(0f) }
+    var at by remember { mutableStateOf(Offset.Zero) }
+    val scope = rememberCoroutineScope()
     semantics { onLongClick("View full size") { view(); true } }
-        .pointerInput(Unit) {
+        .drawWithContent {
+            drawContent()
+            val g = glow.value
+            if (g > 0f) {
+                val radius = 140.dp.toPx() * (0.4f + 0.6f * g)
+                drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.32f * g), accent.copy(alpha = 0f)), at, radius), radius, at)
+            }
+        }
+        .pointerInput(reduce) {
             awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false)
+                at = awaitFirstDown(requireUnconsumed = false).position
+                if (!reduce) scope.launch { glow.animateTo(1f, tween(HOLD_TO_VIEW_MS.toInt(), easing = Motion.emphasizedDecelerate)) }
                 // Lifting, or the press being taken by a scroll, ends it early; still down at the timeout opens.
                 val ended = withTimeoutOrNull(HOLD_TO_VIEW_MS) { waitForUpOrCancellation(); true }
                 if (ended == null) {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     view()
                 }
+                scope.launch { glow.animateTo(0f, tween(Motion.MEDIUM)) }
             }
         }
+}
+
+/**
+ * The phone's List preview: the same list as the saved text, set like the rest of the app. Sections
+ * get headers with their counts, and each card its count in a teal pill, its name and its number.
+ * Rows deal in when it opens or the order changes, so a new order is seen to land. It stays selectable.
+ */
+@Composable
+private fun DeckListPreview(deck: DeckSnapshot, cards: Map<String, Card>, order: ExportOrder, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    // Rows past the first screenful start together, so a long list still lands quickly.
+    var row = 0
+    fun next() = minOf(row++, 14)
+    SelectionContainer(modifier) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 16.dp)) {
+            for (section in DeckSection.entries) {
+                val entries = deck.entries.filter { it.section == section }
+                if (entries.isEmpty()) continue
+                SectionHeader(
+                    section.label, Modifier.padding(top = if (row == 0) 0.dp else 16.dp, bottom = 4.dp).dealIn(order, next()),
+                    readout = "${entries.sumOf { it.quantity }}",
+                )
+                for ((label, group) in order.groups(entries, cards)) {
+                    // The main deck is long, so its types get a quiet line each, as in the saved text.
+                    if (section == DeckSection.MAIN) Text(
+                        "$label · ${group.sumOf { it.quantity }}", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 2.dp, top = 8.dp, bottom = 2.dp).dealIn(order, next()),
+                    )
+                    group.forEach { entry -> DeckListRow(entry, cards[entry.cardNumber], Modifier.dealIn(order, next())) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeckListRow(entry: DeckEntry, card: Card?, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Row(modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            "${entry.quantity}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.primary, textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(min = 32.dp).clip(LockOnShapes.button).background(scheme.primary.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+        Text(card?.name ?: entry.cardNumber, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (card != null) Text(entry.cardNumber, style = MaterialTheme.typography.labelSmall.merge(TabularNumbers), color = scheme.onSurfaceVariant)
+    }
 }
 
 private const val MAX_ZOOM = 4f

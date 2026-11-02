@@ -365,13 +365,16 @@ fun GameButton(
             .padding(horizontal = if (large) 26.dp else if (compact) 14.dp else 20.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (icon != null) Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(if (large) 22.dp else 18.dp))
-            // Two lines at most, centred, so a long label wraps instead of being cut off.
-            Text(
-                text, color = content, maxLines = 2, textAlign = TextAlign.Center,
-                style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
-            )
+        // A label that changes (Copy to Copied, Hide to Show) fades across, so the change is seen.
+        androidx.compose.animation.Crossfade(text to icon, animationSpec = motion(Motion.MEDIUM), label = "button-label") { (label, glyph) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (glyph != null) Icon(glyph, contentDescription = null, tint = content, modifier = Modifier.size(if (large) 22.dp else 18.dp))
+                // Two lines at most, centred, so a long label wraps instead of being cut off.
+                Text(
+                    label, color = content, maxLines = 2, textAlign = TextAlign.Center,
+                    style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
+                )
+            }
         }
     }
 }
@@ -1458,7 +1461,7 @@ fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp 
 /** How wide a [FloatingPillNav] is on a screen [screen] wide: most of it, up to [widest]. */
 fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen * 0.88f, widest)
 
-/** Small drawn icons for the editor's sections, which Material's core icon set lacks. */
+/** Small drawn icons for the editor's sections and the export, which Material's core icon set lacks. */
 object GameIcons {
     private fun icon(name: String, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit) =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(
@@ -1496,6 +1499,14 @@ object GameIcons {
         quadTo(19.8f, 9f, 19.8f, 7f); lineTo(19.8f, 6.2f); lineTo(18f, 6.2f); close()
         moveTo(10.8f, 13.5f); lineTo(13.2f, 13.5f); lineTo(13.2f, 17.5f); lineTo(10.8f, 17.5f); close()
         moveTo(7.5f, 18f); lineTo(16.5f, 18f); lineTo(16.5f, 21f); lineTo(7.5f, 21f); close()
+    }
+
+    /** Four corner brackets, like the reticle's: show something at full size. */
+    val Expand: ImageVector = icon("Expand") {
+        moveTo(3f, 3f); lineTo(10f, 3f); lineTo(10f, 5.2f); lineTo(5.2f, 5.2f); lineTo(5.2f, 10f); lineTo(3f, 10f); close()
+        moveTo(14f, 3f); lineTo(21f, 3f); lineTo(21f, 10f); lineTo(18.8f, 10f); lineTo(18.8f, 5.2f); lineTo(14f, 5.2f); close()
+        moveTo(21f, 14f); lineTo(21f, 21f); lineTo(14f, 21f); lineTo(14f, 18.8f); lineTo(18.8f, 18.8f); lineTo(18.8f, 14f); close()
+        moveTo(3f, 14f); lineTo(5.2f, 14f); lineTo(5.2f, 18.8f); lineTo(10f, 18.8f); lineTo(10f, 21f); lineTo(3f, 21f); close()
     }
 
     /** A clock face: the saved versions. */

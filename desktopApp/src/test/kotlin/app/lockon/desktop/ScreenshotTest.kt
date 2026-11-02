@@ -390,9 +390,19 @@ class ScreenshotTest {
         assertTrue(File(out, "phone-cards.png").length() > 0)
     }
 
-    private fun exportShot(name: String, width: Int, height: Int, deck: DeckSnapshot, tab: Int) {
+    /** The phone export in both themes: the editor's Export page and the dialog the library opens. */
+    @Test fun renderPhoneExport() {
+        shoot("phone-export-page", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 6)) }
+        shoot("light-phone-export-page", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 6)) }
+        val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        exportShot("phone-export-list", 600, 1260, deck, tab = 0)
+        exportShot("light-phone-export-list", 600, 1260, deck, tab = 0, dark = false)
+        exportShot("light-phone-export-image", 600, 1260, deck, tab = 1, dark = false)
+    }
+
+    private fun exportShot(name: String, width: Int, height: Int, deck: DeckSnapshot, tab: Int, dark: Boolean = true) {
         ImageComposeScene(width, height, Density(1.5f)) {
-            app.lockon.ui.theme.LockOnTheme(dark = true) {
+            app.lockon.ui.theme.LockOnTheme(dark = dark) {
                 androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
                     app.lockon.ui.decks.DeckExportDialog(
                         deck, container.catalog.cards.value, container.catalog.ruleset.value, files,
