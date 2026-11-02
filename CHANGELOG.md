@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.4 (2026-11-02)
+
+The divider in the deck editor stays where you put it, and Settings has a new layout.
+
+- **Computer:** the divider between the card list and the deck is the same for every deck and stays put after a relaunch. **Settings › Decks** can reset it.
+- **Computer:** the full-size deck image opens fitted to the window, and you can still zoom in to read the cards.
+- **Phones:** the deck editor's **More** menu opens as a grid of tiles above the bar, and **Settings › Deck editor** can leave sections out of it.
+- **Phones:** Export shows the deck list as rows with counts and card numbers, switches between List and Image, and can open the image full size.
+- **Settings:** each setting is a row with its name and control, and wide windows get a rail to jump between sections.
+
 ## 1.13.3 (2026-11-02)
 
 Opening a deck starts at the top of its card list and deck list.
