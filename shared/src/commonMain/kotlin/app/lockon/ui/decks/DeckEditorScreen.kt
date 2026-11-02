@@ -170,7 +170,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import app.lockon.data.db.MetaEntity
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.withFrameNanos
@@ -193,7 +192,6 @@ private const val AUTOSAVE_DELAY_MS = 400L
 
 /** The card list's share of the wide editor's width, until the person drags the divider. */
 private const val DEFAULT_SPLIT = 0.615f
-private const val KEY_EDITOR_SPLIT = "ui.deckEditor.split"
 private val SPLIT_HANDLE = 10.dp
 private val MIN_CARDS_WIDTH = 360.dp
 private val MIN_DECK_WIDTH = 380.dp
@@ -409,9 +407,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         var opened by remember(deckId) { mutableIntStateOf(0) }
         val showing = (state.current as? Screen.DeckEditor)?.deckId == deckId
         LaunchedEffect(showing) { if (showing) opened++ }
-        // Kept for every deck, so the editor opens the way the person last arranged it.
-        val split = remember { mutableFloatStateOf(DEFAULT_SPLIT) }
-        LaunchedEffect(Unit) { container.database.metaDao().get(KEY_EDITOR_SPLIT)?.toFloatOrNull()?.let { split.floatValue = it } }
+        // One split for every deck, kept across launches. Each editor drags its own copy so a drag only
+        // relays out, and takes up the saved one whenever any editor or Settings changes it.
+        val split = remember { mutableFloatStateOf(container.settings.editorSplit.value ?: DEFAULT_SPLIT) }
+        LaunchedEffect(Unit) { container.settings.editorSplit.collect { split.floatValue = it ?: DEFAULT_SPLIT } }
         val deckList: @Composable (Modifier) -> Unit = { modifier ->
             DeckList(
                 deck, cards, ruleset, legality, modifier, compact = wide,
@@ -541,7 +540,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             var resizing by remember { mutableStateOf(false) }
             // Where the pointer has taken the divider, which may be past where the areas stop it.
             val pointerX = remember { mutableFloatStateOf(0f) }
-            fun saveSplit() = state.appScope.launch { container.database.metaDao().put(MetaEntity(KEY_EDITOR_SPLIT, split.floatValue.toString())) }
+            fun saveSplit(value: Float?) = state.appScope.launch { container.settings.setEditorSplit(value) }
             Row(Modifier.fillMaxSize().pointerHoverIcon(if (resizing) resizeHorizontalPointer else PointerIcon.Default, overrideDescendants = resizing)) {
                 Panel(
                     Modifier.fillMaxHeight().layout { measurable, constraints ->
@@ -557,8 +556,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         val usablePx = with(density) { usable.toPx() }
                         if (usablePx > 0f) split.floatValue = clampSplit(pointerX.floatValue / usablePx)
                     },
-                    onDragEnd = { resizing = false; saveSplit() },
-                    onReset = { split.floatValue = DEFAULT_SPLIT; saveSplit() },
+                    onDragEnd = { resizing = false; saveSplit(split.floatValue) },
+                    onReset = { split.floatValue = DEFAULT_SPLIT; saveSplit(null) },
                 )
                 // The deck panel takes dropped cards, and its rim lights up while one is held over it.
                 val dropRim = when {

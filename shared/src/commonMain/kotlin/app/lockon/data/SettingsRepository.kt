@@ -47,6 +47,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _size = MutableStateFlow(InterfaceSize.DEFAULT)
     private val _catalogChecks = MutableStateFlow(true)
     private val _autoDeckColors = MutableStateFlow(true)
+    private val _editorSplit = MutableStateFlow<Float?>(null)
     private val _welcomed = MutableStateFlow(true)
     private val _editorBar = MutableStateFlow(EditorBarOrder.MORE_ADD_DECK)
 
@@ -60,6 +61,8 @@ class SettingsRepository(private val meta: MetaDao) {
     val catalogChecks: StateFlow<Boolean> = _catalogChecks.asStateFlow()
     /** Whether the editor's "Deck colors only" filter turns on once a deck reaches its color limit. On unless turned off. */
     val autoDeckColors: StateFlow<Boolean> = _autoDeckColors.asStateFlow()
+    /** How much of a wide deck editor the card list takes, the same for every deck; null for the default. */
+    val editorSplit: StateFlow<Float?> = _editorSplit.asStateFlow()
     /** Whether the welcome tour has been seen or skipped; false only on a fresh install. */
     val welcomed: StateFlow<Boolean> = _welcomed.asStateFlow()
     val editorBar: StateFlow<EditorBarOrder> = _editorBar.asStateFlow()
@@ -72,6 +75,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _size.value = enumOr(meta.get(KEY_SIZE), InterfaceSize.DEFAULT)
         _catalogChecks.value = meta.get(KEY_CATALOG_CHECKS) != "false"
         _autoDeckColors.value = meta.get(KEY_AUTO_DECK_COLORS) != "false"
+        _editorSplit.value = meta.get(KEY_EDITOR_SPLIT)?.toFloatOrNull()
         _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.MORE_ADD_DECK)
         // Lock On remembers its last tab from the first launch on, so a stored tab means someone
         // used it before the tour existed and needs no welcome.
@@ -91,6 +95,8 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setWelcomed() { _welcomed.value = true; meta.put(MetaEntity(KEY_WELCOMED, "true")) }
     suspend fun setEditorBar(order: EditorBarOrder) { _editorBar.value = order; meta.put(MetaEntity(KEY_EDITOR_BAR, order.name)) }
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
+    /** Null goes back to the default split. */
+    suspend fun setEditorSplit(split: Float?) { _editorSplit.value = split; meta.put(MetaEntity(KEY_EDITOR_SPLIT, split?.toString().orEmpty())) }
     suspend fun setAutoDeckColors(on: Boolean) { _autoDeckColors.value = on; meta.put(MetaEntity(KEY_AUTO_DECK_COLORS, on.toString())) }
 
     /** The preferences a device takes on when it's made to match this one. Where Lock On was left and the welcome tour stay per device. */
@@ -124,6 +130,8 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_SIZE = "settings.size"
         const val KEY_CATALOG_CHECKS = "settings.catalogChecks"
         const val KEY_AUTO_DECK_COLORS = "settings.autoDeckColors"
+        // Its key from before it moved here, so a divider already placed stays put.
+        const val KEY_EDITOR_SPLIT = "ui.deckEditor.split"
         const val KEY_WELCOMED = "settings.welcomed"
         const val KEY_EDITOR_BAR = "settings.editorBar"
     }
