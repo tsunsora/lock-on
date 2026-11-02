@@ -20,8 +20,13 @@ import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.ProgressGauge
 import androidx.compose.material.icons.filled.MoreVert
 import app.lockon.ui.components.GameMenu
-import app.lockon.ui.components.GameMenuItem
 import app.lockon.ui.components.GameMenuDivider
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalContentColor
+import app.lockon.data.EditorMoreItem
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import app.lockon.ui.components.collectIsPressedHeld
 import androidx.compose.foundation.layout.size
 import app.lockon.ui.components.DeckCard
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -209,6 +214,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val ruleset by container.catalog.ruleset.collectAsState()
     val autoDeckColors by container.settings.autoDeckColors.collectAsState()
     val barOrder by container.settings.editorBar.collectAsState()
+    val moreHidden by container.settings.moreHidden.collectAsState()
     val allDecks by container.decks.liveDecks.collectAsState(initial = emptyList())
     val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
     var history by remember(deckId) { mutableStateOf<List<DeckVersion>>(emptyList()) }
@@ -602,7 +608,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                 }
                 EditorNav(
-                    phoneTab, barOrder, cardView,
+                    phoneTab, barOrder, EditorMoreItem.entries - moreHidden, cardView,
                     onSelect = {
                         when {
                             it != phoneTab -> phoneTab = it
@@ -1061,19 +1067,21 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
 /**
  * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3). Building the deck
  * comes first, so by default the bar holds More, Add cards and Deck, left to right, with Deck under
- * the right thumb; Settings can put them in any [order]. More holds Analysis, Test, Matches, Versions, Export and Edit as text, and takes the name and icon of
- * whichever of them is open. Holding Deck switches the deck list between cards and a list.
+ * the right thumb; Settings can put them in any [order]. More opens a grid of the [more] sections
+ * (Analysis, Test, Matches, Versions, Export and Edit as text, less any Settings leaves out), two short
+ * rows instead of a tall list, and takes the name and icon of whichever of them is open. Holding Deck switches the deck list between cards and a list.
  * Swiping along the bar moves between Add cards and Deck. [tab] and [onSelect] use the editor's tab numbers (0 Deck, 1 Add cards).
  */
 @Composable
 private fun BoxScope.EditorNav(
     tab: Int,
     order: EditorBarOrder,
+    more: List<EditorMoreItem>,
     cardView: Boolean,
     onSelect: (Int) -> Unit,
     onCardView: (Boolean) -> Unit,
 ) {
-    var more by remember { mutableStateOf(false) }
+    var moreOpen by remember { mutableStateOf(false) }
     val currentTab by rememberUpdatedState(tab)
     val currentOrder by rememberUpdatedState(order)
     val select by rememberUpdatedState(onSelect)
@@ -1106,16 +1114,8 @@ private fun BoxScope.EditorNav(
             },
     ) {
         val buttons = mapOf(
-            EditorBarItem.MORE to BottomItem(when (tab) { 2 -> "Analysis"; 3 -> "Test"; 4 -> "Matches"; 5 -> "Versions"; 6 -> "Export"; 7 -> "Edit as text"; else -> "More" }) {
-                when (tab) {
-                    2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
-                    3 -> Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp))
-                    4 -> Icon(GameIcons.Trophy, contentDescription = null, modifier = Modifier.size(20.dp))
-                    5 -> Icon(GameIcons.Clock, contentDescription = null, modifier = Modifier.size(20.dp))
-                    6 -> Icon(Icons.Default.Share, contentDescription = null)
-                    7 -> Icon(Icons.Default.Edit, contentDescription = null)
-                    else -> Icon(Icons.Default.MoreVert, contentDescription = null)
-                }
+            EditorBarItem.MORE to BottomItem(when (tab) { 3 -> "Test"; else -> EditorMoreItem.entries.firstOrNull { it.tab == tab }?.label ?: "More" }) {
+                MoreIcon(tab)
             },
             EditorBarItem.ADD to BottomItem("Add cards") { Icon(Icons.Default.Add, contentDescription = null) },
             // Holding Deck flips the deck list between cards and a text list, and opens it.
@@ -1130,27 +1130,76 @@ private fun BoxScope.EditorNav(
             selected = phoneNavItem(tab, order),
             onSelect = {
                 when (order.items[it]) {
-                    EditorBarItem.MORE -> more = true
+                    EditorBarItem.MORE -> moreOpen = true
                     EditorBarItem.ADD -> onSelect(1)
                     EditorBarItem.DECK -> onSelect(0)
                 }
             },
             widest = EDITOR_NAV_WIDTH,
         )
-        // Anchored over the part of the pill where More sits, so the menu opens above it.
-        val moreAt = when (order.items.indexOf(EditorBarItem.MORE)) { 0 -> Alignment.BottomStart; 1 -> Alignment.BottomCenter; else -> Alignment.BottomEnd }
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = navClearance() - 12.dp).width(floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH))) {
-            Box(Modifier.align(moreAt).padding(horizontal = 8.dp).fillMaxWidth(0.4f)) {
-                GameMenu(expanded = more, onDismissRequest = { more = false }) {
-                    GameMenuItem("Analysis", onClick = { more = false; onSelect(2) }, icon = GameIcons.Curve, selected = tab == 2)
-                    GameMenuItem("Test hand", onClick = { more = false; onSelect(3) }, icon = GameIcons.Hand, selected = tab == 3)
-                    GameMenuItem("Matches", onClick = { more = false; onSelect(4) }, icon = GameIcons.Trophy, selected = tab == 4)
-                    GameMenuItem("Versions", onClick = { more = false; onSelect(5) }, icon = GameIcons.Clock, selected = tab == 5)
-                    GameMenuItem("Export", onClick = { more = false; onSelect(6) }, icon = Icons.Default.Share, selected = tab == 6)
-                    GameMenuItem("Edit as text", onClick = { more = false; onSelect(7) }, icon = Icons.Default.Edit, selected = tab == 7)
+        // As wide as the pill and opening just above it, so every section is a short thumb move away.
+        val pillWidth = floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH)
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = navClearance() - 12.dp).width(pillWidth)) {
+            GameMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }, modifier = Modifier.width(pillWidth)) {
+                Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    more.chunked(MORE_COLUMNS).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            row.forEach { item ->
+                                MoreTile(item, selected = tab == item.tab, Modifier.weight(1f)) { moreOpen = false; onSelect(item.tab) }
+                            }
+                            // A short last row keeps its tiles the same size as the rows above.
+                            repeat(if (more.size > MORE_COLUMNS) MORE_COLUMNS - row.size else 0) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+/** Tiles per row in the More menu: six sections fit in two rows. */
+private const val MORE_COLUMNS = 3
+
+/** A phone editor section's icon, the same on its More tile and on the bar while it is open; the menu glyph for the others. */
+@Composable
+private fun MoreIcon(tab: Int) {
+    when (tab) {
+        2 -> Icon(GameIcons.Curve, contentDescription = null, modifier = Modifier.size(20.dp))
+        3 -> Icon(GameIcons.Hand, contentDescription = null, modifier = Modifier.size(20.dp))
+        4 -> Icon(GameIcons.Trophy, contentDescription = null, modifier = Modifier.size(20.dp))
+        5 -> Icon(GameIcons.Clock, contentDescription = null, modifier = Modifier.size(20.dp))
+        6 -> Icon(Icons.Default.Share, contentDescription = null)
+        7 -> Icon(Icons.Default.Edit, contentDescription = null)
+        else -> Icon(Icons.Default.MoreVert, contentDescription = null)
+    }
+}
+
+/** One section in the More menu: its icon over its name, teal while it is the open one, washed on hover and press like a menu row. */
+@Composable
+private fun MoreTile(item: EditorMoreItem, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val tone = if (selected) Accent else MaterialTheme.colorScheme.onSurface
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedHeld()
+    val wash = when {
+        pressed -> 0.20f
+        hovered -> 0.12f
+        selected -> 0.10f
+        else -> 0f
+    }
+    Column(
+        modifier.heightIn(min = 72.dp).clip(LockOnShapes.tile).background(tone.copy(alpha = wash))
+            .hoverable(interaction)
+            .selectable(selected, interaction, indication = null, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+    ) {
+        // The glyphs come in two sizes, so a fixed box keeps every label on the same line.
+        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            CompositionLocalProvider(LocalContentColor provides tone) { MoreIcon(item.tab) }
+        }
+        Text(item.label, color = tone, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 2)
     }
 }
 

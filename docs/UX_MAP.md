@@ -61,7 +61,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - name (tap to rename), color pips, legality tag, `Main n/50`
   - **Export**
   - a conflict banner when one exists
-- **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar built around building the deck: **Deck · Add cards · More**, with Analysis, Test, Matches and Versions under More:
+- **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar built around building the deck: **Deck · Add cards · More**, with Analysis, Test, Matches, Versions, Export and Edit as text under More, which opens them as a two-row grid of tiles just above the bar (Settings › Deck editor can leave any of them out):
   1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
      - **Add to: Deck · Side deck** above the list picks where + and dropped cards go.
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color. Adding to the side deck, the counts are side deck copies, and a card already in the deck is tagged **Deck n**.
@@ -135,12 +135,12 @@ Two pages: **Sync devices** (first) and **Send decks**.
 
 ### Settings (top level, beside Sync)
 - **Purpose:** this device's preferences. Merging leaves them alone; making this device match another copies that device's over.
-- **Appearance:** **Theme** (Match system · Sky · Twilight), **Interface size** (Small · Default · Large · Larger, scaling everything together), **Animations** (Match system · Reduced · Full).
-- **Startup:** **Open on** Decks, Cards, or *Where I left off*.
-- **Cards:** **Show card artwork** and **Check for card list updates** (the weekly background check) switches, then the card database card with **Manage card database**.
-- **Decks:** **Back up all decks** saves every deck to one file.
-- **This device:** the name paired devices see, with **Rename** (used from the next launch).
-- **App updates** last.
+- **Layout:** each group is a glass card of rows: the setting's name on the left, its control at the end. Choices of a few options are sliding segmented pills. Wide windows show one readable column (760 dp at most) with the groups listed in a rail beside it; the rail jumps to a group and lights the one in view. Phones stack the groups and put segmented choices under their names.
+- **General:** **Open on** (Decks · Cards · Last screen), **Device name** with **Rename** (used from the next launch), **Welcome tour** with **Show again**.
+- **Appearance:** **Theme** (System · Sky · Twilight), **Interface size** (Small · Default · Large · Larger, scaling everything together), **Animations** (System · Reduced · Full), **Show card artwork**.
+- **Deck editor:** on phones and in narrow windows, **Bar order** and **In the More menu** (a chip per section; at least one stays); always the *Deck colors only* switch; in wide windows, **Reset** for the divider between cards and deck.
+- **Data:** **Card database** with **Manage**, the weekly card list check, **Back up all decks**.
+- **About:** the version and app updates, last.
 
 ## Primary journeys
 

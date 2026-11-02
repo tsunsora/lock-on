@@ -7,13 +7,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /** Light, dark, or whatever the system uses. */
-enum class ThemeChoice(val label: String) { SYSTEM("Match system"), LIGHT("Sky"), DARK("Twilight") }
+enum class ThemeChoice(val label: String) { SYSTEM("System"), LIGHT("Sky"), DARK("Twilight") }
 
 /** Animations as the system asks, always reduced, or always full. */
-enum class MotionChoice(val label: String) { SYSTEM("Match system"), REDUCED("Reduced"), FULL("Full") }
+enum class MotionChoice(val label: String) { SYSTEM("System"), REDUCED("Reduced"), FULL("Full") }
 
 /** Where Lock On opens. [LAST] is wherever the person left it. */
-enum class StartChoice(val label: String) { DECKS("Decks"), CARDS("Cards"), LAST("Where I left off") }
+enum class StartChoice(val label: String) { DECKS("Decks"), CARDS("Cards"), LAST("Last screen") }
 
 /** How big everything is drawn, as a multiple of the platform's own size. */
 enum class InterfaceSize(val label: String, val scale: Float) {
@@ -35,6 +35,11 @@ enum class EditorBarOrder(val items: List<EditorBarItem>) {
     val label: String get() = items.joinToString(" · ") { it.label }
 }
 
+/** A section the deck editor's More button holds on phones, with its tab number in the editor. */
+enum class EditorMoreItem(val label: String, val tab: Int) {
+    ANALYSIS("Analysis", 2), TEST("Test hand", 3), MATCHES("Matches", 4), VERSIONS("Versions", 5), EXPORT("Export", 6), TEXT("Edit as text", 7)
+}
+
 /**
  * This device's preferences. Merging leaves them alone, so a phone and a computer can each look the
  * way their owner likes; making one device match another copies them over with everything else.
@@ -50,6 +55,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _editorSplit = MutableStateFlow<Float?>(null)
     private val _welcomed = MutableStateFlow(true)
     private val _editorBar = MutableStateFlow(EditorBarOrder.MORE_ADD_DECK)
+    private val _moreHidden = MutableStateFlow<Set<EditorMoreItem>>(emptySet())
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -66,6 +72,8 @@ class SettingsRepository(private val meta: MetaDao) {
     /** Whether the welcome tour has been seen or skipped; false only on a fresh install. */
     val welcomed: StateFlow<Boolean> = _welcomed.asStateFlow()
     val editorBar: StateFlow<EditorBarOrder> = _editorBar.asStateFlow()
+    /** The sections left out of the phone editor's More menu. At least one always stays in it. */
+    val moreHidden: StateFlow<Set<EditorMoreItem>> = _moreHidden.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -77,6 +85,9 @@ class SettingsRepository(private val meta: MetaDao) {
         _autoDeckColors.value = meta.get(KEY_AUTO_DECK_COLORS) != "false"
         _editorSplit.value = meta.get(KEY_EDITOR_SPLIT)?.toFloatOrNull()
         _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.MORE_ADD_DECK)
+        _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')
+            .mapNotNull { name -> EditorMoreItem.entries.firstOrNull { it.name == name } }.toSet()
+            .takeIf { it.size < EditorMoreItem.entries.size }.orEmpty()
         // Lock On remembers its last tab from the first launch on, so a stored tab means someone
         // used it before the tour existed and needs no welcome.
         _welcomed.value = meta.get(KEY_WELCOMED)?.toBooleanStrictOrNull() ?: (_lastTab.value != null)
@@ -94,6 +105,14 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setSize(size: InterfaceSize) { _size.value = size; meta.put(MetaEntity(KEY_SIZE, size.name)) }
     suspend fun setWelcomed() { _welcomed.value = true; meta.put(MetaEntity(KEY_WELCOMED, "true")) }
     suspend fun setEditorBar(order: EditorBarOrder) { _editorBar.value = order; meta.put(MetaEntity(KEY_EDITOR_BAR, order.name)) }
+    /** Shows or hides [item] in the More menu; returns false, changing nothing, when it is the last one shown. */
+    suspend fun setMoreShown(item: EditorMoreItem, shown: Boolean): Boolean {
+        val next = if (shown) _moreHidden.value - item else _moreHidden.value + item
+        if (next.size == EditorMoreItem.entries.size) return false
+        _moreHidden.value = next
+        meta.put(MetaEntity(KEY_MORE_HIDDEN, next.joinToString(",") { it.name }))
+        return true
+    }
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
     /** Null goes back to the default split. */
     suspend fun setEditorSplit(split: Float?) { _editorSplit.value = split; meta.put(MetaEntity(KEY_EDITOR_SPLIT, split?.toString().orEmpty())) }
@@ -134,5 +153,6 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_EDITOR_SPLIT = "ui.deckEditor.split"
         const val KEY_WELCOMED = "settings.welcomed"
         const val KEY_EDITOR_BAR = "settings.editorBar"
+        const val KEY_MORE_HIDDEN = "settings.editorMoreHidden"
     }
 }
