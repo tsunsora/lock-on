@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.3 (2026-11-02)
+
+Opening a deck starts at the top of its card list and deck list.
+
+- **Deck editor:** a deck you open again no longer comes up halfway down where you last left it. Your search and filters stay as they were.
+
 ## 1.13.2 (2026-11-02)
 
 Once a deck has all its colors, adding cards shows only the ones that fit.
