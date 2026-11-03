@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.11.4 (2026-11-03)
+
+The boot screen plays evenly from start to finish, and Lock On feels smoother throughout.
+
+- **Startup:** the boot screen no longer freezes or speeds up for a moment as it starts. On Windows it opens on its first frame and moves evenly from then on, until it fades into the app.
+- **Speed:** adding a card, saving a deck and searching do less work, and Sync no longer keeps the window redrawing while it's out of sight.
+- **Motion:** dialogs and menus fade in as they open. Editor headers, banners and notes glide into place, the deck gauges warm to gold and red, and the level curve grows in.
+- **Motion:** the test hand, card views, printings, the Settings rail and the welcome tour move between states instead of switching. On phones the floating bar hands over smoothly to the deck editor's.
+
 ## 26.11.3 (2026-11-03)
 
 Lock On no longer sometimes hangs when it starts on Windows, and the Cards screen has new sorts and filters.
