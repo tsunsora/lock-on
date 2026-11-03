@@ -1096,14 +1096,13 @@ fun GameToastHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
 }
 
 /**
- * A short notice on an opaque glass pill: a teal light, the message, and the action as a ghost
+ * A short notice on an opaque glass pill: the message, and the action as a ghost
  * button. It wraps its text, so a short notice makes a short pill.
  */
 @Composable
 fun GameToast(data: SnackbarData) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
-    val accent = Accent
     // A pill on one line; a wrapped notice keeps the round ends without ballooning into an oval.
     val shape = RoundedCornerShape(24.dp)
     val action = data.visuals.actionLabel
@@ -1121,14 +1120,10 @@ fun GameToast(data: SnackbarData) {
             // Opaque, so the screen under it doesn't muddy the text.
             .background(g.strong.compositeOver(scheme.background))
             .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
-            .padding(start = 18.dp, end = if (action != null) 6.dp else 22.dp),
+            .padding(start = 22.dp, end =if (action != null) 6.dp else 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Canvas(Modifier.size(10.dp)) {
-            drawCircle(accent.copy(alpha = 0.25f))
-            drawCircle(accent, size.minDimension * 0.3f)
-        }
         Text(
             data.visuals.message, color = scheme.onSurface, style = MaterialTheme.typography.bodyMedium,
             maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).padding(vertical = 12.dp),
