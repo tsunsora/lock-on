@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import app.lockon.rules.DeckAnalysis
-import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.CardArtwork
 import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.theme.cardColor
@@ -125,7 +124,6 @@ import app.lockon.ui.components.Badge
 import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.SectionHeader
-import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.theme.TabularNumbers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -770,8 +768,8 @@ private fun CaptureAtFixedWidth(layer: GraphicsLayer, modifier: Modifier = Modif
 
 /**
  * The picture people share, each fact said once: one panel over the cover's art holds the name,
- * colors, count, legality, make-up and level curve, with the QR beside them; then every card with
- * its count on its corner.
+ * colors, count, legality and card types, with the QR beside them; then every card with its count
+ * on its corner.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -789,7 +787,7 @@ private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Rul
             Box(Modifier.fillMaxWidth().glass(LockOnShapes.panel, strong = true).clip(LockOnShapes.panel)) {
                 CoverBackdrop(deck, cards, colors.minByOrNull { it.ordinal }, Modifier.matchParentSize())
                 Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(deck.name, style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             val middle = Modifier.align(Alignment.CenterVertically)
@@ -802,18 +800,9 @@ private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Rul
                             if (legal) Badge("Legal · ${ruleset.name}", scheme.secondaryContainer, scheme.onSecondaryContainer, middle)
                             else Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant, middle)
                         }
-                        // At a glance: what a reader would otherwise count by hand.
-                        GlanceCounts(stats)
-                        if (stats.levelCurve.isNotEmpty()) MiniCurve(stats.levelCurve, Modifier.padding(top = 2.dp), height = 72.dp, caption = false)
+                        TypeCounts(stats)
                     }
-                    // The code and whose it is, under one another; the caption says what to do with it.
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (qr != null) QrCodeView(qr, Modifier.size(112.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            LockOnMark(size = 14.dp, reticleColor = scheme.onSurface)
-                            Text(if (qr != null) "Scan in Lock On" else "Lock On", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
-                        }
-                    }
+                    if (qr != null) QrCodeView(qr, Modifier.size(100.dp))
                 }
             }
             // The count is in the header, so the grid needs no title row of its own.
@@ -822,14 +811,15 @@ private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Rul
                 order.groups(main, cards).flatMap { (_, group) -> group }.chunked(CARDS_PER_ROW).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         row.forEach { entry ->
-                            // The count sits on the top-right corner, over the card's number, so cost and AP/HP stay visible (UX rule V4a).
+                            // The count sits near the top-right corner, just under the card's number and rarity, so
+                            // those, the cost and AP/HP all stay visible (UX rule V4a).
                             Box(Modifier.weight(1f)) {
                                 CardImage(cards[entry.cardNumber], Modifier.fillMaxWidth(), entry.printingId)
                                 Text(
                                     "×${entry.quantity}",
                                     style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
                                     color = scheme.onPrimary,
-                                    modifier = Modifier.align(Alignment.TopEnd).padding(3.dp).clip(LockOnShapes.button).background(scheme.primary)
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 3.dp).clip(LockOnShapes.button).background(scheme.primary)
                                         .padding(horizontal = 7.dp, vertical = 1.dp),
                                 )
                             }
@@ -861,27 +851,24 @@ private fun CoverBackdrop(deck: DeckSnapshot, cards: Map<String, Card>, lead: Ca
 }
 
 /**
- * The deck's make-up as one line under its name: each type a number and its word, then Burst and
- * Blockers in teal. Anything the deck has none of is left out.
+ * The deck's make-up in small type under its name: each card type a number and its word. Types the
+ * deck has none of are left out.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun GlanceCounts(stats: app.lockon.rules.DeckStats) {
+private fun TypeCounts(stats: app.lockon.rules.DeckStats, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val types = listOf(
-        "Units" to (stats.typeCounts[CardType.UNIT] ?: 0),
-        "Pilots" to (stats.typeCounts[CardType.PILOT] ?: 0),
-        "Commands" to (stats.typeCounts[CardType.COMMAND] ?: 0),
-        "Bases" to (stats.typeCounts[CardType.BASE] ?: 0),
-    ).map { it to scheme.onSurface }
-    val traits = listOf("Burst" to stats.burstCount, "Blockers" to stats.blockerCount).map { it to scheme.primary }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        for ((pair, numberColor) in types + traits) {
-            val (label, n) = pair
-            if (n == 0) continue
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("$n", style = MaterialTheme.typography.titleSmall.merge(TabularNumbers), color = numberColor)
-                Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+        "Units" to CardType.UNIT,
+        "Pilots" to CardType.PILOT,
+        "Commands" to CardType.COMMAND,
+        "Bases" to CardType.BASE,
+    ).map { (label, type) -> label to (stats.typeCounts[type] ?: 0) }.filter { it.second > 0 }
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        types.forEach { (label, n) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("$n", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface)
+                Text(label, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
             }
         }
     }
