@@ -14,11 +14,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import app.lockon.AppContainer
 import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
@@ -69,13 +73,22 @@ class MainActivity : ComponentActivity() {
         // Card images used to sit in the cache folder; they now live in files for offline use.
         kotlin.concurrent.thread(isDaemon = true) { cacheDir.resolve("artwork").deleteRecursively() }
         setContent {
+            // Leaving for another app lets go of the search field, or coming back would bring the keyboard up again.
+            val focusManager = LocalFocusManager.current
+            DisposableEffect(focusManager) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_STOP) focusManager.clearFocus(force = true)
+                }
+                lifecycle.addObserver(observer)
+                onDispose { lifecycle.removeObserver(observer) }
+            }
             val container by produceState<AppContainer?>(null) { value = app.container.await() }
             val sync by produceState<AndroidSyncController?>(null) {
                 value = app.sync.await().also {
                     it.scanner = ::launchScanner
                     syncController = it
                     // The controller may arrive after onStart on a cold launch.
-                    if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) it.setForeground(true)
+                    if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) it.setForeground(true)
                 }
             }
             val state = remember { AppState(app.appScope) }
