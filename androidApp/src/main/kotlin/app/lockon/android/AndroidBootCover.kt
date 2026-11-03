@@ -131,7 +131,8 @@ private class Art(pictures: BootPictures, activity: Activity) {
     private val fronts: Map<BootStep, Bitmap> = pictures.fronts.mapValues { it.value.asAndroidBitmap() }
     private val targeting = pictures.targeting
     private val density = pictures.density
-    private val measurer = TextMeasurer(createFontFamilyResolver(activity), density, LayoutDirection.Ltr)
+    // Its words are laid out here, on the main thread, so the drawing thread only reads them back.
+    private val measurer = TextMeasurer(createFontFamilyResolver(activity), density, LayoutDirection.Ltr).also { targeting.warm(it) }
 
     fun frame(canvas: Canvas, clock: BootClock, step: BootStep, going: Float, draw: CanvasDrawScope, fade: Paint) {
         canvas.drawColor(0, PorterDuff.Mode.CLEAR)

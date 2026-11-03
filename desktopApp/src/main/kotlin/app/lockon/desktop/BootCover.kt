@@ -42,7 +42,6 @@ import java.awt.image.BufferStrategy
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferInt
 import java.nio.ByteOrder
-import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import kotlin.concurrent.thread
 import kotlin.math.ceil
@@ -51,9 +50,9 @@ import kotlin.math.roundToInt
 /**
  * The boot screen in a window of its own, laid exactly over the app's and drawn on a thread of its
  * own, so the screens building underneath can't hold it up. The sky and the mark with its labels are
- * pictures taken once with Compose; only the targeting field is drawn each frame, with the boot
- * screen's own drawing code. Until it is up the app's own boot screen plays, and if anything goes
- * wrong it steps aside and that one carries on from the same moment.
+ * pictures taken once with Compose, on the app's UI thread ([onUiThread]); only the targeting field is
+ * drawn each frame, with the boot screen's own drawing code. Until it is up the app's own boot screen
+ * plays, and if anything goes wrong it steps aside and that one carries on from the same moment.
  */
 class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
     override val clock = BootClock()
@@ -82,29 +81,22 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
     override fun lift() { lifted = true }
 
     private fun play() {
-        // Composing and drawing for the first time loads a lot of classes; doing it while the app's
-        // window opens makes the real pictures quick once it has.
-        val started = System.nanoTime()
-        Art.paint(this, Layout(Rectangle(0, 0, 64, 64), 64 to 64, Density(1f))).run {
-            frame(clock, BootStep.DECKS, 0f, CanvasDrawScope())
-            close()
-        }
-        val warmed = System.nanoTime()
-        // The pictures are painted as soon as the window has a size, before it shows, so the cover can
-        // go up with the window's first frame.
+        // The pictures are painted as soon as the window has a size, so the cover can go up soon after
+        // the window shows.
         var pane: java.awt.Component? = null
         while (!lifted && pane == null) {
             pane = target?.let { (it as? javax.swing.RootPaneContainer)?.contentPane ?: it }?.takeIf { it.width > 0 && it.height > 0 }
             if (pane == null) Thread.sleep(5)
         }
         if (lifted || pane == null) return
+        val started = System.nanoTime()
         var art = Art.paint(this, Layout.sized(pane) ?: return)
         val painted = System.nanoTime()
         while (!lifted && !pane.isShowing) Thread.sleep(2)
         if (lifted) return
         var layout = Layout.of(pane) ?: return
-        log.info("Boot cover: warmed up in %d ms, painted in %d ms, then waited %d ms for the window to show".format(
-            (warmed - started) / 1_000_000, (painted - warmed) / 1_000_000, (System.nanoTime() - painted) / 1_000_000))
+        log.info("Boot cover: painted in %d ms, then waited %d ms for the window to show".format(
+            (painted - started) / 1_000_000, (System.nanoTime() - painted) / 1_000_000))
         var repainting: Future<Art>? = null
         // Owned by the app's window, so it stays just above that one, behind anything brought in front.
         val owner = target ?: return
@@ -142,7 +134,7 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
                 // A new size is painted in the background; meanwhile the last pictures stretch to fit.
                 if (nowLayout.pixels != layout.pixels || nowLayout.density != layout.density) {
                     repainting?.cancel(false)
-                    // On a thread of its own, since it waits on the painters for its sky.
+                    // On a thread of its own, since it waits for the UI thread to paint.
                     repainting = java.util.concurrent.FutureTask { Art.paint(this, nowLayout) }.also { thread(isDaemon = true, name = "Boot cover repaint") { it.run() } }
                 }
                 layout = nowLayout
@@ -237,7 +229,8 @@ private data class Layout(val bounds: Rectangle, val pixels: Pair<Int, Int>, val
 private class Art(val sky: Image, val fronts: Map<BootStep, Image>, val targeting: BootTargeting, private val density: Density, w: Int, h: Int) {
     /** The sky's top-left colour, to fill behind it while it swells. */
     val fill = sky.peekColor()
-    private val measurer = TextMeasurer(createFontFamilyResolver(), density, LayoutDirection.Ltr)
+    // Its words are laid out here, on the UI thread, so the cover's thread only reads them back.
+    private val measurer = TextMeasurer(createFontFamilyResolver(), density, LayoutDirection.Ltr).also { targeting.warm(it) }
     private val bitmap = Bitmap().apply { allocPixels(ImageInfo.makeN32Premul(w, h)) }
     private val canvas = Canvas(bitmap, SurfaceProps())
     private val size = Size(w.toFloat(), h.toFloat())
@@ -272,12 +265,12 @@ private class Art(val sky: Image, val fronts: Map<BootStep, Image>, val targetin
         fun paint(cover: DesktopBootCover, layout: Layout): Art {
             val (w, h) = layout.pixels
             val density = Density(layout.density.density * cover.interfaceScale())
-            // The sky paints beside the front layers. The front layers go one at a time: painted side by
-            // side, one sometimes came out without its step label.
-            var targeting: BootTargeting? = null
-            val sky = painters.submit<Image> { cover.render(w, h, density, BootLayers.SKY, BootStep.DECKS) }
-            val fronts = BootStep.entries.associateWith { s -> cover.render(w, h, density, BootLayers.FRONT, s) { targeting = it } }
-            return Art(sky.get(), fronts, checkNotNull(targeting) { "The boot screen never placed its targeting field" }, density, w, h)
+            return onUiThread {
+                var targeting: BootTargeting? = null
+                val sky = cover.render(w, h, density, BootLayers.SKY, BootStep.DECKS)
+                val fronts = BootStep.entries.associateWith { s -> cover.render(w, h, density, BootLayers.FRONT, s) { targeting = it } }
+                Art(sky, fronts, checkNotNull(targeting) { "The boot screen never placed its targeting field" }, density, w, h)
+            }
         }
     }
 }
@@ -292,8 +285,18 @@ private fun Image.peekColor(): Int {
     }
 }
 
-/** Paints each set's sky beside its front layers. */
-private val painters = Executors.newFixedThreadPool(2) { Thread(it, "Boot cover painter").apply { isDaemon = true } }
+/**
+ * Runs [block] on the app's UI thread and waits for it. Compose keeps caches that every composition
+ * shares and that only one thread may touch at a time: composing pictures on the cover's thread while
+ * the app composed its window once wedged both in an endless loop at launch. So the cover composes
+ * there, between the app's own frames, and its own thread only draws.
+ */
+private fun <T> onUiThread(block: () -> T): T {
+    if (java.awt.EventQueue.isDispatchThread()) return block()
+    var result: Result<T>? = null
+    java.awt.EventQueue.invokeAndWait { result = runCatching(block) }
+    return checkNotNull(result).getOrThrow()
+}
 
 /** Windows' compositor, which says when the display next refreshes. */
 private interface Dwm : Library {
