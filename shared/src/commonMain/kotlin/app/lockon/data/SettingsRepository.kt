@@ -2,6 +2,7 @@ package app.lockon.data
 
 import app.lockon.data.db.MetaDao
 import app.lockon.data.db.MetaEntity
+import app.lockon.model.CardSort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,6 +57,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _welcomed = MutableStateFlow(true)
     private val _editorBar = MutableStateFlow(EditorBarOrder.MORE_ADD_DECK)
     private val _moreHidden = MutableStateFlow<Set<EditorMoreItem>>(emptySet())
+    private val _cardSort = MutableStateFlow(CardSort.NUMBER)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -74,6 +76,8 @@ class SettingsRepository(private val meta: MetaDao) {
     val editorBar: StateFlow<EditorBarOrder> = _editorBar.asStateFlow()
     /** The sections left out of the phone editor's More menu. At least one always stays in it. */
     val moreHidden: StateFlow<Set<EditorMoreItem>> = _moreHidden.asStateFlow()
+    /** The order the Cards screen lists cards in until another is picked there. */
+    val cardSort: StateFlow<CardSort> = _cardSort.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -85,6 +89,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _autoDeckColors.value = meta.get(KEY_AUTO_DECK_COLORS) != "false"
         _editorSplit.value = meta.get(KEY_EDITOR_SPLIT)?.toFloatOrNull()
         _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.MORE_ADD_DECK)
+        _cardSort.value = enumOr(meta.get(KEY_CARD_SORT), CardSort.NUMBER)
         _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')
             .mapNotNull { name -> EditorMoreItem.entries.firstOrNull { it.name == name } }.toSet()
             .takeIf { it.size < EditorMoreItem.entries.size }.orEmpty()
@@ -116,6 +121,7 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
     /** Null goes back to the default split. */
     suspend fun setEditorSplit(split: Float?) { _editorSplit.value = split; meta.put(MetaEntity(KEY_EDITOR_SPLIT, split?.toString().orEmpty())) }
+    suspend fun setCardSort(sort: CardSort) { _cardSort.value = sort; meta.put(MetaEntity(KEY_CARD_SORT, sort.name)) }
     suspend fun setAutoDeckColors(on: Boolean) { _autoDeckColors.value = on; meta.put(MetaEntity(KEY_AUTO_DECK_COLORS, on.toString())) }
 
     /** The preferences a device takes on when it's made to match this one. Where Lock On was left and the welcome tour stay per device. */
@@ -126,6 +132,7 @@ class SettingsRepository(private val meta: MetaDao) {
         KEY_SIZE to _size.value.name,
         KEY_CATALOG_CHECKS to _catalogChecks.value.toString(),
         KEY_AUTO_DECK_COLORS to _autoDeckColors.value.toString(),
+        KEY_CARD_SORT to _cardSort.value.name,
     )
 
     /** Takes on another device's [synced] preferences; keys this version doesn't know are skipped. */
@@ -136,6 +143,7 @@ class SettingsRepository(private val meta: MetaDao) {
         values[KEY_SIZE]?.let { setSize(enumOr(it, _size.value)) }
         values[KEY_CATALOG_CHECKS]?.toBooleanStrictOrNull()?.let { setCatalogChecks(it) }
         values[KEY_AUTO_DECK_COLORS]?.toBooleanStrictOrNull()?.let { setAutoDeckColors(it) }
+        values[KEY_CARD_SORT]?.let { setCardSort(enumOr(it, _cardSort.value)) }
     }
 
     private inline fun <reified E : Enum<E>> enumOr(stored: String?, default: E): E =
@@ -154,5 +162,6 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_WELCOMED = "settings.welcomed"
         const val KEY_EDITOR_BAR = "settings.editorBar"
         const val KEY_MORE_HIDDEN = "settings.editorMoreHidden"
+        const val KEY_CARD_SORT = "settings.cardSort"
     }
 }

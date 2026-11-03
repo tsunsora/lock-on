@@ -1,4 +1,33 @@
 package app.lockon.ui.cards
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.lockon.ui.components.Accent
+import app.lockon.ui.components.GlassIconButton
+import app.lockon.ui.components.OnAccent
+import app.lockon.ui.components.PillShape
+import app.lockon.ui.components.glass
+import app.lockon.ui.components.motion
 import app.lockon.ui.components.LocalNavClearance
 import androidx.compose.ui.graphics.Color
 import app.lockon.ui.components.PillChip
@@ -39,7 +68,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,6 +87,7 @@ import androidx.compose.ui.unit.dp
 import app.lockon.model.Card
 import app.lockon.model.CardColor
 import app.lockon.model.CardQuery
+import app.lockon.model.CardSort
 import app.lockon.model.CardType
 import app.lockon.model.ReleaseOrder
 import app.lockon.ui.components.CardTile
@@ -85,13 +114,6 @@ import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.glide
 
-enum class CardSort(val label: String, val comparator: Comparator<Card>) {
-    NUMBER("Number", compareBy(ReleaseOrder.comparator) { it.cardNumber }),
-    LEVEL("Level", compareBy<Card>({ it.level ?: 99 }, { it.cost ?: 99 }, { it.cardNumber })),
-    COST("Cost", compareBy<Card>({ it.cost ?: 99 }, { it.level ?: 99 }, { it.cardNumber })),
-    NAME("Name", compareBy { it.name.lowercase() }),
-}
-
 /** Deck controls for search results in the editor: copies in the deck, a rule tag, and one-tap changes. */
 class DeckControls(
     val quantity: (Card) -> Int,
@@ -115,6 +137,7 @@ private const val TILES_PER_FRAME = 4
  * @param scrollToTop goes up by one each time the results should go back to the top.
  * @param jumpToTop goes up by one each time the results should be at the top at once, without scrolling there.
  * @param trailing extra controls at the end of the search row, such as the editor's Add to switch.
+ * @param defaultSort the order the list starts in, and goes back to when filters are reset.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -131,10 +154,12 @@ fun CardSearchPanel(
     scrollToTop: Int = 0,
     jumpToTop: Int = 0,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    defaultSort: CardSort = CardSort.NUMBER,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
     var showMore by rememberSaveable { mutableStateOf(false) }
-    var sort by rememberSaveable { mutableStateOf(CardSort.NUMBER) }
+    // A new default from Settings takes over at once.
+    var sort by rememberSaveable(defaultSort) { mutableStateOf(defaultSort) }
     // Whole-card grid by default: the card images are the clearest way to browse.
     var grid by rememberSaveable { mutableStateOf(true) }
     var deckColorsOnly by rememberSaveable { mutableStateOf(false) }
@@ -164,6 +189,10 @@ fun CardSearchPanel(
     LaunchedEffect(scrollToTop) {
         if (scrollToTop > 0) { if (grid) gridState.animateScrollToItem(0) else listState.animateScrollToItem(0) }
     }
+    var backToTop by remember { mutableIntStateOf(0) }
+    LaunchedEffect(backToTop) {
+        if (backToTop > 0) { if (grid) gridState.animateScrollToItem(0) else listState.animateScrollToItem(0) }
+    }
     LaunchedEffect(jumpToTop) {
         if (jumpToTop > 0) { gridState.scrollToItem(0); listState.scrollToItem(0) }
     }
@@ -180,9 +209,12 @@ fun CardSearchPanel(
         shown = Int.MAX_VALUE
     }
     val listed = if (shown < results.size) results.subList(0, shown) else results
-    val levels = remember(cards) { cards.mapNotNull { it.level }.distinct().sorted() }
-    val costs = remember(cards) { cards.mapNotNull { it.cost }.distinct().sorted() }
-    val sets = remember(cards) { cards.map { it.setCode }.distinct().sorted() }
+    // Every value from the lowest to the highest, so a strip has no holes for a drag to skip over.
+    val levels = remember(cards) { cards.mapNotNull { it.level }.span() }
+    val costs = remember(cards) { cards.mapNotNull { it.cost }.span() }
+    val aps = remember(cards) { cards.mapNotNull { it.ap }.span() }
+    val hps = remember(cards) { cards.mapNotNull { it.hp }.span() }
+    val sets = remember(cards) { cards.map { it.setCode }.distinct().sortedWith(ReleaseOrder.newestFirst) }
     // Only the types these cards have, so a list without resources offers no Resource chip.
     val types = remember(cards) { CardType.entries.filter { type -> cards.any { it.type == type } } }
 
@@ -201,8 +233,9 @@ fun CardSearchPanel(
     }
 
     // Filters set beyond the quick row, so a closed Filters chip still says something is on.
-    val hiddenFilters = query.levels.size + query.costs.size + query.setCodes.size + (if (query.trait.isBlank()) 0 else 1) +
-        (if (!wide && sort != CardSort.NUMBER) 1 else 0)
+    val drawerFilters = query.levels.size + query.costs.size + query.aps.size + query.hps.size + query.setCodes.size +
+        (if (query.trait.isBlank()) 0 else 1)
+    val hiddenFilters = drawerFilters + (if (!wide && sort != defaultSort) 1 else 0)
     Column(modifier) {
         // Two rows instead of a field and wrapped chips: the search with its count and view
         // controls, then colours as orbs and types as chips (UX rules N4, S5). On phones the view
@@ -229,7 +262,7 @@ fun CardSearchPanel(
                 onLongClick = {
                     query = CardQuery(text = query.text)
                     deckColorsOnly = false
-                    sort = CardSort.NUMBER
+                    sort = defaultSort
                 },
                 onLongClickLabel = "Reset filters")
             trailing?.invoke(this)
@@ -343,18 +376,43 @@ fun CardSearchPanel(
                         PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "Show as list" else "Show as grid") })
                     }
                 }
-                ChipLine("Level", levels, query.levels, Modifier.dealt(), wide) { query = query.copy(levels = query.levels.toggle(it)) }
-                ChipLine("Cost", costs, query.costs, Modifier.dealt(), wide) { query = query.copy(costs = query.costs.toggle(it)) }
-                ChipLine("Set", sets, query.setCodes, Modifier.dealt(), wide) { query = query.copy(setCodes = query.setCodes.toggle(it)) }
-                if (wide) OutlinedTextField(
-                    value = query.trait,
-                    onValueChange = { query = query.copy(trait = it) },
-                    label = { Text("Trait") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().dealt(),
-                )
-                else PillTextField(query.trait, { query = query.copy(trait = it) }, "Trait",
-                    Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 4.dp).dealt())
+                // Each stat is one strip of numbers rather than a line of chips, so four fit where two
+                // lines used to: paired on wide panes, one a line on phones where a cell needs the room.
+                val level = @Composable { m: Modifier -> NumberStrip("Level", levels, query.levels, m) { query = query.copy(levels = it) } }
+                val cost = @Composable { m: Modifier -> NumberStrip("Cost", costs, query.costs, m) { query = query.copy(costs = it) } }
+                val ap = @Composable { m: Modifier -> NumberStrip("AP", aps, query.aps, m) { query = query.copy(aps = it) } }
+                val hp = @Composable { m: Modifier -> NumberStrip("HP", hps, query.hps, m) { query = query.copy(hps = it) } }
+                val pad = if (wide) Modifier else Modifier.padding(horizontal = 12.dp, vertical = 3.dp)
+                if (wide) {
+                    Row(Modifier.dealt(), horizontalArrangement = Arrangement.spacedBy(16.dp)) { level(Modifier.weight(1f)); cost(Modifier.weight(1f)) }
+                    Row(Modifier.dealt(), horizontalArrangement = Arrangement.spacedBy(16.dp)) { ap(Modifier.weight(1f)); hp(Modifier.weight(1f)) }
+                } else {
+                    level(pad.dealt()); cost(pad.dealt()); ap(pad.dealt()); hp(pad.dealt())
+                }
+                Row(
+                    pad.fillMaxWidth().dealt(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LineLabel("Set")
+                    MenuChip(
+                        selected = query.setCodes.isNotEmpty(),
+                        label = {
+                            val picked = sets.filter { it in query.setCodes }
+                            Text(if (picked.isEmpty()) "Any" else picked.first() + if (picked.size > 1) " +${picked.size - 1}" else "")
+                        },
+                    ) {
+                        sets.forEach { set ->
+                            GameMenuItem(set, onClick = { query = query.copy(setCodes = query.setCodes.toggle(set)) }, selected = set in query.setCodes)
+                        }
+                    }
+                    PillTextField(query.trait, { query = query.copy(trait = it) }, "Trait", Modifier.weight(1f))
+                    if (drawerFilters > 0) PillChip(
+                        selected = false,
+                        onClick = { query = CardQuery(text = query.text, colors = query.colors, types = query.types) },
+                        label = { Text("Clear") },
+                    )
+                }
             }
         }
         HorizontalDivider(Modifier.padding(top = 4.dp))
@@ -398,6 +456,24 @@ fun CardSearchPanel(
             }
             if (grid) VerticalScrollBar(gridState, Modifier.align(Alignment.TopEnd))
             else VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
+            // Back to top once half a screen of results has scrolled away.
+            val scrolledAway by remember {
+                derivedStateOf {
+                    if (grid) gridState.firstVisibleItemIndex.let { it > 0 && it * 2 >= gridState.layoutInfo.visibleItemsInfo.size }
+                    else listState.firstVisibleItemIndex.let { it > 0 && it * 2 >= listState.layoutInfo.visibleItemsInfo.size }
+                }
+            }
+            // Named in full: inside the Column, the bare name resolves to ColumnScope's version, which can't be used in this Box.
+            androidx.compose.animation.AnimatedVisibility(
+                visible = scrolledAway,
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(end = if (wide) 30.dp else 16.dp, bottom = 16.dp + LocalNavClearance.current),
+                enter = if (reduce) fadeIn(tween(90)) else fadeIn(tween(Motion.SHORT)) + scaleIn(glide(), initialScale = 0.7f),
+                exit = if (reduce) fadeOut(tween(90)) else fadeOut(tween(Motion.SHORT)) + scaleOut(tween(Motion.SHORT), targetScale = 0.7f),
+            ) {
+                GlassIconButton(Icons.Default.KeyboardArrowUp, "Back to top", onClick = { backToTop++ },
+                    modifier = Modifier.shadow(6.dp, CircleShape))
+            }
         }
     }
 }
@@ -405,34 +481,78 @@ fun CardSearchPanel(
 /** The name at the start of a filter line, a fixed width on phones so the lines' chips start together. */
 @Composable
 private fun LineLabel(label: String, modifier: Modifier = Modifier) {
-    Text(label, style = MaterialTheme.typography.labelLarge, modifier = modifier.width(40.dp))
+    Text(label, style = MaterialTheme.typography.labelLarge, modifier = modifier.width(46.dp))
 }
 
-/** A filter line: wraps on wide panes; on phones one row that scrolls sideways under a fixed label. */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * A stat's values as one glass strip of numbers. Tapping a number toggles it; dragging across the
+ * strip picks the run under the drag. Picked neighbours join into one teal pill, so a run reads as a
+ * range rather than a row of separate chips.
+ */
 @Composable
-private fun <T> ChipLine(label: String, values: List<T>, selected: Set<T>, modifier: Modifier = Modifier, wide: Boolean = true, onToggle: (T) -> Unit) {
+private fun NumberStrip(label: String, values: List<Int>, selected: Set<Int>, modifier: Modifier = Modifier, onChange: (Set<Int>) -> Unit) {
     if (values.isEmpty()) return
-    if (!wide) {
-        Row(modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            LineLabel(label)
-            Row(
-                Modifier.weight(1f).fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 6.dp, end = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                values.forEach { value ->
-                    PillChip(selected = value in selected, onClick = { onToggle(value) }, label = { Text("$value") })
+    val accent = Accent
+    val onAccent = OnAccent
+    val ink = MaterialTheme.colorScheme.onSurface
+    val picked = values.map { value ->
+        animateFloatAsState(if (value in selected) 1f else 0f, motion(Motion.SHORT), label = "strip-cell").value
+    }
+    val change by rememberUpdatedState(onChange)
+    val cells by rememberUpdatedState(values)
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        LineLabel(label)
+        Box(
+            Modifier.weight(1f).height(34.dp).glass(PillShape, strong = true).padding(3.dp)
+                .pointerInput(Unit) {
+                    var from = 0
+                    fun cellAt(x: Float) = (x / size.width * cells.size).toInt().coerceIn(0, cells.size - 1)
+                    detectHorizontalDragGestures(
+                        onDragStart = { from = cellAt(it.x); change(setOf(cells[from])) },
+                        onHorizontalDrag = { pointer, _ ->
+                            val to = cellAt(pointer.position.x)
+                            change(cells.subList(minOf(from, to), maxOf(from, to) + 1).toSet())
+                        },
+                    )
+                }
+                .drawBehind {
+                    val w = size.width / values.size
+                    val r = size.height / 2
+                    picked.forEachIndexed { i, a ->
+                        if (a <= 0f) return@forEachIndexed
+                        // Rounded only where the run ends, so neighbours join into one pill.
+                        val joinsLeft = picked.getOrElse(i - 1) { 0f } > 0f
+                        val joinsRight = picked.getOrElse(i + 1) { 0f } > 0f
+                        val left = if (joinsLeft) 0f else r
+                        val right = if (joinsRight) 0f else r
+                        // A pixel of overlap where cells join, or their anti-aliased edges leave a seam.
+                        val seam = 1f
+                        drawPath(Path().apply {
+                            addRoundRect(RoundRect(i * w - (if (joinsLeft) seam else 0f), 0f, (i + 1) * w, size.height,
+                                CornerRadius(left), CornerRadius(right), CornerRadius(right), CornerRadius(left)))
+                        }, accent.copy(alpha = a))
+                    }
+                },
+        ) {
+            Row(Modifier.fillMaxSize()) {
+                values.forEachIndexed { i, value ->
+                    Box(
+                        Modifier.weight(1f).fillMaxHeight().clip(PillShape)
+                            .toggleable(value in selected, interactionSource = null, indication = null, role = Role.Checkbox) {
+                                onChange(selected.toggle(value))
+                            }
+                            .semantics { contentDescription = "$label $value" },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("$value", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                            color = lerp(ink, onAccent, picked[i]))
+                    }
                 }
             }
         }
-        return
-    }
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.Center) {
-        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.CenterVertically).padding(end = 4.dp))
-        values.forEach { value ->
-            PillChip(selected = value in selected, onClick = { onToggle(value) }, label = { Text("$value") })
-        }
     }
 }
+
+private fun List<Int>.span(): List<Int> = if (isEmpty()) emptyList() else (min()..max()).toList()
 
 private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - value else this + value

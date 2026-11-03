@@ -159,7 +159,8 @@ class ScreenshotTest {
     /** Desktop-sized shots (phones are 600 px wide) include the title bar, as the Windows app shows it. */
     private fun shoot(
         name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync,
-        taps: List<androidx.compose.ui.geometry.Offset> = emptyList(), hover: androidx.compose.ui.geometry.Offset? = null, setup: AppState.() -> Unit,
+        taps: List<androidx.compose.ui.geometry.Offset> = emptyList(), hover: androidx.compose.ui.geometry.Offset? = null,
+        scrollAt: androidx.compose.ui.geometry.Offset? = null, setup: AppState.() -> Unit,
     ) {
         // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup).apply { bootClock.skipToLock() }
@@ -177,6 +178,15 @@ class ScreenshotTest {
                     buttons = androidx.compose.ui.input.pointer.PointerButtons(isPrimaryPressed = true), button = androidx.compose.ui.input.pointer.PointerButton.Primary)
                 scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, tap, type = androidx.compose.ui.input.pointer.PointerType.Mouse,
                     button = androidx.compose.ui.input.pointer.PointerButton.Primary)
+                repeat(8) { Thread.sleep(150); time += 100_000_000L; image = scene.render(time) }
+            }
+            // Wheel turns at [scrollAt], far enough to reach the end of a short list.
+            if (scrollAt != null) {
+                repeat(10) {
+                    scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Scroll, scrollAt, type = androidx.compose.ui.input.pointer.PointerType.Mouse,
+                        scrollDelta = androidx.compose.ui.geometry.Offset(0f, 3f))
+                    Thread.sleep(60); time += 50_000_000L; image = scene.render(time)
+                }
                 repeat(8) { Thread.sleep(150); time += 100_000_000L; image = scene.render(time) }
             }
             // A mouse resting at [hover], for hover effects.
@@ -403,6 +413,15 @@ class ScreenshotTest {
     }
 
     /** The phone export in both themes: the editor's Export page and the dialog the library opens. */
+    @Test fun renderCardFilters() {
+        val at = { x: Int, y: Int -> androidx.compose.ui.geometry.Offset(x.toFloat(), y.toFloat()) }
+        shoot("desktop-card-filters", 1980, 1290, taps = listOf(at(910, 195))) { select(Tab.CARDS) }
+        shoot("phone-card-filters", 600, 1260, taps = listOf(at(528, 126))) { select(Tab.CARDS) }
+        shoot("light-phone-card-filters", 600, 1260, dark = false, taps = listOf(at(528, 126), at(328, 463), at(399, 463), at(258, 340))) { select(Tab.CARDS) }
+        shoot("desktop-card-filters-picked", 1980, 1290, taps = listOf(at(910, 195), at(407, 398), at(495, 398), at(285, 341))) { select(Tab.CARDS) }
+        shoot("phone-cards-scrolled", 600, 900, scrollAt = at(300, 500)) { select(Tab.CARDS) }
+    }
+
     @Test fun renderPhoneExport() {
         shoot("phone-export-page", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 6)) }
         shoot("light-phone-export-page", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 6)) }

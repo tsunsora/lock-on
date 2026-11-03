@@ -36,6 +36,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
     val catalog = container.catalog
     val cards by catalog.cards.collectAsState()
     val printings by catalog.printings.collectAsState()
+    val defaultSort by container.settings.cardSort.collectAsState()
     // Kept by card number, so the details panel still shows the same card after a visit elsewhere.
     var selectedNumber by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = selectedNumber?.let { cards[it] }
@@ -56,7 +57,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
             val search: @Composable (Modifier) -> Unit = { m ->
                 CardSearchPanel(
                     cards.values, onCardClick = { selectedNumber = it.cardNumber },
-                    modifier = m, focusRequests = focusRequests, selected = shown?.cardNumber, wide = wide,
+                    modifier = m, focusRequests = focusRequests, selected = shown?.cardNumber, wide = wide, defaultSort = defaultSort,
                 )
             }
             if (wide) {
