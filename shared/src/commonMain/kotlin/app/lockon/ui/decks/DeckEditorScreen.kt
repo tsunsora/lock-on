@@ -412,10 +412,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         var deckToTop by remember(deckId) { mutableIntStateOf(0) }
         var cardsToTop by remember(deckId) { mutableIntStateOf(0) }
         // The editor stays built after you leave (KeptScreens), so each time the deck opens again both
-        // lists start back at the top. It jumps while the screen is still faded out, so nothing shows it.
+        // lists start back at the top and it opens on the tab asked for: the deck itself, unless the deck
+        // is brand new and goes to Add cards. It jumps while the screen is still faded out, so nothing shows it.
         var opened by remember(deckId) { mutableIntStateOf(0) }
-        val showing = (state.current as? Screen.DeckEditor)?.deckId == deckId
-        LaunchedEffect(showing) { if (showing) opened++ }
+        val showingAt = (state.current as? Screen.DeckEditor)?.takeIf { it.deckId == deckId }
+        val showing = showingAt != null
+        LaunchedEffect(showing) {
+            if (showingAt == null) return@LaunchedEffect
+            opened++
+            phoneTab = showingAt.startTab
+            deckTab = if (showingAt.startTab >= 2) showingAt.startTab - 1 else 0
+        }
         // One split for every deck, kept across launches. Each editor drags its own copy so a drag only
         // relays out, and takes up the saved one whenever any editor or Settings changes it.
         val split = remember { mutableFloatStateOf(container.settings.editorSplit.value ?: DEFAULT_SPLIT) }
