@@ -189,6 +189,12 @@ fun CardSearchPanel(
     LaunchedEffect(scrollToTop) {
         if (scrollToTop > 0) { if (grid) gridState.animateScrollToItem(0) else listState.animateScrollToItem(0) }
     }
+    // A new order starts at its top. The grids keep their place by the first card showing, which a
+    // new order moves, so AP would open part way down with the strongest cards out of sight above.
+    val sortShown = remember { arrayOf(sort) }
+    LaunchedEffect(sort) {
+        if (sortShown[0] != sort) { sortShown[0] = sort; gridState.scrollToItem(0); listState.scrollToItem(0) }
+    }
     var backToTop by remember { mutableIntStateOf(0) }
     LaunchedEffect(backToTop) {
         if (backToTop > 0) { if (grid) gridState.animateScrollToItem(0) else listState.animateScrollToItem(0) }
