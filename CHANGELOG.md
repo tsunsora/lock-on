@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.11.2 (2026-11-03)
+
+The boot screen plays smoothly while Lock On starts, and the shared deck image is shorter.
+
+- **Startup:** the boot screen no longer freezes while the app loads behind it, then fades into the app. On phones it replaces the old launch screen, matching light or dark.
+- **Export:** the shared deck image says each thing once. The header sits on the cover card's art with the name, colors, count and legality, beside the QR code, and each card's count sits on its top-right corner.
+- **Phones:** a deck always opens on its deck list. Only a deck you've just made opens on **Add cards**.
+- **Android:** switching to another app and back no longer brings the keyboard up again. Your search text stays.
+- **Toasts:** the message sits centred in the pill, without the dot in front.
+
 ## 26.11.1 (2026-11-02)
 
 Versions are now numbered by date, and Sync shows this device on its own panel.
