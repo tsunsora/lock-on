@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.11.3 (2026-11-03)
+
+Lock On no longer sometimes hangs when it starts on Windows, and the Cards screen has new sorts and filters.
+
+- **Computer:** fixes a hang in 26.11.2 where Lock On could stay on the boot screen for good when it started.
+- **Startup:** the boot screen hunts all the way in, locks on and holds the lock until it fades, rather than letting go and hunting again.
+- **Cards:** sort by **Newest** (latest set first), **AP** or **HP**, and pick in **Settings** which order the Cards screen opens in. A new sort starts at the top of the list.
+- **Cards:** **Filters** puts Level, Cost, AP and HP on one strip of numbers each, to tap or drag across. **Set** is a menu beside Trait, and **Clear** resets them all. A button takes you back to the top once you've scrolled down.
+- **Export:** the shared deck image's header shows the name, colors, count and legality, and how many Units, Pilots, Commands and Bases the deck has. Each card's count sits just under its number and rarity.
+
 ## 26.11.2 (2026-11-03)
 
 The boot screen plays smoothly while Lock On starts, and the shared deck image is shorter.
