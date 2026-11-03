@@ -26,6 +26,7 @@ import app.lockon.ui.BootStep
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.roundToInt
 
 /**
  * The boot screen on a surface of its own over the app, drawn on a thread of its own, so the screens
@@ -135,18 +136,36 @@ private class Art(pictures: BootPictures, activity: Activity) {
     // Its words are laid out here, on the main thread, so the drawing thread only reads them back.
     private val measurer = TextMeasurer(createFontFamilyResolver(activity), density, LayoutDirection.Ltr).also { targeting.warm(it) }
 
+    private var placedFor = -1 to -1
+    private var placed = targeting
+    private var frontX = 0f
+    private var frontY = 0f
+
+    /**
+     * Draws the boot screen at [clock], [going] of the way through fading out. On a screen of another
+     * size than the pictures (turned, or resized in split screen), the layers keep together the way the
+     * boot screen lays them out: the sky stretches to fill, the mark and its labels keep their size at
+     * the centre, and the field stays centred on the mark and reaches as far as the new size gives it.
+     */
     fun frame(canvas: Canvas, clock: BootClock, step: BootStep, going: Float, draw: CanvasDrawScope, fade: Paint) {
         canvas.drawColor(0, PorterDuff.Mode.CLEAR)
         val w = canvas.width.toFloat()
         val h = canvas.height.toFloat()
+        if (placedFor != canvas.width to canvas.height) {
+            frontX = ((canvas.width - sky.width) / 2f).roundToInt().toFloat()
+            frontY = ((canvas.height - sky.height) / 2f).roundToInt().toFloat()
+            placed = if (canvas.width == sky.width && canvas.height == sky.height) targeting
+                else targeting.moved(androidx.compose.ui.geometry.Offset(frontX, frontY), w, h)
+            placedFor = canvas.width to canvas.height
+        }
         // Fading out over the app and swelling a touch as it goes, as the app's own boot screen does.
         val faded = if (going > 0f) canvas.saveLayerAlpha(0f, 0f, w, h, ((1f - going * going) * 255).toInt()) else -1
         val grow = 1f + 0.06f * going
         canvas.save()
         canvas.scale(grow, grow, w / 2f, h / 2f)
-        canvas.drawBitmap(sky, 0f, 0f, fade)
-        draw.draw(density, LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(canvas), Size(w, h)) { targeting.draw(this, clock, measurer) }
-        fronts[step]?.let { canvas.drawBitmap(it, 0f, 0f, fade) }
+        canvas.drawBitmap(sky, null, android.graphics.RectF(0f, 0f, w, h), fade)
+        draw.draw(density, LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(canvas), Size(w, h)) { placed.draw(this, clock, measurer) }
+        fronts[step]?.let { canvas.drawBitmap(it, frontX, frontY, fade) }
         canvas.restore()
         if (faded >= 0) canvas.restoreToCount(faded)
     }
