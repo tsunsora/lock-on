@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.5 (2026-11-03)
+
+The boot screen stays in one piece at any window size.
+
+- **Startup:** the boot screen no longer pulls apart when the window opens maximised or changes size as Lock On starts. The mark stays centred with the radar around it, and the whole window stays covered.
+- **Computer:** the boot screen plays at a steady 60 frames a second in a maximised window, up from about 35.
+- **Phones:** turning the phone while Lock On starts keeps the mark centred in the radar.
+
 ## 26.11.4 (2026-11-03)
 
 The boot screen plays evenly from start to finish, and Lock On feels smoother throughout.
