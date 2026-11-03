@@ -86,7 +86,9 @@ fun main() {
             size = saved.size,
         )
         // The window closes at once; the sync server and LAN announcement shut down after it.
-        val exit = { if (!training) WindowMemory.save(windowState); exitApplication() }
+        // Probe runs leave it alone too, since they move and resize the window to time it.
+        val probing = System.getProperties().stringPropertyNames().any { it.startsWith("lockon.") && it.endsWith("Probe") }
+        val exit = { if (!training && !probing) WindowMemory.save(windowState); exitApplication() }
         closeWindow = exit
         Window(
             onCloseRequest = exit,

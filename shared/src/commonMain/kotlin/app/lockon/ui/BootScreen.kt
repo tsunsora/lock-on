@@ -180,6 +180,12 @@ class BootTargeting(val center: Offset, val reach: Float, val target: Float, val
 
     /** Lays out the seeker's readouts ahead of time, so drawing on another thread later only reads them from [labels]' cache. */
     fun warm(labels: TextMeasurer) = readouts(ink).toList().forEach { (word, color) -> labels.measure(word, labelStyle.copy(color = color)) }
+
+    /**
+     * The field on a screen [width]×[height] pixels whose boot screen sits [by] from where it was: the
+     * boot screen keeps its mark centred, so the field moves with it, and its reach follows the size.
+     */
+    fun moved(by: Offset, width: Float, height: Float) = BootTargeting(center + by, bootReach(width, height), target, scan, ink, labelStyle)
 }
 
 /**
@@ -233,7 +239,7 @@ fun BootScreen(
     val content: @Composable BoxScope.() -> Unit = content@{
         if (layers == BootLayers.SKY) return@content
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val reach = minOf(maxWidth, maxHeight * 1.4f) * 0.34f
+            val reach = bootReach(maxWidth.value, maxHeight.value).dp
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(contentAlignment = Alignment.Center) {
                     // Sized to the mark but drawn well past its edges, so the field centres on the mark.
@@ -295,6 +301,9 @@ private fun smooth(from: Float, to: Float, x: Float): Float {
     val k = ((x - from) / (to - from)).coerceIn(0f, 1f)
     return k * k * (3 - 2 * k)
 }
+
+/** How far the radar field reaches on a screen [width]×[height], in the same units. */
+private fun bootReach(width: Float, height: Float) = minOf(width, height * 1.4f) * 0.34f
 
 /** The seeker's readouts, searching, tracking and locked, each in its colour. */
 private fun readouts(ink: Color) = Triple("SEARCHING" to ink.copy(alpha = 0.55f), "TRACKING" to ink.copy(alpha = 0.7f), "LOCKED" to SuitColors.chestRed)

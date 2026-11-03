@@ -39,6 +39,22 @@ fun BootProbe(window: ComposeWindow, state: AppState, cover: DesktopBootCover?, 
                 shoot("at-$at")
             }
         }
+        // `-Plockon.bootProbe.resize=<width>x<height>` (or `max`) resizes the window 900 ms in, while the
+        // boot screen plays, with pictures just after and once the cover has caught up.
+        System.getProperty("lockon.bootProbe.resize")?.let { size ->
+            kotlin.concurrent.thread(isDaemon = true) {
+                Thread.sleep((900 - (System.nanoTime() - began) / 1_000_000).coerceAtLeast(0))
+                java.awt.EventQueue.invokeLater {
+                    if (size == "max") window.extendedState = java.awt.Frame.MAXIMIZED_BOTH
+                    else size.split("x").map { it.trim().toInt() }.let { (w, h) -> window.setSize(w, h) }
+                }
+                val resizedAt = System.nanoTime()
+                for (after in listOf(40L, 150L, 250L, 350L, 450L, 600L, 900L)) {
+                    Thread.sleep((after - (System.nanoTime() - resizedAt) / 1_000_000).coerceAtLeast(0))
+                    shoot("resized-$after")
+                }
+            }
+        }
         coroutineScope {
             val recording = launch { while (true) withFrameNanos { frames += System.nanoTime() } }
             snapshotFlow { state.booted }.first { it }
@@ -70,7 +86,10 @@ fun BootProbe(window: ComposeWindow, state: AppState, cover: DesktopBootCover?, 
         // even 1.0 is smooth; well above it is a burst, well below it a stall.
         val moved = cover?.playedAt?.toList().orEmpty()
         val pace = covered.indices.drop(1).map { i -> (moved[i] - moved[i - 1]) / ((covered[i] - covered[i - 1]) / 1e6f) }
-        val paceLine = if (pace.isEmpty()) "" else "  cover pace (animation ms per real ms): min %.2f, max %.2f, %d frames outside 0.8-1.25\n".format(
+        val work = cover?.work?.toList().orEmpty()
+        fun median(i: Int) = work.map { it[i] }.sorted().let { if (it.isEmpty()) 0f else it[it.size / 2] }
+        val workLine = if (work.isEmpty()) "" else "  cover work per frame, median ms: Skia %.1f, Java2D %.1f, presenting %.1f\n".format(median(0), median(1), median(2))
+        val paceLine = workLine + if (pace.isEmpty()) "" else "  cover pace (animation ms per real ms): min %.2f, max %.2f, %d frames outside 0.8-1.25\n".format(
             pace.min(), pace.max(), pace.count { it < 0.8f || it > 1.25f })
         report.appendText(
             "${window.renderApi}, $hz Hz, ${window.width}×${window.height}\n" +
