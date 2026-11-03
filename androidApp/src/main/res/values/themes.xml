@@ -5,7 +5,8 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
-    <color name="background">#0B1220</color>
+    <!-- The boot screen's background, so the system splash hands over to it without a flash; values-night has the twilight one. -->
+    <color name="background">#E6F2FA</color>
     <color name="ic_launcher_background">#34478C</color>
     <color name="accent">#FFB347</color>
 </resources>

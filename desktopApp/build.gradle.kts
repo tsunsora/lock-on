@@ -68,6 +68,11 @@ compose.desktop {
         }
         // `-Plockon.dividerProbe=<file>` times dragging the deck editor's divider and closes the app (DividerProbe.kt).
         providers.gradleProperty("lockon.dividerProbe").orNull?.let { jvmArgs("-Dlockon.dividerProbe=$it") }
+        // `-Plockon.bootProbe=<file>` times the boot screen's frames and closes the app (BootProbe.kt).
+        // `-Plockon.bootProbe.shots=true` also takes pictures of the screen at a few moments.
+        listOf("lockon.bootProbe", "lockon.bootProbe.shots").forEach { key ->
+            providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Lock On"

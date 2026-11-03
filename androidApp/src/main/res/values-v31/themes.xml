@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 12+ shows the Lock On mark on the system splash screen, then the in-app launch screen takes over. -->
+    <!-- Android 12+ shows the Lock On mark on the system splash screen, then the boot screen takes over. -->
     <style name="Theme.LockOn" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>

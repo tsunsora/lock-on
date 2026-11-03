@@ -13,12 +13,13 @@ import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.Lifecycle
@@ -28,12 +29,16 @@ import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
 import android.provider.Settings
 import app.lockon.ui.LockOnApp
-import app.lockon.ui.components.LaunchScreen
+import app.lockon.ui.BootPictureTaker
+import app.lockon.ui.BootScreen
+import app.lockon.ui.BootStep
+import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.theme.LockOnTheme
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -91,17 +96,30 @@ class MainActivity : ComponentActivity() {
                     if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) it.setForeground(true)
                 }
             }
-            val state = remember { AppState(app.appScope) }
+            val reduceMotion = remember { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+            // The boot screen plays on a surface of its own, so the screens building under it can't make it
+            // stutter. Reduced motion holds it still, so then there is nothing to play.
+            val state = remember {
+                AppState(app.appScope).also { s -> if (!reduceMotion) s.bootCover = AndroidBootCover(this@MainActivity, s.bootClock) }
+            }
             val c = container
             val s = sync
             if (c == null || s == null) {
-                LockOnTheme(dark = true) { LaunchScreen(Modifier.fillMaxSize()) }
+                // The boot screen starts while the decks open, in the phone's own light or dark until
+                // Settings can say which; the app's boot screen then carries on from the same moment.
+                val covered by (state.bootCover?.showing ?: remember { MutableStateFlow(false) }).collectAsState()
+                CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
+                    LockOnTheme(dark = isSystemInDarkTheme()) {
+                        state.bootCover?.let { cover -> BootPictureTaker(state.bootClock, cover::pictures) }
+                        BootScreen(BootStep.DECKS, state.bootClock, playing = !covered)
+                    }
+                }
             } else {
                 BackHandler(enabled = state.canGoBack) { state.goBack() }
                 LockOnApp(
                     c, state, s, files,
                     artworkDir = filesDir.resolve("artwork").absolutePath,
-                    reduceMotion = remember { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f },
+                    reduceMotion = reduceMotion,
                 )
             }
         }

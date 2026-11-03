@@ -70,6 +70,11 @@ fun main() {
     val state = AppState(appScope)
     // For timing the app without the boot screen (TabSwitchProbe.kt).
     if (System.getProperty("lockon.skipBoot") == "true") state.booted = true
+    // On Windows the boot screen plays in a window of its own, so the screens building under it can't
+    // make it stutter. Reduced motion holds the boot screen still, so it has nothing to play there.
+    val bootCover = if (!training && !state.booted && System.getProperty("os.name").startsWith("Windows") &&
+        container.settings.motion.value != app.lockon.data.MotionChoice.REDUCED
+    ) DesktopBootCover(container.settings).also { state.bootCover = it } else null
 
     val saved = WindowMemory.load()
     application {
@@ -91,6 +96,7 @@ fun main() {
             // DirectComposition instead, that strip shows the window's background (windowBackground below).
             // The app paints an opaque sky over the whole window, so nothing else shows through.
             remember { components(window).filterIsInstance<SkiaLayer>().firstOrNull()?.transparency = true }
+            remember { bootCover?.attach(window) }
             // Which graphics API draws the window, for reports of slow scrolling: SOFTWARE means no GPU.
             LaunchedEffect(Unit) {
                 org.slf4j.LoggerFactory.getLogger("LockOn").info("Rendering with ${window.renderApi}")
@@ -127,6 +133,7 @@ fun main() {
             System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.tabProbe")?.let { TabSwitchProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.dividerProbe")?.let { DividerProbe(window, container, state, File(it), exit) }
+            System.getProperty("lockon.bootProbe")?.let { BootProbe(window, state, bootCover, File(it), exit) }
             if (training) ClassArchiveTraining(state, exit)
         }
     }

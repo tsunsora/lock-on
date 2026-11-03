@@ -89,7 +89,8 @@ class RealDataScreenshotTest {
         }
 
         fun shoot(name: String, w: Int, h: Int, density: Float, dark: Boolean = true, setup: AppState.() -> Unit) {
-            val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
+            // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
+            val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup).apply { bootClock.skipToLock() }
             ImageComposeScene(w, h, Density(density)) { LockOnApp(container, state, sync, files, artworkDir = cache, dark = dark) }.use { scene ->
                 var image = scene.render()
                 // Images arrive from the network on first run; give them time, advancing the frame clock.
