@@ -73,18 +73,22 @@ data class CardQuery(
     val types: Set<CardType> = emptySet(),
     val levels: Set<Int> = emptySet(),
     val costs: Set<Int> = emptySet(),
+    val aps: Set<Int> = emptySet(),
+    val hps: Set<Int> = emptySet(),
     val setCodes: Set<String> = emptySet(),
     val trait: String = "",
 ) {
     val isEmpty: Boolean
         get() = text.isBlank() && colors.isEmpty() && types.isEmpty() && levels.isEmpty() &&
-            costs.isEmpty() && setCodes.isEmpty() && trait.isBlank()
+            costs.isEmpty() && aps.isEmpty() && hps.isEmpty() && setCodes.isEmpty() && trait.isBlank()
 
     fun matches(card: Card): Boolean {
         if (colors.isNotEmpty() && card.colors.none { it in colors }) return false
         if (types.isNotEmpty() && card.type !in types) return false
         if (levels.isNotEmpty() && card.level !in levels) return false
         if (costs.isNotEmpty() && card.cost !in costs) return false
+        if (aps.isNotEmpty() && card.ap !in aps) return false
+        if (hps.isNotEmpty() && card.hp !in hps) return false
         if (setCodes.isNotEmpty() && card.setCode !in setCodes) return false
         if (trait.isNotBlank() && card.traits.none { it.contains(trait.trim(), ignoreCase = true) }) return false
         val needle = text.trim()

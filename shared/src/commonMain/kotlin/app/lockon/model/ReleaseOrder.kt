@@ -40,4 +40,16 @@ object ReleaseOrder {
         val setB = setCode(b)
         compareValues(rank(setA), rank(setB)).takeIf { it != 0 } ?: setA.compareTo(setB).takeIf { it != 0 } ?: a.compareTo(b)
     }
+
+    /**
+     * The newest set first, numbers within a set still counting up. Unlisted numbered sets are newer
+     * than every listed one, so they lead; promos, resources and tokens stay at the end.
+     */
+    val newestFirst: Comparator<String> = Comparator { a, b ->
+        val setA = setCode(a)
+        val setB = setCode(b)
+        compareValues(newestRank(setA), newestRank(setB)).takeIf { it != 0 } ?: setA.compareTo(setB).takeIf { it != 0 } ?: a.compareTo(b)
+    }
+
+    private fun newestRank(set: String): Int = rank(set).let { if (it > released.size) it else -it }
 }

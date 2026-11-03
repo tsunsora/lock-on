@@ -66,6 +66,7 @@ import app.lockon.ui.components.PillSegmented
 import app.lockon.ui.components.PillShape
 import app.lockon.ui.components.PillSwitch
 import app.lockon.ui.components.SectionHeader
+import app.lockon.model.CardSort
 import app.lockon.ui.components.glass
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.update.AppUpdateSection
@@ -94,6 +95,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val catalogChecks by settings.catalogChecks.collectAsState()
     val autoDeckColors by settings.autoDeckColors.collectAsState()
     val editorSplit by settings.editorSplit.collectAsState()
+    val cardSort by settings.cardSort.collectAsState()
     val showArtwork by container.catalog.showArtwork.collectAsState()
     // The name is read once at launch, so a new one shows here until then.
     var deviceName by remember { mutableStateOf(container.identity.deviceName) }
@@ -108,6 +110,15 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
             SettingsSection("General") {
                 SettingRow("Open on", wideControl = true) {
                     Segmented(StartChoice.entries, start, { it.label }) { scope.launch { settings.setStart(it) } }
+                }
+                SettingRow("Sort cards by", detail = "On the Cards screen") {
+                    MenuChip(selected = false, label = { Text(cardSort.label) }) { close ->
+                        CardSort.entries.forEach { sort ->
+                            GameMenuItem(sort.label, selected = sort == cardSort, onClick = {
+                                close(); scope.launch { settings.setCardSort(sort) }
+                            })
+                        }
+                    }
                 }
                 SettingRow(
                     "Device name",

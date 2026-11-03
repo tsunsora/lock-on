@@ -13,4 +13,13 @@ class ReleaseOrderTest {
             numbers.sortedWith(ReleaseOrder.comparator),
         )
     }
+
+    @Test
+    fun newestSetsComeFirstWithPromosAndTokensStillLast() {
+        val numbers = listOf("T-014", "EB01-003", "GD02-001", "ST06-001", "GD09-001", "RP-002", "ST01-010", "GD01-002", "ST01-002", "SC01-001")
+        assertEquals(
+            listOf("GD09-001", "SC01-001", "EB01-003", "ST06-001", "GD02-001", "GD01-002", "ST01-002", "ST01-010", "RP-002", "T-014"),
+            numbers.sortedWith(ReleaseOrder.newestFirst),
+        )
+    }
 }
