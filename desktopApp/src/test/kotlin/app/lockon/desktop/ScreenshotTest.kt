@@ -527,7 +527,10 @@ class ScreenshotTest {
                 Thread.sleep(16)
                 scene.render(frame++ * 100_000_000L)
             }
-            val image = org.jetbrains.skia.Image.makeFromEncoded(saved.get(1, java.util.concurrent.TimeUnit.SECONDS))
+            val png = saved.get(1, java.util.concurrent.TimeUnit.SECONDS)
+            // Kept beside the screenshots, so the saved picture itself can be looked at.
+            File(out, "saved-deck-image.png").writeBytes(png)
+            val image = org.jetbrains.skia.Image.makeFromEncoded(png)
             kotlin.test.assertEquals(2160, image.width)
             assertTrue(image.height > 2160, "the whole deck is in the image, not just what the dialog shows")
         }

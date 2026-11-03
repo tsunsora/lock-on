@@ -272,7 +272,7 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
 /**
  * A deck at a glance: a title row, the level curve across the full width, and the counts by type,
  * Burst and Blockers as one row of even tiles. Zero counts are dimmed so the cards that are there
- * stand out. Used by the editor's stats strip and the exported deck image.
+ * stand out. Used by the editor's stats strip.
  */
 @Composable
 fun DeckGlance(stats: app.lockon.rules.DeckStats, modifier: Modifier = Modifier, curveHeight: androidx.compose.ui.unit.Dp = 88.dp) {

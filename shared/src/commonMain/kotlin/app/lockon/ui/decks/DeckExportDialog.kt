@@ -1,6 +1,5 @@
 package app.lockon.ui.decks
 import app.lockon.ui.components.LocalNavClearance
-import app.lockon.ui.components.DeckGlance
 import app.lockon.io.ExportOrder
 import app.lockon.platform.encodeShareQr
 import app.lockon.sync.QrMatrix
@@ -9,6 +8,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import app.lockon.rules.DeckAnalysis
 import app.lockon.ui.components.MiniCurve
+import app.lockon.ui.components.CardArtwork
+import app.lockon.ui.components.LocalArtwork
+import app.lockon.ui.theme.cardColor
+import app.lockon.model.CardColor
+import androidx.compose.ui.BiasAlignment
+import androidx.compose.ui.layout.ContentScale
 import app.lockon.ui.components.QrCodeView
 import app.lockon.ui.components.CenteredGlyph
 import app.lockon.ui.components.PillChip
@@ -18,8 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.sp
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.Gold
-import app.lockon.ui.components.ProgressGauge
-import app.lockon.ui.components.GlassPanel
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.SkyBackground
 import app.lockon.ui.components.PillTabs
@@ -765,76 +768,120 @@ private fun CaptureAtFixedWidth(layer: GraphicsLayer, modifier: Modifier = Modif
     }
 }
 
-/** The picture people share: name, colors and legality, then every card with its count. */
+/**
+ * The picture people share, each fact said once: one panel over the cover's art holds the name,
+ * colors, count, legality, make-up and level curve, with the QR beside them; then every card with
+ * its count on its corner.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DeckImage(deck: DeckSnapshot, cards: Map<String, Card>, ruleset: Ruleset, order: ExportOrder) {
     val scheme = MaterialTheme.colorScheme
     val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck, cards, ruleset).isLegal }
     val main = deck.entries.filter { it.section == DeckSection.MAIN }
+    val count = main.sumOf { it.quantity }
     val colors = main.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
     val qr = remember(deck, cards) { deckQr(deckQrText(deck, cards)) }
     // The same sky and glass as the app, so a shared deck looks like Lock On (UX rule V1).
     SkyBackground(Modifier.width(IMAGE_WIDTH)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                Modifier.fillMaxWidth().glass(LockOnShapes.panel, strong = true).padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                deckCover(deck, cards)?.let { CardImage(it.card, Modifier.width(64.dp), it.printingId) }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(deck.name, style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ColorPips(colors)
-                        if (legal) Badge("Legal · ${ruleset.name}", scheme.secondaryContainer, scheme.onSecondaryContainer)
-                        else Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant)
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.fillMaxWidth().glass(LockOnShapes.panel, strong = true).clip(LockOnShapes.panel)) {
+                CoverBackdrop(deck, cards, colors.minByOrNull { it.ordinal }, Modifier.matchParentSize())
+                Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(deck.name, style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val middle = Modifier.align(Alignment.CenterVertically)
+                            ColorPips(colors, middle)
+                            // The count needs no gauge: a full deck just says so, a short one shows what it lacks.
+                            Text(
+                                if (count == ruleset.mainDeckSize) "$count cards" else "$count / ${ruleset.mainDeckSize} cards",
+                                style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurfaceVariant, modifier = middle,
+                            )
+                            if (legal) Badge("Legal · ${ruleset.name}", scheme.secondaryContainer, scheme.onSecondaryContainer, middle)
+                            else Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant, middle)
+                        }
+                        // At a glance: what a reader would otherwise count by hand.
+                        GlanceCounts(stats)
+                        if (stats.levelCurve.isNotEmpty()) MiniCurve(stats.levelCurve, Modifier.padding(top = 2.dp), height = 72.dp, caption = false)
                     }
-                    ProgressGauge("Main deck", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth(0.6f), compact = true)
-                }
-            }
-            // At a glance: what a reader would otherwise count by hand.
-            if (stats.levelCurve.isNotEmpty()) {
-                DeckGlance(stats, Modifier.glass(LockOnShapes.tile).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp))
-            }
-            GlassPanel(Modifier.fillMaxWidth(), title = "Main deck", readout = "${main.sumOf { it.quantity }}") {
-                Column(Modifier.padding(start = 8.dp, end = 8.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // One continuous grid: the groups keep their order but get no headings, so no row is left half empty.
-                    order.groups(main, cards).flatMap { (_, group) -> group }.chunked(CARDS_PER_ROW).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { entry ->
-                                // The count sits under the card, so cost and AP/HP stay visible (UX rule V4a).
-                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    CardImage(cards[entry.cardNumber], Modifier.fillMaxWidth(), entry.printingId)
-                                    Text(
-                                        "×${entry.quantity}",
-                                        style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-                                        color = scheme.onPrimary,
-                                        modifier = Modifier.clip(LockOnShapes.button).background(scheme.primary).padding(horizontal = 12.dp, vertical = 1.dp),
-                                    )
-                                }
-                            }
-                            repeat(CARDS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
+                    // The code and whose it is, under one another; the caption says what to do with it.
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (qr != null) QrCodeView(qr, Modifier.size(112.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            LockOnMark(size = 14.dp, reticleColor = scheme.onSurface)
+                            Text(if (qr != null) "Scan in Lock On" else "Lock On", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1)
                         }
                     }
                 }
             }
-            // Sharing: the QR and how to use it, for someone who only has this picture.
-            Row(
-                Modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                if (qr != null) QrCodeView(qr, Modifier.size(124.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Get this deck", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
-                    HelpStep("1", "Scan the code with a phone camera. It holds the deck list as text.")
-                    HelpStep("2", "Copy the text, then in Lock On open Decks › ⋮ › Import and paste it.")
-                    HelpStep("3", "Other builders that read \"4 GD01-001\" lines take it too.")
+            // The count is in the header, so the grid needs no title row of its own.
+            Column(Modifier.fillMaxWidth().glass().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // One continuous grid: the groups keep their order but get no headings, so no row is left half empty.
+                order.groups(main, cards).flatMap { (_, group) -> group }.chunked(CARDS_PER_ROW).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { entry ->
+                            // The count sits on the top-right corner, over the card's number, so cost and AP/HP stay visible (UX rule V4a).
+                            Box(Modifier.weight(1f)) {
+                                CardImage(cards[entry.cardNumber], Modifier.fillMaxWidth(), entry.printingId)
+                                Text(
+                                    "×${entry.quantity}",
+                                    style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                                    color = scheme.onPrimary,
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(3.dp).clip(LockOnShapes.button).background(scheme.primary)
+                                        .padding(horizontal = 7.dp, vertical = 1.dp),
+                                )
+                            }
+                        }
+                        repeat(CARDS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                LockOnMark(size = 18.dp, reticleColor = scheme.onSurface)
-                Spacer(Modifier.width(6.dp))
-                Text("Built with Lock On", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * The cover card's art across the whole header, faint and tinted toward the panel on the left, where
+ * the text sits, and toward the deck's lead color on the right, as on the deck boxes (UX rule V4a).
+ */
+@Composable
+private fun CoverBackdrop(deck: DeckSnapshot, cards: Map<String, Card>, lead: CardColor?, modifier: Modifier = Modifier) {
+    val cover = deckCover(deck, cards) ?: return
+    val art = LocalArtwork.current.urlFor(cover.card.cardNumber, cover.printingId) ?: return
+    val scheme = MaterialTheme.colorScheme
+    val base = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest
+    val tint = cardColor(lead)
+    Box(modifier) {
+        CardArtwork(art, null, Modifier.fillMaxSize(), ContentScale.Crop, BiasAlignment(0f, -0.45f)) {}
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(tint.copy(alpha = 0.12f), tint.copy(alpha = 0.4f)))))
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to base.copy(alpha = 0.86f), 0.45f to base.copy(alpha = 0.7f), 1f to base.copy(alpha = 0.35f))))
+    }
+}
+
+/**
+ * The deck's make-up as one line under its name: each type a number and its word, then Burst and
+ * Blockers in teal. Anything the deck has none of is left out.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GlanceCounts(stats: app.lockon.rules.DeckStats) {
+    val scheme = MaterialTheme.colorScheme
+    val types = listOf(
+        "Units" to (stats.typeCounts[CardType.UNIT] ?: 0),
+        "Pilots" to (stats.typeCounts[CardType.PILOT] ?: 0),
+        "Commands" to (stats.typeCounts[CardType.COMMAND] ?: 0),
+        "Bases" to (stats.typeCounts[CardType.BASE] ?: 0),
+    ).map { it to scheme.onSurface }
+    val traits = listOf("Burst" to stats.burstCount, "Blockers" to stats.blockerCount).map { it to scheme.primary }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        for ((pair, numberColor) in types + traits) {
+            val (label, n) = pair
+            if (n == 0) continue
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("$n", style = MaterialTheme.typography.titleSmall.merge(TabularNumbers), color = numberColor)
+                Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -892,15 +939,5 @@ private fun QrPage(qr: QrMatrix?, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
             )
         }
-    }
-}
-
-@Composable
-private fun HelpStep(number: String, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.padding(top = 1.dp).size(18.dp).clip(LockOnShapes.button).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))) {
-            CenteredGlyph(number, MaterialTheme.colorScheme.primary, 11.sp)
-        }
-        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
