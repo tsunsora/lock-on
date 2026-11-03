@@ -92,6 +92,8 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
 - **V5. Motion explains and gives feedback, quietly.** Every animation answers *what changed*, *where did I go* or *what can I touch*, and none of it competes with the cards. Short distances, small scales, no bounce, overshoot, tilt or sparkle. Timing lives in `Motion.kt`.
   - **Timing:** 120 ms for small exits, 200 ms for most changes, 280 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 30 ms apart.
   - **Navigation:** going deeper drifts a short way forward, coming back drifts back, and switching tabs fades through.
+  - **Arriving and revealing:** dialogs and popups fade in while growing from just under their size (`Modifier.arrive`). Banners and hints unfold into place and fold away (`revealIn` / `revealOut`), so what is below them glides instead of jumping. Swapped content, such as a stamp or a pair of buttons, fades through.
+  - **States warm, never switch:** a gauge warms from teal to gold to red, and a picked item's light moves to it.
   - **Lists:** rows glide when cards are added, removed or regrouped.
   - **Numbers:** they roll up a short way when they grow and down when they shrink. A count that grows also nudges up in size by a few percent.
   - **Adding and removing:** the card or strip takes a faint teal tint and thin rim when a copy is added, and red when one is removed.

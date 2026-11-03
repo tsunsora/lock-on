@@ -1,4 +1,7 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.revealOut
+import app.lockon.ui.components.revealIn
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
@@ -112,7 +115,7 @@ fun MatchLogPanel(
         }
         if (stats.byOpponent.isNotEmpty()) {
             item(key = "opponents") {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.animateItem().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SectionHeader("By opponent")
                     stats.byOpponent.forEach { (name, record) ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -124,13 +127,16 @@ fun MatchLogPanel(
             }
         }
         item(key = "games-header") {
-            SectionHeader("Games", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), readout = "${matches.size}")
-            if (matches.isEmpty()) {
-                Text(
-                    "No games logged yet. Results sync with the deck, and a match logged on each of two devices is kept on both.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
+            // It glides down as the opponents' table opens above it, and the hint folds away on the first game.
+            Column(Modifier.animateItem()) {
+                SectionHeader("Games", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), readout = "${matches.size}")
+                AnimatedVisibility(matches.isEmpty(), enter = revealIn(), exit = revealOut()) {
+                    Text(
+                        "No games logged yet. Results sync with the deck, and a match logged on each of two devices is kept on both.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
             }
         }
         items(matches.asReversed(), key = { it.id }) { match ->

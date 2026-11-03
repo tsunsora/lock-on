@@ -1,5 +1,10 @@
 package app.lockon.ui.components
 
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.core.spring
@@ -101,6 +106,13 @@ object Motion {
 
 /** True when the system asks for less motion (Android's "Remove animations"). */
 val LocalReduceMotion = staticCompositionLocalOf { false }
+
+/**
+ * False while the screen around it is composed but out of sight (a kept tab or editor). Anything that
+ * loops, like the Sync beacon, holds still then: a running loop asks for a frame every vsync whether
+ * it is drawn or not, so the whole window kept redrawing on every other screen.
+ */
+val LocalScreenShown = compositionLocalOf { true }
 
 @Composable
 fun <T> motion(durationMillis: Int = Motion.MEDIUM, delayMillis: Int = 0): FiniteAnimationSpec<T> =
@@ -258,7 +270,7 @@ private class PressScaleNode(private var interaction: MutableInteractionSource) 
 
     // A lazy grid reuses this node for another card, which starts at rest.
     override fun onReset() {
-        if (isAttached) coroutineScope.launch { scale.snapTo(1f) }
+        if (isAttached && scale.value != 1f) coroutineScope.launch { scale.snapTo(1f) }
     }
 
     fun update(interaction: MutableInteractionSource) {
@@ -340,6 +352,38 @@ fun Modifier.dealIn(key: Any, index: Int): Modifier = composed {
         alpha = p
         translationY = (1f - p) * 12.dp.toPx()
     }
+}
+
+/**
+ * Runs 0 to 1 once, when it first composes: for dialogs and popups, which otherwise appear at once.
+ * Read it in [arrive] (the draw phase), so the arrival never recomposes the dialog.
+ */
+@Composable
+fun rememberArrival(durationMillis: Int = Motion.MEDIUM): State<Float> {
+    val reduce = LocalReduceMotion.current
+    val progress = remember { Animatable(if (reduce) 1f else 0f) }
+    LaunchedEffect(Unit) { if (!reduce) progress.animateTo(1f, tween(durationMillis, easing = Motion.emphasizedDecelerate)) }
+    return progress.asState()
+}
+
+/** A banner, hint or row opening into place: it unfolds and fades in, pushing what is below aside. */
+@Composable
+fun revealIn(): EnterTransition =
+    if (LocalReduceMotion.current) fadeIn(tween(90))
+    else expandVertically(tween(Motion.MEDIUM, easing = Motion.emphasized)) + fadeIn(tween(Motion.MEDIUM, Motion.STAGGER))
+
+/** The way back for [revealIn], quicker, as small exits are. */
+@Composable
+fun revealOut(): ExitTransition =
+    if (LocalReduceMotion.current) fadeOut(tween(90))
+    else shrinkVertically(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) + fadeOut(tween(Motion.SHORT))
+
+/** Fades in and grows from just under its size as [progress] runs, so a panel arrives rather than appears. */
+fun Modifier.arrive(progress: State<Float>, from: Float = 0.94f): Modifier = graphicsLayer {
+    val p = progress.value
+    alpha = p
+    val s = from + (1f - from) * p
+    scaleX = s; scaleY = s
 }
 
 private fun lerp(a: Color, b: Color, t: Float) = Color(

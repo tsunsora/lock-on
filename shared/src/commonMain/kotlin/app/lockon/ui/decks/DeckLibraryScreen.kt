@@ -287,9 +287,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add)
                         }
                         else -> {
-                            val shown = list.filter {
-                                folderFilter.matches(it) &&
-                                    it.snapshot.name.contains(search.trim(), ignoreCase = true)
+                            val shown = remember(list, folderFilter, search) {
+                                list.filter {
+                                    folderFilter.matches(it) &&
+                                        it.snapshot.name.contains(search.trim(), ignoreCase = true)
+                                }
                             }
                             if (shown.isEmpty()) {
                                 val emptyFolder = folderFilter is FolderFilter.Named && list.none(folderFilter::matches)

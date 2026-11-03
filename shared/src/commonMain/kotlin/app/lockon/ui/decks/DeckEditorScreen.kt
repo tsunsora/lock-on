@@ -1,4 +1,9 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.revealOut
+import app.lockon.ui.components.revealIn
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedVisibility
 import app.lockon.ui.components.SlidingPages
 import app.lockon.ui.components.LocalTopBand
 import app.lockon.ui.components.Accent
@@ -362,8 +367,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         // A tight band keeps the state and drops the detail; Analysis has the rest. Phones
                         // drop the ruleset name too, so the stamp never gets cut off.
                         val tight = wide && !roomy
-                        if (legality.isLegal) Badge(if (!roomy) "Legal" else "Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
-                        else Badge(if (tight) "Draft" else "Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
+                        // The stamp turns over with the Lock On moment instead of swapping under it.
+                        Crossfade(legality.isLegal, animationSpec = motion(), label = "legality") { legal ->
+                            if (legal) Badge(if (!roomy) "Legal" else "Legal · ${ruleset.name}", c.secondaryContainer, c.onSecondaryContainer)
+                            else Badge(if (tight) "Draft" else "Draft · ${legality.errors.size} issues", c.surfaceVariant, c.onSurfaceVariant)
+                        }
                     }
                 }
                 // The deck panel's bar has Export, so the header keeps only the gauge.
@@ -380,7 +388,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 val adding = phoneTab == 1
                 val gauge by animateFloatAsState(if (adding && addToSide.value) 0.45f else 1f, motion(Motion.MEDIUM), label = "add-to")
                 ProgressGauge("Main", deck.count(DeckSection.MAIN), ruleset.mainDeckSize,
-                    Modifier.weight(1f).alpha(gauge).then(
+                    Modifier.weight(1f).graphicsLayer { alpha = gauge }.then(
                         if (adding) Modifier.clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Add to deck") { addToSide.value = false }
                         else Modifier,
                     ),
@@ -392,7 +400,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 )
             }
         }
-        if (summary?.hasConflict == true) {
+        AnimatedVisibility(summary?.hasConflict == true, enter = revealIn(), exit = revealOut()) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -752,20 +760,22 @@ private fun DeckList(
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
     Column(Modifier.fillMaxSize()) {
     // Phones keep the deck's first problem above the list; Export and the view switch are in the bar's ⋮ menu.
-    if (!compact && deck.entries.isNotEmpty() && legality.errors.isNotEmpty()) DeckProblemBar(legality, onOpenAnalysis)
+    AnimatedVisibility(!compact && deck.entries.isNotEmpty() && legality.errors.isNotEmpty(), enter = revealIn(), exit = revealOut()) {
+        DeckProblemBar(legality, onOpenAnalysis)
+    }
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (compact && deck.entries.isNotEmpty()) {
             // Export and whether the deck is legal ride at the top of the list.
-            item(key = "stats") {
-                DeckStatusBar(legality, onExport, onEditText, cardView, onCardView, Modifier.padding(bottom = 4.dp))
+            item(key = "stats", contentType = "stats") {
+                DeckStatusBar(legality, onExport, onEditText, cardView, onCardView, Modifier.animateItem().padding(bottom = 4.dp))
             }
         }
         if (deck.entries.isEmpty()) {
-            item(key = "empty-deck") {
+            item(key = "empty-deck", contentType = "empty") {
                 Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 32.dp),
+                    Modifier.animateItem().fillMaxWidth().padding(horizontal = 24.dp, vertical = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -781,8 +791,8 @@ private fun DeckList(
                 }
             }
         } else if (deck.count(DeckSection.MAIN) == 0) {
-            item(key = "empty-main") {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            item(key = "empty-main", contentType = "empty-main") {
+                Row(Modifier.animateItem().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "Add Units, Pilots, Commands and Bases from the card list.",
                         style = MaterialTheme.typography.bodySmall,
@@ -794,13 +804,17 @@ private fun DeckList(
             }
         }
         for ((label, entries) in groups) {
-            item(key = "header-$label") {
-                SectionHeader(label, Modifier.padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 2.dp),
+            item(key = "header-$label", contentType = "header") {
+                SectionHeader(label, Modifier.animateItem().padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 2.dp),
                     readout = "${entries.sumOf { it.quantity }}")
             }
             if (cardView) {
                 // Whole cards, small, a row at a time so the list stays lazy (UX rule V4a).
-                items(entries.chunked(columns), key = { row -> "row-${row.first().section}-${row.first().cardNumber}" }) { row ->
+                // Rows keep their place by position: keyed by their first card, adding one card gave every
+                // later row a new key, so each was thrown away and built again, images and all.
+                val rows = entries.chunked(columns)
+                items(rows.size, key = { i -> "row-$label-$i" }, contentType = { "card-row" }) { i ->
+                    val row = rows[i]
                     Row(Modifier.animateItem().fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
                         row.forEach { entry ->
                             val card = cards[entry.cardNumber]
@@ -820,7 +834,7 @@ private fun DeckList(
                         repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
-            } else items(entries, key = { "${it.section}-${it.cardNumber}" }) { entry ->
+            } else items(entries, key = { "${it.section}-${it.cardNumber}" }, contentType = { "strip" }) { entry ->
                 val card = cards[entry.cardNumber]
                 DeckStrip(
                     card, entry.quantity, entry.printingId, onClick = { card?.let(onCardClick) }, modifier = Modifier.animateItem(),
@@ -835,7 +849,8 @@ private fun DeckList(
                 }
             }
         }
-        item(key = "side-header") {
+        item(key = "side-header", contentType = "side-header") {
+            Column(Modifier.animateItem()) {
             SectionHeader(
                 "Side deck", Modifier.padding(start = 6.dp, end = 6.dp, top = 24.dp),
                 readout = "${side.sumOf { it.quantity }}",
@@ -850,11 +865,13 @@ private fun DeckList(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
             )
+            }
         }
-        items(side, key = { "side-${it.cardNumber}" }) { entry ->
+        items(side, key = { "side-${it.cardNumber}" }, contentType = { "side-strip" }) { entry ->
             val card = cards[entry.cardNumber]
             DeckStrip(
-                card, entry.quantity, entry.printingId, onClick = { card?.let(onCardClick) }, modifier = Modifier.animateItem().alpha(0.82f),
+                card, entry.quantity, entry.printingId, onClick = { card?.let(onCardClick) }, // Modulated rather than an offscreen layer, which each strip would redraw while scrolling.
+                modifier = Modifier.animateItem().graphicsLayer { alpha = 0.82f; compositingStrategy = CompositingStrategy.ModulateAlpha },
                 subtitle = listOfNotNull(card?.level?.let { "Lv.$it" }, entry.cardNumber).joinToString("  ·  "), compact = compact,
             ) {
                 if (card != null) {
@@ -870,17 +887,20 @@ private fun DeckList(
                 }
             }
         }
-        item(key = "notes") {
+        item(key = "notes", contentType = "notes") {
             var editing by remember { mutableStateOf(false) }
-            if (deck.notes.isBlank() && !editing) {
-                GameButton("Add notes", onClick = { editing = true }, style = GameButtonStyle.GHOST, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), compact = true)
-            } else {
-                OutlinedTextField(
-                    value = deck.notes, onValueChange = onNotes,
-                    label = { Text("Notes") },
-                    modifier = Modifier.fillMaxWidth().padding(6.dp),
-                    minLines = 3,
-                )
+            // The button opens into the field rather than swapping for it.
+            Crossfade(deck.notes.isBlank() && !editing, Modifier.animateItem().animateContentSize(motion()), animationSpec = motion(), label = "notes") { empty ->
+                if (empty) {
+                    GameButton("Add notes", onClick = { editing = true }, style = GameButtonStyle.GHOST, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), compact = true)
+                } else {
+                    OutlinedTextField(
+                        value = deck.notes, onValueChange = onNotes,
+                        label = { Text("Notes") },
+                        modifier = Modifier.fillMaxWidth().padding(6.dp),
+                        minLines = 3,
+                    )
+                }
             }
         }
     }
@@ -1044,8 +1064,8 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
     val reset by rememberUpdatedState(onReset)
     val scheme = MaterialTheme.colorScheme
     val active = dragging || hovered
-    val grip by animateColorAsState(if (active) scheme.primary else scheme.onSurfaceVariant.copy(alpha = 0.3f), tween(140))
-    val glow by animateFloatAsState(if (active) 1f else 0f, tween(140))
+    val grip by animateColorAsState(if (active) scheme.primary else scheme.onSurfaceVariant.copy(alpha = 0.3f), motion(Motion.SHORT))
+    val glow by animateFloatAsState(if (active) 1f else 0f, motion(Motion.SHORT))
     Box(
         Modifier.width(SPLIT_HANDLE).fillMaxHeight()
             .hoverable(interaction)

@@ -1,4 +1,6 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.rememberArrival
+import app.lockon.ui.components.arrive
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.io.ExportOrder
 import app.lockon.platform.encodeShareQr
@@ -372,6 +374,7 @@ private fun DeckExport(
     }
 
     // Esc closes the full-size view first, then the dialog.
+    val arrival = rememberArrival()
     Dialog(onDismissRequest = { if (viewing) viewing = false else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
             // The dialog fills the window, so clicks around the panel land on this backdrop. It sits
@@ -383,7 +386,7 @@ private fun DeckExport(
                 color = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
                 modifier = Modifier.padding(if (wide) 24.dp else 12.dp)
                     .then(if (wide) Modifier else Modifier.fillMaxSize())
-                    .glassFrame(MaterialTheme.shapes.extraLarge),
+                    .arrive(arrival).glassFrame(MaterialTheme.shapes.extraLarge),
             ) {
                 if (wide) {
                     // The deck's name across the top, then the preview at full height on the left and

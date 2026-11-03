@@ -63,7 +63,10 @@ class DeckRepository(
      * It can trail a write by a moment, so code that reads straight after writing uses [decks].
      */
     val liveDecks: SharedFlow<List<DeckSummary>> =
-        decks.shareIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.WhileSubscribed(5_000), replay = 1)
+        // A save writes both tables, so the combine emits the same list twice; the copy is dropped here,
+        // off the main thread, instead of in every screen collecting it.
+        decks.distinctUntilChanged()
+            .shareIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.WhileSubscribed(5_000), replay = 1)
 
     /** One deck from [liveDecks]; it emits only when that deck changes. */
     fun liveDeck(deckId: String): Flow<DeckSummary?> =

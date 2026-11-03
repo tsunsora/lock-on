@@ -1,5 +1,9 @@
 package app.lockon.ui
 
+import app.lockon.ui.components.motion
+import app.lockon.ui.components.glide
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -135,7 +139,7 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
             StepDots(stop, TourStop.entries.size)
             Spacer(Modifier.height(16.dp))
             // Weighted so a short phone screen scrolls the page rather than pushing the buttons off.
-            SlidingPages(stop, Modifier.weight(1f, fill = false).fillMaxWidth().animateContentSize()) { page ->
+            SlidingPages(stop, Modifier.weight(1f, fill = false).fillMaxWidth().animateContentSize(motion())) { page ->
                 Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                     when (TourStop.entries[page]) {
                         TourStop.WELCOME -> Welcome()
@@ -182,10 +186,12 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
 private fun StepDots(current: Int, count: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         repeat(count) { i ->
-            Box(
-                Modifier.size(width = if (i == current) 18.dp else 8.dp, height = 8.dp).clip(CircleShape)
-                    .background(if (i <= current) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+            // The pill slides along as the tour moves, rather than jumping from dot to dot.
+            val width by animateDpAsState(if (i == current) 18.dp else 8.dp, glide(), label = "step-width")
+            val fill by animateColorAsState(
+                if (i <= current) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), motion(), label = "step-fill",
             )
+            Box(Modifier.size(width = width, height = 8.dp).clip(CircleShape).background(fill))
         }
     }
 }

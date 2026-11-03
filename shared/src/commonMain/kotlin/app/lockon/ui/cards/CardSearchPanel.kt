@@ -1,4 +1,5 @@
 package app.lockon.ui.cards
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -177,10 +178,13 @@ fun CardSearchPanel(
     LaunchedEffect(focusRequests) { if (focusRequests > 0) runCatching { focus.requestFocus() } }
 
     val colorLimit = deckColors?.takeIf { deckColorsOnly && it.isNotEmpty() }
-    val results = remember(cards, query, sort, colorLimit) {
-        cards.filter { card ->
+    // Sorted once per order, then filtered per keystroke: filtering keeps the order, and sorting the
+    // whole catalog again on every letter was most of what typing in search cost.
+    val sorted = remember(cards, sort) { cards.sortedWith(sort.comparator) }
+    val results = remember(sorted, query, colorLimit) {
+        sorted.filter { card ->
             query.matches(card) && (colorLimit == null || card.colors.isEmpty() || card.colors.all { it in colorLimit })
-        }.sortedWith(sort.comparator)
+        }
     }
     // A screen of tiles is a large first composition, over 80 ms and several times that before the JIT
     // has warmed up, so the list starts with a few and adds more each frame until the screen is full.
@@ -422,9 +426,12 @@ fun CardSearchPanel(
             }
         }
         HorizontalDivider(Modifier.padding(top = 4.dp))
-        if (results.isEmpty()) EmptyState("No cards match", "Try fewer filters or a shorter search.")
-        else Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (grid) LazyVerticalGrid(
+        // Grid and list, and results and "no cards match", fade through each other instead of swapping.
+        val view = when { results.isEmpty() -> ResultsView.EMPTY; grid -> ResultsView.GRID; else -> ResultsView.LIST }
+        Crossfade(view, Modifier.weight(1f).fillMaxWidth(), animationSpec = motion(), label = "results") { view ->
+        if (view == ResultsView.EMPTY) EmptyState("No cards match", "Try fewer filters or a shorter search.")
+        else Box(Modifier.fillMaxSize()) {
+            if (view == ResultsView.GRID) LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(if (wide) 136.dp else 104.dp),
                 // The wider end padding keeps the last column clear of the scroll bar's lane.
@@ -460,12 +467,12 @@ fun CardSearchPanel(
                     })
                 }
             }
-            if (grid) VerticalScrollBar(gridState, Modifier.align(Alignment.TopEnd))
+            if (view == ResultsView.GRID) VerticalScrollBar(gridState, Modifier.align(Alignment.TopEnd))
             else VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
             // Back to top once half a screen of results has scrolled away.
             val scrolledAway by remember {
                 derivedStateOf {
-                    if (grid) gridState.firstVisibleItemIndex.let { it > 0 && it * 2 >= gridState.layoutInfo.visibleItemsInfo.size }
+                    if (view == ResultsView.GRID) gridState.firstVisibleItemIndex.let { it > 0 && it * 2 >= gridState.layoutInfo.visibleItemsInfo.size }
                     else listState.firstVisibleItemIndex.let { it > 0 && it * 2 >= listState.layoutInfo.visibleItemsInfo.size }
                 }
             }
@@ -481,8 +488,11 @@ fun CardSearchPanel(
                     modifier = Modifier.shadow(6.dp, CircleShape))
             }
         }
+        }
     }
 }
+
+private enum class ResultsView { EMPTY, GRID, LIST }
 
 /** The name at the start of a filter line, a fixed width on phones so the lines' chips start together. */
 @Composable

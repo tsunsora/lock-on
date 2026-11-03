@@ -249,11 +249,14 @@ fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = fal
 fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true, prefix: String = "Lv") {
     val scheme = MaterialTheme.colorScheme
     val max = bars.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
+    // Bars grow from the floor the first time the curve shows (UX rule V5: charts), then follow changes.
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
     Column(modifier.fillMaxWidth()) {
         if (caption) Text("Level curve", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
             bars.forEachIndexed { index, (level, count) ->
-                val grow by animateFloatAsState(count.toFloat() / max, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "curve")
+                val grow by animateFloatAsState(if (shown) count.toFloat() / max else 0f, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "curve")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                     Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.primary)
                     Box(

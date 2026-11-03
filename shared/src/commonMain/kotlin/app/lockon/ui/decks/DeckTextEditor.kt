@@ -1,5 +1,7 @@
 package app.lockon.ui.decks
 
+import app.lockon.ui.components.rememberArrival
+import app.lockon.ui.components.arrive
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,6 +70,7 @@ fun DeckTextDialog(
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val arrival = rememberArrival()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
             // Clicks beside the panel close it, as with the export dialog.
@@ -75,7 +78,7 @@ fun DeckTextDialog(
             Surface(
                 shape = MaterialTheme.shapes.extraLarge,
                 color = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
-                modifier = Modifier.padding(24.dp).glassFrame(MaterialTheme.shapes.extraLarge),
+                modifier = Modifier.padding(24.dp).arrive(arrival).glassFrame(MaterialTheme.shapes.extraLarge),
             ) {
                 Column(Modifier.width(minOf(maxWidth - 48.dp, 520.dp)).height(minOf(maxHeight - 48.dp, 720.dp)).padding(top = 12.dp, bottom = 12.dp)) {
                     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {

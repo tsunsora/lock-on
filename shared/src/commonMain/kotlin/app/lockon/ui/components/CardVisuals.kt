@@ -1,4 +1,11 @@
 package app.lockon.ui.components
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.draw.drawBehind
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -133,7 +140,7 @@ fun CardHoverPreview(card: Card, printingId: String?, hovered: Boolean) {
     val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
     Popup(popupPositionProvider = remember(gap) { BesideAnchor(gap) }, properties = PopupProperties(focusable = false)) {
         // As large as fits the window, up to a size where the effect text reads easily.
-        Box(Modifier.widthIn(max = 300.dp).padding(vertical = 8.dp).clearAndSetSemantics {}) {
+        Box(Modifier.widthIn(max = 300.dp).padding(vertical = 8.dp).arrive(rememberArrival(), from = 0.97f).clearAndSetSemantics {}) {
             // The drawn placeholder face is partly see-through, so it gets a solid backing out here.
             CardImage(card, Modifier.shadow(18.dp, CardShape).background(MaterialTheme.colorScheme.surface, CardShape), printingId)
         }
@@ -644,6 +651,7 @@ fun CardDetailDialog(
     chosenPrinting: String? = null, onChoosePrinting: ((String) -> Unit)? = null,
     extraActions: (@Composable () -> Unit)? = null,
 ) {
+    val arrival = rememberArrival()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
@@ -657,7 +665,7 @@ fun CardDetailDialog(
             color = MaterialTheme.colorScheme.surfaceContainer,
             // The cap comes first: after fillMaxWidth the width is already fixed and widthIn can't shrink it.
             modifier = Modifier.widthIn(max = 1040.dp).fillMaxWidth(0.94f).heightIn(max = maxHeight)
-                .glassFrame(),
+                .arrive(arrival).glassFrame(),
         ) {
             Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = 8.dp, bottom = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -706,9 +714,20 @@ private fun StatCell(label: String, value: String, modifier: Modifier) {
 private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modifier: Modifier, choosing: Boolean, onClick: () -> Unit) {
     val press = remember { MutableInteractionSource() }
     val tileShape = LockOnShapes.thumb
+    // The light moves from the last printing to the picked one instead of switching.
+    val lit by animateFloatAsState(if (isShown) 1f else 0f, motion(), label = "printing-lit")
+    val accent = Accent
+    val label by animateColorAsState(if (isShown) accent else MaterialTheme.colorScheme.onSurface, motion(), label = "printing-label")
     Column(
         modifier.pressScale(press)
-            .then(if (isShown) Modifier.clip(tileShape).background(Accent.copy(alpha = 0.16f)).border(2.dp, Accent, tileShape) else Modifier.glass(tileShape))
+            .glass(tileShape)
+            .drawBehind {
+                if (lit > 0f) {
+                    val outline = tileShape.createOutline(size, layoutDirection, this)
+                    drawOutline(outline, accent.copy(alpha = 0.16f * lit))
+                    drawOutline(outline, accent.copy(alpha = lit), style = Stroke(2.dp.toPx()))
+                }
+            }
             .clickable(press, indication = null, onClickLabel = when {
                 isShown -> "View larger"
                 choosing -> "Use this printing in the deck"
@@ -722,9 +741,12 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
     ) {
         Box {
             CardImage(card, Modifier.fillMaxWidth(), printingId = printing.printingId, shadow = false)
-            if (isShown) {
+            androidx.compose.animation.AnimatedVisibility(
+                isShown, Modifier.align(Alignment.TopEnd),
+                enter = fadeIn(motion()) + scaleIn(motion(), initialScale = 0.8f), exit = fadeOut(motion(Motion.SHORT)),
+            ) {
                 Box(
-                    Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp).shadow(3.dp, CircleShape).background(Accent, CircleShape),
+                    Modifier.padding(4.dp).size(20.dp).shadow(3.dp, CircleShape).background(Accent, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, tint = OnAccent, modifier = Modifier.size(14.dp))
@@ -735,7 +757,7 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
         Text(
             printing.label.removePrefix("Reprint: "), style = MaterialTheme.typography.labelMedium,
             fontWeight = if (isShown) FontWeight.Bold else null,
-            color = if (isShown) Accent else MaterialTheme.colorScheme.onSurface,
+            color = label,
             maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
     }
@@ -753,16 +775,22 @@ private fun Chip(
 
 /** Effect text with 【timing】 and <keyword> markers picked out, as on the printed card. */
 @Composable
-private fun effectText(text: String) = buildAnnotatedString {
-    val marker = Regex("【[^】]*】|<[^>]*>")
-    var last = 0
-    for (m in marker.findAll(text)) {
-        append(text.substring(last, m.range.first))
-        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) { append(m.value) }
-        last = m.range.last + 1
+private fun effectText(text: String): AnnotatedString {
+    val primary = MaterialTheme.colorScheme.primary
+    return remember(text, primary) {
+        buildAnnotatedString {
+            var last = 0
+            for (m in EffectMarker.findAll(text)) {
+                append(text.substring(last, m.range.first))
+                withStyle(SpanStyle(color = primary, fontWeight = FontWeight.Bold)) { append(m.value) }
+                last = m.range.last + 1
+            }
+            append(text.substring(last))
+        }
     }
-    append(text.substring(last))
 }
+
+private val EffectMarker = Regex("【[^】]*】|<[^>]*>")
 
 /**
  * − ×count + on a dark plate, for deck strips and the details dialog: 48 dp targets, a rolling

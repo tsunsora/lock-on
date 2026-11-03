@@ -1,5 +1,8 @@
 package app.lockon.ui.settings
 
+import app.lockon.ui.components.motion
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.animateColorAsState
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -265,14 +268,17 @@ private fun SettingsRail(titles: List<String>, active: Int, modifier: Modifier, 
     Column(modifier.glass(LockOnShapes.tile).padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         titles.forEachIndexed { i, title ->
             val selected = i == active
+            // The light moves down the rail as the page scrolls, instead of jumping between groups.
+            val fill by animateColorAsState(if (selected) Accent.copy(alpha = 0.14f) else Accent.copy(alpha = 0f), motion(), label = "rail-fill")
+            val text by animateColorAsState(if (selected) Accent else MaterialTheme.colorScheme.onSurface, motion(), label = "rail-text")
             Box(
                 Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(PillShape)
-                    .background(if (selected) Accent.copy(alpha = 0.14f) else Accent.copy(alpha = 0f))
+                    .drawBehind { drawRect(fill) }
                     .selectable(selected, role = Role.Tab) { onPick(i) }
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Text(title, style = MaterialTheme.typography.labelLarge, color = if (selected) Accent else MaterialTheme.colorScheme.onSurface)
+                Text(title, style = MaterialTheme.typography.labelLarge, color = text)
             }
         }
     }
