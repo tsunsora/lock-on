@@ -1,4 +1,7 @@
 package app.lockon.ui
+import app.lockon.ui.components.LocalScreenShown
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
 import app.lockon.ui.settings.SettingsScreen
 import app.lockon.data.MotionChoice
 import app.lockon.data.StartChoice
@@ -372,10 +375,13 @@ fun LockOnApp(
                                     Tab.CARDS -> CardBrowserScreen(container, state, wide)
                                     Tab.SYNC -> {
                                         ScreenHeader("Sync")
-                                        val decks by container.decks.decks.collectAsState(initial = emptyList())
+                                        // The shared, already decoded list: this tab stays composed, and the
+                                        // unshared flow decoded every deck on the UI thread after each save.
+                                        val all by container.decks.liveDecks.collectAsState(initial = emptyList())
+                                        val decks = remember(all) { all.filterNot { it.snapshot.deleted } }
                                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                                             Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(
-                                                sync, container.identity.deviceName, decks.filterNot { it.snapshot.deleted },
+                                                sync, container.identity.deviceName, decks,
                                                 sending = state.syncSending, onSendingChange = { state.syncSending = it },
                                             ) }
                                         }
@@ -416,9 +422,22 @@ fun LockOnApp(
                     }
                     // Phones: the floating pill at the top level. Inside a deck the editor floats its own
                     // sections there instead, and back returns here (UX rules N3, N5).
-                    if (!wide && state.current == null) {
-                        FloatingPillNav(Tab.entries.map { tab -> BottomItem(tab.label) { TabIcon(tab) } }, Tab.entries.indexOf(state.tab)) {
-                            state.select(Tab.entries[it])
+                    // It sinks away as a deck opens while the editor's own pill fades in, so there is never
+                    // a moment with no pill.
+                    if (!wide) {
+                        val reduce = LocalReduceMotion.current
+                        // Named in full: this Box sits in a Row, whose own AnimatedVisibility would be picked.
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = state.current == null,
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            enter = if (reduce) fadeIn(tween(90)) else fadeIn(tween(Motion.MEDIUM)) + slideInVertically(tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate)) { it / 4 },
+                            exit = if (reduce) fadeOut(tween(90)) else fadeOut(tween(Motion.MEDIUM)) + slideOutVertically(tween(Motion.MEDIUM, easing = Motion.emphasizedAccelerate)) { it / 4 },
+                        ) {
+                            Box(Modifier.fillMaxWidth()) {
+                                FloatingPillNav(Tab.entries.map { tab -> BottomItem(tab.label) { TabIcon(tab) } }, Tab.entries.indexOf(state.tab)) {
+                                    state.select(Tab.entries[it])
+                                }
+                            }
                         }
                     }
                     if (chrome != null && !wide) {
@@ -519,7 +538,9 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
                         val p = shows[i].value
                         alpha = if (booted) p else 0.99f
                         if (slide && booted) translationX = (1f - p) * size.width / 20f
-                    }) { if (booted || k in warmed) content(k) }
+                    }) {
+                        if (booted || k in warmed) CompositionLocalProvider(LocalScreenShown provides (k == shown)) { content(k) }
+                    }
                 }
             }
         },

@@ -1,5 +1,9 @@
 package app.lockon.ui.sync
 
+import androidx.compose.runtime.derivedStateOf
+import app.lockon.ui.components.LocalScreenShown
+import app.lockon.ui.components.rememberArrival
+import app.lockon.ui.components.arrive
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -255,7 +259,7 @@ private fun Beacon(modifier: Modifier = Modifier) {
     val reduce = LocalReduceMotion.current
     val color = MaterialTheme.colorScheme.primary
     // Read only while drawing, so turning redraws the ring without recomposing it.
-    val angle: State<Float>? = if (reduce) null else {
+    val angle: State<Float>? = if (reduce || !LocalScreenShown.current) null else {
         val t = rememberInfiniteTransition(label = "beacon")
         t.animateFloat(0f, 360f, infiniteRepeatable(tween(24_000, easing = LinearEasing), RepeatMode.Restart), label = "beacon-angle")
     }
@@ -989,9 +993,12 @@ private fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = Mo
 private fun DoneBadge(modifier: Modifier = Modifier, size: Dp = 20.dp) {
     val reduce = LocalReduceMotion.current
     val scale = remember { Animatable(if (reduce) 1f else 0f) }
-    LaunchedEffect(Unit) { scale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow)) }
+    // Settles in without overshoot (UX rule V5: no bounce); with reduced motion it is simply there.
+    LaunchedEffect(Unit) { if (!reduce) scale.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate)) }
+    val from = 0.6f
+    val shown = remember { derivedStateOf { from + (1f - from) * scale.value } }
     Box(
-        modifier.size(size).graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+        modifier.size(size).graphicsLayer { scaleX = shown.value; scaleY = shown.value; alpha = scale.value }
             .clip(CircleShape).background(MaterialTheme.colorScheme.tertiary),
         contentAlignment = Alignment.Center,
     ) {
@@ -1286,6 +1293,7 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
         val scheme = MaterialTheme.colorScheme
         Column(
             Modifier.padding(20.dp).widthIn(max = 460.dp).fillMaxWidth()
+                .arrive(rememberArrival())
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest)
                 .glassFrame(MaterialTheme.shapes.extraLarge)

@@ -1,5 +1,7 @@
 package app.lockon.ui.cards
 
+import app.lockon.ui.components.motion
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,7 +72,8 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
             if (wide) {
                 // The details panel always stays, so the grid never changes width as cards are picked.
                 Panel(Modifier.width(460.dp).fillMaxHeight().padding(end = 12.dp, bottom = 12.dp)) {
-                    val card = shown
+                    // Picking another card fades its details in over the last one's.
+                    Crossfade(shown, animationSpec = motion(), label = "card-details") { card ->
                     if (card == null) {
                         EmptyState("No card selected", "Pick a card to see its effect, stats and printings here.", Modifier.padding(top = 24.dp))
                     } else {
@@ -79,6 +82,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
                                 modifier = Modifier.padding(top = 8.dp, end = 12.dp))
                             CardDetailContent(card, printings[card.cardNumber].orEmpty(), Modifier.padding(end = 12.dp, top = 8.dp, bottom = 12.dp))
                         }
+                    }
                     }
                 }
             }

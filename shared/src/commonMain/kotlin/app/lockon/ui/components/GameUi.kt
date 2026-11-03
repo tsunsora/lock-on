@@ -293,10 +293,12 @@ fun PanelTitle(title: String, readout: String? = null, accent: Color = Accent, t
 /** A number in a soft tinted pill, for panel and section counts. */
 @Composable
 fun CountPill(text: String, color: Color = Accent) {
-    Text(
-        text, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = color,
-        modifier = Modifier.clip(LockOnShapes.button).background(color.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 3.dp),
-    )
+    val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)
+    val modifier = Modifier.clip(LockOnShapes.button).background(color.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 3.dp)
+    // A plain count rolls when it changes, like every other count (UX rule V5: numbers).
+    val number = text.toIntOrNull()
+    if (number != null) RollingNumber(number, style, color, modifier)
+    else Text(text, style = style, color = color, modifier = modifier)
 }
 
 /** A pill shape, for tabs, stamps and gauges. */
@@ -497,19 +499,18 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
 fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
-    val full = count == limit
-    val over = count > limit
+    // One value for the gauge's state, 0 filling, 1 exactly full, 2 over, so the teal warms to gold
+    // (and gold to red) instead of switching, with a single animation per gauge.
+    val tone by animateFloatAsState(
+        when { count > limit -> 2f; count == limit -> 1f; else -> 0f }, motion(Motion.MEDIUM), label = "gauge-tone",
+    )
     val accent = Accent
-    val numberColor = when {
-        over -> scheme.error
-        full -> if (isTwilight()) Gold else scheme.tertiary
-        else -> scheme.onSurface
-    }
-    val fillBrush = when {
-        over -> SolidColor(scheme.error)
-        full -> Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
-        else -> Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
-    }
+    val gold = if (isTwilight()) Gold else scheme.tertiary
+    val numberColor = if (tone <= 1f) androidx.compose.ui.graphics.lerp(scheme.onSurface, gold, tone)
+        else androidx.compose.ui.graphics.lerp(gold, scheme.error, tone - 1f)
+    val fillingBrush = Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
+    val fullBrush = Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
+    val error = scheme.error
     val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
     Column(modifier.widthIn(min = 110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
@@ -523,7 +524,22 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
         Canvas(Modifier.fillMaxWidth().height(if (compact) 6.dp else 8.dp)) {
             val r = CornerRadius(size.height / 2)
             drawRoundRect(track, cornerRadius = r)
-            if (fraction > 0f) drawRoundRect(fillBrush, size = Size(size.width * fraction, size.height), cornerRadius = r)
+            if (fraction > 0f) {
+                val bar = Size(size.width * fraction, size.height)
+                // The next state's fill is laid over the last one as the tone moves between them.
+                when {
+                    tone <= 0f -> drawRoundRect(fillingBrush, size = bar, cornerRadius = r)
+                    tone < 1f -> {
+                        drawRoundRect(fillingBrush, size = bar, cornerRadius = r)
+                        drawRoundRect(fullBrush, size = bar, cornerRadius = r, alpha = tone)
+                    }
+                    tone == 1f -> drawRoundRect(fullBrush, size = bar, cornerRadius = r)
+                    else -> {
+                        drawRoundRect(fullBrush, size = bar, cornerRadius = r)
+                        drawRoundRect(error, size = bar, cornerRadius = r, alpha = (tone - 1f).coerceAtMost(1f))
+                    }
+                }
+            }
         }
     }
 }
@@ -705,19 +721,46 @@ private suspend fun Animatable<Float, *>.settle(target: Float, durationMillis: I
     if (reduce) snapTo(target) else animateTo(target, tween(durationMillis, easing = Motion.emphasized))
 }
 
-/** A small nudge when [value] grows, so an added copy registers (UX rule V5: what changed). */
-fun Modifier.bumpOnIncrease(value: Int): Modifier = composed {
-    val reduce = LocalReduceMotion.current
-    val scale = remember { Animatable(1f) }
-    var last by remember { mutableStateOf(value) }
-    LaunchedEffect(value) {
-        if (!reduce && value > last) {
-            scale.snapTo(1.08f)
-            scale.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate))
-        }
-        last = value
+/**
+ * A small nudge when [value] grows, so an added copy registers (UX rule V5: what changed). A modifier
+ * node, like [flashOnChange]: every tile, strip and gauge carries one, and the old composed version
+ * started a coroutine for each just to find its value hadn't grown.
+ */
+fun Modifier.bumpOnIncrease(value: Int): Modifier = this then BumpElement(value)
+
+private data class BumpElement(val value: Int) : ModifierNodeElement<BumpNode>() {
+    override fun create() = BumpNode(value)
+    override fun update(node: BumpNode) = node.update(value)
+}
+
+private class BumpNode(private var value: Int) : Modifier.Node(), LayoutModifierNode, CompositionLocalConsumerModifierNode {
+    private val scale = Animatable(1f)
+    private var reused = false
+
+    // A lazy grid reuses this node for another card: its count is new, not a change.
+    override fun onReset() {
+        reused = true
+        if (isAttached && scale.value != 1f) coroutineScope.launch { scale.snapTo(1f) }
     }
-    graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+
+    fun update(value: Int) {
+        if (isAttached && !reused && value > this.value && !currentValueOf(LocalReduceMotion)) {
+            coroutineScope.launch {
+                scale.snapTo(1.08f)
+                scale.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate))
+            }
+        }
+        reused = false
+        this.value = value
+    }
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        return layout(placeable.width, placeable.height) {
+            // Read in the layer, so a bump redraws without recomposing or relaying out.
+            placeable.placeWithLayer(0, 0) { scaleX = scale.value; scaleY = scale.value }
+        }
+    }
 }
 
 /**

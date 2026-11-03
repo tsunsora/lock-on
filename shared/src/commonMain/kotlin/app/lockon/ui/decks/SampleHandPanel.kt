@@ -1,5 +1,9 @@
 package app.lockon.ui.decks
 
+import app.lockon.ui.components.revealOut
+import app.lockon.ui.components.revealIn
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -103,7 +107,8 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         HandStats(game, earlyUnits)
         SectionHeader("Hand", readout = "${game.hand.size}")
-        if (!game.shieldsPlaced) {
+        // The hint folds away on Keep, so the hand slides up instead of jumping.
+        AnimatedVisibility(!game.shieldsPlaced, enter = revealIn(), exit = revealOut()) {
             Text(
                 if (game.canRedraw) "Keep this hand, or redraw once: it goes to the bottom and you draw 5 new cards."
                 else "Redrawn. Keep it to set your 6 shields.",
@@ -125,7 +130,8 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
                 }
             }
         }
-        if (game.shieldsPlaced) {
+        AnimatedVisibility(game.shieldsPlaced, enter = revealIn(), exit = revealOut()) {
+          Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("Shields", readout = "${game.shields.size}") {
                 if (revealShields) Badge("Burst $bursts", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Modifier.padding(start = 6.dp))
                 GameButton(if (revealShields) "Hide" else "Reveal", onClick = { revealShields = !revealShields }, style = GameButtonStyle.GHOST, compact = true)
@@ -139,6 +145,7 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
                     )
                 }
             }
+          }
         }
     }
     VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
@@ -150,12 +157,17 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (!game.shieldsPlaced) {
-            GameButton("Keep", onClick = { game = game.keep() }, Modifier.weight(1f))
-            GameButton(if (game.canRedraw) "Redraw" else "Redrawn", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f),
-                style = GameButtonStyle.SECONDARY, enabled = game.canRedraw)
-        } else {
-            GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f), enabled = game.canDraw)
+        // Keep and Redraw give way to Draw with a fade, rather than the row changing under the thumb.
+        Crossfade(game.shieldsPlaced, Modifier.weight(1f), animationSpec = motion(), label = "hand-actions") { placed ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!placed) {
+                    GameButton("Keep", onClick = { game = game.keep() }, Modifier.weight(1f))
+                    GameButton(if (game.canRedraw) "Redraw" else "Redrawn", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f),
+                        style = GameButtonStyle.SECONDARY, enabled = game.canRedraw)
+                } else {
+                    GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f), enabled = game.canDraw)
+                }
+            }
         }
         GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, style = GameButtonStyle.GHOST)
     }
