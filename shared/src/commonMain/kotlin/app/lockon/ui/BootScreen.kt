@@ -1,16 +1,12 @@
 package app.lockon.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +20,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,8 +51,12 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -58,6 +73,8 @@ import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.theme.SuitColors
+import kotlinx.coroutines.flow.StateFlow
+import kotlin.concurrent.Volatile
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -70,34 +87,156 @@ enum class BootStep(val label: String) {
 }
 
 /**
+ * How far the boot animation has played, in ms of its loop. Whoever plays it moves it on: the boot
+ * screen itself, or on desktop a [BootCover], so handing over between them carries on where it was.
+ */
+class BootClock {
+    @Volatile var played: Float = FIRST_PASS_FROM * LOOP_MS
+    /** Where in the loop it is, from 0 to 1. */
+    val loop: Float get() = played / LOOP_MS % 1f
+    /** How far the field has faded in on the first pass. */
+    val intro: Float get() = ((played - FIRST_PASS_FROM * LOOP_MS) / INTRO_MS).coerceIn(0f, 1f)
+    /** True once the first lock has landed, so the boot screen may go. */
+    val locked: Boolean get() = played >= LOOP_MS * (LOCK_AT + 0.04f)
+
+    /** Jumps to just past the first lock, for tests whose frames come in steps too big for this clock to keep up with. */
+    fun skipToLock() { played = LOOP_MS * (LOCK_AT + 0.04f) }
+}
+
+/**
+ * Plays the boot screen somewhere the screens building underneath can't hold it up. Each screen
+ * built under the boot screen holds the app's frames up for a few hundred ms, and a boot screen
+ * drawn in those frames froze each time; on desktop this is a window of its own over the app's,
+ * drawn on a thread of its own.
+ */
+interface BootCover {
+    val clock: BootClock
+    /** True while it is up over the window. Until then, or if it never comes up, the window's own boot screen plays. */
+    val showing: StateFlow<Boolean>
+    fun step(step: BootStep)
+    /** Fades it out, showing the app beneath, once the app has booted. */
+    fun lift()
+    /** True for a cover that draws pictures the app takes of its boot screen ([BootPictureTaker]) rather than taking its own. */
+    val wantsPictures: Boolean get() = false
+    /** The app's latest pictures of its boot screen, when [wantsPictures]; taken again whenever its theme or size changes. */
+    fun pictures(pictures: BootPictures) {}
+}
+
+/** The boot screen's still layers as pictures, all the size of the screen, and where the targeting goes between them. */
+class BootPictures(val sky: ImageBitmap, val fronts: Map<BootStep, ImageBitmap>, val targeting: BootTargeting, val density: Density)
+
+/**
+ * Takes [BootPictures] of the boot screen as it would draw here, for a [BootCover] that draws them
+ * itself, and hands each new set to [onPictures]. It draws nothing on screen.
+ */
+@Composable
+fun BootPictureTaker(clock: BootClock, onPictures: (BootPictures) -> Unit) {
+    val density = LocalDensity.current
+    val colors = MaterialTheme.colorScheme
+    val sky = rememberGraphicsLayer()
+    val fronts = listOf(rememberGraphicsLayer(), rememberGraphicsLayer(), rememberGraphicsLayer())
+    var skyPainted by remember { mutableStateOf(false) }
+    var targeting by remember { mutableStateOf<BootTargeting?>(null) }
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val take by rememberUpdatedState(onPictures)
+    // Each layer is recorded rather than drawn; its own graphics layer keeps the boot screen's frames
+    // from recording them again.
+    fun record(layer: GraphicsLayer) = Modifier.drawWithContent { layer.record { this@drawWithContent.drawContent() } }
+    Box(Modifier.fillMaxSize().graphicsLayer().onSizeChanged { size = it }) {
+        BootScreen(BootStep.DECKS, clock, record(sky), playing = false, layers = BootLayers.SKY, onSkyPainted = { skyPainted = true })
+        BootStep.entries.forEachIndexed { i, s ->
+            BootScreen(s, clock, record(fronts[i]), playing = false, layers = BootLayers.FRONT, onTargeting = { targeting = it })
+        }
+    }
+    LaunchedEffect(skyPainted, targeting, size, density, colors) {
+        val placed = targeting ?: return@LaunchedEffect
+        if (!skyPainted || size == IntSize.Zero) return@LaunchedEffect
+        // Two frames, so every layer has drawn at this size and look.
+        repeat(2) { withFrameNanos { } }
+        // Should a picture fail, no cover gets one and the boot screen here plays instead.
+        runCatching {
+            val pictures = BootStep.entries.mapIndexed { i, s -> s to fronts[i].toImageBitmap() }.toMap()
+            BootPictures(sky.toImageBitmap(), pictures, placed, density)
+        }.getOrNull()?.let(take)
+    }
+}
+
+/** Which parts of the boot screen to draw: all of it, or one layer, for a [BootCover] to put back together around the targeting. */
+enum class BootLayers { ALL, SKY, FRONT }
+
+/** Where the targeting field sits on the boot screen and how it looks, for a [BootCover] that draws it itself. */
+class BootTargeting(val center: Offset, val reach: Float, val target: Float, val scan: Color, val ink: Color, val labelStyle: TextStyle) {
+    fun draw(scope: DrawScope, clock: BootClock, labels: TextMeasurer) = with(scope) {
+        translate(this@BootTargeting.center.x - size.width / 2, this@BootTargeting.center.y - size.height / 2) {
+            drawTargeting(clock.loop, clock.intro, reach, target, scan, ink, labels, labelStyle)
+        }
+    }
+}
+
+/**
  * The launch screen: a targeting system locking on to the Lock On mark. A seeker reticle hunts
  * across a radar field, catches the mark, closes its brackets on it and locks in V-fin yellow with
  * a pulse, then lets go and hunts again. It covers the app while the screens underneath fill in,
  * so the first look at decks and cards doesn't stutter. With reduced motion it holds the lock.
+ * While [playing] is false a [BootCover] plays it, and this one holds still underneath.
  */
 @Composable
-fun BootScreen(step: BootStep, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+fun BootScreen(
+    step: BootStep,
+    clock: BootClock,
+    modifier: Modifier = Modifier,
+    playing: Boolean = true,
+    layers: BootLayers = BootLayers.ALL,
+    onTargeting: ((BootTargeting) -> Unit)? = null,
+    /** Hears when the sky has its painted look, for a [BootCover] taking a picture of it. */
+    onSkyPainted: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val reduce = LocalReduceMotion.current
-    val loop = rememberInfiniteTransition(label = "boot")
-    // One shared clock; the hunt, the lock and the letting go are all fractions of one loop.
-    val clock by loop.animateFloat(0f, 1f, infiniteRepeatable(tween(LOOP_MS, easing = LinearEasing)), label = "clock")
-    val time = { if (reduce) 0.82f else clock }
+    // The hunt, the lock and the letting go are all fractions of one loop. Here the screens building
+    // underneath hold up some frames by a few hundred ms, and on the wall clock the seeker jumped
+    // across the field each time. So the clock moves at most [MAX_STEP_MS] a frame and makes up the
+    // rest at up to [CATCH_UP] times speed once frames are quick again, and the seeker only glides.
+    val frames = remember { mutableIntStateOf(0) }
+    if (playing && !reduce && layers == BootLayers.ALL) LaunchedEffect(clock) {
+        var last = withFrameNanos { it }
+        var owed = 0f
+        while (true) withFrameNanos { now ->
+            val frame = (now - last) / 1_000_000f
+            last = now
+            owed += frame
+            val step = minOf(owed, MAX_STEP_MS, frame * CATCH_UP)
+            owed -= step
+            clock.played += step
+            frames.intValue++
+        }
+    }
+    val time = { frames.intValue; if (reduce) 0.82f else clock.loop }
+    val shown = { if (reduce) 1f else clock.intro }
     val scan = if (isTwilight()) SuitColors.teal else Accent
     val ink = MaterialTheme.colorScheme.onSurface
     val labels = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-    SkyBackground(
-        modifier.fillMaxSize()
-            // Nothing underneath takes a press while it boots.
-            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } },
-    ) {
+    val density = LocalDensity.current
+    val screen = modifier.fillMaxSize()
+        // Nothing underneath takes a press while it boots.
+        .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } }
+    val content: @Composable BoxScope.() -> Unit = content@{
+        if (layers == BootLayers.SKY) return@content
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val reach = minOf(maxWidth, maxHeight * 1.4f) * 0.34f
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(contentAlignment = Alignment.Center) {
                     // Sized to the mark but drawn well past its edges, so the field centres on the mark.
-                    Canvas(Modifier.size(176.dp)) {
-                        drawTargeting(time(), reach.toPx(), 62.dp.toPx(), scan, ink, labels, labelStyle)
+                    Canvas(
+                        Modifier.size(176.dp).then(
+                            if (onTargeting == null) Modifier else Modifier.onGloballyPositioned { c ->
+                                val center = c.positionInRoot() + Offset(c.size.width / 2f, c.size.height / 2f)
+                                with(density) { onTargeting(BootTargeting(center, reach.toPx(), 62.dp.toPx(), scan, ink, labelStyle)) }
+                            },
+                        ),
+                    ) {
+                        if (layers == BootLayers.ALL) drawTargeting(time(), shown(), reach.toPx(), 62.dp.toPx(), scan, ink, labels, labelStyle)
                     }
                     Box(
                         Modifier.size(124.dp).shadow(16.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
@@ -128,11 +267,19 @@ fun BootScreen(step: BootStep, modifier: Modifier = Modifier, trailing: (@Compos
         }
         trailing?.let { Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { it() } }
     }
+    // The front layer goes over a sky and targeting drawn elsewhere, so it has no sky of its own.
+    if (layers == BootLayers.FRONT) Box(screen, content = content) else SkyBackground(screen, onSkyPainted, content = content)
 }
 
-/** One loop: hunt, close in, lock at [LOCK_AT], hold, let go. The first lock lands inside the boot screen's shortest showing. */
-private const val LOOP_MS = 3_400
+/** One loop: hunt, close in, lock at [LOCK_AT], hold, let go. The boot screen stays until the first lock has landed. */
+private const val LOOP_MS = 3_400f
 private const val LOCK_AT = 0.52f
+/** The most of the loop one frame moves on, about two frames at 60 Hz, and how fast the clock makes up time lost to slow frames. */
+private const val MAX_STEP_MS = 40f
+private const val CATCH_UP = 3f
+/** Where in the loop the first pass starts, with the seeker already drifting in so the lock lands within about two seconds, and how long the field takes to fade in then. */
+private const val FIRST_PASS_FROM = 0.22f
+private const val INTRO_MS = 220f
 
 private fun smooth(from: Float, to: Float, x: Float): Float {
     val k = ((x - from) / (to - from)).coerceIn(0f, 1f)
@@ -143,10 +290,10 @@ private fun smooth(from: Float, to: Float, x: Float): Float {
 private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.63f to 1.05f, 0.79f to 1.42f, 0.93f to 0.7f)
 
 /**
- * Draws the whole targeting pass around the canvas centre (the mark), [reach] out, at loop time [t].
- * [target] is the mark's radius, where the brackets come to rest.
+ * Draws the whole targeting pass around the canvas centre (the mark), [reach] out, at loop time [t],
+ * faded in as far as [intro]. [target] is the mark's radius, where the brackets come to rest.
  */
-private fun DrawScope.drawTargeting(t: Float, reach: Float, target: Float, scan: Color, ink: Color, labels: TextMeasurer, labelStyle: TextStyle) {
+private fun DrawScope.drawTargeting(t: Float, intro: Float, reach: Float, target: Float, scan: Color, ink: Color, labels: TextMeasurer, labelStyle: TextStyle) {
     val c = center
     val line = 2.dp.toPx()
     // The radar field: dashed range rings, a sweeping wedge, and contacts that glow as it passes.
@@ -176,7 +323,7 @@ private fun DrawScope.drawTargeting(t: Float, reach: Float, target: Float, scan:
         rotate(45f, pivot = p) { drawRect(scan.copy(alpha = 0.15f + 0.6f * glow), p - Offset(s, s), Size(s * 2, s * 2)) }
     }
 
-    val fadeIn = smooth(0f, 0.06f, t)
+    val fadeIn = smooth(0f, 0.06f, t) * smooth(0f, 1f, intro)
     val release = smooth(0.86f, 1f, t)
     val seen = fadeIn * (1f - release)
     // Catching the mark: the seeker drifts in from its hunt and the brackets close.

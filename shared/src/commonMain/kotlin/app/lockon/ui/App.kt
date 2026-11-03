@@ -133,6 +133,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.animation.ExitTransition
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -247,6 +249,14 @@ fun LockOnApp(
         // The boot screen stays up until the decks are in and the screens under it, tabs and recent
         // decks' editors, have drawn their cards, so the first look at each doesn't stutter.
         var bootStep by remember { mutableStateOf(BootStep.DECKS) }
+        // Desktop plays the boot screen in a window of its own (BootCover), which shares this clock.
+        val bootCover = state.bootCover
+        val bootClock = bootCover?.clock ?: state.bootClock
+        val coverShowing by (bootCover?.showing ?: remember { MutableStateFlow(false) }).collectAsState()
+        LaunchedEffect(bootStep) { bootCover?.step(bootStep) }
+        val bootReduce = LocalReduceMotion.current
+        // Reduced motion holds the boot screen still; a cover that started before Settings could say so steps aside.
+        LaunchedEffect(bootReduce) { if (bootReduce) bootCover?.lift() }
         // Deck editors kept built, so opening one of these decks shows it at once; [recentDecks] is
         // most recently opened first and decides which editor goes when there are too many.
         val keptDecks = remember { mutableStateListOf<Screen.DeckEditor>() }
@@ -288,10 +298,15 @@ fun LockOnApp(
                     ArtworkLoads.inFlight.first { it == 0 }
                     if (withTimeoutOrNull(BootQuietTime) { ArtworkLoads.inFlight.first { it > 0 } } == null) break
                 }
+                val shown = started.elapsedNow()
+                if (shown < BootMinimum) delay(BootMinimum - shown)
+                // It waits for the seeker to lock, so it seldom fades out mid-hunt, but not past [BootLockGrace]:
+                // where its own frames keep stalling (phones), it falls well behind. Polled rather than per
+                // frame, so nothing redraws for it.
+                withTimeoutOrNull(BootLockGrace) { while (!bootReduce && !bootClock.locked) delay(16) }
             }
-            val shown = started.elapsedNow()
-            if (shown < BootMinimum) delay(BootMinimum - shown)
             state.booted = true
+            bootCover?.lift()
         }
         // At most weekly, only for people on the official card list, and only while checks are on.
         LaunchedEffect(Unit) {
@@ -440,10 +455,15 @@ fun LockOnApp(
             }
             AnimatedVisibility(
                 !state.booted,
-                exit = if (LocalReduceMotion.current) fadeOut(tween(90))
+                // A cover fades out over the app itself, so this one goes at once beneath it.
+                exit = if (coverShowing) ExitTransition.None
+                    else if (LocalReduceMotion.current) fadeOut(tween(90))
                     else fadeOut(tween(Motion.SIGNATURE, easing = Motion.emphasizedAccelerate)) + scaleOut(tween(Motion.SIGNATURE), targetScale = 1.06f),
             ) {
-                BootScreen(bootStep, trailing = chrome?.controls)
+                Box {
+                    bootCover?.takeIf { it.wantsPictures }?.let { cover -> BootPictureTaker(bootClock, cover::pictures) }
+                    BootScreen(bootStep, bootClock, playing = !coverShowing, trailing = chrome?.controls)
+                }
             }
             }
         }
@@ -452,9 +472,10 @@ fun LockOnApp(
 }
 }
 
-/** The boot screen shows at least this long, so its first lock lands even when loading is quick. */
+/** The boot screen shows at least this long, and then until its first lock has landed, for at most [BootLockGrace] more. */
 private val BootMinimum = 1.9.seconds
-/** And never longer than this, whatever is still loading. */
+private val BootLockGrace = 0.6.seconds
+/** And never longer than this, whatever is still loading or however far its seeker has got. */
 private val BootLimit = 8.seconds
 private val BootQuietTime = 250.milliseconds
 

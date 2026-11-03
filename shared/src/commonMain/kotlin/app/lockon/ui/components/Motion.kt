@@ -348,16 +348,3 @@ private fun lerp(a: Color, b: Color, t: Float) = Color(
     blue = a.blue + (b.blue - a.blue) * t,
     alpha = a.alpha + (b.alpha - a.alpha) * t,
 )
-
-/** Shown while the app opens: the reticle locks on above the wordmark. */
-@Composable
-fun LaunchScreen(modifier: Modifier = Modifier) {
-    var locked by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(120); locked = true }
-    Box(modifier.background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            LockIndicator(locked, size = 96.dp)
-            Text("LOCK ON", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
-        }
-    }
-}

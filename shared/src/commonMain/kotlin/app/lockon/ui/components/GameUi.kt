@@ -199,10 +199,11 @@ private class SkyPaint(val image: ImageBitmap, val twilight: Boolean)
 /**
  * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light and
  * floating bokeh. It is static: nothing loops.
- * The smooth parts are painted per pixel by [paintSky] so they never band.
+ * The smooth parts are painted per pixel by [paintSky] so they never band; [onPainted] hears when
+ * the painted sky first draws.
  */
 @Composable
-fun SkyBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, content: @Composable BoxScope.() -> Unit) {
     val twilight = isTwilight()
     var area by remember { mutableStateOf(IntSize.Zero) }
     // Painting takes a few dozen milliseconds, so it runs off the main thread. While a window is being
@@ -223,6 +224,7 @@ fun SkyBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.(
             val painted = sky?.takeIf { it.twilight == twilight }
             if (painted != null) {
                 drawImage(painted.image, dstSize = IntSize(ceil(w).toInt(), ceil(h).toInt()), filterQuality = FilterQuality.Low)
+                onPainted?.invoke()
             } else {
                 drawRect(Brush.verticalGradient(if (twilight) TwilightSky else DaySky))
             }

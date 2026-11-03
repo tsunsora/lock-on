@@ -161,7 +161,8 @@ class ScreenshotTest {
         name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync,
         taps: List<androidx.compose.ui.geometry.Offset> = emptyList(), hover: androidx.compose.ui.geometry.Offset? = null, setup: AppState.() -> Unit,
     ) {
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
+        // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup).apply { bootClock.skipToLock() }
         val titleBar = if (width > 600) chrome else null
         ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, chrome = titleBar) }.use { scene ->
             var image = scene.render()
@@ -604,7 +605,7 @@ class ScreenshotTest {
      * list opens it to the right.
      */
     @Test fun renderHoverPreview() {
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { open(Screen.DeckEditor(deckId)) }
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { open(Screen.DeckEditor(deckId)); bootClock.skipToLock() }
         ImageComposeScene(1980, 1290, Density(1.5f)) { LockOnApp(container, state, sync, files, artworkDir = File("build/artwork-cache").absolutePath, dark = true) }.use { scene ->
             var time = 0L
             fun frames(n: Int) = repeat(n) { Thread.sleep(40); time += 16_000_000L; scene.render(time) }

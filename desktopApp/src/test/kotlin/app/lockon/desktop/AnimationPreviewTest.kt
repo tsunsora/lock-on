@@ -71,10 +71,11 @@ class AnimationPreviewTest {
         for (dark in listOf(false, true)) {
             val dir = File("build/animation-frames/boot-${if (dark) "dark" else "light"}").apply { deleteRecursively(); mkdirs() }
             ImageComposeScene(1100, 700, Density(1.25f)) {
-                LockOnTheme(dark = dark) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS) }
+                LockOnTheme(dark = dark) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock()) }
             }.use { scene ->
-                for (i in 0 until 45) {
-                    val image = scene.render(i * frameNanos * 2)
+                // Every frame at 30 fps: the boot clock moves at most 40 ms a frame, so sparser frames would lag.
+                for (i in 0 until 90) {
+                    val image = scene.render(i * frameNanos)
                     Thread.sleep(20)
                     File(dir, "frame-%03d.png".format(i)).writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
                 }
