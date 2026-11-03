@@ -2,6 +2,7 @@ package app.lockon.desktop
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jetbrains.skiko.SkiaLayer
@@ -115,8 +117,16 @@ fun main() {
                 if (saved.placement == WindowPlacement.Maximized) window.extendedState = Frame.MAXIMIZED_BOTH
             }
             val chrome = if (ownTitleBar) rememberWindowChrome(window, windowState, exit) else null
+            // Until the boot cover is up, the window shows only the boot screen's first frame, which the
+            // cover's matches. The cover takes its pictures on this thread, where they must wait for
+            // nothing else to be composing, so the app starts building only once the cover plays over it.
+            var coverSettled by remember { mutableStateOf(bootCover == null) }
+            if (bootCover != null) LaunchedEffect(Unit) {
+                withTimeoutOrNull(3_000) { bootCover.settled.first { it } }
+                coverSettled = true
+            }
             Box(Modifier.fillMaxSize()) {
-                LockOnApp(
+                if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
                     container, state, sync, DesktopFileBridge(window),
                     artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
                     // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
@@ -141,6 +151,25 @@ fun main() {
     // With automatic updates on, a downloaded update installs as Lock On closes.
     container.updater?.let { runBlocking { it.installOnExit() } }
     exitProcess(0)
+}
+
+/**
+ * The boot screen standing at its first frame, in the theme and size Settings chose, as the window
+ * shows it while the boot cover gets ready. It doesn't move: the cover starts moving it.
+ */
+@Composable
+private fun BootFirstFrame(container: AppContainer, clock: app.lockon.ui.BootClock, onSkyPainted: () -> Unit) {
+    val settings = container.settings
+    val dark = when (settings.theme.value) {
+        app.lockon.data.ThemeChoice.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+        app.lockon.data.ThemeChoice.LIGHT -> false
+        app.lockon.data.ThemeChoice.DARK -> true
+    }
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    val density = androidx.compose.ui.unit.Density(base.density * settings.size.value.scale, base.fontScale)
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) {
+        app.lockon.ui.theme.LockOnTheme(dark) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.DECKS, clock, playing = false, onSkyPainted = onSkyPainted) }
+    }
 }
 
 /** [root] and everything inside it, parents before children. */

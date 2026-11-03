@@ -92,6 +92,7 @@ class AndroidBootCover(private val activity: Activity, override val clock: BootC
             val holder = surface
             val art = art
             if (holder != null && art != null) {
+                clock.handedOver = true
                 val canvas = holder.lockHardwareCanvas()
                 try {
                     art.frame(canvas, clock, step, going, draw, fade)
