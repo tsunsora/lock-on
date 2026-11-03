@@ -58,22 +58,33 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
     override val clock = BootClock()
     private val _showing = MutableStateFlow(false)
     override val showing: StateFlow<Boolean> = _showing.asStateFlow()
+    private val _settled = MutableStateFlow(false)
+    /** True once it is up, or has given up; until then the app's window shows only the boot screen's first frame (Main.kt). */
+    val settled: StateFlow<Boolean> = _settled.asStateFlow()
     @Volatile private var step = BootStep.DECKS
     @Volatile private var lifted = false
     @Volatile private var target: Window? = null
     private val log = org.slf4j.LoggerFactory.getLogger("LockOn")
     /** When each of its frames went up, in [System.nanoTime], for BootProbe. */
     val frames: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
+    /** How far the animation had played at each of those frames, in ms, for BootProbe. */
+    val playedAt: MutableList<Float> = java.util.Collections.synchronizedList(mutableListOf())
 
     init {
         thread(name = "Boot cover", isDaemon = true) {
             runCatching { play() }.onFailure { log.warn("Boot cover stepped aside", it) }
+            _settled.value = true
             _showing.value = false
         }
     }
 
+    @Volatile private var windowSky = false
+
     /** The app's window, which it covers as soon as that shows. */
     fun attach(window: Window) { target = window }
+
+    /** Hears that the window's first frame has its painted sky, so the cover goes up looking just like it. */
+    fun windowSkyPainted() { windowSky = true }
 
     override fun step(step: BootStep) { this.step = step }
     /** The interface size chosen in Settings, which the app's own screens are drawn at. */
@@ -89,6 +100,10 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
             if (pane == null) Thread.sleep(5)
         }
         if (lifted || pane == null) return
+        // Painting takes the UI thread, so it waits for the window's sky first: otherwise the window
+        // would hold its plain stand-in sky until the cover came up with the painted one.
+        val until = System.nanoTime() + 1_000_000_000L
+        while (!lifted && !windowSky && System.nanoTime() < until) Thread.sleep(5)
         val started = System.nanoTime()
         var art = Art.paint(this, Layout.sized(pane) ?: return)
         val painted = System.nanoTime()
@@ -149,8 +164,13 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
                 strategy.show()
                 Toolkit.getDefaultToolkit().sync()
                 if (going > 0f) runCatching { cover.opacity = 1f - going * going }
-                if (!_showing.value) _showing.value = true
+                if (!_showing.value) {
+                    clock.handedOver = true
+                    _showing.value = true
+                    _settled.value = true
+                }
                 frames += now
+                playedAt += clock.played
                 pace(strategy, refreshesPerFrame)
             }
         } finally {

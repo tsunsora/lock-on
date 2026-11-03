@@ -92,6 +92,12 @@ enum class BootStep(val label: String) {
  */
 class BootClock {
     @Volatile var played: Float = 0f
+    /**
+     * Set by a [BootCover] as it starts drawing. From then on only the cover moves the clock: the boot
+     * screen beneath stops at once, rather than in its next frame, which could come late and make up
+     * the time it lost on top of the cover's.
+     */
+    @Volatile var handedOver: Boolean = false
     /** How far the hunt has got, from 0 to [HOLD_AT]: it plays once, then holds the lock until the boot screen goes. */
     val stage: Float get() = minOf(played / LOOP_MS, HOLD_AT)
     /** Where the radar sweep is in its loop, from 0 to 1; it keeps turning while the lock holds. */
@@ -210,7 +216,7 @@ fun BootScreen(
             owed += frame
             val step = minOf(owed, MAX_STEP_MS, frame * CATCH_UP)
             owed -= step
-            clock.played += step
+            if (!clock.handedOver) clock.played += step
             frames.intValue++
         }
     }

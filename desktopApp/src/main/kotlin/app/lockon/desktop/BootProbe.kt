@@ -34,7 +34,7 @@ fun BootProbe(window: ComposeWindow, state: AppState, cover: DesktopBootCover?, 
         // A window opened from a terminal often opens behind others; the pictures need it in front.
         if (shots) window.isAlwaysOnTop = true
         if (shots) kotlin.concurrent.thread(isDaemon = true) {
-            for (at in listOf(300L, 700L, 1_000L, 1_500L)) {
+            for (at in listOf(250L, 500L, 750L, 1_000L, 1_500L)) {
                 Thread.sleep((at - (System.nanoTime() - began) / 1_000_000).coerceAtLeast(0))
                 shoot("at-$at")
             }
@@ -66,13 +66,19 @@ fun BootProbe(window: ComposeWindow, state: AppState, cover: DesktopBootCover?, 
         }
         val start = frames.first()
         val covered = cover?.frames?.toList().orEmpty()
+        // Motion against time: how far the animation moved each cover frame for each ms that passed. An
+        // even 1.0 is smooth; well above it is a burst, well below it a stall.
+        val moved = cover?.playedAt?.toList().orEmpty()
+        val pace = covered.indices.drop(1).map { i -> (moved[i] - moved[i - 1]) / ((covered[i] - covered[i - 1]) / 1e6f) }
+        val paceLine = if (pace.isEmpty()) "" else "  cover pace (animation ms per real ms): min %.2f, max %.2f, %d frames outside 0.8-1.25\n".format(
+            pace.min(), pace.max(), pace.count { it < 0.8f || it > 1.25f })
         report.appendText(
             "${window.renderApi}, $hz Hz, ${window.width}×${window.height}\n" +
                 summary("  boot", frames.filter { it <= bootedAt }) +
                 summary("  fade", frames.filter { it >= bootedAt }) +
                 (if (covered.isEmpty()) "  cover: never showed\n" else
                     "  cover up %.0f ms after the first frame\n".format((covered.first() - start) / 1e6) +
-                        summary("  cover", covered) +
+                        summary("  cover", covered) + paceLine +
                         "  cover gaps over 12 ms: " + covered.zipWithNext { a, b -> "%.0f:%.0f".format((a - start) / 1e6, (b - a) / 1e6) }
                             .filterIndexed { i, _ -> (covered[i + 1] - covered[i]) > 12_000_000L }.joinToString(", ") + "\n") +
                 "  gaps (ms since first frame: gap): " + frames.zipWithNext { a, b ->
