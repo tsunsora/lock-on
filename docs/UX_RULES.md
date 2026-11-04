@@ -11,24 +11,24 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **N3. Back always works and never loses work.** System back, the on-screen back arrow and Escape on desktop all leave the current screen, and edits are already saved when they do.
 - **N4. Wide windows split into panes instead of adding screens.** At 840 dp and wider, the editor has two areas: the card list and the deck. On phones the same views become tabs.
   - Width follows use. The card list gets about 60%. The deck panel gets the rest, and its tabs (**Deck**, **Analysis**, **Test**, **Matches**, **Versions**) hold everything about the deck, so nothing else takes width from building.
-  - The Deck tab opens with a stats strip: the level curve, counts by type, Burst and Blockers, and the first legality problem in words, with a link to Analysis.
+  - The deck panel opens with the gauge, Export and More above its tabs. The Deck tab starts straight on the list, under the first legality problem in words, which links to Analysis. The curve and counts live in Analysis.
   - The Cards tab shows details in a side panel instead of a dialog.
   - The library lays decks out in a grid.
   - Reading screens such as Sync stay under about 980 dp wide.
   - Phones show three cards across.
-  - **Space goes to cards.** The card list header is two rows: the search with its result count, Filters, Sort and the view toggle (and, in the editor when the list is at least 720 dp wide, the **Add to** switch), then colours as orb toggles with initials and types as chips. The second row wraps on wide panes. On phones it folds into a **Colors** chip and a **Type** chip, each opening a menu of toggles that stays open; the chip lights when any are on and shows the picked colours as dots or the first type and a count. The row scrolls only if it still doesn't fit, fading at its edge to show there is more. Every row that scrolls sideways fades at its edge the same way (`fadeEnd`), never cutting a chip off hard. Sort and Grid/List move into Filters, whose chip counts the filters set there. On phones each Filters line is one row that scrolls sideways, and the drawer itself scrolls, so the Trait field stays reachable on short screens.
+  - **Space goes to cards.** The card list header is two rows: the search with its result count, Filters, Sort and the view toggle (and, in the editor when the list is at least 720 dp wide, the **Deck · Side deck** switch), then colours as orb toggles with initials and types as chips. The second row wraps on wide panes. On phones it folds into a **Colors** chip and a **Type** chip, each opening a menu of toggles that stays open; the chip lights when any are on and shows the picked colours as dots or the first type and a count. The row scrolls only if it still doesn't fit, fading at its edge to show there is more. Every row that scrolls sideways fades at its edge the same way (`fadeEnd`), never cutting a chip off hard. Sort and Grid/List move into Filters, whose chip counts the filters set there. On phones each Filters line is one row that scrolls sideways, and the drawer itself scrolls, so the Trait field stays reachable on short screens.
   - Deck strips are 48 dp tall on wide windows and 58 dp on phones. The level curve above the deck list is a 48 dp row with a small caption.
   - On phones, a screen's title shares its row with that screen's main action. Rarely used actions go in a ⋮ menu, or in Settings when they cover the whole app, like Back up all decks. Folders and tags share one row: phones pick a folder from one chip naming the open folder, whose menu lists every folder with its count, New folder, and Rename and Remove for the open one. While a deck is held, the folders spread out as chips so it can be dropped on one.
   - The test hand is always three cards across, so a phone shows the whole opening hand above Keep and Redraw. Its six shields share one row under the hand, and hand cards are sized so the hand and shields fit without scrolling. Cards drawn later carry a *Draw n* tag.
 - **N5. Floating navigation shares the top band.** Navigation floats over the hangar backdrop as detached plates instead of spanning the window (V9).
   - At 840 dp and wider, the player card floats top-left and the navigation pill top-right. Each screen puts its own header in the band between them (`ScreenHeader`, or `clearOfNav` for custom headers such as the editor's), so no row is spent on navigation alone.
   - **The band is the title bar on Windows.** There is no system caption: the sky runs to the window's top edge. Minimise, maximise/restore and close float in a small glass capsule just right of the pill, and the band keeps clear of it. Empty parts of the band (and the player card) move the window, and a double-click maximises it. Controls, fields and cards in the band still take their own clicks. Windows keeps the rounded corners, shadow, resize edges and Snap. On desktop windows narrower than 840 dp the capsule sits at the end of the screen header's row, which leaves room for it. Other systems keep their own title bar.
-  - When the band is under 1000 dp, the editor header drops the cover thumbnail, the reticle's caption and the ruleset name, and uses short gauge labels. The legality stamp still says *Legal* or *Draft* in words (I4).
+  - The wide editor header is the deck's name, its colours and the legality stamp, which says *Legal* or *Draft* in words (I4). Under 1000 dp it also drops the pencil beside the name.
   - Below 840 dp, navigation is a floating pill (`PillNavBar`, after AnymeX's "Dynamic Pill" bar). It's about 88% of the screen wide, sits 12 dp above the bottom edge and is somewhat transparent, and content scrolls underneath it. Lists add `LocalNavClearance` to their bottom padding, so their last item can scroll clear of it. The selected destination expands into a teal pill with its icon and label. The others shrink to icons, which keep their labels for screen readers (I5). It holds only the necessities:
     - **Top level:** Decks, Cards, Sync and Settings.
     - **Inside a deck:** the app's pill steps aside, and back returns to it (N3). The editor floats its own sections in the same pill: **Deck**, **Add**, **Analysis**, **Test**, and **More** for Matches and Versions, so the pill never holds more than five items.
   - On wide windows, the same pill sits at the top right with every label showing.
-  - The phone editor header keeps only back, the deck name (tap to rename), its colours, the Legal or Draft stamp, Export, and the two gauges.
+  - The phone editor header keeps only back, the deck name (tap to rename), its colours, the Legal or Draft stamp, and the gauge.
   - On wide windows, panel tabs such as the deck panel's sit at the top of their panel.
 
 ## 2. Speed of building
@@ -54,41 +54,43 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **C3. One bulk action instead of many single ones.** When something applies to many items, offer it once, such as *Clear section* or *Sync now*. (Aniimo reviewers asked for a claim-all.)
 - **C4. Pick from options, don't type.** Wherever a value comes from a known list, such as a card name, a color, a tag already in use or a ruleset, offer it as a choice. Typing is the fallback.
 
-## 5. Look and feel (sky glass, built on Material 3)
+## 5. Look and feel (after Nintendo's recent menus, built on Material 3)
 
-Lock On should feel like the home screen of a bright anime game, not a productivity app. The model is Stella Sora's home screen: a clear sky, frosted glass panels floating over it, pill buttons, a floating pill nav bar and soft glows. Material 3 still supplies behaviour, menus, text fields and accessibility. The deck-builder patterns come from the games players praise most: Hearthstone, Marvel Snap, Legends of Runeterra and Master Duel (see [research](#research-behind-the-rules)). The shared toolkit is in `ui/components/GameUi.kt`.
+Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple yet functional, removing anything uncomfortable before adding anything. A clear sky frames calm, solid panels, with chunky rounded type and rounded rectangles. Material 3 still supplies behaviour, menus, text fields and accessibility. The deck-builder patterns come from the games players praise most: Hearthstone, Marvel Snap, Legends of Runeterra and Master Duel (see [research](#research-behind-the-rules)). The shared toolkit is in `ui/components/GameUi.kt`.
 
-- **V1. Glass over sky.**
-  - Large panels are frosted glass (`GlassPanel`, `Modifier.glass`): a translucent white fill, slightly brighter at the top, with a bright rim fading downward. The sky shows through.
-  - Corners are soft: panels 22 dp, tiles 16 dp, and buttons, chips, tabs, search fields and stamps are full pills.
-  - No stock Material controls show through. Buttons are `GameButton`, tabs `PillTabs`, chips `PillChip`, switches `PillSwitch`, segmented choices `PillSegmented`, and dialogs `GameDialog`. A dialog's main action is the teal pill, and Close or Cancel is a text button.
-- **V2. Section headers.** A sparkle, the label in bold mixed case, a soft rule fading out, and the count in a tinted pill, such as `✦ Units ———— (32)`.
+- **V1. Solid panels over sky.**
+  - Large panels are calm and solid (`GlassPanel`, `Modifier.glass`, named for their history): white by day, a dusk blue at twilight. The sky frames them rather than showing through.
+  - Corners are rounded rectangles: panels 22 dp, tiles 16 dp, and buttons, chips, tabs, search fields and icon buttons 14 dp (`LockOnShapes.button`). Only the floating nav pill and switches keep pill ends (`LockOnShapes.pill`).
+  - No stock Material controls show through. Buttons are `GameButton`, tabs `PillTabs`, chips `PillChip`, switches `PillSwitch`, segmented choices `PillSegmented`, and dialogs `GameDialog`. A dialog's main action is the solid teal button, and it closes with a Cancel or Close button, never a corner ×.
+  - **Selection:** solid teal marks navigation and main actions only (the nav pill, the editor's panel tabs, primary buttons). Every other single choice is a white thumb with teal text (`PillSegmented`, `PillTabs(soft = true)`). Filter chips that are on get a teal outline and tint.
+  - **Focus cursor:** a teal-to-blue ring just outside the card or tile under the pointer, like the Switch's selector (`drawFocusRing`).
+- **V2. Section headers.** The label in bold mixed case with its count beside it, such as `Units (32)`. No rules or sparkles.
 - **V2a. Type.** Headings, titles, labels, buttons and numbers use Quicksand (SIL Open Font License), a rounded face, in bold mixed case. Body text stays the platform sans for readability.
 - **V3. Colour roles.**
   - **Primary (teal)** means "you can act" or "selected": primary buttons, the selected tab, chip, segment and destination, **+**, and counts in the deck.
-  - **Secondary (sky blue)** is for information and charts, such as curves.
+  - **Secondary (sky blue)** is for information. Charts are one slate ramp (`ChartSlate`), so a bar never reads as a card colour or an action.
   - **Tertiary (soft gold)** is for celebration only: a full gauge, the *Locked on!* state, sparkles and the Lock On moment.
   - Errors keep Material's error role.
   - Card colours are for card identity: cost orbs, strip edges and hover glows.
-  - Light mode is a clear sky. Dark mode is a soft twilight with stars, never black.
+  - Light mode is a clear sky. Dark mode is a soft dusk, never black. A full deck that needs review holds its gauge in slate rather than gold.
 - **V4a. Cards are never cropped where they are the subject.**
   - Grid tiles, the test hand, card details and printings show the whole card at its real 63:88 shape, with high-quality filtering. Cost and AP/HP are never covered.
-  - Deck strips (List view), the editor banner and deck boxes are the exception. They show a crop of a card's art as a backdrop, and the whole card is always one tap away.
+  - The editor banner is the exception, with a crop of a card's art as a backdrop. Deck strips and deck tiles show a small crop or the cover card, and the whole card is always one tap away.
   - Names aren't repeated under cards that already print them.
   - Cards without artwork get a drawn placeholder in the same shape, so grids never shift when images load.
 - **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its colour band, level and type initial. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank.
 - **V8. Game deck-builder patterns.**
   - **Deck cards:** the deck list shows each card small and whole, at its real shape, grouped by type. − ×count + and copy pips sit underneath. Desktop fits as many 104 dp cards as the panel holds, with 40 dp targets. Phones show cards three across from about 390 dp, with 48 dp targets (R1).
-  - **Deck strips** (as in Hearthstone) are the denser **List view**, a toggle in the stats strip. Each row has a glossy cost orb in the card's colour and the name over a crop of the art, fading in from the right. The side deck always uses strips, since its rows need the **To deck** action.
-  - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal while filling, gold at the limit, and red past it.
+  - **Deck strips** are the default view; **Card view** under More in the deck panel shows small whole cards instead. Each row has a cost orb in the card's colour, a small crop of the art, the name and − / +. The side deck always uses strips, since its rows need the **To deck** action.
+  - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal, and red past the limit.
   - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold when exactly full, and red when over. Nothing is drawn on the bar itself (K3).
   - **Level curve** (as in MTG Arena): a compact curve sits at the top of the deck list.
-  - **Deck boxes:** library tiles show the cover art behind the deck's name, its colour orbs, both gauges and the record.
+  - **Deck tiles:** on wide windows, four or more to a row: a band in the deck's colours with the cover card tucked in, then the name, the gauge, and the state and record on one line. Phones keep a shorter row with the cover beside the name.
   - **Hero banner:** the editor header is a frosted strip with the cover art fading in from the right.
 - **V9. Navigation floats and fits the theme** (as on Stella Sora's home screen, N5).
-  - **The player card** is the brand: the Lock On mark in a teal-ringed level badge, the name, and the deck and card counts in currency-style pills. They're plain counts, never badges or prompts (C1).
+  - **The brand** is the Lock On mark on a rounded logo tile beside the name. The tile follows the theme: the focus cursor's teal to blue with a white reticle by day, bright cyan with a navy reticle at twilight. Wide screens carry no page title beside the nav; the lit item names the screen.
   - **The pill** (N5): destinations float in a translucent capsule, and the selected one is a teal pill with its label.
-  - **Window controls** (N5, desktop) use the pill's own glass and its exact height (K1), with three round 42 dp buttons the size of the pill's selected item, drawn glyphs, and a label and tooltip on each (I5). As on Windows itself, the three are the same size: being icon-only ranks them below the labelled destinations, and close shows its weight by turning red on hover, not by size. They tint on hover and sink a hair when pressed.
+  - **Window controls** (N5, desktop) are plain buttons with no capsule, at the pill's exact height (K1), with three 42 dp rounded buttons, drawn glyphs, and a label and tooltip on each (I5). As on Windows itself, the three are the same size: being icon-only ranks them below the labelled destinations, and close shows its weight by turning red on hover, not by size. They tint on hover and sink a hair when pressed.
 - **V5. Motion explains and gives feedback, quietly.** Every animation answers *what changed*, *where did I go* or *what can I touch*, and none of it competes with the cards. Short distances, small scales, no bounce, overshoot, tilt or sparkle. Timing lives in `Motion.kt`.
   - **Timing:** 120 ms for small exits, 200 ms for most changes, 280 ms for larger moves, all on Material 3's emphasized curves. Items in a group start 30 ms apart.
   - **Navigation:** going deeper drifts a short way forward, coming back drifts back, and switching tabs fades through.
@@ -106,9 +108,9 @@ Lock On should feel like the home screen of a bright anime game, not a productiv
   - **Reduced motion:** with the system's "Remove animations" setting on, every animation becomes an instant change or a very short fade. Tilt, bumps, flashes and the shine are skipped.
 - **V6. Dark and light are equals.** Both themes use the same colour roles. Contrast is at least 4.5:1 for text and 3:1 for controls and tags, including text on glass over the sky.
 - **V7. Decoration is never the only signal.**
-  - **The sky:** a gradient with soft colour glows, a diagonal beam of light, bokeh, and a few fixed sparkles. Twilight adds stars.
+  - **The sky:** a gradient with soft colour glows and a diagonal beam of light. Nothing floats in it.
   - **Sparkles** mark headings, the selected destination and celebration.
-  - **The Lock On mark:** a bold targeting reticle with a center dot, all in one colour. The app icon is flat: the mark in white on a tile of bright navy with a clear diagonal gradient from #4C66C0 at the top right to #1F2C5E at the bottom left, with no glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
+  - **The Lock On mark:** a bold targeting reticle with a center dot, all in one colour. The app icon is flat: the mark in white on a tile with a clear diagonal gradient from teal #19C2CF at the top right to blue #3B7CF0 at the bottom left, with no glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
   - **Yellow-and-black caution stripes** are reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
   - All of these are original shapes, not official logos or artwork.
 
@@ -119,7 +121,7 @@ These came from a UI review on 2026-10-28, where a sparkle on full gauges, an ed
 - **K1. One height per row.** Buttons, fields and icon buttons that share a row are `ControlSize` (44 dp). Capsules side by side share a height: the window controls are exactly `PillNavHeight`, like the nav pill.
 - **K2. Same rank, same size.** Controls of equal rank are equal in size. Rank shows through fill (teal, glass, text) and labels, never through sizes that drift apart.
 - **K3. No stray marks.** Selection is a fill, never an edge bar or underline. No rule, sparkle or glow sits where it could be read as a control or a state: no lines under banners, nothing drawn on a gauge.
-- **K4. Icon-only actions have a body.** Back, Export, ⋮ and similar use `GlassIconButton`, a round glass disc, never a bare glyph. Back sits 12–16 dp from the title beside it.
+- **K4. Icon-only actions have a body.** Back, Export, ⋮ and similar use `GlassIconButton`, a rounded square, never a bare glyph. Back sits 12–16 dp from the title beside it.
 - **K5. Let the layout explain.** No subtitle under a screen title (`ScreenHeader` has none), no description under a setting whose name and options already say it, and one heading per group, not a heading over a single label. Words appear for news (an update, a pending name), problems (I3) and trust (T2), not to narrate what is on screen.
 - **K6. Spacing on a 4 dp grid.** Gaps are 4, 8, 12, 16 or 24 dp, and similar gaps match across screens.
 - **K7. Check in pictures.** Every UI change is reviewed in `ScreenshotTest` renders, in both themes, on phone and desktop, before it ships.

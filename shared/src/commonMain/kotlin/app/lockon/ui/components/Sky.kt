@@ -23,7 +23,7 @@ internal val SkyBokeh = listOf(
 )
 
 internal val DaySky = listOf(Color(0xFFB7DEF5), Color(0xFFDDEFFA), Color(0xFFF5FAFE))
-internal val TwilightSky = listOf(Color(0xFF26346A), Color(0xFF19213F), Color(0xFF11172E))
+internal val TwilightSky = listOf(Color(0xFF283070), Color(0xFF363A78), Color(0xFF4A3F80))
 
 private val DayGlows = listOf(
     SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF7FE3E8), 0.45f),
@@ -31,11 +31,10 @@ private val DayGlows = listOf(
     SkyGlow(0.62f, 1.05f, 0.4f, Gold, 0.18f),
 )
 
-// At twilight the bokeh are faint glows; rings would read as holes in the night sky.
 private val TwilightGlows = listOf(
     SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF3FC6D4), 0.22f),
     SkyGlow(0.06f, 0.95f, 0.5f, Color(0xFF8E6BE8), 0.2f),
-) + SkyBokeh.map { SkyGlow(it.x, it.y, it.radius, Color.White, 0.05f) }
+)
 
 /**
  * The sky's gradient, glows and diagonal beam of light as opaque 0xAARRGGBB pixels, row by row.

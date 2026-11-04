@@ -125,6 +125,9 @@ import androidx.compose.ui.unit.sp
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.theme.SuitColors
 import app.lockon.ui.theme.TabularNumbers
+import app.lockon.ui.theme.ChartSlate
+import app.lockon.ui.theme.ChartSlateTwilight
+import androidx.compose.ui.graphics.drawscope.translate
 import app.lockon.platform.imageBitmapOf
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.FilterQuality
@@ -188,9 +191,9 @@ data class GlassColors(val fill: Color, val strong: Color, val rim: Color, val r
 @Composable
 @ReadOnlyComposable
 fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color.White.copy(alpha = 0.07f), Color(0xFF2A3562).copy(alpha = 0.94f), Color.White.copy(alpha = 0.26f), Color.White.copy(alpha = 0.06f), Color(0xFF060B1E))
+    GlassColors(Color(0xFF3A4282).copy(alpha = 0.92f), Color(0xFF343C72), Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.06f), Color(0xFF060B1E))
 } else {
-    GlassColors(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.9f), Color.White, Color(0xFFBFD2E6), Color(0xFF6A88B0))
+    GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color.White, Color(0xFFD5E2F0), Color(0xFF6A88B0))
 }
 
 /** A painted sky and the theme it was painted for. */
@@ -230,7 +233,7 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
             }
             // Bokeh at fixed places, so every frame and screenshot is the same. Twilight's bokeh are
             // glows, painted with the sky.
-            if (!twilight) SkyBokeh.forEachIndexed { i, b ->
+            if (false) SkyBokeh.forEachIndexed { i, b ->
                 val c = Offset(w * b.x, h * b.y)
                 val r = m * b.radius
                 drawCircle(Color.White.copy(alpha = 0.28f), r, c)
@@ -247,8 +250,8 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
 @Composable
 fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false): Modifier {
     val g = glassColors()
-    // Frosted: a touch brighter at the top, so the sky shows through more toward the bottom.
-    val fill = if (strong) SolidColor(g.strong) else Brush.verticalGradient(listOf(g.fill, g.fill.copy(alpha = g.fill.alpha * 0.7f)))
+    // Calm and solid, as in Nintendo's menus: the sky frames the panels instead of showing through them.
+    val fill = if (strong) SolidColor(g.strong) else SolidColor(g.fill)
     return clip(shape)
         .background(fill)
         .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
@@ -320,11 +323,13 @@ fun GameButton(
     icon: ImageVector? = null,
     large: Boolean = false,
     compact: Boolean = false,
+    tone: Color? = null,
+    onTone: Color? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
-    val accent = Accent
-    val onAccent = OnAccent
+    val accent = tone ?: Accent
+    val onAccent = onTone ?: OnAccent
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedHeld()
@@ -339,13 +344,13 @@ fun GameButton(
     when {
         !enabled -> { fill = SolidColor(scheme.onSurface.copy(alpha = 0.06f)); content = scheme.outline; rim = Color.Transparent }
         style == GameButtonStyle.PRIMARY -> {
-            fill = Brush.verticalGradient(listOf(lighten(accent, 0.22f + 0.12f * lift), lighten(accent, 0.12f * lift)))
-            content = onAccent; rim = lighten(accent, 0.45f)
+            fill = SolidColor(lighten(accent, 0.1f * lift))
+            content = onAccent; rim = Color.Transparent
         }
         style == GameButtonStyle.SECONDARY -> {
-            // Lightening white glass shows nothing, so hover washes it with the accent instead.
-            fill = SolidColor(accent.copy(alpha = 0.08f * lift).compositeOver(g.strong))
-            content = accent; rim = accent.copy(alpha = 0.55f + 0.35f * lift)
+            // A soft fill in the ink colour; hover deepens it.
+            fill = SolidColor(scheme.onSurface.copy(alpha = 0.07f + 0.05f * lift))
+            content = scheme.onSurface; rim = Color.Transparent
         }
         else -> { fill = SolidColor(accent.copy(alpha = 0.10f * lift)); content = accent; rim = Color.Transparent }
     }
@@ -412,9 +417,9 @@ fun GlassIconButton(
         modifier
             .size(if (compact) 32.dp else ControlSize)
             .graphicsLayer { scaleX = squish; scaleY = squish }
-            .clip(CircleShape)
+            .clip(if (compact) RoundedCornerShape(11.dp) else LockOnShapes.button)
             .background(disc)
-            .border(BorderStroke(1.dp, ring), CircleShape)
+            .border(BorderStroke(1.dp, ring), if (compact) RoundedCornerShape(11.dp) else LockOnShapes.button)
             .hoverable(interaction)
             .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label },
@@ -432,10 +437,13 @@ val ControlSize = 44.dp
  * narrower than its tabs, or share the width equally with [fill].
  */
 @Composable
-fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, fill: Boolean = false) {
+fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, fill: Boolean = false, soft: Boolean = false, icons: List<ImageVector>? = null) {
     val scheme = MaterialTheme.colorScheme
-    val accent = Accent
-    val onAccent = OnAccent
+    // Icons give way to the words when the row gets too narrow for both.
+    val iconRoom = with(androidx.compose.ui.platform.LocalDensity.current) { 440.dp.toPx() }
+    var showIcons by remember { mutableStateOf(true) }
+    val accent = if (soft) softThumb() else Accent
+    val onAccent = if (soft) softThumbInk() else OnAccent
     val track = if (fill) Modifier.fillMaxWidth() else Modifier.horizontalScroll(rememberScrollState())
     // Where each tab sits in the row, so one teal pill can slide between them (the tabs differ in width).
     // Only the draw reads them, so a resize moves the pill with its tab instead of recomposing the
@@ -445,9 +453,9 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     // starts at the selection.
     val slot by animateFloatAsState(selected.toFloat(), glide(), label = "tab-slide")
     val placed by remember(spots, selected) { derivedStateOf { spots.getOrNull(selected)?.value != null } }
-    Box(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
+    Box(modifier.fillMaxWidth().then(if (icons != null) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).padding(horizontal = 8.dp, vertical = 6.dp)) {
         Row(
-            track.glass(LockOnShapes.button, strong = true).padding(4.dp).drawBehind {
+            (if (soft) track.clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)) else track.glass(LockOnShapes.button, strong = true)).padding(4.dp).drawBehind {
                 if (spots.isEmpty()) return@drawBehind
                 val s = slot.coerceIn(0f, spots.lastIndex.toFloat())
                 val lo = floor(s).toInt()
@@ -456,7 +464,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 val f = s - lo
                 val px = a.first + (b.first - a.first) * f
                 val pw = a.second + (b.second - a.second) * f
-                if (pw > 0f) drawRoundRect(accent, Offset(px, 0f), Size(pw, size.height), CornerRadius(size.height / 2))
+                if (pw > 0f) drawRoundRect(accent, Offset(px, 0f), Size(pw, size.height), CornerRadius(11.dp.toPx()))
             },
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -480,10 +488,14 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                         .clip(LockOnShapes.button).background(bg)
                         .hoverable(interaction)
                         .selectable(isSelected, interaction, indication = null, role = Role.Tab) { onSelect(i) }
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = if (icons != null) 4.dp else 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(label, maxLines = 1, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, color = text)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        val glyph = icons?.getOrNull(i)
+                        if (glyph != null && showIcons) Icon(glyph, contentDescription = null, Modifier.size(15.dp), tint = text)
+                        Text(label, maxLines = 1, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, color = text)
+                    }
                 }
             }
         }
@@ -496,32 +508,33 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
  * when exactly full, red when over. The colour and the number say it; nothing is drawn on the bar.
  */
 @Composable
-fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false) {
+fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
     // One value for the gauge's state, 0 filling, 1 exactly full, 2 over, so the teal warms to gold
     // (and gold to red) instead of switching, with a single animation per gauge.
     val tone by animateFloatAsState(
-        when { count > limit -> 2f; count == limit -> 1f; else -> 0f }, motion(Motion.MEDIUM), label = "gauge-tone",
+        when { count > limit -> 2f; count == limit && !hold -> 1f; else -> 0f }, motion(Motion.MEDIUM), label = "gauge-tone",
     )
     val accent = Accent
     val gold = if (isTwilight()) Gold else scheme.tertiary
     val numberColor = if (tone <= 1f) androidx.compose.ui.graphics.lerp(scheme.onSurface, gold, tone)
         else androidx.compose.ui.graphics.lerp(gold, scheme.error, tone - 1f)
-    val fillingBrush = Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
+    val slate = if (isTwilight()) ChartSlateTwilight else ChartSlate
+    val fillingBrush = if (hold) SolidColor(slate) else Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
     val fullBrush = Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
     val error = scheme.error
     val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
-    Column(modifier.widthIn(min = 110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(bottom = 2.dp))
-            RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
-                numberColor, Modifier.bumpOnIncrease(count))
-            Text("/$limit", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
-        }
-        Canvas(Modifier.fillMaxWidth().height(if (compact) 6.dp else 8.dp)) {
+    @Composable
+    fun Number() {
+        RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
+            numberColor, Modifier.bumpOnIncrease(count))
+        Text("/$limit", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
+    }
+    @Composable
+    fun Bar(barModifier: Modifier) {
+        Canvas(barModifier.height(if (compact && !inline) 6.dp else 8.dp)) {
             val r = CornerRadius(size.height / 2)
             drawRoundRect(track, cornerRadius = r)
             if (fraction > 0f) {
@@ -541,6 +554,21 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
                 }
             }
         }
+    }
+    if (inline) Row(
+        modifier.widthIn(min = 110.dp).semantics(mergeDescendants = true) { contentDescription = "$label: $count of $limit" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) { Number() }
+        Spacer(Modifier.width(10.dp))
+        Bar(Modifier.weight(1f))
+    } else Column(modifier.widthIn(min = 110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(bottom = 2.dp))
+            Number()
+        }
+        Bar(Modifier.fillMaxWidth())
     }
 }
 
@@ -566,7 +594,7 @@ fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modi
 fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.dp) {
     val scheme = MaterialTheme.colorScheme
     val total = maxOf(limit, count).coerceAtMost(6)
-    val lit = if (count == limit) (if (isTwilight()) Gold else scheme.tertiary) else Accent
+    val lit = Accent
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(total) { i ->
             val on = i < count
@@ -642,7 +670,7 @@ internal class HoverLiftNode(
     private var shape: Shape,
     private var lift: Dp,
     private var resting: Float,
-) : Modifier.Node(), LayoutModifierNode, PointerInputModifierNode, CompositionLocalConsumerModifierNode {
+) : Modifier.Node(), LayoutModifierNode, PointerInputModifierNode, CompositionLocalConsumerModifierNode, DrawModifierNode {
     private val hover = Animatable(0f)
     private val press = Animatable(1f)
     private var hovered = false
@@ -714,7 +742,33 @@ internal class HoverLiftNode(
             }
         }
     }
+
+    // The focus cursor (Nintendo's selector): a teal-to-blue ring a few pixels outside the tile.
+    override fun ContentDrawScope.draw() {
+        drawContent()
+        val t = hover.value
+        if (t <= 0f) return
+        drawFocusRing(shape, t)
+    }
 }
+
+/** Teal to blue, the colours of the focus cursor and the logo. */
+val FocusRingBrushColors = listOf(Color(0xFF17C3CF), Color(0xFF3B8CFF), Color(0xFF17C3CF))
+
+/** Draws the focus cursor around [shape] at [alpha]: 3.5 dp wide, 6 dp outside the edge. */
+fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFocusRing(shape: Shape, alpha: Float = 1f) {
+    val gap = 6.dp.toPx()
+    val width = 3.5.dp.toPx()
+    val outer = Size(size.width + gap * 2, size.height + gap * 2)
+    val outline = shape.createOutline(outer, layoutDirection, this)
+    val brush = Brush.linearGradient(FocusRingBrushColors, Offset(-gap, -gap), Offset(size.width + gap, size.height + gap))
+    translate(-gap, -gap) {
+        drawOutline(outline, brush, alpha = alpha, style = Stroke(width))
+    }
+}
+
+/** The focus cursor on a tile that is selected, not just hovered. */
+fun Modifier.focusRing(shape: Shape, on: Boolean = true): Modifier = if (!on) this else drawWithContent { drawContent(); drawFocusRing(shape) }
 
 /** Animates to [target] the way [motion] would: an emphasized tween, or at once when motion is reduced. */
 private suspend fun Animatable<Float, *>.settle(target: Float, durationMillis: Int, reduce: Boolean) {
@@ -900,7 +954,9 @@ fun ScreenHeader(title: String, modifier: Modifier = Modifier, actions: @Composa
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        // In the wide top band the lit nav item already names the screen, so the title steps aside.
+        if (wide) Spacer(Modifier.weight(1f))
+        else Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
             color = scheme.onBackground, modifier = Modifier.weight(1f))
         actions()
     }
@@ -1199,7 +1255,7 @@ fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.size(width = 52.dp, height = 30.dp).clip(LockOnShapes.button)
+            Modifier.size(width = 52.dp, height = 30.dp).clip(LockOnShapes.pill)
                 .background(SolidColor(scheme.onSurface.copy(alpha = 0.12f + 0.08f * lit)))
                 // The teal fills in as the knob travels, so the track and knob change together.
                 .drawBehind {
@@ -1220,21 +1276,31 @@ fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier
     }
 }
 
-/** One choice among a few, as pills on a glass track; the chosen one is teal. */
+/** The thumb of a single-choice control: white, so solid teal is left for navigation and main actions. */
+@Composable
+@ReadOnlyComposable
+fun softThumb(): Color = if (isTwilight()) Color.White.copy(alpha = 0.9f) else Color.White
+
+/** The chosen option's text on a [softThumb]. */
+@Composable
+@ReadOnlyComposable
+fun softThumbInk(): Color = if (isTwilight()) Color(0xFF075E67) else MaterialTheme.colorScheme.primary
+
+/** One choice among a few on a soft track; the chosen one is a white thumb with teal text. */
 @Composable
 fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
-    val accent = Accent
-    val onAccent = OnAccent
+    val accent = softThumb()
+    val onAccent = softThumbInk()
     // One teal pill slides to the chosen option, so the eye follows the change instead of seeing one
     // pill vanish and another appear.
     val slot by animateFloatAsState(selected.toFloat(), glide(), label = "segment-slide")
-    Box(modifier.height(44.dp).glass(LockOnShapes.button, strong = true).padding(4.dp)) {
+    Box(modifier.height(44.dp).clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(4.dp)) {
         if (selected in options.indices) {
             Canvas(Modifier.matchParentSize()) {
                 val gap = 3.dp.toPx()
                 val w = (size.width - gap * (options.size - 1)) / options.size
-                drawRoundRect(accent, Offset(slot * (w + gap), 0f), Size(w, size.height), CornerRadius(size.height / 2))
+                drawRoundRect(accent, Offset(slot * (w + gap), 0f), Size(w, size.height), CornerRadius(11.dp.toPx()))
             }
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -1297,14 +1363,14 @@ fun PillChip(
     // press tint the chip itself: Material's grey state layer and ripple turn the teal muddy as it fades in.
     val fill by animateColorAsState(
         when {
-            selected -> if (pressed) darken(Accent, 0.08f) else if (hovered) lighten(Accent, 0.08f) else Accent
+            selected -> Accent.copy(alpha = if (pressed) 0.24f else if (hovered) 0.18f else 0.13f).compositeOver(g.strong)
             else -> Accent.copy(alpha = if (pressed) 0.16f else if (hovered) 0.08f else 0f).compositeOver(g.strong)
         },
         motion(Motion.SHORT), label = "chip-fill",
     )
-    val text by animateColorAsState(if (selected) OnAccent else scheme.onSurface, motion(Motion.SHORT), label = "chip-text")
+    val text by animateColorAsState(if (selected) Accent else scheme.onSurface, motion(Motion.SHORT), label = "chip-text")
     val rim by animateColorAsState(
-        if (selected) lighten(Accent, 0.4f) else if (hovered) Accent.copy(alpha = 0.5f) else g.rimLow,
+        if (selected) Accent else if (hovered) Accent.copy(alpha = 0.5f) else g.rimLow,
         motion(Motion.SHORT), label = "chip-rim",
     )
     CompositionLocalProvider(LocalRippleConfiguration provides null) { FilterChip(
@@ -1428,7 +1494,7 @@ fun PillNavBar(
             .clip(shape)
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
-            .background((if (twilight) scheme.surfaceContainerHigh else Color.White).copy(alpha = if (labels) 0.2f else 0.94f))
+            .background(if (twilight) Color(0xFF343C72) else Color.White)
             .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
             .height(PillNavHeight)
             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -1463,7 +1529,7 @@ fun PillNavBar(
             ) {
                 Row(
                     Modifier
-                        .clip(LockOnShapes.button).background(fill)
+                        .clip(LockOnShapes.pill).background(fill)
                         .padding(horizontal = if (labels) 16.dp else if (isSelected) 18.dp else 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1514,6 +1580,14 @@ object GameIcons {
         lineTo(18f, 7f); quadTo(18f, 5f, 16f, 5f); lineTo(6f, 5f); quadTo(6f, 3f, 8f, 3f); close()
         moveTo(5f, 7f); lineTo(14f, 7f); quadTo(16f, 7f, 16f, 9f); lineTo(16f, 19f); quadTo(16f, 21f, 14f, 21f); lineTo(5f, 21f)
         quadTo(3f, 21f, 3f, 19f); lineTo(3f, 9f); quadTo(3f, 7f, 5f, 7f); close()
+    }
+
+    /** One card with a diamond in it: the card list. */
+    val Card: ImageVector = icon("Card") {
+        moveTo(6.5f, 2f); lineTo(17.5f, 2f); quadTo(20f, 2f, 20f, 4.5f); lineTo(20f, 19.5f); quadTo(20f, 22f, 17.5f, 22f); lineTo(6.5f, 22f)
+        quadTo(4f, 22f, 4f, 19.5f); lineTo(4f, 4.5f); quadTo(4f, 2f, 6.5f, 2f); close()
+        // Winds against the card, so the diamond stays hollow.
+        moveTo(12f, 7f); lineTo(8.5f, 12f); lineTo(12f, 17f); lineTo(15.5f, 12f); close()
     }
 
     /** Three rising bars: the analysis. */

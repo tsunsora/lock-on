@@ -264,10 +264,10 @@ private fun DeckExport(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f))
-            if (onDismiss != null) IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
+            if (onDismiss != null) GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
         }
     }
-    val tabs = @Composable { PillTabs(formats, tab, { tab = it }, fill = true) }
+    val tabs = @Composable { PillTabs(formats, tab, { tab = it }, fill = true, soft = true) }
     val orderChips = @Composable {
         ExportOrder.entries.forEach { option ->
             PillChip(selected = order == option, onClick = { order = option }, label = { Text(option.label) })

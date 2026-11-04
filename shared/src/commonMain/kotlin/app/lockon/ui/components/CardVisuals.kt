@@ -1,6 +1,11 @@
 package app.lockon.ui.components
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.foundation.Canvas
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
@@ -162,42 +167,105 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
     }
 }
 
-/** A drawn stand-in card: colour frame, cost, level, type, name, and AP/HP, scaled to its width. */
+/**
+ * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
+ * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
+ * Below 100 dp wide it keeps only the colour, the cost and the symbol, so small faces never crowd.
+ */
 @Composable
 fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
-    val color = cardColor(card?.colors?.firstOrNull())
-    val on = onCardColor(card?.colors?.firstOrNull())
+    val cardColor = card?.colors?.firstOrNull()
+    val color = cardColor(cardColor)
+    val white = cardColor == app.lockon.model.CardColor.WHITE
+    val top = if (white) Color(0xFFF4F6FA) else lighten(color, 0.35f)
+    val bottom = if (white) Color(0xFFC7CFDC) else darken(color, 0.35f)
+    val glyphInk = if (white) darken(color, 0.55f) else Color.White
+    val type = card?.type
     BoxWithConstraints(
-        modifier.background(Brush.verticalGradient(listOf(color, color.copy(alpha = 0.55f), MaterialTheme.colorScheme.surfaceContainerHigh)))
-            .border(BorderStroke(1.dp, color.copy(alpha = 0.8f)), CardShape),
+        modifier.background(Brush.linearGradient(listOf(top, if (white) Color(0xFFDDE3EC) else color, bottom)))
+            .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
     ) {
         val u = maxWidth.value / 63f // one card millimetre in dp
-        if (u < 1.1f) {
-            // Thumbnail size: cost only, large enough to read.
-            Text(card?.cost?.toString() ?: "", color = on, fontWeight = FontWeight.Bold, fontSize = (u * 22).sp,
-                modifier = Modifier.align(Alignment.TopStart).padding((u * 4).dp))
-            return@BoxWithConstraints
+        val full = maxWidth >= 100.dp
+        // The type symbol on a soft disc, a little right of centre so the level pill clears it.
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            drawPath(Path().apply { moveTo(-w * 0.1f, h * 0.34f); lineTo(w * 1.1f, h * 0.07f); lineTo(w * 1.1f, h * 0.25f); lineTo(-w * 0.1f, h * 0.52f); close() },
+                Color.White.copy(alpha = 0.10f))
+            val c = Offset(w * 0.524f, h * (if (full) 0.466f else 0.5f))
+            val r = w * (if (full) 0.222f else 0.27f)
+            drawCircle(Color.White.copy(alpha = if (white) 0.55f else 0.18f), r, c)
+            drawTypeGlyph(type, c, r * 1.05f, glyphInk, stroke = (w / 63f) * 1.55f)
         }
-        LockOnMark(Modifier.align(Alignment.Center), size = (u * 30).dp, reticleColor = Color.White.copy(alpha = 0.12f))
-        Column(Modifier.align(Alignment.TopStart).padding((u * 3).dp)) {
-            Text(card?.cost?.toString() ?: "", color = on, fontWeight = FontWeight.Bold, fontSize = (u * 9).sp, lineHeight = (u * 9).sp)
-            card?.level?.let { Text("Lv.$it", color = on, fontSize = (u * 4).sp, fontWeight = FontWeight.Bold) }
+        // Cost on a white-rimmed disc in the card's colour.
+        Box(
+            Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 3.6f).dp).size((u * 15).dp)
+                .shadow(2.dp, CircleShape).clip(CircleShape)
+                .background(if (white) Brush.radialGradient(listOf(Color.White, Color(0xFFDFE4EC))) else Brush.radialGradient(listOf(lighten(color, 0.3f), color)))
+                .border(BorderStroke((u * 0.9f).dp, Color.White.copy(alpha = 0.9f)), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            CenteredGlyph(card?.cost?.toString() ?: "", if (white) Color(0xFF1D2742) else Color.White, (u * 8.6f).sp)
         }
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding((u * 3).dp)) {
-            // The type sits with the name, leaving the top edge clear for rule tags.
-            Text(card?.type?.label?.uppercase().orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (u * 3.2).sp,
-                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-            Text(card?.name ?: "Unknown card", color = MaterialTheme.colorScheme.onSurface, fontSize = (u * 4.6).sp,
-                lineHeight = (u * 5.4).sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height((u * 2).dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(card?.cardNumber.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (u * 3).sp, modifier = Modifier.weight(1f))
+        if (!full) return@BoxWithConstraints
+        card?.level?.let {
+            Text(
+                "Lv $it", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
+                modifier = Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 21f).dp)
+                    .clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp),
+            )
+        }
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = (u * 1.9f).dp, vertical = (u * 2.6f).dp)
+                .clip(RoundedCornerShape((u * 3.6f).dp)).background(Color(0xCC0A1028))
+                .padding(horizontal = (u * 3f).dp, vertical = (u * 2.4f).dp),
+            verticalArrangement = Arrangement.spacedBy((u * 1.2f).dp),
+        ) {
+            Text(card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.6f).sp, lineHeight = (u * 6.4f).sp,
+                fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.fillMaxWidth().heightIn(min = (u * 6.4f).dp), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.weight(1f))
                 if (card?.ap != null || card?.hp != null) {
-                    Text("${card.ap ?: "–"} | ${card.hp ?: "–"}", color = MaterialTheme.colorScheme.onSurface, fontSize = (u * 4.4).sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                        modifier = Modifier.clip(RoundedCornerShape((u * 1.4f).dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = (u * 1.6f).dp),
+                    )
                 }
             }
         }
+    }
+}
+
+/** The card type's symbol drawn as strokes, centred on [c] and [r] wide: shield, pilot, bolt, base or diamond. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTypeGlyph(type: app.lockon.model.CardType?, c: Offset, r: Float, ink: Color, stroke: Float) {
+    // The glyphs are drawn on a 24-unit grid centred on 12, 12.
+    val s = r / 12f
+    fun p(x: Float, y: Float) = Offset(c.x + (x - 12f) * s, c.y + (y - 12f) * s)
+    val line = Stroke(stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    when (type) {
+        app.lockon.model.CardType.PILOT -> {
+            drawCircle(ink, 4f * s, p(12f, 8f), style = line)
+            drawPath(Path().apply { moveTo(p(4.5f, 20.5f).x, p(4.5f, 20.5f).y); cubicTo(p(4.5f, 16f).x, p(4.5f, 16f).y, p(8f, 13f).x, p(8f, 13f).y, p(12f, 13f).x, p(12f, 13f).y)
+                cubicTo(p(16f, 13f).x, p(16f, 13f).y, p(19.5f, 16f).x, p(19.5f, 16f).y, p(19.5f, 20.5f).x, p(19.5f, 20.5f).y) }, ink, style = line)
+        }
+        app.lockon.model.CardType.COMMAND -> drawPath(Path().apply {
+            listOf(p(13f, 3f), p(5f, 13.5f), p(11f, 13.5f), p(10f, 21f), p(18f, 10.5f), p(12f, 10.5f)).forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) }
+            close()
+        }, ink, style = line)
+        app.lockon.model.CardType.BASE, app.lockon.model.CardType.BASE_TOKEN, app.lockon.model.CardType.EX_BASE -> drawPath(Path().apply {
+            moveTo(p(4f, 20.5f).x, p(4f, 20.5f).y); lineTo(p(20f, 20.5f).x, p(20f, 20.5f).y)
+            moveTo(p(6f, 20.5f).x, p(6f, 20.5f).y); lineTo(p(6f, 10f).x, p(6f, 10f).y); lineTo(p(12f, 4.5f).x, p(12f, 4.5f).y); lineTo(p(18f, 10f).x, p(18f, 10f).y); lineTo(p(18f, 20.5f).x, p(18f, 20.5f).y)
+            moveTo(p(10f, 20.5f).x, p(10f, 20.5f).y); lineTo(p(10f, 15.5f).x, p(10f, 15.5f).y); lineTo(p(14f, 15.5f).x, p(14f, 15.5f).y); lineTo(p(14f, 20.5f).x, p(14f, 20.5f).y)
+        }, ink, style = line)
+        app.lockon.model.CardType.RESOURCE, app.lockon.model.CardType.EX_RESOURCE -> drawPath(Path().apply {
+            moveTo(p(12f, 4f).x, p(12f, 4f).y); lineTo(p(19f, 12f).x, p(19f, 12f).y); lineTo(p(12f, 20f).x, p(12f, 20f).y); lineTo(p(5f, 12f).x, p(5f, 12f).y); close()
+        }, ink, style = line)
+        else -> drawPath(Path().apply {
+            moveTo(p(12f, 3f).x, p(12f, 3f).y); lineTo(p(19f, 7f).x, p(19f, 7f).y); lineTo(p(19f, 13f).x, p(19f, 13f).y); lineTo(p(12f, 21f).x, p(12f, 21f).y)
+            lineTo(p(5f, 13f).x, p(5f, 13f).y); lineTo(p(5f, 7f).x, p(5f, 7f).y); close()
+        }, ink, style = line)
     }
 }
 
@@ -206,12 +274,12 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
 fun CardBack(modifier: Modifier = Modifier) {
     Box(
         modifier.aspectRatio(CARD_ASPECT).clip(CardShape)
-            .background(Brush.linearGradient(listOf(Color(0xFF1C2A48), Color(0xFF0D1320), Color(0xFF1C2A48))))
-            .border(BorderStroke(2.dp, SuitColors.vFinYellow.copy(alpha = 0.5f)), CardShape),
+            .background(Brush.linearGradient(listOf(Color(0xFF4F80F0), Color(0xFF2A3FC4))))
+            .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
         contentAlignment = Alignment.Center,
     ) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            LockOnMark(size = maxWidth * 0.5f, reticleColor = SuitColors.armorWhite.copy(alpha = 0.7f))
+            LockOnMark(size = maxWidth * 0.46f, reticleColor = Color.White.copy(alpha = 0.92f))
         }
     }
 }
@@ -292,7 +360,7 @@ fun CardTile(
     }
 }
 
-private val SmallPlate = RoundedCornerShape(percent = 50)
+private val SmallPlate = RoundedCornerShape(14.dp)
 
 /** A chamfered tile button: 32 dp to look at, 48 dp to hit. Plus glows V-fin yellow. */
 @Composable
@@ -310,7 +378,7 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.size(32.dp).pressScale(interaction).clip(CircleShape)
+            Modifier.size(32.dp).pressScale(interaction).clip(RoundedCornerShape(10.dp))
                 .background(
                     when {
                         !enabled -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
@@ -331,9 +399,8 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
 }
 
 /**
- * A deck-list row as a card strip, the way game deck builders show a list: a cost gem in the
- * card colour, the name over a crop of the card art that fades into the plate, and the controls
- * at the right. The whole card is one tap away in its details (UX rule V4a).
+ * A deck-list row: a cost gem in the card colour, a small crop of the art, the name, and the
+ * controls at the right. The whole card is one tap away in its details (UX rule V4a).
  */
 @Composable
 fun DeckStrip(
@@ -352,40 +419,29 @@ fun DeckStrip(
     val interaction = remember { MutableInteractionSource() }
     val hover = remember { HoverState() }
     val hovered = hover.hovered
-    val zoom by animateFloatAsState(if (hovered) 1.03f else 1f, motion(Motion.LONG), label = "strip-art")
-    val base = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest
+    val base = if (isTwilight()) Color(0xFF414A88) else scheme.surfaceContainerLowest
     Box(
-        modifier.fillMaxWidth().height(if (compact) 48.dp else 58.dp)
+        modifier.fillMaxWidth().height(if (compact) 48.dp else 54.dp)
             .flashOnChange(quantity, scheme.primary, scheme.error, StripShape)
             .clip(StripShape)
             .background(base)
             .hoverable(interaction).hoverState(hover)
             .clickable(interaction, indication = LocalIndication.current, enabled = card != null, onClick = onClick),
     ) {
-        // The art crop fills the right two-thirds, aimed at the art box in the upper half of the card.
-        Box(Modifier.align(Alignment.CenterEnd).fillMaxWidth(0.7f).fillMaxHeight()) {
-            CardArtwork(
-                art, contentDescription = null, contentScale = ContentScale.Crop, alignment = BiasAlignment(0f, -0.42f),
-                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom },
-            ) {
-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(color.copy(alpha = 0.12f), color.copy(alpha = 0.5f)))))
-            }
-        }
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    0f to base, 0.32f to base, 0.55f to base.copy(alpha = 0.72f), 0.75f to base.copy(alpha = 0.3f), 1f to base.copy(alpha = 0.82f),
-                ),
-            ),
-        )
-        // A colour band on the leading edge, and a lit edge on hover.
-        Box(Modifier.align(Alignment.CenterStart).width(4.dp).fillMaxHeight().background(color))
+        // A lit edge on hover.
         if (hovered) Box(Modifier.fillMaxSize().border(BorderStroke(1.dp, scheme.primary.copy(alpha = 0.7f)), StripShape))
         // A strip shows only a crop of the art, so the whole card opens beside it on hover.
         if (card != null) CardHoverPreview(card, printingId, hovered)
-        Row(Modifier.fillMaxSize().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            CostOrb(card?.cost, color, onCardColor(card?.colors?.firstOrNull()), size = if (compact) 30.dp else 34.dp)
-            Spacer(Modifier.width(if (compact) 10.dp else 12.dp))
+        Row(Modifier.fillMaxSize().padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            CostOrb(card?.cost, color, onCardColor(card?.colors?.firstOrNull()), size = if (compact) 28.dp else 32.dp)
+            Spacer(Modifier.width(8.dp))
+            // Aimed at the art box in the upper half of the card.
+            Box(Modifier.size(if (compact) 30.dp else 34.dp, if (compact) 38.dp else 42.dp).clip(RoundedCornerShape(6.dp))) {
+                CardArtwork(art, contentDescription = null, contentScale = ContentScale.Crop, alignment = BiasAlignment(0f, -0.42f), modifier = Modifier.fillMaxSize()) {
+                    PlaceholderCard(card, Modifier.fillMaxSize())
+                }
+            }
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(card?.name ?: "Unknown card", maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium, color = scheme.onSurface)
@@ -671,7 +727,7 @@ fun CardDetailDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(card.name, style = if (narrow) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
+                    GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
                 }
                 CardDetailContent(card, printings, Modifier.weight(1f, fill = false).padding(end = 12.dp, top = 8.dp), actions = extraActions,
                     chosenPrinting = chosenPrinting, onChoosePrinting = onChoosePrinting)

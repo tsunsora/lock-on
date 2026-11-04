@@ -22,8 +22,8 @@ import app.lockon.resources.quicksand
 import org.jetbrains.compose.resources.Font
 
 /**
- * Sky glass (UX rule V3): a bright anime-game palette. Light mode is a clear sky with frosted white
- * glass; dark mode is a soft twilight, never black. Primary is teal, for actions and the selected
+ * Sky and Twilight (UX rule V3): a bright palette after Nintendo's recent menus. Light mode is a clear
+ * sky under calm, solid white panels; dark mode is a soft twilight, never black. Primary is teal, for actions and the selected
  * state. Secondary is sky blue, for information and charts. Tertiary is soft gold, for celebration:
  * a legal deck, a full gauge, the Lock On moment.
  */
@@ -102,14 +102,25 @@ object SuitColors {
     val blush = Color(0xFFF7B8D2)
 }
 
-/** Soft, rounded shapes everywhere (UX rule V1): panels, tiles and pills. */
+/**
+ * Rounded rectangles everywhere (UX rule V1), as in Nintendo's recent menus: panels, tiles and
+ * controls. Only the floating navigation keeps pill ends ([pill]).
+ */
 object LockOnShapes {
     val panel = RoundedCornerShape(22.dp)
     val tile = RoundedCornerShape(16.dp)
     val thumb = RoundedCornerShape(8.dp)
-    /** Buttons, chips, tabs, search fields and stamps. */
-    val button = RoundedCornerShape(percent = 50)
+    /** Buttons, chips, tabs, search fields, icon buttons and stamps. */
+    val button = RoundedCornerShape(14.dp)
+    /** Corner radius of [button], for controls that draw their own fill. */
+    val buttonRadius = 14.dp
+    /** The floating nav pill and its items, and switches. */
+    val pill = RoundedCornerShape(percent = 50)
 }
+
+/** Charts are one slate ramp (UX rule V3), so a bar never reads as a card colour or an action. */
+val ChartSlate = Color(0xFF3F5585)
+val ChartSlateTwilight = Color(0xFF97A5CF)
 
 private val MaterialShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),

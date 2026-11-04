@@ -9,7 +9,7 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 | Asset | Where | How it's used |
 |---|---|---|
 | Quicksand (variable, SIL OFL) | `shared/src/commonMain/composeResources/font/quicksand.ttf` | Headings, labels, buttons and numbers at 600–700 weight (V2a). Body text stays the platform sans. |
-| App icon | `desktopApp/icons/lock-on.png`, `.ico`, `.icns`; `androidApp/src/main/res/drawable/ic_launcher_*.xml` | The flat Lock On mark on a navy tile (V7), made by `scripts/make_icons.py`. Android has adaptive and monochrome vectors. |
+| App icon | `desktopApp/icons/lock-on.png`, `.ico`, `.icns`; `androidApp/src/main/res/drawable/ic_launcher_*.xml` | The flat Lock On mark on a teal-to-blue tile (V7), made by `scripts/make_icons.py`. Android has adaptive and monochrome vectors. |
 | Window icon | `desktopApp/src/main/resources/lock-on-window.png` | Taskbar and Alt-Tab on Windows. |
 | Sample catalog | `composeResources/files/catalog/sample-catalog.json` | 20 fictional cards shown until the real database is downloaded. |
 | Rulesets | `composeResources/files/rulesets/rulesets.json` | Deck size, colours, copy limits and bans. |

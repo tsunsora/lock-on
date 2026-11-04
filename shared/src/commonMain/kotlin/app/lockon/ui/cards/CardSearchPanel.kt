@@ -204,7 +204,7 @@ fun CardSearchPanel(
         if (backToTop > 0) { if (grid) gridState.animateScrollToItem(0) else listState.animateScrollToItem(0) }
     }
     LaunchedEffect(jumpToTop) {
-        if (jumpToTop > 0) { gridState.scrollToItem(0); listState.scrollToItem(0) }
+        if (jumpToTop > 0) { gridState.requestScrollToItem(0); listState.requestScrollToItem(0) }
     }
     var shown by remember { mutableIntStateOf(TILES_PER_FRAME) }
     LaunchedEffect(Unit) {
@@ -303,7 +303,7 @@ fun CardSearchPanel(
                 PillChip(
                     selected = deckColorsOnly,
                     onClick = { deckColorsOnly = !deckColorsOnly },
-                    label = { Text("Deck colors only") },
+                    label = { Text("Deck colors") },
                     modifier = Modifier.align(Alignment.CenterVertically),
                 )
             }

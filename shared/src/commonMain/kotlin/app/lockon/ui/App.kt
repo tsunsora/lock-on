@@ -177,8 +177,8 @@ import androidx.compose.ui.semantics.semantics
 import app.lockon.ui.components.collectIsPressedHeld
 
 private fun Tab.icon(): ImageVector = when (this) {
-    Tab.DECKS -> Icons.Default.List
-    Tab.CARDS -> Icons.Default.Search
+    Tab.DECKS -> app.lockon.ui.components.GameIcons.Deck
+    Tab.CARDS -> app.lockon.ui.components.GameIcons.Card
     Tab.SYNC -> Icons.Default.Refresh
     Tab.SETTINGS -> Icons.Default.Settings
 }
@@ -651,9 +651,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
                 .border(1.dp, ring, NamePlate)
-                // Teal light spilling from the badge into the plate ties the two together.
-                .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = glow), Color.Transparent), endX = size.width * 0.7f)) }
-                .padding(start = 44.dp, end = 22.dp, top = 9.dp, bottom = 10.dp),
+                .padding(start = 40.dp, end = 22.dp, top = 9.dp, bottom = 10.dp),
         ) {
             // Both names are laid out at once, so the plate keeps one width and nothing beside it moves.
             Text(
@@ -670,30 +668,36 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
     }
 }
 
-private val NamePlate = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 22.dp, bottomEnd = 22.dp)
+private val NamePlate = RoundedCornerShape(18.dp)
+
+/** The logo tile's gradient by day: the focus cursor's teal to blue. */
+private val LogoTileDay = listOf(Color(0xFF19C2CF), Color(0xFF2F9FE8), Color(0xFF3B7CF0))
+/** At twilight: bright cyan to periwinkle, like the theme's primary buttons. */
+private val LogoTileTwilight = listOf(Color(0xFF6FE7EC), Color(0xFF7CC4FF), Color(0xFF8FB0FF))
 
 /**
- * The round badge: the Lock On mark on the same teal-lit glass as the name plate, like a level
- * badge. As [turn] goes to 1 the reticle spins away and a back arrow spins in where it was.
+ * The logo tile: the Lock On mark on a rounded tile in the focus cursor's teal-to-blue, with a white
+ * reticle by day and bright cyan with a navy reticle at twilight, so it belongs to both themes. As
+ * [turn] goes to 1 the reticle spins away and a back arrow spins in where it was.
  */
 @Composable
 private fun LevelBadge(turn: Float, ring: Color) {
-    val scheme = MaterialTheme.colorScheme
-    val accent = Accent
+    val twilight = isTwilight()
+    val ink = if (twilight) Color(0xFF10204A) else Color.White
+    val shape = RoundedCornerShape(18.dp)
     Box(
-        Modifier.size(64.dp).shadow(10.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-            // Solid underneath, so the plate behind never shows through the glass.
-            .background(scheme.background, CircleShape).glass(CircleShape, strong = true)
-            .border(1.dp, ring, CircleShape)
-            .drawBehind { drawRect(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent), endX = size.width * 0.7f)) },
+        Modifier.size(60.dp).shadow(8.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
+            .clip(shape)
+            .background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay))
+            .border(1.5.dp, if (ring == Color.Transparent) Color.White.copy(alpha = 0.4f) else ring, shape),
         contentAlignment = Alignment.Center,
     ) {
         LockOnMark(
-            size = 36.dp, reticleColor = scheme.onSurface,
+            size = 36.dp, reticleColor = ink,
             modifier = Modifier.graphicsLayer { alpha = 1f - turn; rotationZ = turn * 90f; scaleX = 1f - turn * 0.4f; scaleY = 1f - turn * 0.4f },
         )
         Icon(
-            Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = scheme.onSurface,
+            Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = ink,
             modifier = Modifier.size(30.dp).graphicsLayer { alpha = turn; rotationZ = (turn - 1f) * 90f; scaleX = 0.6f + turn * 0.4f; scaleY = 0.6f + turn * 0.4f },
         )
     }
