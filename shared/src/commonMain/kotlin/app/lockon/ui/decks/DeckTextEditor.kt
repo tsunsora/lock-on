@@ -84,7 +84,7 @@ fun DeckTextDialog(
                     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f))
-                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Close") }
+                        GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
                     }
                     // No floating navigation here to leave room for.
                     CompositionLocalProvider(LocalNavClearance provides 0.dp) {

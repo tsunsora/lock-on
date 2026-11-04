@@ -75,14 +75,13 @@ import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.update.AppUpdateSection
 import kotlinx.coroutines.launch
 
-/** One group of settings, with its name in the side rail on wide windows. */
+/** One group of settings. */
 private class SettingsSection(val title: String, val content: @Composable ColumnScope.() -> Unit)
 
 /**
  * This device's preferences, in a few named groups ordered from general to the app itself, each a
- * list of rows with the setting's name on the left and its control at the end. Wide windows keep
- * one readable column and list the groups in a rail beside it, which jumps to a group and shows
- * where you are; phones stack the groups and put wide controls under their names.
+ * list of rows with the setting's name on the left and its control at the end. Wide windows show two
+ * centred columns; phones stack the groups and put wide controls under their names.
  * Sync has its own tab beside this one.
  */
 @Composable
@@ -190,29 +189,20 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
         val scrollState = rememberScrollState()
         val bottom = 16.dp + LocalNavClearance.current
         if (wide) {
-            // Where each group starts in the scrolled column, so the rail can jump there and follow along.
-            val tops = remember { mutableStateMapOf<Int, Int>() }
-            val active by remember {
-                derivedStateOf {
-                    if (scrollState.maxValue > 0 && scrollState.value >= scrollState.maxValue) sections.lastIndex
-                    else tops.filterValues { it <= scrollState.value + 24 }.keys.maxOrNull() ?: 0
-                }
-            }
+            // Two centred columns: how the app looks and behaves on the left, its data and itself on the right.
             CompositionLocalProvider(LocalRoomyRows provides true) {
-                Row(
-                    Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
-                ) {
-                    SettingsRail(sections.map { it.title }, active, Modifier.width(RAIL_WIDTH).padding(top = 8.dp)) { i ->
-                        scope.launch { scrollState.animateScrollTo(tops[i] ?: 0) }
-                    }
-                    Column(
-                        Modifier.weight(1f, fill = false).widthIn(max = CONTENT_WIDTH).fillMaxHeight()
-                            .verticalScroll(scrollState).padding(top = 8.dp, bottom = bottom),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
+                    Row(
+                        Modifier.widthIn(max = 1080.dp).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = bottom),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        verticalAlignment = Alignment.Top,
                     ) {
-                        sections.forEachIndexed { i, section ->
-                            SettingsGroup(section, Modifier.onGloballyPositioned { tops[i] = it.positionInParent().y.toInt() })
+                        val left = setOf("General", "Appearance")
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            sections.filter { it.title in left }.forEach { SettingsGroup(it) }
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            listOf("Data", "Deck editor", "About").mapNotNull { title -> sections.firstOrNull { it.title == title } }.forEach { SettingsGroup(it) }
                         }
                     }
                 }
@@ -253,36 +243,13 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     }
 }
 
-private val RAIL_WIDTH = 200.dp
 /** A comfortable reading width: wider and a row's name drifts too far from its control. */
 private val CONTENT_WIDTH = 760.dp
 /** How wide a choice of a few options is when it sits beside its name. */
-private val SEGMENTED_WIDTH = 360.dp
+private val SEGMENTED_WIDTH = 290.dp
 
 /** Whether rows have room for every control beside the setting's name, rather than under it. */
 internal val LocalRoomyRows = compositionLocalOf { false }
-
-/** The groups' names down the side of a wide Settings: the one in view is teal, and a click scrolls to one. */
-@Composable
-private fun SettingsRail(titles: List<String>, active: Int, modifier: Modifier, onPick: (Int) -> Unit) {
-    Column(modifier.glass(LockOnShapes.tile).padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        titles.forEachIndexed { i, title ->
-            val selected = i == active
-            // The light moves down the rail as the page scrolls, instead of jumping between groups.
-            val fill by animateColorAsState(if (selected) Accent.copy(alpha = 0.14f) else Accent.copy(alpha = 0f), motion(), label = "rail-fill")
-            val text by animateColorAsState(if (selected) Accent else MaterialTheme.colorScheme.onSurface, motion(), label = "rail-text")
-            Box(
-                Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(PillShape)
-                    .drawBehind { drawRect(fill) }
-                    .selectable(selected, role = Role.Tab) { onPick(i) }
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Text(title, style = MaterialTheme.typography.labelLarge, color = text)
-            }
-        }
-    }
-}
 
 @Composable
 private fun SettingsGroup(section: SettingsSection, modifier: Modifier = Modifier) {

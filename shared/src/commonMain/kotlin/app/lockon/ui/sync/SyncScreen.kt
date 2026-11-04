@@ -177,7 +177,7 @@ fun SyncScreen(
     var chosen by remember { mutableStateOf(emptyList<String>()) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            PillTabs(listOf("Sync devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier.width(320.dp), fill = true)
+            PillTabs(listOf("Sync devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier.width(320.dp), fill = true, soft = true)
         }
         Crossfade(sending, Modifier.fillMaxSize(), label = "sync-page") { send ->
             if (send) SendPage(controller, decks, chosen) { chosen = it }
@@ -321,8 +321,6 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
     }
 
     val spotlight = rememberSpotlight()
-    val about = "Syncing makes one device match the other: decks with their history, folders, match logs, settings, " +
-        "the ruleset and the card list. Devices pair once, after checking both show the same number."
     val devices: @Composable () -> Unit = {
         SectionHeader("Your devices", Modifier.heightIn(min = ControlSize)) {
             GlassIconButton(Icons.Default.Add, "Connect by address or QR code", onClick = { showOther = true })
@@ -360,28 +358,12 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val sideBySide = maxWidth >= SideBySide
-        SyncPage(spotlight, maxWidth = if (sideBySide) 980.dp else 620.dp) {
-            if (sideBySide) {
-                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    // This device stays to the side, with what syncing does and where to turn when a device won't show.
-                    ThisDevicePanel(deviceName, status, tall = true, modifier = Modifier.width(340.dp)) {
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)))
-                        Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            GameButton("QR code or address", onClick = { showOther = true }, style = GameButtonStyle.GHOST, compact = true)
-                            GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
-                        }
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { devices() }
-                }
-            } else {
-                ThisDevicePanel(deviceName, status, tall = false)
-                devices()
-                Text(about, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
-                }
+        // One centred column on every window: this device, then the others.
+        SyncPage(spotlight, maxWidth = 760.dp) {
+            ThisDevicePanel(deviceName, status, tall = false)
+            devices()
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
             }
         }
     }
@@ -671,17 +653,12 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val sideBySide = sharing != null && maxWidth >= SideBySide
-        SyncPage(spotlight, maxWidth = if (sideBySide) 980.dp else 620.dp) {
+        SyncPage(spotlight, maxWidth = 760.dp) {
             StatusStrip(status, Modifier.fillMaxWidth())
             val what: @Composable () -> Unit = {
                 WhatToSend(decks, selected, spotlight, onChoose = { choosing = true }, onChosen = onChosen)
             }
             when {
-                sideBySide -> Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { what() }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { where() }
-                }
                 sharing != null -> { what(); where() }
                 else -> where()
             }

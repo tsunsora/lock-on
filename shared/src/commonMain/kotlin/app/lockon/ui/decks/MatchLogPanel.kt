@@ -108,8 +108,10 @@ fun MatchLogPanel(
                         opponent = ""; notes = ""; turn = 0
                     }
                     GameButton("Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f))
-                    GameButton("Loss", onClick = { log(MatchResult.LOSS) }, style = GameButtonStyle.SECONDARY, modifier = Modifier.weight(1f))
-                    GameButton("Draw", onClick = { log(MatchResult.DRAW) }, style = GameButtonStyle.SECONDARY, modifier = Modifier.weight(1f))
+                    GameButton("Loss", onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f),
+                        tone = MaterialTheme.colorScheme.error, onTone = MaterialTheme.colorScheme.onError)
+                    GameButton("Draw", onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f),
+                        tone = app.lockon.ui.theme.ChartSlate, onTone = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }

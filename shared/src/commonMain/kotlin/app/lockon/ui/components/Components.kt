@@ -97,7 +97,7 @@ fun CardRow(
 
 /** Simple vertical bar chart for level and cost curves. */
 @Composable
-fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.secondary) {
+fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, color: Color = if (isTwilight()) app.lockon.ui.theme.ChartSlateTwilight else app.lockon.ui.theme.ChartSlate) {
     Column(modifier) {
         SectionHeader(title)
         Spacer(Modifier.height(8.dp))
@@ -190,11 +190,8 @@ fun SectionHeader(label: String, modifier: Modifier = Modifier, readout: String?
     val scheme = MaterialTheme.colorScheme
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
-        Box(
-            Modifier.weight(1f).padding(horizontal = 10.dp).height(1.dp)
-                .background(Brush.horizontalGradient(listOf(scheme.outlineVariant, scheme.outlineVariant.copy(alpha = 0f)))),
-        )
-        if (readout != null) CountPill(readout)
+        if (readout != null) Box(Modifier.padding(start = 8.dp)) { CountPill(readout) }
+        Spacer(Modifier.weight(1f))
         trailing()
     }
 }
@@ -258,12 +255,12 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
             bars.forEachIndexed { index, (level, count) ->
                 val grow by animateFloatAsState(if (shown) count.toFloat() / max else 0f, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "curve")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                    Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.primary)
+                    Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurface)
                     Box(
                         // The bar gets the room left after its count and label, so heights compare honestly.
                         Modifier.fillMaxWidth(0.72f).weight(1f, fill = false).fillMaxHeight(fraction = grow.coerceAtLeast(0.06f))
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                            .background(Brush.verticalGradient(listOf(scheme.primary, scheme.primary.copy(alpha = 0.25f)))),
+                            .background(if (isTwilight()) app.lockon.ui.theme.ChartSlateTwilight else app.lockon.ui.theme.ChartSlate),
                     )
                     Text("$prefix$level", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                 }

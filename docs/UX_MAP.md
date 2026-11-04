@@ -42,7 +42,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
 
 ### Decks (top level)
 - **Purpose:** find a deck and start working on it.
-- **Shows:** each deck as a tile with its cover card (the one picked in the editor, else its highest-level Unit, or a card back for an empty deck), a color-identity band, name, Legal / Draft / Needs review tag, `Main n/50`, its folder, tags, win/loss record, and when it was last edited. On desktop the tiles form a grid.
+- **Shows:** each deck as a tile with its cover card (the one picked in the editor, else its highest-level Unit, or a card back for an empty deck) on a band in the deck's colours, its name, `n/50` gauge, Legal / Draft / Needs review tag and win/loss record. On desktop the tiles form a grid four or more across; phones keep a row with the cover beside the name, plus the folder.
 - **Folders:** a list beside the decks on desktop (**All decks**, each folder with its count, **No folder**, **New folder**), a chip row on phones. A folder is a filter, not a screen (N2).
   - **New folder** names the folder and can put decks in it in the same step; picking none makes an empty folder. A folder stays, even empty, until it is removed.
   - **Rename** and **Remove folder** are on the folder: its ⋮ button on hover or a right-click in the desktop list, a right-click on a phone chip, and the **More actions** menu while the folder is open. Removing asks first, says how many decks it holds, then only takes its decks out, with Undo.
@@ -50,7 +50,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - Drag a deck onto a folder, or onto **No folder**, to move it, with Undo. A mouse drags at once; a finger holds the deck first so the list still scrolls. Dropping on **New folder** opens it with that deck ticked.
   - Folders sync with the decks.
 - **Actions:**
-  - Bottom right: **New deck**.
+  - Beside search on desktop, a round **+** at the bottom right on phones: **New deck**.
   - Import a deck list from **New deck**; **Back up all decks** is in Settings.
   - Search decks by name, and filter by folder and tag.
   - Each tile's menu: Rename, Move to folder (pick a folder in use, or type a new one), Edit tags, Duplicate (keeps folder and cover, not matches), Export, Delete (with Undo).
@@ -61,11 +61,11 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - name (tap to rename), color pips, legality tag, `Main n/50`
   - **Export**
   - a conflict banner when one exists
-- **Panes:** wide windows show two areas, the card list and a deck panel with **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar built around building the deck: **Deck · Add cards · More**, with Analysis, Test, Matches, Versions, Export and Edit as text under More, which opens them as a two-row grid of tiles just above the bar (Settings › Deck editor can leave any of them out):
+- **Panes:** wide windows show two areas, the card list and a deck panel: the gauge, **Export** and **More** (Edit as text, Card view or List view) above **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar built around building the deck: **Deck · Add cards · More**, with Analysis, Test, Matches, Versions, Export and Edit as text under More, which opens them as a two-row grid of tiles just above the bar (Settings › Deck editor can leave any of them out):
   1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
-     - **Add to: Deck · Side deck** above the list picks where + and dropped cards go.
+     - **Deck · Side deck** beside the search picks where + and dropped cards go.
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color. Adding to the side deck, the counts are side deck copies, and a card already in the deck is tagged **Deck n**.
-     - **Deck colors only** narrows the list to the deck's colors.
+     - **Deck colors** narrows the list to the deck's colors.
      - Sort by number, level, cost or name.
   2. **Deck:** grouped by type (Units, Pilots, Commands, then Bases), each with a HUD header and count, sorted by level and then cost, with − / + on every row.
      - On phones a fixed bar above the list holds the level curve (opens Analysis), a chip per section with its count that jumps to it, **List / Cards**, and the first legality problem. An empty deck offers **Add cards**.
@@ -135,7 +135,7 @@ Two pages: **Sync devices** (first) and **Send decks**.
 
 ### Settings (top level, beside Sync)
 - **Purpose:** this device's preferences. Merging leaves them alone; making this device match another copies that device's over.
-- **Layout:** each group is a glass card of rows: the setting's name on the left, its control at the end. Choices of a few options are sliding segmented pills. Wide windows show one readable column (760 dp at most) with the groups listed in a rail beside it; the rail jumps to a group and lights the one in view. Phones stack the groups and put segmented choices under their names.
+- **Layout:** each group is a card of rows: the setting's name on the left, its control at the end. Choices of a few options are sliding segmented controls. Wide windows show two centred columns; phones stack the groups and put segmented choices under their names.
 - **General:** **Open on** (Decks · Cards · Last screen), **Device name** with **Rename** (used from the next launch), **Welcome tour** with **Show again**.
 - **Appearance:** **Theme** (System · Sky · Twilight), **Interface size** (Small · Default · Large · Larger, scaling everything together), **Animations** (System · Reduced · Full), **Show card artwork**.
 - **Deck editor:** on phones and in narrow windows, **Bar order** and **In the More menu** (a chip per section; at least one stays); always the *Deck colors only* switch; in wide windows, **Reset** for the divider between cards and deck.
@@ -175,7 +175,7 @@ Two pages: **Sync devices** (first) and **Send decks**.
    4. The friend taps **Accept**, and the decks appear in their library as new decks.
 6. **Remove a deck by mistake:** Delete → **Undo** in the snackbar.
 7. **Build a side deck:**
-   1. Set the card list to **Add to: Side deck**, then + or drag cards in. Or open a card → side deck +, or **Move 1 to side deck** if it's already in the deck.
+   1. Switch the card list to **Side deck**, then + or drag cards in. Or open a card → side deck +, or **Move 1 to side deck** if it's already in the deck.
    2. It waits under Side deck without affecting legality.
    3. **To deck** brings a copy into the deck.
    4. Exported lists carry a `// Side deck` section; older lists with `// Considering` read back into it.

@@ -25,6 +25,12 @@ import androidx.compose.foundation.verticalScroll
 import app.lockon.model.CardColor
 import app.lockon.model.Ruleset
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.CircleShape
+import app.lockon.ui.components.lighten
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import app.lockon.ui.components.CardBack
@@ -222,7 +228,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         }
         ScreenHeader(
             // Each deck box says Legal or Draft itself, so the title needs no tally under it.
-            if (wide) "Deck hangar" else "Decks",
+            "Decks",
         ) {
             if (!wide) actions()
         }
@@ -318,7 +324,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             Box(Modifier.weight(1f).fillMaxWidth()) {
                             LazyVerticalGrid(
                                 state = gridState,
-                                columns = GridCells.Adaptive(460.dp),
+                                columns = GridCells.Adaptive(if (wide) 250.dp else 460.dp),
                                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp + LocalNavClearance.current),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -351,10 +357,14 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                 }
                 // In thumb reach on phones (UX rule R3), and compact so it covers less of the last deck.
                 // Wide windows have it beside the search bar instead.
-                if (!wide) GameButton(
-                    "New", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 14.dp + LocalNavClearance.current),
-                )
+                if (!wide) Box(
+                    Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 14.dp + LocalNavClearance.current).size(60.dp)
+                        .shadow(8.dp, CircleShape, ambientColor = MaterialTheme.colorScheme.primary, spotColor = MaterialTheme.colorScheme.primary)
+                        .clip(CircleShape).background(MaterialTheme.colorScheme.primary)
+                        .clickable(role = Role.Button, onClickLabel = "New deck") { dialog = LibraryDialog.New }
+                        .semantics { contentDescription = "New deck" },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(28.dp)) }
             }
         }
         }
@@ -707,6 +717,10 @@ private fun DeckRow(
     val base = if (dark) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest
     val lead = colors.minByOrNull { it.ordinal }
     val art = cover?.let { LocalArtwork.current.urlFor(it.card.cardNumber, it.printingId) }
+    if (!compact) {
+        DeckTile(modifier, deck, legal, colors, ruleset, cover, press, base, menu, { menu = it }, onOpen, onRename, onMove, onDuplicate, onExport, onDelete)
+        return
+    }
     // A deck box: the cover art fills the plate behind the deck's name, its colours run along the
     // top edge (UX rule V4).
     BoxWithConstraints(
@@ -750,8 +764,8 @@ private fun DeckRow(
                 // Full gauge when the box is wide enough, compact on phones so the label never wraps.
                 BoxWithConstraints {
                     val main = deck.snapshot.count(DeckSection.MAIN)
-                    if (maxWidth >= 300.dp) ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 16.dp))
-                    else ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth(), compact = true)
+                    if (maxWidth >= 300.dp) ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 16.dp), hold = deck.hasConflict)
+                    else ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth(), compact = true, hold = deck.hasConflict)
                 }
                 val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
                 // As tall with or without a record, so boxes side by side keep their gauges in line.
@@ -787,6 +801,79 @@ private fun DeckRow(
 }
 
 private val DeckBoxHeight = 196.dp
+
+/**
+ * A deck on wide windows, four or more to a row: a band in the deck's colours with its cover card
+ * tucked in, then the name, the main deck gauge, and its state and record on one line.
+ */
+@Composable
+private fun DeckTile(
+    modifier: Modifier,
+    deck: DeckSummary,
+    legal: Boolean,
+    colors: Set<CardColor>,
+    ruleset: Ruleset,
+    cover: DeckCover?,
+    press: MutableInteractionSource,
+    base: Color,
+    menu: Boolean,
+    setMenu: (Boolean) -> Unit,
+    onOpen: () -> Unit,
+    onRename: () -> Unit,
+    onMove: () -> Unit,
+    onDuplicate: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val hues = colors.sortedBy { it.ordinal }.map { cardColor(it) }
+    val band = when (hues.size) {
+        0 -> Brush.linearGradient(listOf(scheme.surfaceVariant, scheme.outlineVariant))
+        1 -> Brush.linearGradient(listOf(lighten(hues[0], 0.35f), hues[0]))
+        else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(700f, 260f))
+    }
+    Column(
+        modifier.fillMaxWidth().clip(LockOnShapes.panel).background(app.lockon.ui.components.glassColors().strong)
+            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
+    ) {
+        Box(Modifier.fillMaxWidth().height(92.dp).clipToBounds().background(band)) {
+            Box(Modifier.matchParentSize().background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.Transparent), end = Offset(520f, 260f))))
+            val card = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 36.dp).width(56.dp).graphicsLayer { rotationZ = 6f }
+            if (cover != null) CardImage(cover.card, card, cover.printingId) else CardBack(card)
+            Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)) { ColorPips(colors) }
+        }
+        Column(Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = scheme.onSurface, modifier = Modifier.weight(1f))
+                Box {
+                    GlassIconButton(Icons.Default.MoreVert, "Deck actions", { setMenu(true) }, compact = true)
+                    GameMenu(expanded = menu, onDismissRequest = { setMenu(false) }) {
+                        GameMenuItem("Rename", onClick = { setMenu(false); onRename() })
+                        GameMenuItem("Move to folder", onClick = { setMenu(false); onMove() })
+                        GameMenuItem("Duplicate", onClick = { setMenu(false); onDuplicate() })
+                        GameMenuItem("Export deck", onClick = { setMenu(false); onExport() })
+                        GameMenuDivider()
+                        GameMenuItem("Delete", onClick = { setMenu(false); onDelete() }, icon = Icons.Default.Delete, danger = true)
+                    }
+                }
+            }
+            ProgressGauge("", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict)
+            val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
+            Row(Modifier.heightIn(min = 26.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                when {
+                    deck.hasConflict -> Badge("Needs review", scheme.errorContainer, scheme.onErrorContainer)
+                    legal -> Badge("Legal", scheme.secondaryContainer, scheme.onSecondaryContainer)
+                    else -> Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant)
+                }
+                if (record.winRate != null) {
+                    Text(record.score, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface, maxLines = 1)
+                    Text("${record.winRate}%", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
+                }
+            }
+        }
+    }
+}
 private val CompactDeckBoxHeight = 148.dp
 
 /** Names a new empty deck, or hands over to [onImport] to bring in a deck list instead. */
