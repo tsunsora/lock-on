@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.11.6 (2026-11-04)
+
+A new look, after Nintendo's recent menus: calm solid panels, rounded rectangles and a clearer selection.
+
+- **Everywhere:** panels are solid instead of see-through, and buttons, chips, fields and tabs are rounded rectangles. Solid teal now marks navigation and main actions; other choices use a white thumb, and filters a teal outline. Charts are one slate colour.
+- **Logo and icon:** a new rounded tile in teal and blue, with a white reticle by day and bright cyan with a navy reticle at twilight. The app icon matches.
+- **Cards without artwork:** a simple flat face with the card's colour, one type symbol, its cost and level, a one-line name and AP / HP. Face-down cards are blue to match.
+- **Decks:** smaller tiles, four or more across on a computer, with the cover card on a band in the deck's colours. A deck that needs review no longer shows a gold gauge. On phones, New deck is a round + at the bottom right.
+- **Deck editor:** the gauge, Export and More now sit at the top of the deck panel, and its tabs have icons. Decks open as rows, each with its cost, a small picture and its name; Card view is under More. The Deck and Side deck switch no longer needs an "Add to" label, and the header is just the name, colours and state.
+- **Navigation:** Decks and Cards have card-shaped icons.
+- **Settings and Sync:** Settings is two centred columns with no side rail. Sync is one centred column, without the explanatory paragraph.
+- **Matches:** Win, Loss and Draw are three filled buttons.
+- **Dialogs:** they close with a Close or Cancel button instead of a corner ×.
+- **Pointer:** a teal-to-blue ring follows the card under the pointer. Screen titles beside the navigation are gone, since the lit item names the screen. Twilight is a softer dusk.
+
 ## 26.11.5 (2026-11-03)
 
 The boot screen stays in one piece at any window size.
