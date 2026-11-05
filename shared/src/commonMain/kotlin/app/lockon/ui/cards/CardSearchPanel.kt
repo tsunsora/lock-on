@@ -255,12 +255,12 @@ fun CardSearchPanel(
     @Composable
     fun ViewControls() {
         PillChip(
-            selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") },
+            selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") }, tall = true,
             leadingIcon = { Icon(LineIcons.Sliders, contentDescription = null, Modifier.size(16.dp)) },
         )
         Box {
             PillChip(
-                selected = false, onClick = { sortMenu = true },
+                selected = false, onClick = { sortMenu = true }, tall = true,
                 label = { Text(sort.label); Icon(LineIcons.Chevd, contentDescription = null, Modifier.size(18.dp)) },
                 leadingIcon = { Icon(Glyphs.Sort, contentDescription = "Sort by", Modifier.size(16.dp)) },
             )
@@ -424,7 +424,7 @@ fun CardSearchPanel(
                 ) {
                     LineLabel("Set")
                     MenuChip(
-                        selected = query.setCodes.isNotEmpty(),
+                        selected = query.setCodes.isNotEmpty(), tall = true,
                         label = {
                             val picked = sets.filter { it in query.setCodes }
                             Text(if (picked.isEmpty()) "Any" else picked.first() + if (picked.size > 1) " +${picked.size - 1}" else "")
@@ -435,7 +435,7 @@ fun CardSearchPanel(
                         }
                     }
                     PillTextField(query.trait, { query = query.copy(trait = it) }, "Trait", Modifier.weight(1f))
-                    if (anyFilterSet) PillChip(selected = false, onClick = { resetFilters() }, label = { Text("Clear") })
+                    if (anyFilterSet) PillChip(selected = false, onClick = { resetFilters() }, label = { Text("Clear") }, tall = true)
                 }
             }
         }
@@ -642,7 +642,11 @@ private fun <T> ChoiceStrip(label: String?, values: List<T>, selected: Set<T>, t
         if (label != null) LineLabel(label)
         Box(
             Modifier.weight(1f)
-                .then(if (onPanel) Modifier.height(40.dp).clip(PillShape).background(ink.copy(alpha = 0.08f)) else Modifier.height(34.dp).glass(PillShape, strong = true))
+                .then(when {
+                    onPanel -> Modifier.height(40.dp).clip(PillShape).background(ink.copy(alpha = 0.08f))
+                    app.lockon.ui.components.desktopControls -> Modifier.height(app.lockon.ui.components.SmallControlSize).clip(app.lockon.ui.components.SmallControlShape).background(app.lockon.ui.components.neutralWash())
+                    else -> Modifier.height(34.dp).glass(PillShape, strong = true)
+                })
                 .padding(3.dp)
                 .pointerInput(Unit) {
                     var from = 0

@@ -315,7 +315,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         if (wide && !list.isNullOrEmpty()) Box {
                             var sortMenu by remember { mutableStateOf(false) }
                             GameButton(deckSort.label, onClick = { sortMenu = true }, style = GameButtonStyle.SECONDARY, icon = Glyphs.Sort, trailingIcon = LineIcons.Chevd, compact = true,
-                                modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), LockOnShapes.button))
+                                modifier = if (app.lockon.platform.isMobile) Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), LockOnShapes.button) else Modifier)
                             GameMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                                 DeckSort.entries.forEach { option ->
                                     GameMenuItem(option.label, onClick = { deckSort = option; sortMenu = false }, selected = option == deckSort)

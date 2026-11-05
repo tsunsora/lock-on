@@ -65,15 +65,19 @@ fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modif
     }
 }
 
-/** Whole cards or a list, as two small icons on a soft track. */
+/** Whole cards or a list, as two small icons on a soft track. On desktop, [small] takes the height of a chip or small icon button. */
 @Composable
-fun ViewToggle(asCards: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, cardsFirst: Boolean = false) {
+fun ViewToggle(asCards: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, cardsFirst: Boolean = false, small: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
-    Row(modifier.height(36.dp).clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    val height = if (!desktopControls) 36.dp else if (small) SmallControlSize else ControlSize
+    val inset = if (desktopControls && !small) 4.dp else 3.dp
+    val trackShape = if (desktopControls && small) SmallControlShape else LockOnShapes.button
+    val thumbShape = if (!desktopControls) RoundedCornerShape(10.dp) else if (small) RoundedCornerShape(7.dp) else InsetControlShape
+    Row(modifier.height(height).clip(trackShape).background(if (desktopControls) neutralWash() else scheme.onSurface.copy(alpha = 0.09f)).padding(inset), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         listOf(LineIcons.List to false, LineIcons.Grid to true).let { if (cardsFirst) it.reversed() else it }.forEach { (icon, cards) ->
             val on = asCards == cards
             Box(
-                Modifier.fillMaxHeight().width(36.dp).clip(RoundedCornerShape(10.dp)).background(if (on) softThumb() else Color.Transparent)
+                Modifier.fillMaxHeight().width(if (desktopControls && small) 30.dp else 36.dp).clip(thumbShape).background(if (on) softThumb() else Color.Transparent)
                     .selectable(on, role = Role.RadioButton) { onChange(cards) }.semantics { contentDescription = if (cards) "Show as cards" else "Show as list" },
                 contentAlignment = Alignment.Center,
             ) { Icon(icon, contentDescription = null, Modifier.size(18.dp), tint = if (on) softThumbInk() else scheme.onSurfaceVariant) }

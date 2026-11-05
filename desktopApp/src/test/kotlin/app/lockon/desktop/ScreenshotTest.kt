@@ -410,6 +410,23 @@ class ScreenshotTest {
     }
 
     /** What desktop took from the phone review. */
+    /** The desktop's controls side by side: the editor's two panels, the card browser and the deck list, in both themes. */
+    @Test fun renderDesktopButtons() {
+        val rest = androidx.compose.ui.geometry.Offset(5f, 700f)
+        for (dark in listOf(true, false)) {
+            val t = if (dark) "dark" else "light"
+            shoot("btn-editor-$t", 1980, 1290, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId)) }
+            shoot("btn-cards-$t", 1980, 1290, dark = dark, hover = rest) { select(Tab.CARDS) }
+            shoot("btn-decks-$t", 1980, 1290, dark = dark, hover = rest) { select(Tab.DECKS) }
+            // Deck colors off and scrolled: cards with room for more copies, so + is teal, and − disabled at zero.
+            shoot("btn-steppers-$t", 1980, 1290, dark = dark, taps = listOf(androidx.compose.ui.geometry.Offset(1015f, 266f)),
+                scrollAt = androidx.compose.ui.geometry.Offset(600f, 800f), hover = rest) { open(Screen.DeckEditor(deckId)) }
+            shoot("btn-filters-$t", 1980, 1290, dark = dark, taps = listOf(androidx.compose.ui.geometry.Offset(795f, 192f)), hover = rest) { open(Screen.DeckEditor(deckId)) }
+            // A + under the pointer, to see the hover step.
+            shoot("btn-hover-$t", 1980, 1290, dark = dark, hover = androidx.compose.ui.geometry.Offset(216f, 649f)) { open(Screen.DeckEditor(deckId)) }
+        }
+    }
+
     @Test fun renderDesktopParity() {
         shoot("tmp-desktop-first", 1980, 1290) { select(Tab.DECKS) }
         val rest = androidx.compose.ui.geometry.Offset(5f, 700f)
