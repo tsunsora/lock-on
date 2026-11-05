@@ -115,7 +115,7 @@ fun VersionsPanel(
                     .then(if (phone) Modifier.background(fill, RoundedCornerShape(top, top, end, end)).padding(top = if (index == 0) 6.dp else 0.dp, bottom = if (index == versions.size - 2) 6.dp else 0.dp) else Modifier)
                     .clip(LockOnShapes.tile)
                     .background(if (isOpen) glassColors().strong else Color.Transparent)
-                    .then(if (isOpen) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), LockOnShapes.tile) else Modifier)
+                    .then(if (isOpen) Modifier.border(if (phone) 1.dp else app.lockon.ui.components.SelectionEdgeWidth, if (phone) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary, LockOnShapes.tile) else Modifier)
                     .animateContentSize(motion()),
             ) {
                 Row(

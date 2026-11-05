@@ -97,10 +97,13 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
@@ -674,25 +677,28 @@ fun Modifier.hoverLift(
     interaction: MutableInteractionSource,
     glow: Color,
     shape: Shape,
+    edge: Color,
     lift: Dp = 3.dp,
     resting: Float = 0f,
-): Modifier = hoverable(interaction) then HoverLiftElement(interaction, glow, shape, lift, resting)
+): Modifier = hoverable(interaction) then HoverLiftElement(interaction, glow, shape, edge, lift, resting)
 
 private data class HoverLiftElement(
     val interaction: MutableInteractionSource,
     val glow: Color,
     val shape: Shape,
+    val edge: Color,
     val lift: Dp,
     val resting: Float,
 ) : ModifierNodeElement<HoverLiftNode>() {
-    override fun create() = HoverLiftNode(interaction, glow, shape, lift, resting)
-    override fun update(node: HoverLiftNode) = node.update(interaction, glow, shape, lift, resting)
+    override fun create() = HoverLiftNode(interaction, glow, shape, edge, lift, resting)
+    override fun update(node: HoverLiftNode) = node.update(interaction, glow, shape, edge, lift, resting)
 }
 
 internal class HoverLiftNode(
     private var interaction: MutableInteractionSource,
     private var glow: Color,
     private var shape: Shape,
+    private var edge: Color,
     private var lift: Dp,
     private var resting: Float,
 ) : Modifier.Node(), LayoutModifierNode, PointerInputModifierNode, CompositionLocalConsumerModifierNode, DrawModifierNode {
@@ -723,10 +729,11 @@ internal class HoverLiftNode(
         if (isAttached && (hover.value != 0f || press.value != 1f)) coroutineScope.launch { hover.snapTo(0f); press.snapTo(1f) }
     }
 
-    fun update(interaction: MutableInteractionSource, glow: Color, shape: Shape, lift: Dp, resting: Float) {
+    fun update(interaction: MutableInteractionSource, glow: Color, shape: Shape, edge: Color, lift: Dp, resting: Float) {
         if (interaction != this.interaction) { watching?.cancel(); watching = null }
-        this.interaction = interaction; this.glow = glow; this.shape = shape; this.lift = lift; this.resting = resting
+        this.interaction = interaction; this.glow = glow; this.shape = shape; this.edge = edge; this.lift = lift; this.resting = resting
         invalidatePlacement()
+        invalidateDraw()
     }
 
     private fun setHovered(on: Boolean) {
@@ -768,32 +775,39 @@ internal class HoverLiftNode(
         }
     }
 
-    // The focus cursor (Nintendo's selector): a teal-to-blue ring a few pixels outside the tile.
     override fun ContentDrawScope.draw() {
         drawContent()
         val t = hover.value
         if (t <= 0f) return
-        drawFocusRing(shape, t)
+        drawSelectionEdge(shape, edge, t)
     }
 }
 
-/** Teal to blue, the colours of the focus cursor and the logo. */
-val FocusRingBrushColors = listOf(Color(0xFF17C3CF), Color(0xFF3B8CFF), Color(0xFF17C3CF))
+/** How thick a selected or hovered thing's outline is on desktop. */
+val SelectionEdgeWidth = 2.dp
 
-/** Draws the focus cursor around [shape] at [alpha]: 3.5 dp wide, 6 dp outside the edge. */
-fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFocusRing(shape: Shape, alpha: Float = 1f) {
-    val gap = 6.dp.toPx()
-    val width = 3.5.dp.toPx()
-    val outer = Size(size.width + gap * 2, size.height + gap * 2)
-    val outline = shape.createOutline(outer, layoutDirection, this)
-    val brush = Brush.linearGradient(FocusRingBrushColors, Offset(-gap, -gap), Offset(size.width + gap, size.height + gap))
-    translate(-gap, -gap) {
-        drawOutline(outline, brush, alpha = alpha, style = Stroke(width))
+/**
+ * The selection outline: one solid line on the inside of [shape]'s own edge, with no gap, so it follows
+ * the corners exactly and never needs room around the tile.
+ */
+fun DrawScope.drawSelectionEdge(shape: Shape, color: Color, alpha: Float = 1f) {
+    val width = SelectionEdgeWidth.toPx()
+    val outline = shape.createOutline(size, layoutDirection, this)
+    if (outline !is Outline.Rounded) {
+        drawOutline(outline, color, alpha, Stroke(width))
+        return
     }
+    val outer = outline.roundRect
+    fun CornerRadius.inner() = CornerRadius((x - width).coerceAtLeast(0f), (y - width).coerceAtLeast(0f))
+    val inner = RoundRect(
+        outer.left + width, outer.top + width, outer.right - width, outer.bottom - width,
+        outer.topLeftCornerRadius.inner(), outer.topRightCornerRadius.inner(), outer.bottomRightCornerRadius.inner(), outer.bottomLeftCornerRadius.inner(),
+    )
+    drawPath(Path().apply { fillType = PathFillType.EvenOdd; addRoundRect(outer); addRoundRect(inner) }, color, alpha)
 }
 
-/** The focus cursor on a tile that is selected, not just hovered. */
-fun Modifier.focusRing(shape: Shape, on: Boolean = true): Modifier = if (!on) this else drawWithContent { drawContent(); drawFocusRing(shape) }
+/** The selection outline on a tile that is selected, not just hovered. */
+fun Modifier.selectionEdge(shape: Shape, color: Color, on: Boolean = true): Modifier = if (!on) this else drawWithContent { drawContent(); drawSelectionEdge(shape, color) }
 
 /** Animates to [target] the way [motion] would: an emphasized tween, or at once when motion is reduced. */
 private suspend fun Animatable<Float, *>.settle(target: Float, durationMillis: Int, reduce: Boolean) {
@@ -1022,7 +1036,7 @@ private fun PillField(
     val focused by interaction.collectIsFocusedAsState()
     // Focus draws the rim and icon in teal over a moment, so the field visibly wakes up.
     val rimColor by animateColorAsState(if (focused) scheme.primary else g.rimLow, motion(Motion.SHORT), label = "field-rim")
-    val rimWidth by animateFloatAsState(if (focused) 1.6f else 1f, motion(Motion.SHORT), label = "field-rim-width")
+    val rimWidth by animateFloatAsState(if (!focused) 1f else if (app.lockon.platform.isMobile) 1.6f else SelectionEdgeWidth.value, motion(Motion.SHORT), label = "field-rim-width")
     val iconTint by animateColorAsState(if (focused) scheme.primary else scheme.onSurfaceVariant, motion(Motion.SHORT), label = "field-icon")
     val shape = LockOnShapes.button
     BasicTextField(
@@ -1088,7 +1102,11 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
         }
         if (on > 0f) {
             Canvas(Modifier.fillMaxSize()) {
-                drawCircle(ring.copy(alpha = ring.alpha * on), radius = (18f + 4f * (1f - on)).dp.toPx(), style = Stroke(2.5.dp.toPx()))
+                // On desktop the ring sits right on the dot's edge; phones keep it a little clear.
+                val mobile = app.lockon.platform.isMobile
+                val stroke = if (mobile) 2.5.dp.toPx() else SelectionEdgeWidth.toPx()
+                val rest = if (mobile) 18.dp.toPx() else 14.dp.toPx() + stroke / 2
+                drawCircle(ring.copy(alpha = ring.alpha * on), radius = rest + 4.dp.toPx() * (1f - on), style = Stroke(stroke))
             }
         }
     }
@@ -1437,6 +1455,7 @@ fun PillChip(
         border = FilterChipDefaults.filterChipBorder(
             enabled = true, selected = selected,
             borderColor = rim, selectedBorderColor = rim,
+            selectedBorderWidth = if (app.lockon.platform.isMobile) 1.dp else SelectionEdgeWidth,
         ),
     ) }
 }
