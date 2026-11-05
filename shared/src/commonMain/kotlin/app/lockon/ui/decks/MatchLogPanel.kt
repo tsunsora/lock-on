@@ -1,4 +1,10 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.RevealValue
+import app.lockon.ui.components.FadeSwap
+import app.lockon.ui.components.softThumbFill
+import app.lockon.ui.components.softThumbTone
+import androidx.compose.animation.core.animateFloatAsState
+import app.lockon.ui.components.motion
 import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
@@ -135,9 +141,9 @@ fun MatchLogPanel(
             }
             // Earlier opponents to pick from instead of typing (UX rule C4).
             val picks = opponentSuggestions.filter { opponent.isNotBlank() && it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(6)
-            if (picks.isNotEmpty()) {
+            RevealValue(picks.takeIf { it.isNotEmpty() }) { names ->
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    picks.forEach { PillChip(selected = false, onClick = { opponent = it }, label = { Text(it) }) }
+                    names.forEach { PillChip(selected = false, onClick = { opponent = it }, label = { Text(it) }) }
                 }
             }
             AnimatedVisibility(noting, enter = revealIn(), exit = revealOut()) {
@@ -167,7 +173,9 @@ fun MatchLogPanel(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     WinRing(stats.overall.winRate)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(if (stats.overall.games == 0) "0–0" else stats.overall.score, style = MaterialTheme.typography.headlineLarge.merge(TabularNumbers))
+                        FadeSwap(if (stats.overall.games == 0) "0–0" else stats.overall.score) {
+                            Text(it, style = MaterialTheme.typography.headlineLarge.merge(TabularNumbers))
+                        }
                         RecordRow("1st", stats.goingFirst, nameWidth = 36.dp)
                         RecordRow("2nd", stats.goingSecond, nameWidth = 36.dp)
                     }
@@ -266,7 +274,9 @@ private fun WinRing(rate: Int?) {
             drawArc(track, 0f, 360f, false, Offset(inset, inset), box, style = stroke)
             if (sweep > 0f) drawArc(fill, -90f, sweep, false, Offset(inset, inset), box, style = stroke)
         }
-        Text(rate?.let { "$it%" } ?: "—", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers))
+        FadeSwap(rate?.let { "$it%" } ?: "—", contentAlignment = Alignment.Center) {
+            Text(it, style = MaterialTheme.typography.titleMedium.merge(TabularNumbers))
+        }
     }
 }
 
@@ -277,12 +287,18 @@ private fun RecordRow(name: String, record: Record, nameWidth: Dp) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(name, Modifier.width(nameWidth), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Row(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (record.games == 0) Box(Modifier.fillMaxSize().background(scheme.onSurface.copy(alpha = 0.1f)))
-            if (record.wins > 0) Box(Modifier.weight(record.wins.toFloat()).fillMaxHeight().background(scheme.primary))
-            if (record.draws > 0) Box(Modifier.weight(record.draws.toFloat()).fillMaxHeight().background(drawTone()))
-            if (record.losses > 0) Box(Modifier.weight(record.losses.toFloat()).fillMaxHeight().background(scheme.error.copy(alpha = 0.7f)))
+            // Logging a game moves the split instead of redrawing it.
+            val wins by animateFloatAsState(record.wins.toFloat(), motion(Motion.LONG), label = "record-wins")
+            val draws by animateFloatAsState(record.draws.toFloat(), motion(Motion.LONG), label = "record-draws")
+            val losses by animateFloatAsState(record.losses.toFloat(), motion(Motion.LONG), label = "record-losses")
+            if (record.games == 0 && wins + draws + losses < 0.01f) Box(Modifier.fillMaxSize().background(scheme.onSurface.copy(alpha = 0.1f)))
+            if (wins > 0.01f) Box(Modifier.weight(wins).fillMaxHeight().background(scheme.primary))
+            if (draws > 0.01f) Box(Modifier.weight(draws).fillMaxHeight().background(drawTone()))
+            if (losses > 0.01f) Box(Modifier.weight(losses).fillMaxHeight().background(scheme.error.copy(alpha = 0.7f)))
         }
-        Text(if (record.games == 0) "—" else record.score, Modifier.widthIn(min = 40.dp), style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), textAlign = TextAlign.End, maxLines = 1)
+        FadeSwap(if (record.games == 0) "—" else record.score, Modifier.widthIn(min = 40.dp), contentAlignment = Alignment.CenterEnd) {
+            Text(it, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), textAlign = TextAlign.End, maxLines = 1)
+        }
     }
 }
 
@@ -294,10 +310,10 @@ private fun TurnChoice(turn: Int, onChange: (Int) -> Unit) {
         listOf("1st" to 1, "2nd" to 2).forEach { (label, value) ->
             val on = turn == value
             Box(
-                Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(if (on) softThumb() else Color.Transparent)
+                Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(softThumbFill(on))
                     .selectable(on, role = Role.RadioButton) { onChange(if (on) 0 else value) }.padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) softThumbInk() else scheme.onSurfaceVariant) }
+            ) { Text(label, style = MaterialTheme.typography.labelLarge, color = softThumbTone(on)) }
         }
     }
 }

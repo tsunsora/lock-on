@@ -76,14 +76,14 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // What keeps the deck from being legal, in words, only while something does.
-        if (legality.messages.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
-            legality.messages.forEach { message ->
+        app.lockon.ui.components.RevealValue(legality.messages.takeIf { it.isNotEmpty() }) { messages -> AnalysisTile(Modifier.fillMaxWidth()) {
+            messages.forEach { message ->
                 Text(
                     message.text, style = MaterialTheme.typography.bodyMedium,
                     color = if (message.severity == Severity.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
+        } }
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatTile(LineIcons.Burst, "Burst", stats.burstCount, Modifier.weight(1f).fillMaxHeight())
             StatTile(LineIcons.Wall, "Blockers", stats.blockerCount, Modifier.weight(1f).fillMaxHeight())
@@ -150,7 +150,7 @@ private fun StatTile(icon: ImageVector, label: String, value: Int, modifier: Mod
             Icon(icon, contentDescription = null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
-        Text("$value", style = MaterialTheme.typography.headlineSmall.merge(TabularNumbers))
+        app.lockon.ui.components.RollingNumber(value, MaterialTheme.typography.headlineSmall.merge(TabularNumbers))
     }
 }
 
@@ -161,7 +161,9 @@ private class Segment(val text: String, val size: Int, val color: Color, val ink
 private fun SplitBar(segments: List<Segment>) {
     Row(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(7.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         segments.forEach { segment ->
-            Box(Modifier.weight(segment.size.toFloat()).fillMaxHeight().background(segment.color), contentAlignment = Alignment.Center) {
+            // A new share moves the bar's split rather than redrawing it.
+            val share by androidx.compose.animation.core.animateFloatAsState(segment.size.toFloat(), app.lockon.ui.components.motion(app.lockon.ui.components.Motion.LONG), label = "split")
+            Box(Modifier.weight(share.coerceAtLeast(0.01f)).fillMaxHeight().background(segment.color), contentAlignment = Alignment.Center) {
                 Text(segment.text, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = segment.ink, maxLines = 1)
             }
         }

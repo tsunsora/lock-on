@@ -1,4 +1,11 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.Reveal
+import app.lockon.ui.components.RevealValue
+import app.lockon.ui.components.FadeSwap
+import app.lockon.ui.components.settleAlpha
+import app.lockon.ui.components.softThumbFill
+import app.lockon.ui.components.softThumbTone
+import androidx.compose.runtime.derivedStateOf
 import app.lockon.ui.components.clearOfNav
 import app.lockon.ui.components.revealOut
 import app.lockon.ui.components.revealIn
@@ -331,20 +338,22 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (drag.deck == null) {
-                            FolderTabs(list.size, folders, unfiled, showUnfiled, folderFilter) { folderFilter = it }
-                        } else {
-                            FolderChips(
-                                folders = folders, unfiled = unfiled, showUnfiled = showUnfiled, selected = folderFilter, drag = drag,
-                                onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
-                                onRename = renameFolder, onRemove = removeFolder,
-                            )
+                        FadeSwap(drag.deck == null, contentAlignment = Alignment.CenterStart) { resting ->
+                            if (resting) {
+                                FolderTabs(list.size, folders, unfiled, showUnfiled, folderFilter) { folderFilter = it }
+                            } else {
+                                FolderChips(
+                                    folders = folders, unfiled = unfiled, showUnfiled = showUnfiled, selected = folderFilter, drag = drag,
+                                    onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
+                                    onRename = renameFolder, onRemove = removeFolder,
+                                )
+                            }
                         }
                     }
                     // The folder's own actions live on the folder (its menu in the rail, or right-click) and in
                     // More actions, so the header only names it; its count is on the folder too.
                     // Phones name the open folder on its chip instead.
-                    if (wide) (folderFilter as? FolderFilter.Named)?.let { selected ->
+                    if (wide) RevealValue(folderFilter as? FolderFilter.Named) { selected ->
                         SectionHeader(selected.name, Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp))
                     }
                     when {
@@ -361,7 +370,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                         it.snapshot.name.contains(search.trim(), ignoreCase = true)
                                 }.let(deckSort::sorted)
                             }
-                            if (shown.isEmpty()) {
+                            Reveal(shown.isEmpty()) {
                                 val emptyFolder = folderFilter is FolderFilter.Named && list.none(folderFilter::matches)
                                 Text(
                                     if (emptyFolder) "This folder is empty. Create a deck while it's open, or move one here from a deck's menu."
@@ -398,10 +407,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
                                     val cover = remember(deck, cards) { deckCover(deck.snapshot, cards) }
                                     val fan = remember(deck, cards) { deckFan(deck.snapshot, cards).map { it.card to it.printingId } }
+                                    // Derived, so a drag starting recomposes only the row it picked up.
+                                    val held by remember(deck.deckId) { derivedStateOf { drag.deck?.deckId == deck.deckId } }
                                     DeckRow(
                                         // The held deck stays in place, faded, while its plate follows the pointer.
-                                        Modifier.animateItem().deckDragSource(deck, drag)
-                                            .graphicsLayer { alpha = if (drag.deck?.deckId == deck.deckId) 0.45f else 1f },
+                                        Modifier.animateItem().deckDragSource(deck, drag).settleAlpha(if (held) 0.45f else 1f),
                                         deck, legal, colors, ruleset, cover, fan, compact = !wide,
                                         showFolder = folderFilter == FolderFilter.All,
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
@@ -556,7 +566,7 @@ private fun FolderRail(
                 }
             }
         }
-        if (folders.isNotEmpty() && showUnfiled) {
+        Reveal(folders.isNotEmpty() && showUnfiled) {
             val spot = DeckDropSpot.Folder(null)
             FolderItem("No folder", unfiled, selected == FolderFilter.Unfiled, over == spot, Modifier.deckDropSpot(drag, spot)) {
                 onSelect(FolderFilter.Unfiled)
@@ -593,7 +603,8 @@ private fun FolderItem(
         motion(Motion.SHORT), label = "folder",
     )
     val lit = selected || dropOver
-    val ink = if (lit) OnAccent else scheme.onSurface
+    val ink by animateColorAsState(if (lit) OnAccent else scheme.onSurface, motion(Motion.SHORT), label = "folder-ink")
+    val quiet by animateColorAsState(if (lit) OnAccent else scheme.onSurfaceVariant, motion(Motion.SHORT), label = "folder-count")
     Row(
         modifier.fillMaxWidth().height(ControlSize).clip(LockOnShapes.button).background(fill)
             .hoverable(interaction)
@@ -604,14 +615,16 @@ private fun FolderItem(
         Icon(icon, contentDescription = null, Modifier.size(18.dp), tint = ink)
         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
             color = ink, modifier = Modifier.weight(1f))
-        if (onMenu != null && hovered) {
-            Icon(
-                LineIcons.More, contentDescription = "Folder actions", tint = ink,
-                modifier = Modifier.size(28.dp).clip(LockOnShapes.button).clickable(onClick = onMenu).padding(4.dp),
-            )
-        } else {
-            Text("$count", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
-                color = if (lit) OnAccent else scheme.onSurfaceVariant)
+        // Fades across rather than swapping under the pointer.
+        FadeSwap(onMenu != null && hovered, contentAlignment = Alignment.CenterEnd) { menu ->
+            if (menu && onMenu != null) {
+                Icon(
+                    LineIcons.More, contentDescription = "Folder actions", tint = ink,
+                    modifier = Modifier.size(28.dp).clip(LockOnShapes.button).clickable(onClick = onMenu).padding(4.dp),
+                )
+            } else {
+                Text("$count", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = quiet)
+            }
         }
     }
 }
@@ -723,13 +736,15 @@ private fun FolderChips(
         }
     }
     // Stays an assist chip, lighting up only while a deck is held over it.
-    if (over == DeckDropSpot.NewFolder) PillChip(
-        selected = true, onClick = onNewFolder, label = { Text("New folder") },
-        leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
-    ) else AssistChip(
-        onClick = onNewFolder, label = { Text("New folder") },
-        leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
-    )
+    FadeSwap(over == DeckDropSpot.NewFolder, Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder)) { lit ->
+        if (lit) PillChip(
+            selected = true, onClick = onNewFolder, label = { Text("New folder") },
+            leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) },
+        ) else AssistChip(
+            onClick = onNewFolder, label = { Text("New folder") },
+            leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) },
+        )
+    }
 }
 
 /** Pick a folder already in use, or type a new one (UX rule C4). */
@@ -752,7 +767,7 @@ private fun MoveToFolderDialog(current: String?, folders: List<String>, onDismis
                         Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                if (choice == "") {
+                Reveal(choice == "") {
                     OutlinedTextField(
                         typed, { typed = it }, label = { Text("Folder name") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 4.dp),
@@ -831,7 +846,7 @@ private fun DeckRow(
             }
             val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
             Row(Modifier.padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                StateTag(legal, review = deck.hasConflict)
+                FadeSwap(legal to deck.hasConflict) { (isLegal, review) -> StateTag(isLegal, review = review) }
                 Spacer(Modifier.weight(1f))
                 if (record.winRate != null) {
                     Text(record.score, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)
@@ -853,11 +868,11 @@ private fun FolderTabs(total: Int, folders: List<Pair<String, Int>>, unfiled: In
         tabs.forEach { (label, count, filter) ->
             val on = selected == filter
             Row(
-                Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(if (on) softThumb() else Color.Transparent)
+                Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(softThumbFill(on))
                     .selectable(on, role = Role.Tab) { onSelect(filter) }.padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) softThumbInk() else scheme.onSurfaceVariant, maxLines = 1)
+                Text(label, style = MaterialTheme.typography.labelLarge, color = softThumbTone(on), maxLines = 1)
                 Text("$count", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
             }
         }
@@ -990,7 +1005,7 @@ private fun DeckTile(
             ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true)
             val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
             Row(Modifier.heightIn(min = 26.dp).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StateTag(legal, review = deck.hasConflict)
+                FadeSwap(legal to deck.hasConflict) { (isLegal, review) -> StateTag(isLegal, review = review) }
                 if (record.winRate != null) {
                     Text(record.score, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface, maxLines = 1)
                     Text("${record.winRate}%", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)

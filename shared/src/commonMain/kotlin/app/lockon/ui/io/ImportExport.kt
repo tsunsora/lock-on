@@ -1,4 +1,5 @@
 package app.lockon.ui.io
+import app.lockon.ui.components.Reveal
 import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.GameDialog
 import app.lockon.ui.components.GameButton
@@ -139,7 +140,7 @@ fun NewDeckDialog(
                             )
                         }
                     }
-                    if (folderChoice == "") {
+                    Reveal(folderChoice == "") {
                         OutlinedTextField(newFolder, { newFolder = it }, placeholder = { Text("Folder name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -147,7 +148,7 @@ fun NewDeckDialog(
                     listOf("Empty", "Paste a list"), if (pasting) 1 else 0, { pasting = it == 1; problems = emptyList() },
                     Modifier.fillMaxWidth(), icons = listOf(LineIcons.Plus, LineIcons.Paste),
                 )
-                if (pasting) {
+                Reveal(pasting) { Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     OutlinedTextField(
                         text, { text = it; problems = emptyList() },
                         modifier = Modifier.fillMaxWidth().height(190.dp),
@@ -173,7 +174,7 @@ fun NewDeckDialog(
                         }, style = GameButtonStyle.GHOST, compact = true)
                     }
                     problems.take(6).forEach { Text(it, color = scheme.error, style = MaterialTheme.typography.bodySmall) }
-                }
+                } }
             }
         },
         confirmButton = { GameButton(if (isBackup) "Import" else "Create", onClick = ::create, enabled = !pasting || input.isNotEmpty(), compact = true) },

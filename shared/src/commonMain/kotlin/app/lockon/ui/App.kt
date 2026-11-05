@@ -1,4 +1,10 @@
 package app.lockon.ui
+
+import app.lockon.ui.components.takeThemeFrame
+import app.lockon.ui.components.DialogStage
+import app.lockon.ui.components.DialogStageHost
+import app.lockon.ui.components.LocalDialogStage
+import app.lockon.ui.components.takesThemeFrame
 import app.lockon.ui.components.LineIcons
 import androidx.compose.ui.draw.drawWithContent
 import app.lockon.ui.components.LocalScreenShown
@@ -232,9 +238,18 @@ fun LockOnApp(
     }
     val base = LocalDensity.current
     val density = remember(base, interfaceSize) { Density(base.density * interfaceSize.scale, base.fontScale) }
-    CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density) {
+    val stage = remember { if (app.lockon.platform.isMobile) null else DialogStage() }
+    // A change of theme keeps the window's last frame in the old one, to fade away over the new. Waits for
+    // that frame at most briefly, since a minimised window draws none.
+    var shownDark by remember { mutableStateOf(useDark) }
+    LaunchedEffect(useDark) {
+        if (useDark == shownDark) return@LaunchedEffect
+        if (stage != null && !reduce) stage.takeThemeFrame()
+        shownDark = useDark
+    }
+    CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density, LocalDialogStage provides stage) {
     ArtworkProvider(container, artworkDir) {
-    LockOnTheme(useDark) {
+    LockOnTheme(shownDark) {
         val background = MaterialTheme.colorScheme.background
         SideEffect { windowBackground(background) }
         val snackbars = remember { SnackbarHostState() }
@@ -330,6 +345,7 @@ fun LockOnApp(
             }
         }
 
+        Box(Modifier.fillMaxSize()) {
         BoxWithConstraints(
             Modifier.fillMaxSize()
                 // Desktop shortcuts (UX rule R2): Ctrl+F searches cards, Esc goes back.
@@ -346,14 +362,21 @@ fun LockOnApp(
                     }
                 }
                 .focusRequester(rootFocus)
-                .focusable(),
+                .focusable()
+                .then(if (stage != null) Modifier.takesThemeFrame(stage) else Modifier),
         ) {
             val wide = maxWidth >= 840.dp
             @Composable
             fun TabIcon(tab: Tab) {
                 // The only status signal outside its screen (UX rule C1): a dot when sync failed.
-                if (tab == Tab.SYNC && syncStatus.isError) {
-                    BadgedBox(badge = { Badge() }) { Icon(tab.icon(), contentDescription = null) }
+                if (tab == Tab.SYNC) {
+                    BadgedBox(badge = {
+                        androidx.compose.animation.AnimatedVisibility(
+                            syncStatus.isError,
+                            enter = fadeIn(motion()) + androidx.compose.animation.scaleIn(motion(), initialScale = 0.6f),
+                            exit = fadeOut(motion(Motion.SHORT)),
+                        ) { Badge() }
+                    }) { Icon(tab.icon(), contentDescription = null) }
                 } else {
                     Icon(tab.icon(), contentDescription = null)
                 }
@@ -495,6 +518,10 @@ fun LockOnApp(
                 BootScreen(bootStep, bootClock, playing = !coverShowing, trailing = chrome?.controls)
             }
             }
+        }
+        // Beside the root rather than inside it: a theme change's picture holds the root's layers, so
+        // drawing that picture from within them would draw itself forever.
+        if (stage != null) DialogStageHost(stage)
         }
     }
 }
@@ -659,8 +686,10 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
             ),
         contentAlignment = Alignment.CenterStart,
     ) {
-        if (back == null) Box(
+        // It stays while it fades, so the plate gives way to the back label rather than vanishing.
+        if (turn < 1f) Box(
             Modifier
+                .graphicsLayer { alpha = 1f - turn }
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
                 .border(1.dp, ring, NamePlate)
@@ -677,7 +706,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
                 modifier = Modifier.graphicsLayer { alpha = turn; translationY = (1f - turn) * 10.dp.toPx() },
             )
         }
-        Box(Modifier.padding(start = if (back == null) 6.dp else 0.dp)) { LevelBadge(turn, ring, live && hovered, live && pressed) }
+        Box(Modifier.graphicsLayer { translationX = (1f - turn) * 6.dp.toPx() }) { LevelBadge(turn, ring, live && hovered, live && pressed) }
     }
 }
 

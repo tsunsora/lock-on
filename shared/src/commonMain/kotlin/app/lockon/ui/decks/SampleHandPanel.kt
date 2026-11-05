@@ -1,5 +1,8 @@
 package app.lockon.ui.decks
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
+import app.lockon.ui.components.glide
 import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.revealOut
 import app.lockon.ui.components.revealIn
@@ -170,7 +173,9 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     }
     val shields = @Composable {
         SectionHeader("Shields", readout = "${SampleHand.SHIELDS}") {
-            if (revealShields) Badge("Burst $bursts", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Modifier.padding(start = 6.dp))
+            app.lockon.ui.components.Reveal(revealShields, sideways = true) {
+                Badge("Burst $bursts", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Modifier.padding(start = 6.dp))
+            }
             // Revealing keeps the hand, since that is when the shields are set.
             GameButton(if (revealShields) "Hide" else "Reveal", onClick = { game = game.keep(); revealShields = !revealShields }, style = GameButtonStyle.GHOST, compact = true)
         }
@@ -219,16 +224,22 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
 private fun HandFan(count: Int, cardWidth: Dp, width: Dp, maxTilt: Float, card: @Composable (Int, Modifier) -> Unit) {
     val cardHeight = cardWidth / CARD_ASPECT
     val middle = (count - 1) / 2f
-    val tilt = if (count > 1) minOf(maxTilt, 16f / middle) else 0f
-    val widest = tilt * middle
+    // A card joining the fan makes room: the others ease to their new places rather than jumping there.
+    val easedMiddle by animateFloatAsState(middle, glide(), label = "fan-middle")
+    val tiltTarget = if (count > 1) minOf(maxTilt, 16f / middle) else 0f
+    val tilt by animateFloatAsState(tiltTarget, glide(), label = "fan-tilt")
+    val widest = tiltTarget * middle
     // The end cards' top corners swing out past their own width.
     val swing = cardHeight * 1.2f * sin(widest * PI.toFloat() / 180f)
-    val step = if (count > 1) minOf(cardWidth * 0.62f, (width - cardWidth - swing * 2) / (count - 1)).coerceAtLeast(0.dp) else 0.dp
-    val start = (width - cardWidth - step * (count - 1)) / 2
-    val rim = cardWidth / 2 * sin(widest * PI.toFloat() / 180f)
-    Box(Modifier.fillMaxWidth().height(cardHeight + FAN_STEP_DROP * middle + rim * 2)) {
+    val stepTarget = if (count > 1) minOf(cardWidth * 0.62f, (width - cardWidth - swing * 2) / (count - 1)).coerceAtLeast(0.dp) else 0.dp
+    val startTarget = (width - cardWidth - stepTarget * (count - 1)) / 2
+    val rimTarget = cardWidth / 2 * sin(widest * PI.toFloat() / 180f)
+    val step by animateDpAsState(stepTarget, glide(), label = "fan-step")
+    val start by animateDpAsState(startTarget, glide(), label = "fan-start")
+    val rim by animateDpAsState(rimTarget, glide(), label = "fan-rim")
+    Box(Modifier.fillMaxWidth().height(cardHeight + FAN_STEP_DROP * middle + rimTarget * 2)) {
         repeat(count) { i ->
-            val from = i - middle
+            val from = i - easedMiddle
             val hover = remember { MutableInteractionSource() }
             val hovered by hover.collectIsHoveredAsState()
             card(

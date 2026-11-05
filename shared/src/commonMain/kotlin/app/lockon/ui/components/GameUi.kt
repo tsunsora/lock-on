@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -371,22 +372,23 @@ fun GameButton(
     // A press dims the face a touch as it sinks, so a tap reads even on a wide button whose scale barely shows.
     val dim by animateFloatAsState(if (pressed && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-dim")
     val shape = LockOnShapes.button
-    val fill: Brush
-    val content: Color
-    val rim: Color
+    val on = hovered && enabled
+    val fillTarget: Color
+    val contentTarget: Color
     when {
-        !enabled -> { fill = SolidColor(scheme.onSurface.copy(alpha = 0.06f)); content = scheme.outline; rim = Color.Transparent }
-        style == GameButtonStyle.PRIMARY -> {
-            fill = SolidColor(lighten(accent, 0.1f * lift))
-            content = onAccent; rim = Color.Transparent
-        }
+        !enabled -> { fillTarget = scheme.onSurface.copy(alpha = 0.06f); contentTarget = scheme.outline }
+        style == GameButtonStyle.PRIMARY -> { fillTarget = lighten(accent, if (on) 0.1f else 0f); contentTarget = onAccent }
+        // A soft fill in the ink colour; hover deepens it.
         style == GameButtonStyle.SECONDARY -> {
-            // A soft fill in the ink colour; hover deepens it.
-            fill = SolidColor(if (desktopControls) neutralFill(hovered, pressed) else scheme.onSurface.copy(alpha = 0.07f + 0.05f * lift))
-            content = scheme.onSurface; rim = Color.Transparent
+            fillTarget = if (desktopControls) neutralFill(hovered, pressed) else scheme.onSurface.copy(alpha = if (on) 0.12f else 0.07f)
+            contentTarget = scheme.onSurface
         }
-        else -> { fill = SolidColor(accent.copy(alpha = 0.10f * lift)); content = accent; rim = Color.Transparent }
+        else -> { fillTarget = accent.copy(alpha = if (on) 0.10f else 0f); contentTarget = accent }
     }
+    // Turning on or off, changing style and hovering all ease, so a button that wakes up is seen to.
+    val fill by animateColorAsState(fillTarget, motion(Motion.SHORT), label = "button-fill")
+    val content by animateColorAsState(contentTarget, motion(Motion.SHORT), label = "button-ink")
+    val rim = Color.Transparent
     Box(
         modifier
             .heightIn(min = if (large) 54.dp else if (desktopControls) ControlSize else if (compact) 38.dp else 44.dp)
@@ -408,7 +410,7 @@ fun GameButton(
         contentAlignment = Alignment.Center,
     ) {
         // A label that changes (Copy to Copied, Hide to Show) fades across, so the change is seen.
-        androidx.compose.animation.Crossfade(text to icon, animationSpec = motion(Motion.MEDIUM), label = "button-label") { (label, glyph) ->
+        androidx.compose.animation.Crossfade(text to icon, Modifier.animateContentSize(motion(Motion.MEDIUM)), animationSpec = motion(Motion.MEDIUM), label = "button-label") { (label, glyph) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (glyph != null) Icon(glyph, contentDescription = null, tint = content, modifier = Modifier.size(if (large) 22.dp else 18.dp))
                 // Two lines at most, centred, so a long label wraps instead of being cut off.
@@ -664,15 +666,23 @@ fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.
     val scheme = MaterialTheme.colorScheme
     val total = maxOf(limit, count).coerceAtMost(6)
     val lit = Accent
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-        repeat(total) { i ->
-            val on = i < count
-            val color = if (i >= limit) scheme.error else if (on) lit else scheme.onSurface.copy(alpha = if (desktopControls) 0.38f else 0.22f)
-            Canvas(Modifier.size(pip)) {
-                if (on) drawCircle(color) else drawCircle(color, style = Stroke(1.dp.toPx()))
+    val over = scheme.error
+    val unlit = scheme.onSurface.copy(alpha = if (desktopControls) 0.38f else 0.22f)
+    // One drawing with one moving number, rather than a Canvas and an animation per dot: each tile has
+    // these. As the count eases past a dot, that dot fills and its ring fades.
+    Spacer(
+        modifier.size(pip * total + 3.dp * (total - 1).coerceAtLeast(0), pip).drawSettled(count.toFloat()) { shown ->
+            drawContent()
+            val step = (pip + 3.dp).toPx()
+            val r = pip.toPx() / 2
+            repeat(total) { i ->
+                val fill = (shown - i).coerceIn(0f, 1f)
+                val c = Offset(r + step * i, r)
+                if (fill < 1f) drawCircle(if (i >= limit) over else unlit, r - 0.5.dp.toPx(), c, alpha = 1f - fill, style = Stroke(1.dp.toPx()))
+                if (fill > 0f) drawCircle(if (i >= limit) over else lit, r * (0.6f + 0.4f * fill), c, alpha = fill)
             }
-        }
-    }
+        },
+    )
 }
 
 /**
@@ -847,8 +857,11 @@ fun DrawScope.drawSelectionEdge(shape: Shape, color: Color, alpha: Float = 1f) {
     drawPath(Path().apply { fillType = PathFillType.EvenOdd; addRoundRect(outer); addRoundRect(inner) }, color, alpha)
 }
 
-/** The selection outline on a tile that is selected, not just hovered. */
-fun Modifier.selectionEdge(shape: Shape, color: Color, on: Boolean = true): Modifier = if (!on) this else drawWithContent { drawContent(); drawSelectionEdge(shape, color) }
+/** The selection outline on a tile that is selected, not just hovered. It fades as it comes and goes, the same line throughout. */
+fun Modifier.selectionEdge(shape: Shape, color: Color, on: Boolean = true): Modifier = drawSettled(if (on) 1f else 0f) { strength ->
+    drawContent()
+    if (strength > 0f) drawSelectionEdge(shape, color, strength)
+}
 
 /** Animates to [target] the way [motion] would: an emphasized tween, or at once when motion is reduced. */
 private suspend fun Animatable<Float, *>.settle(target: Float, durationMillis: Int, reduce: Boolean) {
@@ -1061,6 +1074,8 @@ fun PillSearchField(
 fun PillTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) =
     PillField(value, onValueChange, placeholder, modifier, icon = null, onClear = null)
 
+private enum class FieldTrailing { None, Clear, Shortcut }
+
 @Composable
 private fun PillField(
     value: String,
@@ -1103,15 +1118,20 @@ private fun PillField(
                     if (value.isEmpty()) Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant, maxLines = 1)
                     field()
                 }
-                if (onClear != null) {
-                    IconButton(onClick = onClear, modifier = Modifier.size(40.dp)) {
-                        Icon(LineIcons.X, contentDescription = "Clear search and filters", tint = scheme.onSurfaceVariant)
+                // Clear or the shortcut hint, whichever applies, fading across as you type or focus.
+                val hint = shortcut != null && !app.lockon.platform.isMobile && !focused && LocalTopBand.current.height > 0.dp
+                val trailing = if (onClear != null) FieldTrailing.Clear else if (hint) FieldTrailing.Shortcut else FieldTrailing.None
+                FadeSwap(trailing, contentAlignment = Alignment.CenterEnd) { kind ->
+                    when (kind) {
+                        FieldTrailing.Clear -> IconButton(onClick = { onClear?.invoke() }, modifier = Modifier.size(40.dp)) {
+                            Icon(LineIcons.X, contentDescription = "Clear search and filters", tint = scheme.onSurfaceVariant)
+                        }
+                        FieldTrailing.Shortcut -> Text(
+                            shortcut.orEmpty(), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1,
+                            modifier = Modifier.padding(end = 8.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, scheme.outlineVariant, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                        FieldTrailing.None -> Unit
                     }
-                } else if (shortcut != null && !app.lockon.platform.isMobile && !focused && LocalTopBand.current.height > 0.dp) {
-                    Text(
-                        shortcut, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1,
-                        modifier = Modifier.padding(end = 8.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, scheme.outlineVariant, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
                 }
             }
         },
@@ -1176,8 +1196,10 @@ fun GameDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = confirmButton,
         dismissButton = dismissButton,
+        properties = app.lockon.platform.plainDialogProperties(),
         modifier = modifier
             .graphicsLayer { alpha = appear; val s = 0.94f + 0.06f * appear; scaleX = s; scaleY = s }
+            .onDialogStage()
             .glassFrame(MaterialTheme.shapes.extraLarge),
         containerColor = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
         title = title?.let {
@@ -1624,6 +1646,7 @@ fun PillNavBar(
             val isSelected = i == selected
             // The selected item takes more of the bar, so its label has room (AnymeX's 2.4 : 1).
             val share by animateFloatAsState(if (labels || !isSelected) 1f else 2.4f, if (reduce) snap() else PillSpring, label = "pill-share")
+            val pad by androidx.compose.animation.core.animateDpAsState(if (labels) 16.dp else if (isSelected) 18.dp else 12.dp, glide(), label = "pill-pad")
             val itemFill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
             // Once the shared pill slides, items draw no fill of their own; before then the chosen one lights itself.
             val fill = if (!labels) itemFill else if (isSelected && !placed) accent else Color.Transparent
@@ -1645,7 +1668,7 @@ fun PillNavBar(
                 Row(
                     Modifier
                         .clip(LockOnShapes.pill).background(fill)
-                        .padding(horizontal = if (labels) 16.dp else if (isSelected) 18.dp else 12.dp, vertical = 10.dp),
+                        .padding(horizontal = pad, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CompositionLocalProvider(LocalContentColor provides content) {

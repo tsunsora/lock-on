@@ -1,5 +1,8 @@
 package app.lockon.ui.decks
 
+import androidx.compose.animation.core.animateFloatAsState
+import app.lockon.ui.components.Motion
+import app.lockon.ui.components.motion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -116,7 +119,13 @@ fun Modifier.deckDragSource(deck: DeckSummary, drag: DeckDrag): Modifier = compo
 /** The held deck under the pointer: its cover and name on a small glass plate. Place it over the whole screen. */
 @Composable
 fun DeckDragGhost(drag: DeckDrag, cover: (DeckSummary) -> DeckCover?, modifier: Modifier = Modifier) {
-    val deck = drag.deck ?: return
+    // Kept while it fades, so a drop lets the plate go instead of removing it.
+    var last by remember { mutableStateOf(drag.deck) }
+    drag.deck?.let { last = it }
+    val appear by animateFloatAsState(if (drag.deck != null) 1f else 0f, motion(Motion.SHORT), label = "deck-ghost")
+    val aimed by animateFloatAsState(if (drag.over != null) 1f else 0f, motion(Motion.SHORT), label = "deck-ghost-aim")
+    val deck = last
+    if (deck == null || (drag.deck == null && appear == 0f)) return
     val scheme = MaterialTheme.colorScheme
     var origin by remember { mutableStateOf(Offset.Zero) }
     val art = remember(deck) { cover(deck) }
@@ -124,7 +133,11 @@ fun DeckDragGhost(drag: DeckDrag, cover: (DeckSummary) -> DeckCover?, modifier: 
         Row(
             // The pointer is read during layout, so following it moves the plate without recomposing.
             Modifier.offset { (drag.pointer - origin + Offset(12f, 12f)).let { IntOffset(it.x.roundToInt(), it.y.roundToInt()) } }
-                .graphicsLayer { alpha = if (drag.over != null) 0.97f else 0.85f; rotationZ = -2f }
+                .graphicsLayer {
+                    alpha = appear * (0.85f + 0.12f * aimed); rotationZ = -2f
+                    val s = 0.92f + 0.08f * appear
+                    scaleX = s; scaleY = s
+                }
                 .widthIn(max = 260.dp)
                 .clip(LockOnShapes.button).background(scheme.surfaceContainerHigh).glassFrame(LockOnShapes.button)
                 .padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 16.dp),

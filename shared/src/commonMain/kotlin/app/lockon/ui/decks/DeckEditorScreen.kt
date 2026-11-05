@@ -1,4 +1,8 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.Reveal
+import app.lockon.ui.components.FadeSwap
+import app.lockon.ui.components.fadeOnChange
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import app.lockon.ui.components.LineIcons
@@ -373,7 +377,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val c = MaterialTheme.colorScheme
-                        ColorPips(deckColors, size = 22.dp)
+                        FadeSwap(deckColors) { ColorPips(it, size = 22.dp) }
                         // The state alone; Analysis has the rest.
                         // The stamp turns over with the Lock On moment instead of swapping under it.
                         Crossfade(legality.isLegal, animationSpec = motion(), label = "legality") { legal -> StateTag(legal) }
@@ -572,11 +576,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     onReset = { split.floatValue = DEFAULT_SPLIT; saveSplit(null) },
                 )
                 // The deck panel takes dropped cards, and its rim lights up while one is held over it.
-                val dropRim = when {
-                    cardDrag.overTarget -> MaterialTheme.colorScheme.primary
-                    cardDrag.card != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                    else -> Color.Transparent
-                }
+                val dropRim by animateColorAsState(
+                    when {
+                        cardDrag.overTarget -> MaterialTheme.colorScheme.primary
+                        cardDrag.card != null -> MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        else -> Color.Transparent
+                    },
+                    motion(Motion.SHORT), label = "drop-rim",
+                )
                 Panel(Modifier.weight(1f).fillMaxSize().cardDropTarget(cardDrag)
                     .border(BorderStroke(2.dp, dropRim), LockOnShapes.panel)) {
                     Column {
@@ -688,11 +695,13 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                     // The library shows the deck by this card instead of its highest-level Unit.
                     val canCover = inDeck > 0 || deck.coverCard == card.cardNumber
-                    if (side > 0 || inDeck > 0 || canCover) {
+                    Reveal(side > 0 || inDeck > 0 || canCover) {
                         FlowRow(if (sideBySide) Modifier.offset(x = (-14).dp) else Modifier.padding(top = if (narrow) 0.dp else 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            when {
-                                side > 0 -> GameButton(if (narrow) "1 to deck" else "Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
-                                inDeck > 0 -> GameButton(if (narrow) "1 to side" else "Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
+                            FadeSwap(if (side > 0) 1 else if (inDeck > 0) 2 else 0) { way ->
+                                when (way) {
+                                    1 -> GameButton(if (narrow) "1 to deck" else "Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
+                                    2 -> GameButton(if (narrow) "1 to side" else "Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
+                                }
                             }
                             if (canCover) {
                                 val isCover = deck.coverCard == card.cardNumber
@@ -969,12 +978,24 @@ private fun DeckProblemBar(legality: DeckLegality, onOpenAnalysis: () -> Unit) {
 @Composable
 private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Boolean, deckColors: Set<CardColor>, ruleset: Ruleset) {
     val c = MaterialTheme.colorScheme
-    when {
-        card.cardNumber in ruleset.banned -> Badge("Banned", c.errorContainer, c.onErrorContainer)
-        addingToSide -> if (quantity > 0) Badge("Deck $quantity", Color(0xE61A2036), Color.White)
-        card.colors.isNotEmpty() && (deckColors + card.colors).size > ruleset.maxColors ->
-            Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
-        side > 0 -> Badge("Side $side", Color(0xE61A2036), Color.White)
+    val banned = card.cardNumber in ruleset.banned
+    val offColor = card.colors.isNotEmpty() && (deckColors + card.colors).size > ruleset.maxColors
+    // The tag fades in when another takes its place or one appears; a count going up doesn't refade it.
+    val kind = when {
+        banned -> 1
+        addingToSide -> if (quantity > 0) 2 else 0
+        offColor -> 3
+        side > 0 -> 4
+        else -> 0
+    }
+    if (kind == 0) { Box(Modifier.fadeOnChange(kind)); return }
+    Box(Modifier.fadeOnChange(kind)) {
+        when (kind) {
+            1 -> Badge("Banned", c.errorContainer, c.onErrorContainer)
+            2 -> Badge("Deck $quantity", Color(0xE61A2036), Color.White)
+            3 -> Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
+            else -> Badge("Side $side", Color(0xE61A2036), Color.White)
+        }
     }
 }
 
@@ -1211,8 +1232,9 @@ private fun MoreTile(item: EditorMoreItem, selected: Boolean, modifier: Modifier
         selected -> 0.10f
         else -> 0f
     }
+    val fill by animateColorAsState(tone.copy(alpha = wash), motion(Motion.SHORT), label = "more-tile")
     Column(
-        modifier.heightIn(min = 72.dp).clip(LockOnShapes.tile).background(tone.copy(alpha = wash))
+        modifier.heightIn(min = 72.dp).clip(LockOnShapes.tile).background(fill)
             .hoverable(interaction)
             .selectable(selected, interaction, indication = null, role = Role.Tab, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 10.dp),

@@ -57,6 +57,12 @@ actual fun formatClock(epochMillis: Long): String =
 actual fun fullWindowDialogProperties() =
     androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
 
+actual fun plainDialogProperties(usePlatformDefaultWidth: Boolean, dismissible: Boolean) = androidx.compose.ui.window.DialogProperties(
+    dismissOnBackPress = dismissible,
+    dismissOnClickOutside = dismissible,
+    usePlatformDefaultWidth = usePlatformDefaultWidth,
+)
+
 @androidx.compose.runtime.Composable
 actual fun LightSystemBarIcons() {
     val view = androidx.compose.ui.platform.LocalView.current

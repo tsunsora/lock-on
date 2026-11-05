@@ -1,7 +1,10 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.Reveal
+import app.lockon.ui.components.FadeSwap
 import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.rememberArrival
 import app.lockon.ui.components.arrive
+import app.lockon.ui.components.onDialogStage
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.io.ExportOrder
 import app.lockon.platform.encodeShareQr
@@ -378,7 +381,7 @@ private fun DeckExport(
 
     // Esc closes the full-size view first, then the dialog.
     val arrival = rememberArrival()
-    Dialog(onDismissRequest = { if (viewing) viewing = false else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = { if (viewing) viewing = false else onDismiss() }, properties = app.lockon.platform.plainDialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
             // The dialog fills the window, so clicks around the panel land on this backdrop. It sits
             // behind the panel rather than around it, so clicks inside (selecting the list) never reach it.
@@ -389,7 +392,7 @@ private fun DeckExport(
                 color = if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest,
                 modifier = Modifier.padding(if (wide) 24.dp else 12.dp)
                     .then(if (wide) Modifier else Modifier.fillMaxSize())
-                    .arrive(arrival).glassFrame(MaterialTheme.shapes.extraLarge),
+                    .arrive(arrival).onDialogStage().glassFrame(MaterialTheme.shapes.extraLarge),
             ) {
                 if (wide) {
                     // The deck's name across the top, then the preview at full height on the left and
@@ -408,33 +411,37 @@ private fun DeckExport(
                             PillTabs(formats, tab, { tab = it }, Modifier.width(IntrinsicSize.Max), soft = true, icons = listOf(LineIcons.Text, LineIcons.Image, LineIcons.Qr).take(formats.size))
                         }
                         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                            if (tab == 0) listText(pane.then(previewBox))
-                            else if (tab == 2) QrPage(qr, pane.then(previewBox))
-                            else Box(previewBox, contentAlignment = Alignment.TopCenter) {
-                                // The whole picture in view at once, as it will be saved; a short hold shows it large.
-                                CaptureAtFixedWidth(
-                                    layer,
-                                    Modifier.clip(LockOnShapes.tile).viewSource(viewSource).holdToView { viewing = true },
-                                    fit = true,
-                                ) { DeckImage(deck, cards, ruleset, order) }
+                            FadeSwap(tab, contentAlignment = Alignment.TopCenter) { page ->
+                                if (page == 0) listText(pane.then(previewBox))
+                                else if (page == 2) QrPage(qr, pane.then(previewBox))
+                                else Box(previewBox, contentAlignment = Alignment.TopCenter) {
+                                    // The whole picture in view at once, as it will be saved; a short hold shows it large.
+                                    CaptureAtFixedWidth(
+                                        layer,
+                                        Modifier.clip(LockOnShapes.tile).viewSource(viewSource).holdToView { viewing = true },
+                                        fit = true,
+                                    ) { DeckImage(deck, cards, ruleset, order) }
+                                }
                             }
                             Column(Modifier.width(controlsWidth).fillMaxHeight().padding(end = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                if (tab != 2) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Reveal(tab != 2) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SectionHeader("Order")
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         orderChips()
                                     }
-                                }
+                                } }
                                 Spacer(Modifier.height(8.dp))
-                                if (tab == 0) {
-                                    GameButton("Save file", onClick = {
-                                        state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
-                                    }, Modifier.fillMaxWidth(), icon = LineIcons.Save)
-                                    GameButton("Copy", onClick = {
-                                        clipboard.setText(AnnotatedString(text))
-                                        toast("Deck list copied.")
-                                    }, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY, icon = LineIcons.Copy)
-                                } else Box(Modifier.fillMaxWidth().height(44.dp)) { buttons(false) }
+                                FadeSwap(tab == 0, Modifier.fillMaxWidth()) { listing ->
+                                    if (listing) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        GameButton("Save file", onClick = {
+                                            state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
+                                        }, Modifier.fillMaxWidth(), icon = LineIcons.Save)
+                                        GameButton("Copy", onClick = {
+                                            clipboard.setText(AnnotatedString(text))
+                                            toast("Deck list copied.")
+                                        }, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY, icon = LineIcons.Copy)
+                                    } else Box(Modifier.fillMaxWidth().height(44.dp)) { buttons(false) }
+                                }
                                 if (onDismiss != null) GameButton("Close", onClick = onDismiss, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY)
                             }
                         }

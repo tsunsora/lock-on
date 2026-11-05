@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import androidx.compose.ui.draw.rotate
 import app.lockon.ui.components.panelFill
 import app.lockon.ui.components.LocalTopBand
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -110,13 +111,16 @@ fun VersionsPanel(
             val corner = LockOnShapes.tileRadius
             val top = if (index == 0) corner else 0.dp
             val end = if (index == versions.size - 2) corner else 0.dp
+            val strong = glassColors().strong
+            val openFill by androidx.compose.animation.animateColorAsState(if (isOpen) strong else strong.copy(alpha = 0f), motion(), label = "version-open")
+            val opening by androidx.compose.animation.core.animateFloatAsState(if (isOpen) 1f else 0f, motion(), label = "version-chevron")
             Column(
                 Modifier.animateItem().fillMaxWidth()
                     .then(if (phone) Modifier.background(fill, RoundedCornerShape(top, top, end, end)).padding(top = if (index == 0) 6.dp else 0.dp, bottom = if (index == versions.size - 2) 6.dp else 0.dp) else Modifier)
                     .clip(LockOnShapes.tile)
-                    .background(if (isOpen) glassColors().strong else Color.Transparent)
+                    .background(openFill)
                     .then(if (isOpen) Modifier.border(if (phone) 1.dp else app.lockon.ui.components.SelectionEdgeWidth, if (phone) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary, LockOnShapes.tile) else Modifier)
-                    .animateContentSize(motion()),
+                    ,
             ) {
                 Row(
                     Modifier.fillMaxWidth().clickable(onClickLabel = if (isOpen) "Close" else "Compare with the deck now") { open = if (isOpen) null else version.revisionId }
@@ -136,9 +140,9 @@ fun VersionsPanel(
                     }
                     Text("${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Box(Modifier.width(62.dp)) { if (older != null) Changes(older, version.snapshot) else Text("+${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary) }
-                    Icon(if (isOpen) LineIcons.Chevd else LineIcons.Chev, contentDescription = null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(LineIcons.Chev, contentDescription = null, Modifier.size(20.dp).rotate(90f * opening), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (isOpen) Compared(version, current, cards) { open = null; onRestore(version) }
+                app.lockon.ui.components.Reveal(isOpen) { Compared(version, current, cards) { open = null; onRestore(version) } }
             }
         }
     }

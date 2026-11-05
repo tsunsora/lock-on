@@ -1,5 +1,12 @@
 package app.lockon.ui.cards
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
+import app.lockon.ui.components.Motion
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.motion
@@ -70,7 +77,13 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
             } else {
                 search(Modifier.weight(1f).fillMaxSize())
             }
-            if (wide && detailsOpen) {
+            // Fades and drifts a short way. Its width never eases, since that would re-measure the whole grid every frame.
+            val reduce = app.lockon.ui.components.LocalReduceMotion.current
+            AnimatedVisibility(
+                wide && detailsOpen,
+                enter = if (reduce) fadeIn(tween(90)) else fadeIn(tween(Motion.MEDIUM)) + slideInHorizontally(tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate)) { it / 24 },
+                exit = if (reduce) fadeOut(tween(90)) else fadeOut(tween(Motion.SHORT)) + slideOutHorizontally(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) { it / 24 },
+            ) {
                 // The details panel stays while cards are picked, so the grid never changes width under the pointer.
                 Panel(Modifier.width(420.dp).fillMaxHeight().padding(end = 12.dp, bottom = 12.dp)) {
                     // Picking another card fades its details in over the last one's.

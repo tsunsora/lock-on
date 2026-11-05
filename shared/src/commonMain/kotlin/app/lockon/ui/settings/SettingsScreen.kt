@@ -1,5 +1,8 @@
 package app.lockon.ui.settings
 
+import app.lockon.ui.components.RevealValue
+import app.lockon.ui.components.softThumbFill
+import app.lockon.ui.components.softThumbTone
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Spacer
@@ -294,7 +297,7 @@ internal fun SettingRow(
         Column(labelModifier) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+            RevealValue(note) { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
         }
     }
     if (stacked || wideControl && !LocalRoomyRows.current) {
@@ -353,11 +356,11 @@ private fun MoreMenuChoice(hidden: Set<EditorMoreItem>, onChange: (EditorMoreIte
                     row.forEach { item ->
                         val shown = item !in hidden
                         Box(
-                            Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(11.dp)).background(if (shown) softThumb() else Color.Transparent)
+                            Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(11.dp)).background(softThumbFill(shown))
                                 .toggleable(shown, role = Role.Checkbox, interactionSource = null, indication = null) { onChange(item, it) },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(item.label, style = MaterialTheme.typography.labelLarge, color = if (shown) softThumbInk() else scheme.onSurfaceVariant, maxLines = 1)
+                            Text(item.label, style = MaterialTheme.typography.labelLarge, color = softThumbTone(shown), maxLines = 1)
                         }
                     }
                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }

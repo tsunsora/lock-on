@@ -1,4 +1,7 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.Reveal
+import app.lockon.ui.components.RevealValue
+import app.lockon.ui.components.FadeSwap
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import app.lockon.ui.theme.LockOnShapes
@@ -92,7 +95,8 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
         title = if (preview == null) "Card database" else "Install this catalog?",
         text = {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val pending = preview
+                FadeSwap(preview, Modifier.fillMaxWidth(), contentKey = { it != null }) { pending ->
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (pending != null) {
                     PreviewSummary(pending)
                 } else {
@@ -137,16 +141,16 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                         busy = false
                                     }
                                 }, enabled = !busy, icon = LineIcons.Sync, compact = true)
-                                if (result is CatalogUpdater.UpdateCheck.UpToDate) {
+                                Reveal(result is CatalogUpdater.UpdateCheck.UpToDate, sideways = true) {
                                     Text("Up to date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
                                 }
                             } else {
                                 GameButton("Download card database", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, compact = true)
                             }
                         }
-                        if (busy) ReticleSpinner(size = 20.dp)
+                        Reveal(busy, sideways = true) { ReticleSpinner(size = 20.dp) }
                     }
-                    (check as? CatalogUpdater.UpdateCheck.Available)?.let {
+                    RevealValue(check as? CatalogUpdater.UpdateCheck.Available) {
                         Text(
                             if (it.newAltArts > 0) "${it.newAltArts} new alt arts are on Bandai's card list."
                             else "Version ${it.version} is out: ${it.cardCount} entries, built ${it.builtAt}.",
@@ -190,7 +194,9 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     listOfNotNull(source, GcgApi.ATTRIBUTION.takeUnless { official && source != null })
                         .forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
                 }
-                problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+                }
+                }
+                RevealValue(problem) { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
             }
         },
         confirmButton = {
