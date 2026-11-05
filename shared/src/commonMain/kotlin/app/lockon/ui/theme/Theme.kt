@@ -1,5 +1,6 @@
 package app.lockon.ui.theme
 
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -109,6 +110,8 @@ object SuitColors {
 object LockOnShapes {
     val panel = RoundedCornerShape(22.dp)
     val tile = RoundedCornerShape(16.dp)
+    /** Corner radius of [tile], for parts of one that round only some corners. */
+    val tileRadius = 16.dp
     val thumb = RoundedCornerShape(8.dp)
     /** Buttons, chips, tabs, search fields, icon buttons and stamps. */
     val button = RoundedCornerShape(14.dp)
@@ -149,6 +152,9 @@ private fun lockOnTypography(): Typography {
     )
     fun TextStyle.game(weight: FontWeight, grow: Float = 0f, tracking: Double = 0.0) =
         copy(fontFamily = rounded, fontWeight = weight, fontSize = (fontSize.value + grow).sp, letterSpacing = tracking.sp)
+    // Quicksand's capitals and numbers sit below the middle of its line, which shows in small labels
+    // centred in a chip, bar or button. Each size is raised by what it needs to look centred.
+    fun TextStyle.raised(by: Float) = copy(baselineShift = BaselineShift(by))
     return base.copy(
         displayLarge = base.displayLarge.game(FontWeight.ExtraBold),
         displayMedium = base.displayMedium.game(FontWeight.ExtraBold),
@@ -159,9 +165,9 @@ private fun lockOnTypography(): Typography {
         titleLarge = base.titleLarge.game(FontWeight.ExtraBold, -1f),
         titleMedium = base.titleMedium.game(FontWeight.Bold),
         titleSmall = base.titleSmall.game(FontWeight.Bold),
-        labelLarge = base.labelLarge.game(FontWeight.Bold, tracking = 0.2),
-        labelMedium = base.labelMedium.game(FontWeight.Bold, tracking = 0.2),
-        labelSmall = base.labelSmall.game(FontWeight.Bold, tracking = 0.2),
+        labelLarge = base.labelLarge.game(FontWeight.Bold, tracking = 0.2).raised(0.02f),
+        labelMedium = base.labelMedium.game(FontWeight.Bold, tracking = 0.2).raised(0.05f),
+        labelSmall = base.labelSmall.game(FontWeight.Bold, tracking = 0.2).raised(0.05f),
         bodyLarge = base.bodyLarge.copy(fontFamily = FontFamily.SansSerif),
         bodyMedium = base.bodyMedium.copy(fontFamily = FontFamily.SansSerif),
         bodySmall = base.bodySmall.copy(fontFamily = FontFamily.SansSerif),

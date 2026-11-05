@@ -378,7 +378,6 @@ private fun DeckExport(
 
     // Esc closes the full-size view first, then the dialog.
     val arrival = rememberArrival()
-    app.lockon.ui.components.BlurBehind()
     Dialog(onDismissRequest = { if (viewing) viewing = false else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
             // The dialog fills the window, so clicks around the panel land on this backdrop. It sits

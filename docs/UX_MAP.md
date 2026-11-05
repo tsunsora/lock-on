@@ -140,7 +140,7 @@ Two pages: **Sync devices** (first) and **Send decks**.
 - **Layout:** each group is a card of rows: the setting's name on the left, its control at the end. Choices of a few options are sliding segmented controls. Wide windows show two centred columns; phones stack the groups and put segmented choices under their names.
 - **General:** **Open on** (Decks · Cards · Last screen), **Device name** with **Rename** (used from the next launch), **Welcome tour** with **Show again**.
 - **Appearance:** **Theme** (System · Sky · Twilight), **Interface size** (Small · Default · Large · Larger, scaling everything together), **Animations** (System · Reduced · Full), **Show card artwork**.
-- **Deck editor:** on phones and in narrow windows, **Bar order** and **In the More menu** (a chip per section; at least one stays); always the *Deck colors only* switch; in wide windows, **Reset** for the divider between cards and deck.
+- **Deck editor:** on phones and in narrow windows, **Bar order** and **In the More menu** (a grid of the sections, at least one stays); always the *Deck colors only* switch; in wide windows, **Reset** for the divider between cards and deck.
 - **Data:** **Card database** with **Manage**, the weekly card list check, **Back up all decks**.
 - **About:** the version and app updates, last.
 

@@ -78,9 +78,9 @@ class DeviceMirrorTest {
         desktop.settings.setTheme(ThemeChoice.DARK)
         desktop.settings.setSize(InterfaceSize.LARGE)
         // Saved on this device, and left out of what another device takes on, like the phone editor's bar.
-        desktop.settings.setDeckAsCards(true)
+        desktop.settings.setDeckAsCards(false)
         desktop.settings.load()
-        assertEquals(true, desktop.settings.deckAsCards.value)
+        assertEquals(false, desktop.settings.deckAsCards.value)
         return Triple(shared, phoneOnly, desktopOnly)
     }
 
@@ -97,7 +97,7 @@ class DeviceMirrorTest {
         assertTrue("Empty for now" in phone.decks.keptFolders.first())
         assertEquals(ThemeChoice.DARK, phone.settings.theme.value)
         assertEquals(InterfaceSize.LARGE, phone.settings.size.value)
-        assertEquals(false, phone.settings.deckAsCards.value)
+        assertEquals(true, phone.settings.deckAsCards.value)
         assertEquals(1, summary.updated)
         assertEquals(1, summary.added)
         assertEquals(1, summary.removed)
