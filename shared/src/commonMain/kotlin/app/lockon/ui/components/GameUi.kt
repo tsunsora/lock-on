@@ -156,7 +156,12 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.requireDensity
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -199,7 +204,27 @@ fun glassColors(): GlassColors = if (isTwilight()) {
 }
 
 /** A painted sky and the theme it was painted for. */
-private class SkyPaint(val image: ImageBitmap, val twilight: Boolean)
+private class SkyPaint(val width: Int, val height: Int, val image: ImageBitmap, val twilight: Boolean)
+
+/**
+ * The sky painted last, or being painted. Skies the same size share it: the boot screen, the app
+ * behind it and a boot cover's picture of it would each otherwise paint their own, side by side,
+ * which on a phone just starting up takes long enough to notice. Racing it only paints one twice.
+ */
+@Volatile private var lastSky: Deferred<SkyPaint>? = null
+@Volatile private var lastSkyKey: Triple<Int, Int, Boolean>? = null
+
+@OptIn(DelicateCoroutinesApi::class)
+private suspend fun paintedSky(width: Int, height: Int, twilight: Boolean): SkyPaint {
+    val key = Triple(width, height, twilight)
+    val shared = lastSky?.takeIf { lastSkyKey == key }
+    if (shared != null) return shared.await()
+    // Not tied to whichever screen asked first, since others may be waiting for it when that one goes.
+    val painting = GlobalScope.async(Dispatchers.Default) { SkyPaint(width, height, imageBitmapOf(paintSky(width, height, twilight), width, height), twilight) }
+    lastSkyKey = key
+    lastSky = painting
+    return painting.await()
+}
 
 /**
  * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light and
@@ -219,7 +244,7 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
         val scale = minOf(1f, 4096f / maxOf(area.width, area.height))
         val pw = (area.width * scale).roundToInt().coerceAtLeast(1)
         val ph = (area.height * scale).roundToInt().coerceAtLeast(1)
-        value = withContext(Dispatchers.Default) { SkyPaint(imageBitmapOf(paintSky(pw, ph, twilight), pw, ph), twilight) }
+        value = paintedSky(pw, ph, twilight)
     }
     Box(
         modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
