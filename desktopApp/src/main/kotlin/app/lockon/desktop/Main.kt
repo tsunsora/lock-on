@@ -212,6 +212,16 @@ private class DesktopFileBridge(private val owner: Frame) : FileBridge {
         return true
     }
 
+    override suspend fun saveToDownloads(name: String, mimeType: String, content: ByteArray): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                writeBesideOthers(downloadsFolder(), name, content)
+                true
+            } catch (_: java.io.IOException) {
+                false
+            }
+        }
+
     override suspend fun openText(mimeTypes: List<String>): String? {
         val file = withContext(Dispatchers.Main) {
             FileDialog(owner, "Open", FileDialog.LOAD).run {
