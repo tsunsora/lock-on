@@ -163,7 +163,6 @@ import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.PlateStepper
 import app.lockon.ui.components.glassFrame
-import app.lockon.rules.DeckLegality
 import app.lockon.rules.LegalityMessage
 import app.lockon.platform.isMobile
 import app.lockon.ui.components.glass
@@ -337,6 +336,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     var cardViewChoice by rememberSaveable(deckId) { mutableStateOf<Boolean?>(null) }
     val cardView = cardViewChoice ?: deckAsCards
     var deckMenu by remember { mutableStateOf(false) }
+    // The wide deck panel's tab (Deck, Analysis, Test, Matches, Versions); phones use their own tab row.
+    var deckTab by rememberSaveable(deckId) { mutableStateOf(if (startTab >= 2) startTab - 1 else 0) }
 
     Column(Modifier.fillMaxSize()) {
         // Header: a hero banner with the cover art behind it. Who the deck is sits on the left, its
@@ -347,6 +348,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // plates, so the editor spends no extra row on it (UX rule N5).
             BoxWithConstraints(Modifier.fillMaxWidth().clearOfNav()) {
             val roomy = maxWidth >= 1000.dp
+            // A tight band stacks the name over the state, so the deck's problem still has room in words.
+            val oneLine = wide && maxWidth >= 560.dp
             Row(
                 Modifier.fillMaxWidth().padding(start = if (wide) 0.dp else 12.dp, end = if (wide) 8.dp else 12.dp, top = if (wide) 0.dp else 8.dp, bottom = if (wide) 0.dp else 4.dp)
                     .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier),
@@ -360,7 +363,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 }
                 @Composable
                 fun NameAndState(content: @Composable () -> Unit) =
-                    if (wide) Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+                    if (oneLine) Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { content() }
                     else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { content() }
                 NameAndState {
                     // The name itself opens Rename; wide windows add a quiet pencil beside it as the hint.
@@ -381,9 +384,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         // The state alone; Analysis has the rest.
                         // The stamp turns over with the Lock On moment instead of swapping under it.
                         Crossfade(legality.isLegal, animationSpec = motion(), label = "legality") { legal -> StateTag(legal) }
-                        if (!wide) DeckProblemLine(
-                            if (phoneTab == 0 && deck.entries.isNotEmpty()) legality.errors else emptyList(),
-                            onOpenAnalysis = { phoneTab = 2 }, Modifier.weight(1f),
+                        DeckProblemLine(
+                            if ((if (wide) deckTab else phoneTab) == 0 && deck.entries.isNotEmpty()) legality.errors else emptyList(),
+                            onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 }, Modifier.weight(1f),
                         )
                     }
                 }
@@ -412,8 +415,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             }
         }
 
-        // The wide deck panel's tab (Deck, Analysis, Test, Matches, Versions); phones use their own tab row.
-        var deckTab by rememberSaveable(deckId) { mutableStateOf(if (startTab >= 2) startTab - 1 else 0) }
         // Tapping the open tab again on phones takes its list back to the top.
         var deckToTop by remember(deckId) { mutableIntStateOf(0) }
         var cardsToTop by remember(deckId) { mutableIntStateOf(0) }
@@ -435,8 +436,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         LaunchedEffect(Unit) { container.settings.editorSplit.collect { split.floatValue = it ?: DEFAULT_SPLIT } }
         val deckList: @Composable (Modifier) -> Unit = { modifier ->
             DeckList(
-                deck, cards, ruleset, legality, modifier, compact = wide,
-                onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 },
+                deck, cards, ruleset, modifier, compact = wide,
                 cardView = cardView, onCardView = { cardViewChoice = it },
                 onAddCards = if (wide) null else ({ phoneTab = 1 }),
                 scrollToTop = deckToTop,
@@ -738,11 +738,9 @@ private fun DeckList(
     deck: DeckSnapshot,
     cards: Map<String, GameCard>,
     ruleset: Ruleset,
-    legality: DeckLegality,
     modifier: Modifier,
     /** Slimmer strips for wide windows. */
     compact: Boolean,
-    onOpenAnalysis: () -> Unit,
     /** Whole small cards rather than strips. */
     cardView: Boolean,
     onCardView: (Boolean) -> Unit,
@@ -778,12 +776,7 @@ private fun DeckList(
     // The end padding clears the scroll bar's lane so section counts don't sit under it.
     // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
-    Column(Modifier.fillMaxSize()) {
-    // The deck's first problem stays above the list in words (UX rule I3); phones have it in the header.
-    AnimatedVisibility(compact && deck.entries.isNotEmpty() && legality.errors.isNotEmpty(), enter = revealIn(), exit = revealOut()) {
-        DeckProblemBar(legality, onOpenAnalysis)
-    }
-    Box(Modifier.weight(1f).fillMaxWidth()) {
+    Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = if (compact) 6.dp else 0.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (deck.entries.isEmpty()) {
@@ -925,11 +918,10 @@ private fun DeckList(
     VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
     }
     }
-    }
 }
 
 /**
- * The phone header's line for the deck's first problem in words (UX rule I3), which opens Analysis.
+ * The header's line for the deck's first problem in words (UX rule I3), which opens Analysis.
  * It is laid out even with nothing to say, so a problem coming or going never moves the list.
  */
 @Composable
@@ -948,25 +940,6 @@ private fun DeckProblemLine(errors: List<LegalityMessage>, onOpenAnalysis: () ->
     ) {
         Text(text, Modifier.weight(1f, fill = false), color, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (more > 0) Text("+$more", color = color, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-    }
-}
-
-/**
- * The wide deck list's fixed top bar while the deck has problems: the first one in words (UX rule
- * I3), which opens Analysis.
- */
-@Composable
-private fun DeckProblemBar(legality: DeckLegality, onOpenAnalysis: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 6.dp).glass(LockOnShapes.tile, strong = true).padding(4.dp)) {
-        legality.errors.firstOrNull()?.let { first ->
-            Text(
-                if (legality.errors.size == 1) first.text else "${first.text} (+${legality.errors.size - 1} more)",
-                style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.fillMaxWidth().clip(LockOnShapes.button).clickable(onClickLabel = "Open analysis", onClick = onOpenAnalysis)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            )
-        }
     }
 }
 
