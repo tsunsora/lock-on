@@ -61,7 +61,7 @@ import app.lockon.ui.components.CardShape
 import app.lockon.ui.components.DaySky
 import app.lockon.ui.components.PillSegmented
 import app.lockon.ui.components.TwilightSky
-import app.lockon.ui.components.focusRing
+import app.lockon.ui.components.selectionEdge
 import app.lockon.model.Card
 import app.lockon.platform.isMobile
 import androidx.compose.foundation.clickable
@@ -245,13 +245,13 @@ private fun Fan(cards: List<Card>) {
     CardFan(cards.take(3).let { three -> listOfNotNull(three.getOrNull(1), three.getOrNull(0), three.getOrNull(2)) }.map { it to null }, cardWidth = 96.dp, middleOnTop = false)
 }
 
-/** Three cards laid out like the card list, with the focus cursor on the middle one. */
+/** Three cards laid out like the card list, with the selection outline on the middle one. */
 @Composable
 private fun CardRow(cards: List<Card>) {
     Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(3) { i ->
             val card = cards.getOrNull(i)
-            val place = Modifier.width(96.dp).then(if (i == 1) Modifier.focusRing(CardShape) else Modifier)
+            val place = Modifier.width(96.dp).then(if (i == 1) Modifier.selectionEdge(CardShape, MaterialTheme.colorScheme.primary) else Modifier)
             if (card != null) CardImage(card, place) else CardBack(place)
         }
     }
