@@ -154,6 +154,8 @@ import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.PlateStepper
 import app.lockon.ui.components.glassFrame
 import app.lockon.rules.DeckLegality
+import app.lockon.rules.LegalityMessage
+import app.lockon.platform.isMobile
 import app.lockon.ui.components.glass
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
@@ -321,7 +323,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     // The phone editor's tab (0 Deck, 1 Add cards, then Analysis, Test, Matches, Versions, Export, Edit as text).
     var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
     // Whole small cards or denser strips in the deck list; phones switch it from the bar's ⋮ menu.
-    var cardView by rememberSaveable(deckId) { mutableStateOf(false) }
+    // Until then a deck follows the phone editor's setting.
+    val deckAsCards by container.settings.deckAsCards.collectAsState()
+    var cardViewChoice by rememberSaveable(deckId) { mutableStateOf<Boolean?>(null) }
+    val cardView = cardViewChoice ?: ((isMobile || !wide) && deckAsCards)
     var deckMenu by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
@@ -357,7 +362,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         // A tight band gives the pencil's room to the name, which still opens Rename.
                         if (wide && roomy) Icon(Icons.Default.Edit, contentDescription = null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val c = MaterialTheme.colorScheme
                         ColorPips(deckColors, size = 16.dp)
                         // The state alone; Analysis has the rest.
@@ -366,6 +371,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                             if (legal) Badge("Legal", c.secondaryContainer, c.onSecondaryContainer)
                             else Badge("Draft", c.surfaceVariant, c.onSurfaceVariant)
                         }
+                        if (!wide) DeckProblemLine(
+                            if (phoneTab == 0 && deck.entries.isNotEmpty()) legality.errors else emptyList(),
+                            onOpenAnalysis = { phoneTab = 2 }, Modifier.weight(1f),
+                        )
                     }
                 }
             }
@@ -592,7 +601,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                                 GlassIconButton(Icons.Default.MoreVert, "More", { deckMenu = true }, compact = true)
                                 GameMenu(expanded = deckMenu, onDismissRequest = { deckMenu = false }) {
                                     GameMenuItem("Edit as text", onClick = { deckMenu = false; editingText = true }, icon = Icons.Default.Edit)
-                                    GameMenuItem(if (cardView) "List view" else "Card view", onClick = { deckMenu = false; cardView = !cardView; deckTab = 0 },
+                                    GameMenuItem(if (cardView) "List view" else "Card view", onClick = { deckMenu = false; cardViewChoice = !cardView; deckTab = 0 },
                                         icon = if (cardView) Icons.AutoMirrored.Filled.List else GameIcons.Deck)
                                 }
                             }
@@ -642,7 +651,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                             it == 1 -> cardsToTop++
                         }
                     },
-                    onCardView = { cardView = it; phoneTab = 0 },
+                    onCardView = { cardViewChoice = it; phoneTab = 0 },
                 )
             }
         }
@@ -764,8 +773,8 @@ private fun DeckList(
     // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
     Column(Modifier.fillMaxSize()) {
-    // The deck's first problem stays above the list in words (UX rule I3).
-    AnimatedVisibility(deck.entries.isNotEmpty() && legality.errors.isNotEmpty(), enter = revealIn(), exit = revealOut()) {
+    // The deck's first problem stays above the list in words (UX rule I3); phones have it in the header.
+    AnimatedVisibility(compact && deck.entries.isNotEmpty() && legality.errors.isNotEmpty(), enter = revealIn(), exit = revealOut()) {
         DeckProblemBar(legality, onOpenAnalysis)
     }
     Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -908,7 +917,30 @@ private fun DeckList(
 }
 
 /**
- * The phone deck list's fixed top bar while the deck has problems: the first one in words (UX rule
+ * The phone header's line for the deck's first problem in words (UX rule I3), which opens Analysis.
+ * It is laid out even with nothing to say, so a problem coming or going never moves the list.
+ */
+@Composable
+private fun DeckProblemLine(errors: List<LegalityMessage>, onOpenAnalysis: () -> Unit, modifier: Modifier) {
+    val hasProblem = errors.isNotEmpty()
+    val shown by animateFloatAsState(if (hasProblem) 1f else 0f, motion(), label = "problem")
+    // The last problem stays while the line fades out.
+    val last = remember { arrayOf("" to 0) }
+    if (hasProblem) last[0] = errors.first().text to errors.size - 1
+    val (text, more) = last[0]
+    val color = MaterialTheme.colorScheme.error
+    Row(
+        modifier.graphicsLayer { alpha = shown }.clip(LockOnShapes.button)
+            .clickable(enabled = hasProblem, onClickLabel = "Open analysis", onClick = onOpenAnalysis).padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, Modifier.weight(1f, fill = false), color, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (more > 0) Text("+$more", color = color, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+    }
+}
+
+/**
+ * The wide deck list's fixed top bar while the deck has problems: the first one in words (UX rule
  * I3), which opens Analysis.
  */
 @Composable

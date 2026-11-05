@@ -53,3 +53,8 @@ actual val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIco
     androidx.compose.ui.input.pointer.PointerIcon(java.awt.Cursor(java.awt.Cursor.E_RESIZE_CURSOR))
 
 actual val isMobile: Boolean = false
+
+actual fun fullWindowDialogProperties() = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+
+@androidx.compose.runtime.Composable
+actual fun LightSystemBarIcons() = Unit
