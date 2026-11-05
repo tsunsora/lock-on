@@ -83,7 +83,7 @@ fun DeckTextDialog(
                 Column(Modifier.width(minOf(maxWidth - 48.dp, 520.dp)).height(minOf(maxHeight - 48.dp, 720.dp)).padding(top = 12.dp, bottom = 12.dp)) {
                     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f))
+                            modifier = Modifier.weight(1f).padding(end = 12.dp))
                         GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
                     }
                     // No floating navigation here to leave room for.

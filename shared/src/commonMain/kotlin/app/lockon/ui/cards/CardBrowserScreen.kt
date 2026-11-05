@@ -80,7 +80,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
                     } else {
                         Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp)) {
                             Row(Modifier.padding(top = 8.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(card.name, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(card.name, Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 GameButton("Close", onClick = { detailsOpen = false }, style = GameButtonStyle.SECONDARY, compact = true)
                             }
                             CardDetailContent(card, printings[card.cardNumber].orEmpty(), Modifier.padding(end = 12.dp, top = 8.dp, bottom = 12.dp))

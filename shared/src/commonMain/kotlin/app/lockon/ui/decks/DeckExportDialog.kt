@@ -266,7 +266,7 @@ private fun DeckExport(
     val header = @Composable {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(deck.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f))
+                modifier = Modifier.weight(1f).padding(end = 12.dp))
             if (onDismiss != null) GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
         }
     }
