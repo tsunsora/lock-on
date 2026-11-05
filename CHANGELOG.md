@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.11.8 (2026-11-05)
+
+Phone screens get a cleaner, more solid layout, the background is quieter so cards stand out, and the boot screen plays smoothly on phones.
+
+- **Phones:** Filters and card details are floating sheets with a button that closes them. **Show N cards** closes Filters, and **Clear** resets it.
+- **Phones:** Analysis, Test, Matches, Versions, Settings and Sync sit on solid panels, with their main controls just above the bottom bar. The More menu dims the screen and lights its button.
+- **Phones:** the boot screen no longer stutters while Lock On starts. It holds its first frame until it's ready, then plays through without pausing while the app builds behind it.
+- **Phones:** Lock On gets quicker to start after the first few launches, once Android has prepared it in the background.
+- **Background:** the sky is quieter in both themes, a deep navy at twilight and a pale grey-blue by day, so cards stand out.
+- **Blur:** gone everywhere, including behind dialogs.
+- **Card details on desktop:** shorter and a little narrower, with the type beside the card number, smaller stat boxes, and traits, zones and Link on one line. Deck and Side deck counts share a row.
+- **Deck builder:** the card list has the same grid and list switch as Cards. The deck's color dots at the top are larger, matching the Legal badge.
+- **Decks:** a deck's art sits back as a soft, darker wash, so its cards and color dots stand out. The fan is a little bigger, and the taller banner no longer cuts off its middle card. **New deck** sits right after the sort button.
+- **Cards:** color letters and cost numbers sit in the middle of their dots, and the number and copy dots under a card sit in the middle of their plate. Cards without artwork center their icons, and small labels sit centered.
+- **Dialogs:** a long card or deck name stops short of the **Close** button.
+- **Navigation:** inside a deck, the back button and logo plate line up with the middle of the navigation pill.
+- **Settings:** switch rows lose their square hover highlight. The switch brightens instead, and the whole row still toggles it.
+
 ## 26.11.7 (2026-11-05)
 
 The rest of the new look: the screens that still followed the old layout now match the design.
