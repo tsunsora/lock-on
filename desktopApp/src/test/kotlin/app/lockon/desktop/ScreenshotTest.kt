@@ -45,6 +45,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.EncodedImageFormat
 import java.io.File
@@ -289,6 +291,21 @@ class ScreenshotTest {
     }
 
     /** Settings in both layouts and themes, and the phone editor's More menu open over the Deck page. */
+    @Test fun renderPhoneDeckViews() {
+        // A small phone, where the header's problem line has the least room, with a legal deck and one card short.
+        // Hovering off to the side only gives the boot screen time to finish.
+        val settled = androidx.compose.ui.geometry.Offset(1f, 1f)
+        val short = runBlocking {
+            val full = container.decks.liveDeck(deckId).filterNotNull().first().snapshot
+            container.decks.create(full.withQuantity("SMP-001", DeckSection.MAIN, full.quantityOf("SMP-001", DeckSection.MAIN) - 1))
+        }
+        shoot("phone-editor-small", 540, 1200, hover = settled) { open(Screen.DeckEditor(deckId)) }
+        shoot("phone-editor-small-short", 540, 1200, hover = settled) { open(Screen.DeckEditor(short)) }
+        runBlocking { container.settings.setDeckAsCards(true) }
+        shoot("phone-editor-card-images", 600, 1260, hover = settled) { open(Screen.DeckEditor(deckId)) }
+        runBlocking { container.settings.setDeckAsCards(false) }
+    }
+
     @Test fun renderSettingsAndMoreMenu() {
         shoot("desktop-settings", 1980, 1290) { select(Tab.SETTINGS) }
         shoot("light-desktop-settings", 1980, 1290, dark = false) { select(Tab.SETTINGS) }

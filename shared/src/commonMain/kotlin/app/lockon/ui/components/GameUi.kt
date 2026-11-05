@@ -574,16 +574,11 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     }
 }
 
-/** A round cost orb in the card's colour, glossy like a game's element orb. */
+/** A round cost mark, flat in the card's colour like [ColorDot]; [outlined] keeps a white card's mark visible on a light row. */
 @Composable
-fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modifier, size: Dp = 30.dp, text: String? = null) {
-    Box(modifier.size(size), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val r = this.size.minDimension / 2
-            drawCircle(Brush.radialGradient(listOf(lighten(color, 0.45f), color, darken(color, 0.25f)), Offset(r * 0.7f, r * 0.6f), r * 1.4f), r)
-            drawCircle(Color.White.copy(alpha = 0.9f), r - 1.dp.toPx(), style = Stroke(1.6.dp.toPx()))
-            drawCircle(Color.White.copy(alpha = 0.35f), r * 0.3f, Offset(r * 0.68f, r * 0.55f))
-        }
+fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modifier, size: Dp = 30.dp, outlined: Boolean = false, text: String? = null) {
+    val line = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+    Box(modifier.size(size).clip(CircleShape).background(color).then(if (outlined) Modifier.border(1.dp, line, CircleShape) else Modifier)) {
         CenteredGlyph(text ?: value?.toString() ?: "–", onColor, (size.value * 0.46f).sp)
     }
 }
