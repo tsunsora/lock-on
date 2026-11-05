@@ -22,8 +22,8 @@ import app.lockon.resources.quicksand
 import org.jetbrains.compose.resources.Font
 
 /**
- * Sky and Twilight (UX rule V3): a bright palette after Nintendo's recent menus. Light mode is a clear
- * sky under calm, solid white panels; dark mode is a soft twilight, never black. Primary is teal, for actions and the selected
+ * Sky and Twilight (UX rule V3): a bright palette after Nintendo's recent menus. Light mode is a pale, quiet
+ * sky under calm, solid white panels; dark mode is a deep twilight, never black. Primary is teal, for actions and the selected
  * state. Secondary is sky blue, for information and charts. Tertiary is soft gold, for celebration:
  * a legal deck, a full gauge, the Lock On moment.
  */

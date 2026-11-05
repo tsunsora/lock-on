@@ -22,18 +22,20 @@ internal val SkyBokeh = listOf(
     SkyGlow(0.6f, 0.12f, 0.02f, Color.White, 0f), SkyGlow(0.95f, 0.88f, 0.035f, Color.White, 0f),
 )
 
-internal val DaySky = listOf(Color(0xFFB7DEF5), Color(0xFFDDEFFA), Color(0xFFF5FAFE))
-internal val TwilightSky = listOf(Color(0xFF283070), Color(0xFF363A78), Color(0xFF4A3F80))
+// Cards lie directly on the sky, so it stays quiet: little colour, and a brightness well away from the
+// card faces', lighter by day and darker at twilight, so the cards are the most colourful thing on screen.
+internal val DaySky = listOf(Color(0xFFCFE2F0), Color(0xFFDCE8F2), Color(0xFFE6EDF4))
+internal val TwilightSky = listOf(Color(0xFF141A3C), Color(0xFF181E44), Color(0xFF1E214A))
 
 private val DayGlows = listOf(
-    SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF7FE3E8), 0.45f),
-    SkyGlow(0.04f, 0.96f, 0.45f, SuitColors.blush, 0.35f),
-    SkyGlow(0.62f, 1.05f, 0.4f, Gold, 0.18f),
+    SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF7FE3E8), 0.16f),
+    SkyGlow(0.04f, 0.96f, 0.45f, SuitColors.blush, 0.1f),
+    SkyGlow(0.62f, 1.05f, 0.4f, Gold, 0.05f),
 )
 
 private val TwilightGlows = listOf(
-    SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF3FC6D4), 0.22f),
-    SkyGlow(0.06f, 0.95f, 0.5f, Color(0xFF8E6BE8), 0.2f),
+    SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF3FC6D4), 0.08f),
+    SkyGlow(0.06f, 0.95f, 0.5f, Color(0xFF8E6BE8), 0.07f),
 )
 
 /**
@@ -52,7 +54,7 @@ internal fun paintSky(width: Int, height: Int, twilight: Boolean): IntArray {
     val gr = FloatArray(n) { glows[it].radius * m }
     val inv = FloatArray(n) { 1f / (gr[it] * gr[it]) }
     val dy2 = FloatArray(n)
-    val beamPeak = if (twilight) 0.05f else 0.3f
+    val beamPeak = if (twilight) 0.015f else 0.08f
     val out = IntArray(width * height)
     for (y in 0 until height) {
         val py = y + 0.5f
