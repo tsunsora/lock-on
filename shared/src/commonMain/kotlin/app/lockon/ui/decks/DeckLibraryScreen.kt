@@ -315,7 +315,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                 }
                             }
                         }
-                        if (wide) { Spacer(Modifier.weight(1f)); actions() }
+                        if (wide) actions()
                     }
                     // Phones' folders (desktop has the rail). They pick a folder from one chip's menu, flanked
                     // by New folder and the open folder's actions; while a deck is held the folders spread out
