@@ -136,6 +136,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.foundation.interaction.HoverInteraction
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
@@ -1648,20 +1649,41 @@ object GameIcons {
 }
 
 /**
- * Draws [text] optically centred in its box: by the letters' cap height, not the line box, so a
- * capital or a digit sits in the middle of a circle instead of riding high.
+ * Draws [text] centred in its box by the letters' ink, not the line box or the advance width, so a
+ * capital or a digit sits in the middle of a circle. It is laid out large and scaled down because
+ * a small layout rounds its baseline and width to whole pixels, which moved the letter by up to a
+ * pixel depending on the font size.
  */
 @Composable
 fun CenteredGlyph(text: String, color: Color, fontSize: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers).copy(fontSize = fontSize, color = color, lineHeight = fontSize)
+    val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)
+        .copy(fontSize = fontSize * GlyphLayoutScale, color = color, lineHeight = fontSize * GlyphLayoutScale, letterSpacing = 0.sp)
     Canvas(modifier.fillMaxSize()) {
         val layout = measurer.measure(text, style)
+        val em = fontSize.toPx()
+        val down = 1f / GlyphLayoutScale
         // Quicksand's capitals and figures stand 0.70 em tall.
-        val cap = fontSize.toPx() * 0.70f
-        drawText(layout, topLeft = Offset((size.width - layout.size.width) / 2f, size.height / 2f + cap / 2f - layout.firstBaseline))
+        val cap = em * 0.70f
+        val bias = text.singleOrNull()?.let { GlyphInkBias[it] } ?: Offset.Zero
+        withTransform({
+            translate((size.width - layout.getLineRight(0) * down) / 2f - bias.x * em, size.height / 2f + cap / 2f - layout.firstBaseline * down - bias.y * em)
+            scale(down, down, pivot = Offset.Zero)
+        }) { drawText(layout) }
     }
 }
+
+private const val GlyphLayoutScale = 8
+
+/**
+ * How far Quicksand's bold glyphs sit from the middle of their advance and cap height, in em, for
+ * those far enough off to show. Measured from renders: a stem carries a wider margin than an open side.
+ */
+private val GlyphInkBias = mapOf(
+    'B' to Offset(0.018f, 0f), 'P' to Offset(0.018f, 0f), 'R' to Offset(0.019f, 0f),
+    '1' to Offset(-0.033f, 0f), '3' to Offset(-0.004f, 0.010f), '4' to Offset(-0.008f, 0f),
+    '5' to Offset(0f, 0.010f), '6' to Offset(0.008f, 0.006f), '7' to Offset(0.016f, 0.006f),
+)
 
 /**
  * A card colour as a small flat dot with its initial centred in it (UX rule I4): no gloss, rim or
