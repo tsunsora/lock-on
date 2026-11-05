@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -16,7 +17,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
@@ -45,8 +48,10 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import app.lockon.model.Card
+import app.lockon.platform.LightSystemBarIcons
+import app.lockon.platform.fullWindowDialogProperties
+import app.lockon.platform.isMobile
 import app.lockon.ui.theme.cardColor
 import kotlin.math.hypot
 
@@ -64,23 +69,27 @@ fun CardInspectDialog(card: Card, printingId: String?, onDismiss: () -> Unit) {
     val spec = motion<Float>(Motion.LONG)
     val appear = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(Unit) { appear.animateTo(1f, spec) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        BoxWithConstraints(Modifier.fillMaxSize().graphicsLayer { alpha = appear.value }, contentAlignment = Alignment.Center) {
-            // Clicks around the card land on this backdrop, which sits behind it.
-            Spacer(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.62f))
+    Dialog(onDismissRequest = onDismiss, properties = fullWindowDialogProperties()) {
+        LightSystemBarIcons()
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = appear.value }) {
+            // Clicks around the card land on this backdrop, which sits behind it. Phones get no system dim
+            // under it, so it is darker there.
+            Spacer(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (isMobile) 0.84f else 0.62f))
                 .clickable(interactionSource = null, indication = null, onClick = onDismiss))
-            // Room is left under the card for its name.
-            val width = minOf(maxWidth * 0.9f, (maxHeight - 112.dp) * CARD_ASPECT)
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                TiltingCard(card, printingId, Modifier.width(width).graphicsLayer {
-                    val s = 0.94f + 0.06f * appear.value
-                    scaleX = s; scaleY = s
-                })
-                Text(card.name, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f),
-                    textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
-            }
-            IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+            BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+                // Room is left under the card for its name.
+                val width = minOf(maxWidth * 0.9f, (maxHeight - 112.dp) * CARD_ASPECT)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    TiltingCard(card, printingId, Modifier.width(width).graphicsLayer {
+                        val s = 0.94f + 0.06f * appear.value
+                        scaleX = s; scaleY = s
+                    })
+                    Text(card.name, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                }
             }
         }
     }

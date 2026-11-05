@@ -41,6 +41,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -99,7 +101,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
-import androidx.compose.ui.window.DialogProperties
 import app.lockon.model.Card
 import app.lockon.model.Printing
 import app.lockon.ui.theme.LockOnShapes
@@ -170,19 +171,17 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
 /**
  * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
  * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
- * Below 100 dp wide it keeps only the colour, the cost and the symbol, so small faces never crowd.
+ * Below 100 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
  */
 @Composable
 fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
     val cardColor = card?.colors?.firstOrNull()
     val color = cardColor(cardColor)
     val white = cardColor == app.lockon.model.CardColor.WHITE
-    val top = if (white) Color(0xFFF4F6FA) else lighten(color, 0.35f)
-    val bottom = if (white) Color(0xFFC7CFDC) else darken(color, 0.35f)
     val glyphInk = if (white) darken(color, 0.55f) else Color.White
     val type = card?.type
     BoxWithConstraints(
-        modifier.background(Brush.linearGradient(listOf(top, if (white) Color(0xFFDDE3EC) else color, bottom)))
+        modifier.background(color)
             .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
     ) {
         val u = maxWidth.value / 63f // one card millimetre in dp
@@ -191,18 +190,16 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            drawPath(Path().apply { moveTo(-w * 0.1f, h * 0.34f); lineTo(w * 1.1f, h * 0.07f); lineTo(w * 1.1f, h * 0.25f); lineTo(-w * 0.1f, h * 0.52f); close() },
-                Color.White.copy(alpha = 0.10f))
             val c = Offset(w * 0.524f, h * (if (full) 0.466f else 0.5f))
             val r = w * (if (full) 0.222f else 0.27f)
             drawCircle(Color.White.copy(alpha = if (white) 0.55f else 0.18f), r, c)
             drawTypeGlyph(type, c, r * 1.05f, glyphInk, stroke = (w / 63f) * 1.55f)
         }
-        // Cost on a white-rimmed disc in the card's colour.
-        Box(
+        // Cost on a white-rimmed disc in the card's colour; a deck row's thumbnail is too small for one, and its cost sits beside it.
+        if (maxWidth >= 48.dp) Box(
             Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 3.6f).dp).size((u * 15).dp)
-                .shadow(2.dp, CircleShape).clip(CircleShape)
-                .background(if (white) Brush.radialGradient(listOf(Color.White, Color(0xFFDFE4EC))) else Brush.radialGradient(listOf(lighten(color, 0.3f), color)))
+                .clip(CircleShape)
+                .background(color)
                 .border(BorderStroke((u * 0.9f).dp, Color.White.copy(alpha = 0.9f)), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
@@ -433,7 +430,8 @@ fun DeckStrip(
         // A strip shows only a crop of the art, so the whole card opens beside it on hover.
         if (card != null) CardHoverPreview(card, printingId, hovered)
         Row(Modifier.fillMaxSize().padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            CostOrb(card?.cost, color, onCardColor(card?.colors?.firstOrNull()), size = if (compact) 28.dp else 32.dp)
+            val lead = card?.colors?.firstOrNull()
+            CostOrb(card?.cost, color, onCardColor(lead), size = if (compact) 28.dp else 32.dp, outlined = lead == app.lockon.model.CardColor.WHITE)
             Spacer(Modifier.width(8.dp))
             // Aimed at the art box in the upper half of the card.
             Box(Modifier.size(if (compact) 30.dp else 34.dp, if (compact) 38.dp else 42.dp).clip(RoundedCornerShape(6.dp))) {
@@ -732,11 +730,17 @@ fun CardDetailDialog(
     extraActions: (@Composable () -> Unit)? = null,
 ) {
     val arrival = rememberArrival()
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Dialog(onDismissRequest = onDismiss, properties = app.lockon.platform.fullWindowDialogProperties()) {
+        app.lockon.platform.LightSystemBarIcons()
         // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
-        // the panel rather than around it, so clicks inside never reach it.
-        Spacer(Modifier.fillMaxSize().clickable(interactionSource = null, indication = null, onClick = onDismiss))
+        // the panel rather than around it, so clicks inside never reach it. Phones get no system dim, so it paints one.
+        Spacer(Modifier.fillMaxSize().graphicsLayer { alpha = arrival.value }
+            .then(if (app.lockon.platform.isMobile) Modifier.background(Color.Black.copy(alpha = 0.6f)) else Modifier)
+            .clickable(interactionSource = null, indication = null, onClick = onDismiss))
+        BoxWithConstraints(
+            Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.safeDrawing),
+            contentAlignment = Alignment.Center,
+        ) {
         val maxHeight = maxHeight * 0.9f
         // Phones keep a slimmer frame so the card details get the width.
         val narrow = maxWidth < 600.dp
@@ -747,8 +751,9 @@ fun CardDetailDialog(
             modifier = Modifier.widthIn(max = 1040.dp).fillMaxWidth(0.94f).heightIn(max = maxHeight)
                 .arrive(arrival).glassFrame(),
         ) {
-            Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = 8.dp, bottom = 16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = if (narrow) 16.dp else 8.dp, bottom = 16.dp)) {
+                // The frame's end is slim to leave the details their scroll bar's lane; Close keeps a proper margin.
+                Row(Modifier.padding(end = if (narrow) 12.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(card.name, style = if (narrow) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
