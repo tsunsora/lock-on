@@ -37,6 +37,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.shape.CircleShape
 import app.lockon.ui.components.lighten
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import app.lockon.ui.components.CardBack
@@ -797,8 +799,7 @@ private fun DeckRow(
             else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(200f, 240f))
         }
         Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(band), contentAlignment = Alignment.Center) {
-            CardArtwork(art, null, Modifier.matchParentSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f)) { Box(Modifier.fillMaxSize()) }
-            if (art != null) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.24f)))
+            DeckArtBackdrop(art) { Box(Modifier.fillMaxSize()) }
             val card = Modifier.width(54.dp).graphicsLayer { rotationZ = -6f }
             if (cover != null) CardImage(cover.card, card, cover.printingId) else CardBack(card)
         }
@@ -904,14 +905,11 @@ private fun DeckTile(
         modifier.fillMaxWidth().focusRing(LockOnShapes.panel, hovered).clip(LockOnShapes.panel).background(app.lockon.ui.components.glassColors().strong)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
     ) {
-        Box(Modifier.fillMaxWidth().height(92.dp).clipToBounds().background(band)) {
-            // The prominent card's art fills the band; until it loads, or without art, the deck's colours do.
-            CardArtwork(art, null, Modifier.matchParentSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f)) {
+        Box(Modifier.fillMaxWidth().height(104.dp).clipToBounds().background(band)) {
+            DeckArtBackdrop(art) {
                 Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.Transparent), end = Offset(520f, 260f))))
             }
-            // Keeps the colours readable over busy art, and sets the fan apart from the same art behind it.
-            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = if (art != null) 0.24f else 0f)))
-            CardFan(fan, cardWidth = 54.dp, Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 12.dp), spread = 0.42f, tilt = 12f, sideDrop = (-6).dp)
+            CardFan(fan, cardWidth = 60.dp, Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 12.dp), spread = 0.42f, tilt = 12f, sideDrop = (-4).dp, elevation = 8.dp)
             Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)) { ColorPips(colors, size = 24.dp) }
         }
         Column(Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -948,6 +946,13 @@ private fun DeckTile(
     }
 }
 private val CompactDeckBoxHeight = 106.dp
+
+/** The cover card's art, soft and dim, so the sharp cards and colours in front of it stand out from the same art. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.DeckArtBackdrop(art: String?, fallback: @Composable () -> Unit) {
+    CardArtwork(art, null, Modifier.matchParentSize().blur(8.dp, BlurredEdgeTreatment.Rectangle), ContentScale.Crop, BiasAlignment(0f, -0.5f), fallback)
+    if (art != null) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.42f)))
+}
 
 @Composable
 fun TextPromptDialog(
