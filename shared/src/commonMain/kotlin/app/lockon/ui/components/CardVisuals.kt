@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -85,6 +86,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -339,7 +341,7 @@ fun CardTile(
                     .border(BorderStroke(1.dp, if (isTwilight()) Color.White.copy(alpha = 0.12f) else Color.Transparent), SmallPlate),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.centredOverPips(MaterialTheme.typography.titleLarge, limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
                     RollingNumber(
                         count, MaterialTheme.typography.titleLarge.merge(TabularNumbers),
                         if (count > 0) scheme.onSurface else scheme.onSurfaceVariant, Modifier.bumpOnIncrease(count),
@@ -362,6 +364,18 @@ fun CardTile(
 }
 
 private val SmallPlate = RoundedCornerShape(14.dp)
+
+/**
+ * Lifts a count with copy pips under it, so what you see sits in the middle: the number's line has
+ * empty space above the figure and the pips have none below them, which left the pair low on its plate.
+ */
+@Composable
+private fun Modifier.centredOverPips(number: TextStyle, pips: Boolean): Modifier {
+    if (!pips) return this
+    // Half the space above the figure (Quicksand's figures stand 0.70 em tall), plus half a dp for how low they sit in their line.
+    val lift = with(LocalDensity.current) { (number.lineHeight.toDp() - number.fontSize.toDp() * 0.70f) / 4 } + 0.5.dp
+    return offset(y = -lift)
+}
 
 /** A chamfered tile button: 32 dp to look at, 48 dp to hit. Plus glows V-fin yellow. */
 @Composable
@@ -772,7 +786,7 @@ fun CardDetailDialog(
                 ) { Box(Modifier.padding(vertical = 4.dp).size(width = 40.dp, height = 5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))) }
                 else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(card.name, style = if (narrow) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        modifier = Modifier.weight(1f).padding(end = 12.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
                 }
                 CardDetailContent(card, printings, Modifier.weight(1f, fill = false).padding(end = 12.dp, top = 8.dp), actions = extraActions,
@@ -913,7 +927,7 @@ fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () ->
     val scheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically) {
         TileButton("−", "Remove one $name", enabled = quantity > 0) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }
-        Column(Modifier.widthIn(min = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.widthIn(min = 30.dp).centredOverPips(MaterialTheme.typography.titleMedium, pips && limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
             RollingNumber(
                 quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers),
                 if (limit != null && quantity > limit) scheme.error else scheme.onSurface, Modifier.bumpOnIncrease(quantity),
@@ -960,7 +974,7 @@ fun DeckCard(
         }
         // Stacked, like CardTile's plate, so a narrow phone column can't squeeze the + against the edge.
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.centredOverPips(MaterialTheme.typography.titleMedium, limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("×", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 1.dp))
                     RollingNumber(quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers), scheme.primary, Modifier.bumpOnIncrease(quantity))
