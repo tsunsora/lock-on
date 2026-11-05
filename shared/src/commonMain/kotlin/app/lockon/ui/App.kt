@@ -289,8 +289,10 @@ fun LockOnApp(
                 // The decks changed most recently are the likeliest to be opened: build their editors too.
                 val recent = container.decks.liveDecks.first().filterNot { it.snapshot.deleted }
                     .sortedByDescending { it.updatedAt }.take(KeptDeckLimit).map { it.deckId }
-                recentDecks += recent
-                keptDecks += recent.map { Screen.DeckEditor(it) }
+                // A deck already open is kept already; a second editor would draw beneath the first.
+                val fresh = recent.filter { id -> keptDecks.none { it.deckId == id } }
+                recentDecks += fresh
+                keptDecks += fresh.map { Screen.DeckEditor(it) }
                 bootStep = BootStep.CARDS
                 // The tab that opens first goes first. Each screen starts loading its card images as it builds.
                 for (tab in listOf(state.tab) + (Tab.entries - state.tab)) {
