@@ -5,6 +5,7 @@ import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.model.Printing
+import app.lockon.model.SearchText
 
 /**
  * Plain-text deck lists people can paste into chat or forums:
@@ -53,6 +54,12 @@ object DeckListFormat {
     private const val MAX_QUANTITY = 99
 
     /**
+     * Lists from elsewhere write "Zaku II" and "Uso Ewin" for the catalog's Zaku Ⅱ and Üso Ewin.
+     * Punctuation stays, as GN Armor (Type-E) and GN Armor Type-E are different cards.
+     */
+    private fun nameKey(name: String) = SearchText.fold(name.trim())
+
+    /**
      * Reads a deck list. Lines may name cards by number, by printing ID (`GD01-001_p1`, which keeps
      * that art) or by name, as long as the name belongs to only one card.
      */
@@ -64,7 +71,7 @@ object DeckListFormat {
     ): ParseResult {
         val problems = mutableListOf<String>()
         // Tokens share names with real cards (Zaku Ⅱ), and a list naming one means the card.
-        val byName = cards.values.filter { !it.type.isToken }.groupBy { it.name.lowercase() }
+        val byName = cards.values.filter { !it.type.isToken }.groupBy { nameKey(it.name) }
         val byPrinting = printings.values.flatten().associateBy { it.printingId.uppercase() }
         var name = defaultName
         var section = DeckSection.MAIN
@@ -100,7 +107,7 @@ object DeckListFormat {
                 }
                 else -> {
                     val named = lineWithName.matchEntire(line)
-                    val matches = named?.let { byName[it.groupValues[2].trim().lowercase()] }.orEmpty()
+                    val matches = named?.let { byName[nameKey(it.groupValues[2])] }.orEmpty()
                     if (named == null || matches.isEmpty()) {
                         problems += "Line ${index + 1}: could not read \"$line\"."
                         continue
