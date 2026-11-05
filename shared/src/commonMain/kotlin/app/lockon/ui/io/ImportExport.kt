@@ -1,4 +1,5 @@
 package app.lockon.ui.io
+import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.GameDialog
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
@@ -70,10 +71,11 @@ fun NewDeckDialog(
     onDismiss: () -> Unit,
     folders: List<String> = emptyList(),
     folder: String? = null,
+    startPasting: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     var name by remember { mutableStateOf("") }
-    var pasting by remember { mutableStateOf(false) }
+    var pasting by remember { mutableStateOf(startPasting) }
     var text by remember { mutableStateOf("") }
     var problems by remember { mutableStateOf<List<String>>(emptyList()) }
     // null is "No folder" and "" is the typed new folder; anything else names an existing folder.
@@ -133,7 +135,7 @@ fun NewDeckDialog(
                         (folders.map { it to it } + ("No folder" to null) + ("New folder" to "")).forEach { (label, value) ->
                             PillChip(
                                 selected = folderChoice == value, onClick = { folderChoice = value }, label = { Text(label) },
-                                leadingIcon = { Icon(if (value == "") Icons.Default.Add else FolderIcon, contentDescription = null, Modifier.size(16.dp)) },
+                                leadingIcon = { Icon(if (value == "") LineIcons.Folderplus else LineIcons.Folder, contentDescription = null, Modifier.size(16.dp)) },
                             )
                         }
                     }
@@ -143,7 +145,7 @@ fun NewDeckDialog(
                 }
                 PillSegmented(
                     listOf("Empty", "Paste a list"), if (pasting) 1 else 0, { pasting = it == 1; problems = emptyList() },
-                    Modifier.fillMaxWidth(), icons = listOf(Icons.Default.Add, PasteIcon),
+                    Modifier.fillMaxWidth(), icons = listOf(LineIcons.Plus, LineIcons.Paste),
                 )
                 if (pasting) {
                     OutlinedTextField(
@@ -158,7 +160,7 @@ fun NewDeckDialog(
                         when {
                             isBackup -> Text("Lock On backup", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
                             read > 0 -> {
-                                Icon(Icons.Default.Check, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
+                                Icon(LineIcons.Check, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
                                 Text(
                                     "$read cards read" + if (skipped > 0) ", $skipped lines skipped" else "",
                                     style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurfaceVariant,
@@ -177,21 +179,4 @@ fun NewDeckDialog(
         confirmButton = { GameButton(if (isBackup) "Import" else "Create", onClick = ::create, enabled = !pasting || input.isNotEmpty(), compact = true) },
         dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true) },
     )
-}
-
-private fun glyph(name: String, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit) =
-    ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(
-        androidx.compose.ui.graphics.vector.PathData(block), fill = SolidColor(Color.Black),
-    ).build()
-
-/** A folder, which Material's core icon set lacks. */
-private val FolderIcon: ImageVector = glyph("Folder") {
-    moveTo(4f, 5f); lineTo(9.5f, 5f); lineTo(11.5f, 7f); lineTo(20f, 7f); quadTo(22f, 7f, 22f, 9f); lineTo(22f, 18f); quadTo(22f, 20f, 20f, 20f)
-    lineTo(4f, 20f); quadTo(2f, 20f, 2f, 18f); lineTo(2f, 7f); quadTo(2f, 5f, 4f, 5f); close()
-}
-
-/** A clipboard, which Material's core icon set lacks. */
-private val PasteIcon: ImageVector = glyph("Paste") {
-    moveTo(9f, 2f); lineTo(15f, 2f); lineTo(15f, 4f); lineTo(18f, 4f); quadTo(20f, 4f, 20f, 6f); lineTo(20f, 20f); quadTo(20f, 22f, 18f, 22f)
-    lineTo(6f, 22f); quadTo(4f, 22f, 4f, 20f); lineTo(4f, 6f); quadTo(4f, 4f, 6f, 4f); lineTo(9f, 4f); close()
 }

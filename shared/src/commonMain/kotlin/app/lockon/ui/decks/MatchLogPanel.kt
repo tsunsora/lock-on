@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -118,7 +119,7 @@ fun MatchLogPanel(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 WinRing(stats.overall.winRate)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (stats.overall.games == 0) "0–0" else stats.overall.score, style = MaterialTheme.typography.headlineMedium.merge(TabularNumbers))
+                    Text(if (stats.overall.games == 0) "0–0" else stats.overall.score, style = MaterialTheme.typography.headlineLarge.merge(TabularNumbers))
                     RecordRow("1st", stats.goingFirst, nameWidth = 36.dp)
                     RecordRow("2nd", stats.goingSecond, nameWidth = 36.dp)
                 }
@@ -129,7 +130,7 @@ fun MatchLogPanel(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PillTextField(opponent, { opponent = it }, "Opponent", Modifier.weight(1f))
                     TurnChoice(turn) { turn = it }
-                    GlassIconButton(Icons.Default.Edit, "Add a note", { noting = !noting }, compact = true)
+                    GlassIconButton(LineIcons.Edit, "Add a note", { noting = !noting }, compact = true)
                 }
                 // Earlier opponents to pick from instead of typing (UX rule C4).
                 val picks = opponentSuggestions.filter { opponent.isNotBlank() && it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(6)
@@ -154,7 +155,7 @@ fun MatchLogPanel(
         }
         if (stats.byOpponent.isNotEmpty()) {
             item(key = "opponents") {
-                Column(Modifier.animateItem(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.animateItem(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     SectionHeader("By opponent")
                     stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 150.dp) }
                 }
@@ -193,7 +194,7 @@ fun MatchLogPanel(
                 }
                 GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     GameMenuItem(formatTimestamp(match.playedAt), onClick = { menu = false })
-                    GameMenuItem("Remove this match", onClick = { menu = false; onDelete(match) }, icon = Icons.Default.Delete, danger = true)
+                    GameMenuItem("Remove this match", onClick = { menu = false; onDelete(match) }, icon = LineIcons.Trash, danger = true)
                 }
             }
         }

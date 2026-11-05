@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -82,8 +83,8 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
             }
         }
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile(Icons.Default.Star, "Burst", stats.burstCount, Modifier.weight(1f).fillMaxHeight())
-            StatTile(Glyphs.Shield, "Blockers", stats.blockerCount, Modifier.weight(1f).fillMaxHeight())
+            StatTile(LineIcons.Burst, "Burst", stats.burstCount, Modifier.weight(1f).fillMaxHeight())
+            StatTile(LineIcons.Wall, "Blockers", stats.blockerCount, Modifier.weight(1f).fillMaxHeight())
             StatTile(Glyphs.Link, "Links", stats.linkPairs.size, Modifier.weight(1f).fillMaxHeight(),
                 onClick = if (stats.linkPairs.isEmpty()) null else ({ showLinks = !showLinks }))
         }
@@ -101,7 +102,10 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         }
         if (stats.costCurve.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
             Text("Cost", style = MaterialTheme.typography.titleSmall)
-            MiniCurve(stats.costCurve, Modifier.fillMaxWidth(), height = 112.dp, caption = false, prefix = "")
+            // Few cards cost more than 5, so they share a bar.
+            val high = stats.costCurve.filter { it.first >= 5 }.sumOf { it.second }
+            val costs = stats.costCurve.filter { it.first < 5 } + if (high > 0) listOf(5 to high) else emptyList()
+            MiniCurve(costs, Modifier.fillMaxWidth(), height = 112.dp, caption = false, prefix = "", suffixLast = if (high > 0) "+" else "")
         }
         val slate = if (isTwilight()) ChartSlateTwilight else ChartSlate
         // Tokens only show when a deck has one by mistake, which legality already flags.

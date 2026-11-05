@@ -52,7 +52,11 @@ fun AppUpdateCard(updater: AppUpdater?, scope: CoroutineScope) {
 @Composable
 fun AppUpdateSection(updater: AppUpdater?, scope: CoroutineScope) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Lock On ${BuildInfo.VERSION}", style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Lock On ${BuildInfo.VERSION}", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            val state = updater?.takeIf { it.enabled }?.state?.collectAsState()?.value
+            if (state == UpdateState.UpToDate) app.lockon.ui.components.StateTag(legal = true, label = "Up to date")
+        }
         if (updater == null || !updater.enabled) {
             Text("This build doesn't check for updates.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -88,7 +92,7 @@ private fun UpdateBody(updater: AppUpdater, scope: CoroutineScope) {
     when (val s = state) {
         UpdateState.Idle -> Line(checkedAt?.let { "Last checked ${formatTimestamp(it)}" } ?: "Not checked for updates yet.")
         UpdateState.Checking -> Line("Checking for updates…", working = true)
-        UpdateState.UpToDate -> Line("You have the latest version.")
+        UpdateState.UpToDate -> Unit
         is UpdateState.Available -> {
             Line("Version ${s.version} is available.")
             Notes(s.notes)

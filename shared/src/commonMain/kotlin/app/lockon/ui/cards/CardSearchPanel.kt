@@ -1,7 +1,9 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.LineIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import app.lockon.ui.components.Glyphs
+import app.lockon.ui.components.ViewToggle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -238,12 +240,12 @@ fun CardSearchPanel(
     fun ViewControls() {
         PillChip(
             selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") },
-            leadingIcon = { Icon(Glyphs.Filters, contentDescription = null, Modifier.size(16.dp)) },
+            leadingIcon = { Icon(LineIcons.Sliders, contentDescription = null, Modifier.size(16.dp)) },
         )
         Box {
             PillChip(
                 selected = false, onClick = { sortMenu = true },
-                label = { Text(sort.label); Icon(Icons.Default.ArrowDropDown, contentDescription = null, Modifier.size(18.dp)) },
+                label = { Text(sort.label); Icon(LineIcons.Chevd, contentDescription = null, Modifier.size(18.dp)) },
                 leadingIcon = { Icon(Glyphs.Sort, contentDescription = "Sort by", Modifier.size(16.dp)) },
             )
             GameMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
@@ -253,16 +255,14 @@ fun CardSearchPanel(
             }
         }
         // The editor keeps this in Filters, so the row stays clear beside its Deck and Side switch.
-        if (deckColors == null) PillChip(
-            selected = false, onClick = { grid = !grid },
-            label = { Icon(if (grid) Glyphs.Rows else Glyphs.Grid, contentDescription = if (grid) "Show as list" else "Show as grid", Modifier.size(18.dp)) },
-        )
+        if (deckColors == null) ViewToggle(grid, { grid = it }, cardsFirst = true)
     }
 
     // Filters set beyond the quick row, so a closed Filters chip still says something is on.
     val drawerFilters = query.levels.size + query.costs.size + query.aps.size + query.hps.size + query.setCodes.size +
         (if (query.trait.isBlank()) 0 else 1)
-    val hiddenFilters = drawerFilters + (if (!wide && sort != defaultSort) 1 else 0)
+    val hiddenFilters = drawerFilters + (if (!wide && sort != defaultSort) 1 else 0) +
+        (if (!wide && deckColors != null) query.colors.size + query.types.size else 0)
     Column(modifier) {
         // Two rows instead of a field and wrapped chips: the search with its count and view
         // controls, then colours as orbs and types as chips (UX rules N4, S5). On phones the view
@@ -272,23 +272,26 @@ fun CardSearchPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            leading?.invoke(this)
+            if (wide) leading?.invoke(this)
             PillSearchField(
                 query.text, { query = query.copy(text = it) },
-                placeholder = if (query.isEmpty) "Search ${cards.size} cards" else "Name, card number, or text",
+                placeholder = "Search ${results.size} cards",
                 modifier = Modifier.weight(1f).focusRequester(focus),
                 onClear = if (query.isEmpty) null else ({ query = CardQuery() }),
                 shortcut = "Ctrl F",
             )
-            // The placeholder has the full count, so this shows only once something narrows the list.
-            if (results.size != cards.size) Text(
+            // The placeholder has the count until a search is typed over it.
+            if (query.text.isNotEmpty()) Text(
                 "${results.size}", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
                 color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 4.dp),
             )
             if (wide) ViewControls()
             // Holding it clears every filter and the sort but keeps the search text.
             else PillChip(selected = showMore, onClick = { showMore = !showMore },
-                label = { Text(if (hiddenFilters > 0) "Filters · $hiddenFilters" else "Filters") },
+                label = {
+                    Icon(LineIcons.Sliders, contentDescription = "Filters", Modifier.size(18.dp))
+                    if (hiddenFilters > 0) Text("$hiddenFilters", Modifier.padding(start = 4.dp))
+                },
                 onLongClick = {
                     query = CardQuery(text = query.text)
                     deckColorsOnly = false
@@ -303,8 +306,8 @@ fun CardSearchPanel(
         ) {
             CardColor.entries.forEach { color ->
                 Box(Modifier.align(Alignment.CenterVertically)) {
-                    ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors,
-                        outlined = color == CardColor.WHITE) {
+                    ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors || (colorLimit != null && color in colorLimit),
+                        outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
                         query = query.copy(colors = query.colors.toggle(color))
                     }
                 }
@@ -328,42 +331,33 @@ fun CardSearchPanel(
                 )
             }
         }
-        // Phones fold colours and types into a chip each, whose menu toggles them and stays open, so the
-        // row fits the screen. It still scrolls on the narrowest, its far edge fading to show there is more.
-        else Row(
-            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState())
-                .padding(start = 10.dp, end = 32.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        // Phones: in a deck, where + goes and Deck colors, with colours and types in Filters; in Cards,
+        // colours and types themselves, scrolling sideways with a fade at the edge.
+        else if (deckColors != null) Row(
+            Modifier.fillMaxWidth().padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading?.invoke(this)
+            Spacer(Modifier.weight(1f))
+            if (deckColorsChip) PillChip(
+                selected = deckColorsOnly, onClick = { deckColorsOnly = !deckColorsOnly }, label = { Text("Deck colors") },
+                leadingIcon = if (deckColorsOnly) ({ Icon(LineIcons.Check, contentDescription = null, Modifier.size(16.dp)) }) else null,
+            )
+        } else Row(
+            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MenuChip(
-                selected = query.colors.isNotEmpty(),
-                label = {
-                    Text("Colors")
-                    CardColor.entries.filter { it in query.colors }.forEach { color ->
-                        ColorDot(cardColor(color), onCardColor(color), "", size = 12.dp, outlined = color == CardColor.WHITE)
-                    }
-                },
-            ) {
-                CardColor.entries.forEach { color ->
-                    GameMenuItem(color.label, onClick = { query = query.copy(colors = query.colors.toggle(color)) },
-                        selected = color in query.colors,
-                        leading = { ColorDot(cardColor(color), onCardColor(color), color.label.take(1), size = 22.dp, outlined = color == CardColor.WHITE) })
+            CardColor.entries.forEach { color ->
+                ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors || (colorLimit != null && color in colorLimit), outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
+                    query = query.copy(colors = query.colors.toggle(color))
                 }
             }
-            MenuChip(
-                selected = query.types.isNotEmpty(),
-                label = {
-                    val picked = types.filter { it in query.types }
-                    Text(if (picked.isEmpty()) "Type" else picked.first().label + if (picked.size > 1) " +${picked.size - 1}" else "")
-                },
-            ) {
-                types.forEach { type ->
-                    GameMenuItem(type.label, onClick = { query = query.copy(types = query.types.toggle(type)) }, selected = type in query.types)
-                }
-            }
-            if (deckColorsChip) {
-                PillChip(selected = deckColorsOnly, onClick = { deckColorsOnly = !deckColorsOnly }, label = { Text("Deck colors") })
+            Spacer(Modifier.width(4.dp))
+            types.forEach { type ->
+                PillChip(
+                    selected = type in query.types, onClick = { query = query.copy(types = query.types.toggle(type)) }, label = { Text(type.label) },
+                    leadingIcon = { Icon(type.chipIcon(), contentDescription = null, Modifier.size(16.dp)) },
+                )
             }
         }
         // The drawer unfolds from under the quick row and its lines deal in one after another, top
@@ -394,6 +388,20 @@ fun CardSearchPanel(
                 else Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(vertical = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(if (wide) 4.dp else 0.dp),
             ) {
+                // In a phone's deck, colours and types live here too, leaving the row for where + goes.
+                if (!wide && deckColors != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(horizontal = 10.dp)) {
+                    CardColor.entries.forEach { color ->
+                        ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors || (colorLimit != null && color in colorLimit), outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
+                            query = query.copy(colors = query.colors.toggle(color))
+                        }
+                    }
+                    types.forEach { type ->
+                        PillChip(
+                            selected = type in query.types, onClick = { query = query.copy(types = query.types.toggle(type)) }, label = { Text(type.label) },
+                            leadingIcon = { Icon(type.chipIcon(), contentDescription = null, Modifier.size(16.dp)) },
+                        )
+                    }
+                }
                 if (!wide) {
                     // On phones sort order and view live here, keeping the quick row for filters.
                     Row(Modifier.padding(horizontal = 12.dp).dealt(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -446,7 +454,6 @@ fun CardSearchPanel(
                 }
             }
         }
-        HorizontalDivider(Modifier.padding(top = 4.dp))
         // Grid and list, and results and "no cards match", fade through each other instead of swapping.
         val view = when { results.isEmpty() -> ResultsView.EMPTY; grid -> ResultsView.GRID; else -> ResultsView.LIST }
         Crossfade(view, Modifier.weight(1f).fillMaxWidth(), animationSpec = motion(), label = "results") { view ->
@@ -596,8 +603,8 @@ private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - valu
 
 /** A small picture for a card type on its filter chip. */
 private fun CardType.chipIcon(): androidx.compose.ui.graphics.vector.ImageVector = when (this) {
-    CardType.PILOT -> Icons.Default.Person
-    CardType.COMMAND -> Glyphs.Bolt
-    CardType.BASE -> Icons.Default.Home
-    else -> Glyphs.Shield
+    CardType.PILOT -> LineIcons.Pilot
+    CardType.COMMAND -> LineIcons.Command
+    CardType.BASE -> LineIcons.Base
+    else -> LineIcons.Unit
 }

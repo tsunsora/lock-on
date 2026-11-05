@@ -1,4 +1,5 @@
 package app.lockon.desktop
+import androidx.compose.runtime.Composable
 import androidx.compose.foundation.background
 import app.lockon.ui.components.shineSweep
 
@@ -312,8 +313,8 @@ class ScreenshotTest {
         shoot("phone-settings", 600, 1260) { select(Tab.SETTINGS) }
         shoot("light-phone-settings", 600, 1260, dark = false) { select(Tab.SETTINGS) }
         shoot("phone-settings-full", 600, 3000) { select(Tab.SETTINGS) }
-        // More is the bar's first button: the 300 dp pill is centred in the 400 dp phone, 30 dp above the bottom margin.
-        val more = androidx.compose.ui.geometry.Offset(150f, 1260f - 1.5f * 42f)
+        // More is the bar's last button: the pill spans most of the 400 dp phone, 42 dp above the bottom.
+        val more = androidx.compose.ui.geometry.Offset(476f, 1260f - 1.5f * 42f)
         shoot("phone-more-menu", 600, 1260, taps = listOf(more)) { open(Screen.DeckEditor(deckId)) }
         shoot("light-phone-more-menu", 600, 1260, dark = false, taps = listOf(more)) { open(Screen.DeckEditor(deckId)) }
     }
@@ -333,6 +334,33 @@ class ScreenshotTest {
                 File(out, "new-deck-${if (dark) "dark" else "light"}.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
             }
         }
+    }
+
+    /** Screens that need a state the app rarely reaches, each drawn on its own. */
+    @Test fun renderRareScreens() {
+        fun draw(name: String, width: Int, height: Int, content: @Composable () -> Unit) {
+            ImageComposeScene(width, height, Density(1f)) {
+                app.lockon.ui.theme.LockOnTheme(dark = false) {
+                    androidx.compose.material3.Surface(color = androidx.compose.ui.graphics.Color(0xFFD6ECFA)) { content() }
+                }
+            }.use { scene ->
+                var image = scene.render()
+                repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+                File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+        }
+        draw("phone-no-decks", 390, 844) { app.lockon.ui.decks.NoDecks({}, {}, {}) }
+        val deck = runBlocking { container.decks.currentSnapshot(deckId)!! }
+        val changed = deck.withQuantity("SMP-012", DeckSection.MAIN, 2)
+        val cards = container.catalog.cards.value
+        val mine = app.lockon.model.DeckVersion("a", "here", 1_761_400_000_000, deck)
+        val theirs = app.lockon.model.DeckVersion("b", "there", 1_761_300_000_000, changed)
+        draw("desktop-compare-card", 620, 460) {
+            app.lockon.ui.decks.VersionCard(mine, listOf(theirs), cards, "This device", fromComputer = true, androidx.compose.ui.Modifier.padding(16.dp), onKeep = {})
+        }
+        sync.pairingPrompt.value = app.lockon.sync.PairingPrompt("r1", "Pixel 9", "482913", false)
+        draw("desktop-pairing", 1440, 900) { app.lockon.ui.sync.SyncPrompts(sync) }
+        sync.pairingPrompt.value = null
     }
 
     /** The deck panel's other tabs on a computer, in both themes. */

@@ -1,5 +1,6 @@
 package app.lockon.ui.decks
 
+import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.revealOut
 import app.lockon.ui.components.revealIn
 import androidx.compose.animation.Crossfade
@@ -115,7 +116,7 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     val shieldWidth = minOf(MAX_SHIELD, (inner - SHIELD_GAP * (SampleHand.SHIELDS - 1)) / SampleHand.SHIELDS)
     // Cards take about a third of the width, but no taller than lets the opening hand's fan and the
     // shields fit without scrolling.
-    val besideHand = 32.dp + STATS_HEIGHT + HEADER_HEIGHT * 2 + 12.dp * 4 + shieldWidth / CARD_ASPECT + 36.dp
+    val besideHand = 32.dp + STATS_HEIGHT + HEADER_HEIGHT * 2 + 12.dp * 5 + shieldWidth / CARD_ASPECT + 36.dp + 44.dp
     val fitWidth = (maxHeight - besideHand) * CARD_ASPECT
     val handWidth = minOf(inner * 0.3f, MAX_HAND_CARD, fitWidth.coerceAtLeast(MIN_HAND_CARD))
     val scroll = rememberScrollState()
@@ -154,19 +155,18 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
                 )
             }
         }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 4.dp, bottom = LocalNavClearance.current),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // The first draw keeps the hand and sets the shields, as the rules go.
+            GameButton("Redraw", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, enabled = game.canRedraw, icon = LineIcons.Hand, compact = true)
+            GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f), enabled = game.canDraw, icon = LineIcons.Draw, compact = true)
+            GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (app.lockon.ui.components.LocalTopBand.current.height == 0.dp) null else LineIcons.Shuffle, compact = true)
+        }
     }
     VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
-    }
-    // Actions stay pinned in the thumb zone instead of scrolling away under the cards (UX rule R3).
-    Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp + LocalNavClearance.current),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The first draw keeps the hand and sets the shields, as the rules go.
-        GameButton("Redraw", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, enabled = game.canRedraw, icon = GameIcons.Hand, compact = true)
-        GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f), enabled = game.canDraw, icon = GameIcons.Deck, compact = true)
-        GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (app.lockon.platform.isMobile) null else Icons.Default.Refresh, compact = true)
     }
     }
     detail?.let { CardDetailDialog(it, emptyList(), onDismiss = { detail = null }) }
@@ -209,7 +209,7 @@ private fun HandStats(game: SampleHand) {
     val scheme = MaterialTheme.colorScheme
     val left = game.library.size - if (game.shieldsPlaced) 0 else SampleHand.SHIELDS
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        listOf(GameIcons.Deck to "$left left", GameIcons.Clock to "Turn ${game.drawsTaken + 1}").forEach { (icon, text) ->
+        listOf(LineIcons.Decks to "$left left", LineIcons.Flag to "Turn ${game.drawsTaken + 1}").forEach { (icon, text) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(icon, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
                 Text(text, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)

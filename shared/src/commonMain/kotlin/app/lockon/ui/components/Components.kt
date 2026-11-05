@@ -243,7 +243,7 @@ fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = fal
  * such as the cost curve, in the same style.
  */
 @Composable
-fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true, prefix: String = "Lv") {
+fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true, prefix: String = "Lv", suffixLast: String = "") {
     val scheme = MaterialTheme.colorScheme
     val max = bars.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
     // Bars grow from the floor the first time the curve shows (UX rule V5: charts), then follow changes.
@@ -258,11 +258,11 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
                     Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurface)
                     Box(
                         // The bar gets the room left after its count and label, so heights compare honestly.
-                        Modifier.fillMaxWidth(0.72f).weight(1f, fill = false).fillMaxHeight(fraction = grow.coerceAtLeast(0.06f))
+                        Modifier.widthIn(max = 40.dp).fillMaxWidth(0.72f).weight(1f, fill = false).fillMaxHeight(fraction = grow.coerceAtLeast(0.06f))
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                             .background(if (isTwilight()) app.lockon.ui.theme.ChartSlateTwilight else app.lockon.ui.theme.ChartSlate),
                     )
-                    Text("$prefix$level", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                    Text("$prefix$level${if (index == bars.lastIndex) suffixLast else ""}", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                 }
             }
         }

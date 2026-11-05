@@ -1,5 +1,6 @@
 package app.lockon.ui
 
+import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.motion
 import app.lockon.ui.components.glide
 import androidx.compose.animation.animateColorAsState
@@ -193,7 +194,7 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
                     onClick = { if (last) onDone() else state.tourStop++ }, compact = true,
                     // The download is this stop's main action, so moving past it stays quiet.
                     style = if (notNow) GameButtonStyle.SECONDARY else GameButtonStyle.PRIMARY,
-                    trailingIcon = if (last || notNow) null else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    trailingIcon = if (last || notNow) null else LineIcons.Chev,
                     modifier = Modifier.align(Alignment.CenterEnd),
                 )
             }
@@ -299,7 +300,7 @@ private fun CardDatabase(download: Download, official: Boolean, cardCount: Int, 
     Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         when {
             download is Download.Done || (official && download == Download.Idle) -> {
-                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Accent)
+                Icon(LineIcons.Check, contentDescription = null, tint = Accent)
                 Text("${(download as? Download.Done)?.cards ?: cardCount} cards installed", style = MaterialTheme.typography.titleSmall)
             }
             download == Download.Running -> {
