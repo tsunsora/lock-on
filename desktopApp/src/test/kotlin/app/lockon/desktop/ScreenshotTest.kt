@@ -410,6 +410,16 @@ class ScreenshotTest {
     }
 
     /** What desktop took from the phone review. */
+    /** The desktop selection outline: a hovered deck tile, card and deck row, and a selected card, in both themes. */
+    @Test fun renderSelectionEdges() {
+        for (dark in listOf(true, false)) {
+            val t = if (dark) "dark" else "light"
+            shoot("edge-deck-$t", 1980, 1290, dark = dark, hover = androidx.compose.ui.geometry.Offset(580f, 500f)) { select(Tab.DECKS) }
+            shoot("edge-card-$t", 1980, 1290, dark = dark, taps = listOf(androidx.compose.ui.geometry.Offset(300f, 460f))) { select(Tab.CARDS) }
+            shoot("edge-editor-$t", 1980, 1290, dark = dark, hover = androidx.compose.ui.geometry.Offset(140f, 460f)) { open(Screen.DeckEditor(deckId)) }
+        }
+    }
+
     @Test fun renderDesktopParity() {
         shoot("tmp-desktop-first", 1980, 1290) { select(Tab.DECKS) }
         val rest = androidx.compose.ui.geometry.Offset(5f, 700f)

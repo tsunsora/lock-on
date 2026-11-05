@@ -335,9 +335,11 @@ fun CardTile(
     val count = quantity ?: 0
     Column(modifier) {
         Box(
-            Modifier.fillMaxWidth().focusRing(CardShape, selected)
+            Modifier.fillMaxWidth()
                 .hoverState(hover)
-                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape)
+                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, edge = scheme.primary)
+                // Inside the lift, so a selected card's outline rises with it.
+                .selectionEdge(CardShape, scheme.primary, selected)
                 .flashOnChange(count, scheme.primary, scheme.error, CardShape)
                 .clip(CardShape)
                 .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
@@ -464,8 +466,6 @@ fun DeckStrip(
             .hoverable(interaction).hoverState(hover)
             .clickable(interaction, indication = LocalIndication.current, enabled = card != null, onClick = onClick),
     ) {
-        // A lit edge on hover.
-        Box(Modifier.fillMaxSize().border(BorderStroke(1.dp, if (hovered) scheme.primary.copy(alpha = 0.7f) else if (isTwilight()) Color.White.copy(alpha = 0.1f) else Color.Transparent), StripShape))
         // A strip shows only a crop of the art, so the whole card opens beside it on hover.
         if (card != null) CardHoverPreview(card, printingId, hovered)
         Row(Modifier.fillMaxSize().padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -491,10 +491,12 @@ fun DeckStrip(
             // Controls sit on their own dark plate so busy artwork never hides them.
             Row(
                 Modifier.clip(SmallPlate).background(base.copy(alpha = 0.9f))
-                    .border(BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.8f)), SmallPlate),
+                    .border(BorderStroke(1.dp, if (hovered) Color.Transparent else scheme.outlineVariant.copy(alpha = 0.8f)), SmallPlate),
                 verticalAlignment = Alignment.CenterVertically,
             ) { controls() }
         }
+        // A lit edge on hover, over the controls so their plate does not cut it.
+        Box(Modifier.fillMaxSize().border(BorderStroke(if (hovered) SelectionEdgeWidth else 1.dp, if (hovered) scheme.primary else if (isTwilight()) Color.White.copy(alpha = 0.1f) else Color.Transparent), StripShape))
     }
 }
 
@@ -877,7 +879,8 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
                 if (lit > 0f) {
                     val outline = tileShape.createOutline(size, layoutDirection, this)
                     drawOutline(outline, accent.copy(alpha = 0.16f * lit))
-                    drawOutline(outline, accent.copy(alpha = lit), style = Stroke(2.dp.toPx()))
+                    if (app.lockon.platform.isMobile) drawOutline(outline, accent.copy(alpha = lit), style = Stroke(2.dp.toPx()))
+                    else drawSelectionEdge(tileShape, accent, lit)
                 }
             }
             .clickable(press, indication = null, onClickLabel = when {
@@ -991,7 +994,7 @@ fun DeckCard(
         Box(
             Modifier.fillMaxWidth()
                 .hoverState(hover)
-                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, lift = 2.dp)
+                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, edge = scheme.primary, lift = 2.dp)
                 .flashOnChange(quantity, scheme.primary, scheme.error, CardShape)
                 .clip(CardShape)
                 .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
