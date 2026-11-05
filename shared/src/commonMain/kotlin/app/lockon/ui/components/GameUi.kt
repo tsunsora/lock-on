@@ -338,7 +338,8 @@ enum class GameButtonStyle { PRIMARY, SECONDARY, GHOST }
 
 /**
  * A game button: a pill. Primary is a glossy teal pill with a soft glow; secondary is a white glass
- * pill with a teal rim; ghost is teal text. Hover brightens a touch, press sinks a hair.
+ * pill with a teal rim; ghost is teal text. Hover brightens a touch, press sinks a hair. [outline] draws
+ * a rim that sinks with the face; a border put on [modifier] would stay behind and leave a gap.
  */
 @Composable
 fun GameButton(
@@ -353,6 +354,7 @@ fun GameButton(
     tone: Color? = null,
     onTone: Color? = null,
     trailingIcon: ImageVector? = null,
+    outline: Color? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
@@ -396,7 +398,7 @@ fun GameButton(
             .clip(shape)
             .background(fill)
             .drawWithContent { drawContent(); if (dim > 0f) drawRect(Color.Black.copy(alpha = 0.08f * dim)) }
-            .border(BorderStroke(1.dp, rim), shape)
+            .border(BorderStroke(1.dp, outline ?: rim), shape)
             .hoverable(interaction, enabled)
             .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = if (large) 26.dp else if (compact) 14.dp else 20.dp),
