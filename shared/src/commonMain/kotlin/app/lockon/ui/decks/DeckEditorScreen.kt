@@ -475,21 +475,16 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 fun AddTo(tabs: Modifier) {
                     PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = if (wide) listOf(Glyphs.Rows, Glyphs.SideCard) else null)
                 }
-                // A wide card list fits the switch at the end of the search row, and phones keep it in
-                // the header beside the gauge, so the cards get that row's height back (UX rule N4,
-                // space goes to cards).
-                val inline = wide && maxWidth >= 720.dp
-                Column {
-                    if (wide && !inline) Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AddTo(Modifier.weight(1f))
-                    }
-                    CardSearchPanel(
-                        addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
-                        focusRequests = focusSeen[0], deckColors = deckColors, maxColors = ruleset.maxColors.takeIf { autoDeckColors }, wide = wide,
-                        controls = controls, scrollToTop = cardsToTop, jumpToTop = opened,
-                        leading = if (inline || !wide) ({ AddTo(Modifier.width(IntrinsicSize.Max)) }) else null,
-                    )
-                }
+                // A wide card list fits the switch in the search row, and phones keep it in the header
+                // beside the gauge, so the cards get that row's height back (UX rule N4, space goes to
+                // cards). Below this width the search would lose its placeholder to the row's chips.
+                CardSearchPanel(
+                    addable, onCardClick = { detail = it }, modifier = Modifier.fillMaxSize(),
+                    focusRequests = focusSeen[0], deckColors = deckColors, maxColors = ruleset.maxColors.takeIf { autoDeckColors }, wide = wide,
+                    controls = controls, scrollToTop = cardsToTop, jumpToTop = opened,
+                    leading = { AddTo(Modifier.width(IntrinsicSize.Max)) },
+                    leadingAbove = wide && maxWidth < 760.dp,
+                )
             }
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }

@@ -163,6 +163,7 @@ fun CardSearchPanel(
     scrollToTop: Int = 0,
     jumpToTop: Int = 0,
     leading: (@Composable RowScope.() -> Unit)? = null,
+    leadingAbove: Boolean = false,
     defaultSort: CardSort = CardSort.NUMBER,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
@@ -254,8 +255,7 @@ fun CardSearchPanel(
                 }
             }
         }
-        // The editor keeps this in Filters, so the row stays clear beside its Deck and Side switch.
-        if (deckColors == null) ViewToggle(grid, { grid = it }, cardsFirst = true)
+        if (!leadingAbove) ViewToggle(grid, { grid = it }, cardsFirst = true)
     }
 
     // Filters set beyond the quick row, so a closed Filters chip still says something is on.
@@ -264,15 +264,24 @@ fun CardSearchPanel(
     val hiddenFilters = drawerFilters + (if (!wide && sort != defaultSort) 1 else 0) +
         (if (!wide && deckColors != null) query.colors.size + query.types.size else 0)
     Column(modifier) {
+        // A narrow pane has no room for the view switch beside the search, so it rides above with [leading].
+        if (wide && leadingAbove) Row(
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            leading?.invoke(this)
+            ViewToggle(grid, { grid = it }, cardsFirst = true)
+        }
         // Two rows instead of a field and wrapped chips: the search with its count and view
         // controls, then colours as orbs and types as chips (UX rules N4, S5). On phones the view
         // controls move into Filters, and colours and types fold into a menu chip each.
         Row(
-            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 10.dp),
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = if (wide && leadingAbove) 6.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (wide) leading?.invoke(this)
+            if (wide && !leadingAbove) leading?.invoke(this)
             PillSearchField(
                 query.text, { query = query.copy(text = it) },
                 placeholder = "Search ${results.size} cards",
@@ -414,7 +423,6 @@ fun CardSearchPanel(
                         PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "Show as list" else "Show as grid") })
                     }
                 }
-                if (wide && deckColors != null) PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "Show as list" else "Show as grid") })
                 // Each stat is one strip of numbers rather than a line of chips, so four fit where two
                 // lines used to: paired on wide panes, one a line on phones where a cell needs the room.
                 val level = @Composable { m: Modifier -> NumberStrip("Level", levels, query.levels, m) { query = query.copy(levels = it) } }
