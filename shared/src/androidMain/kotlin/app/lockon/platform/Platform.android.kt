@@ -64,6 +64,18 @@ actual fun plainDialogProperties(usePlatformDefaultWidth: Boolean, dismissible: 
 )
 
 @androidx.compose.runtime.Composable
+actual fun DialogFitsAboveKeyboard() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(view) {
+        // A dialog has its own window, which doesn't take the activity's adjustResize. Compose's later
+        // setSoftInputMode(0) on recomposition leaves this in place: Window ignores a mode of 0.
+        (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+            ?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose { }
+    }
+}
+
+@androidx.compose.runtime.Composable
 actual fun LightSystemBarIcons() {
     val view = androidx.compose.ui.platform.LocalView.current
     androidx.compose.runtime.DisposableEffect(view) {

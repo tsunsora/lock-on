@@ -1194,7 +1194,10 @@ fun GameDialog(
     ) { if (it) 1f else 0f }
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        confirmButton = confirmButton,
+        confirmButton = {
+            app.lockon.platform.DialogFitsAboveKeyboard()
+            confirmButton()
+        },
         dismissButton = dismissButton,
         properties = app.lockon.platform.plainDialogProperties(),
         modifier = modifier

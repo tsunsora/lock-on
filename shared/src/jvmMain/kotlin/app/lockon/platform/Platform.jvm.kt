@@ -73,4 +73,7 @@ actual fun plainDialogProperties(usePlatformDefaultWidth: Boolean, dismissible: 
 )
 
 @androidx.compose.runtime.Composable
+actual fun DialogFitsAboveKeyboard() = Unit
+
+@androidx.compose.runtime.Composable
 actual fun LightSystemBarIcons() = Unit
