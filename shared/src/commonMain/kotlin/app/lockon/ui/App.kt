@@ -157,8 +157,6 @@ import app.lockon.ui.sync.SyncPrompts
 import app.lockon.ui.theme.LockOnTheme
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.SkyBackground
-import app.lockon.ui.components.DialogBackdrop
-import androidx.compose.ui.draw.blur
 import androidx.compose.animation.core.animateDpAsState
 import app.lockon.ui.components.PillShape
 import app.lockon.ui.components.motion
@@ -357,14 +355,10 @@ fun LockOnApp(
             // the screens and only acts on presses nothing else takes. Narrower windows have no band, so
             // the controls share the screen header's row, which leaves them room at its end.
             val caption = if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else CaptionHeight
-            val backdrop by animateDpAsState(if (DialogBackdrop.open > 0 || state.touring) 12.dp else 0.dp, motion(Motion.SHORT), label = "backdrop")
-            val soften = if (backdrop.value > 0f) Modifier.blur(backdrop) else Modifier
             SkyBackground(if (chrome != null) chrome.dragArea(Modifier.fillMaxSize(), caption) else Modifier.fillMaxSize()) {
             var controlsWidth by remember { mutableStateOf(0.dp) }
             val statusBarInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top)
             Scaffold(
-                // The screens soften behind a dialog or the tour; both draw above this, unblurred.
-                modifier = soften,
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground,
                 // Snackbars sit above the floating nav bar on phones.

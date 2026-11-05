@@ -193,7 +193,7 @@ data class GlassColors(val fill: Color, val strong: Color, val rim: Color, val r
 @Composable
 @ReadOnlyComposable
 fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color(0xFF3A4282).copy(alpha = 0.92f), Color(0xFF343C72), Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.06f), Color(0xFF060B1E))
+    GlassColors(Color(0xFF232A58).copy(alpha = 0.92f), Color(0xFF343C72), Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.06f), Color(0xFF060B1E))
 } else {
     GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color.White, Color(0xFFD5E2F0), Color(0xFF6A88B0))
 }
@@ -459,7 +459,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     val placed by remember(spots, selected) { derivedStateOf { spots.getOrNull(selected)?.value != null } }
     Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).padding(horizontal = 8.dp, vertical = 6.dp)) {
         Row(
-            track.clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(4.dp).drawBehind {
+            track.clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(horizontal = 4.dp).drawBehind {
                 if (spots.isEmpty()) return@drawBehind
                 val s = slot.coerceIn(0f, spots.lastIndex.toFloat())
                 val lo = floor(s).toInt()
@@ -468,7 +468,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 val f = s - lo
                 val px = a.first + (b.first - a.first) * f
                 val pw = a.second + (b.second - a.second) * f
-                if (pw > 0f) drawRoundRect(accent, Offset(px, 0f), Size(pw, size.height), CornerRadius(11.dp.toPx()))
+                if (pw > 0f) drawRoundRect(accent, Offset(px, 4.dp.toPx()), Size(pw, size.height - 8.dp.toPx()), CornerRadius(11.dp.toPx()))
             },
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -487,11 +487,12 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 )
                 val text by animateColorAsState(if (isSelected) onAccent else scheme.onSurfaceVariant, motion(Motion.MEDIUM), label = "tab-text")
                 Box(
-                    (if (fill) Modifier.weight(1f) else Modifier).height(36.dp)
+                    // The whole 44 dp of the track takes the tap; the thumb inside it is 36 dp.
+                    (if (fill) Modifier.weight(1f) else Modifier).height(44.dp)
                         .onPlaced { spots.getOrNull(i)?.value = it.positionInParent().x to it.size.width.toFloat() }
-                        .clip(LockOnShapes.button).background(bg)
                         .hoverable(interaction)
                         .selectable(isSelected, interaction, indication = null, role = Role.Tab) { onSelect(i) }
+                        .padding(vertical = 4.dp).clip(LockOnShapes.button).background(bg)
                         .padding(horizontal = if (icons != null && fill) 4.dp else 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -1068,20 +1069,6 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
     }
 }
 
-/** How many dialogs are up, so the app can soften what's behind them. */
-object DialogBackdrop {
-    var open by mutableIntStateOf(0)
-}
-
-/** Softens the app behind a dialog for as long as this stays in the composition. */
-@Composable
-fun BlurBehind() {
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        DialogBackdrop.open++
-        onDispose { DialogBackdrop.open-- }
-    }
-}
-
 /**
  * A dialog on a rounded card: Material's dialog behaviour with the glass rim, a friendly title
  * and [GameButton] actions.
@@ -1095,7 +1082,6 @@ fun GameDialog(
     title: String? = null,
     text: (@Composable () -> Unit)? = null,
 ) {
-    BlurBehind()
     val scheme = MaterialTheme.colorScheme
     // The card fades in and grows from just under its size, so a dialog arrives rather than appears.
     val shown = remember { MutableTransitionState(false) }.apply { targetState = true }
@@ -1307,15 +1293,15 @@ fun PillSwitch(
     }
 }
 
-/** The thumb of a single-choice control: white, so solid teal is left for navigation and main actions. */
+/** The thumb of a single-choice control: white by day and a raised indigo at twilight, so solid teal is left for navigation and main actions. */
 @Composable
 @ReadOnlyComposable
-fun softThumb(): Color = if (isTwilight()) Color.White.copy(alpha = 0.9f) else Color.White
+fun softThumb(): Color = if (isTwilight()) Color(0xFF5560B0) else Color.White
 
 /** The chosen option's text on a [softThumb]. */
 @Composable
 @ReadOnlyComposable
-fun softThumbInk(): Color = if (isTwilight()) Color(0xFF075E67) else MaterialTheme.colorScheme.primary
+fun softThumbInk(): Color = MaterialTheme.colorScheme.primary
 
 /** One choice among a few on a soft track; the chosen one is a white thumb with teal text. */
 @Composable
@@ -1436,12 +1422,13 @@ fun MenuChip(
     selected: Boolean,
     label: @Composable RowScope.() -> Unit,
     modifier: Modifier = Modifier,
+    chipModifier: Modifier = Modifier,
     items: @Composable ColumnScope.(close: () -> Unit) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         PillChip(
-            selected = selected, onClick = { open = true },
+            selected = selected, onClick = { open = true }, modifier = chipModifier,
             label = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     label()
@@ -1604,7 +1591,7 @@ fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp 
 }
 
 /** How wide a [FloatingPillNav] is on a screen [screen] wide: most of it, up to [widest]. */
-fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen * 0.92f, widest)
+fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen - 24.dp, widest)
 
 /** Small drawn icons for the editor's sections and the export, which Material's core icon set lacks. */
 object GameIcons {
