@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -341,8 +343,12 @@ internal fun SettingRow(
 /** A switch whose whole row toggles it, so the target is the row and not only the switch (UX rule R1). */
 @Composable
 private fun Toggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    SettingRow(title, Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange)) {
-        PillSwitch(checked = checked, onCheckedChange = null)
+    val interaction = remember { MutableInteractionSource() }
+    SettingRow(
+        title,
+        Modifier.hoverable(interaction).toggleable(checked, interaction, indication = null, role = Role.Switch, onValueChange = onChange),
+    ) {
+        PillSwitch(checked = checked, onCheckedChange = null, interactionSource = interaction)
     }
 }
 

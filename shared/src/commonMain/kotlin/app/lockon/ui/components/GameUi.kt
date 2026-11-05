@@ -1254,17 +1254,30 @@ fun GameToast(data: SnackbarData) {
     }
 }
 
-/** An on/off switch as a pill track with a round knob: teal when on. A 48 dp target. */
+/**
+ * An on/off switch as a pill track with a round knob: teal when on. A 48 dp target.
+ *
+ * @param interactionSource when a whole row toggles the switch ([onCheckedChange] null), the row's
+ * interactions, so the track lights while the pointer or keyboard focus is anywhere on the row.
+ */
 @Composable
-fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun PillSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    interactionSource: MutableInteractionSource? = null,
+) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
     // The knob is moved by the hand, so it settles with a touch of give.
     val position by animateFloatAsState(if (checked) 1f else 0f, glide(bounce = 0.25f), label = "switch")
-    val interaction = remember { MutableInteractionSource() }
+    val interaction = interactionSource ?: remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // The track itself answers the pointer; a ripple over the whole 48 dp target reads as a stray square.
-    val lit by animateFloatAsState(if (hovered && enabled && onCheckedChange != null) 1f else 0f, motion(Motion.SHORT), label = "switch-hover")
+    val focused by interaction.collectIsFocusedAsState()
+    val responds = enabled && (onCheckedChange != null || interactionSource != null)
+    // The track itself answers the pointer; a ripple over the whole 48 dp target or row reads as a stray square.
+    val lit by animateFloatAsState(if ((hovered || focused) && responds) 1f else 0f, motion(Motion.SHORT), label = "switch-hover")
     Box(
         modifier.size(width = 44.dp, height = 48.dp)
             .then(
