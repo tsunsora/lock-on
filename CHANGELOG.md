@@ -1,6 +1,6 @@
 # Changelog
 
-## Next
+## 26.11.7 (2026-11-05)
 
 The rest of the new look: the screens that still followed the old layout now match the design.
 
@@ -18,6 +18,8 @@ The rest of the new look: the screens that still followed the old layout now mat
 - **Compare and pairing:** versions to choose between show their device, gauge and each card's difference side by side. Pairing shows the number as large digits.
 - **Card database:** the installed list as a card with its version, count, source and date, with other sources always in view.
 - **Phones:** deck rows with the card on a strip of its art, folders as tabs, Deck, Add and More always labelled, the card details as a sheet, and a first-run screen with three ways to get a deck.
+- **Card search:** search and deck list import find names as they can be typed, such as Üso Ewin by "uso".
+- **Phones:** the deck's first problem sits in the editor's header, and card details fill the screen more cleanly.
 
 ## 26.11.6 (2026-11-04)
 
