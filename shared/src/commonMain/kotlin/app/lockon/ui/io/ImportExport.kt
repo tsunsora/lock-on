@@ -7,6 +7,8 @@ import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuItem
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -124,7 +126,8 @@ fun NewDeckDialog(
         onDismissRequest = onDismiss,
         title = "New deck",
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Scrolls so the buttons stay in reach when the keyboard leaves too little room for it all.
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 if (!isBackup) {
                     val focus = remember { FocusRequester() }
                     LaunchedEffect(Unit) { focus.requestFocus() }
