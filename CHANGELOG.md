@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.11.10 (2026-11-05)
+
+Desktop deck tiles now lead with big, bright card art, and right-clicking text opens a menu that matches the app.
+
+- **Deck tiles (desktop):** each deck shows one large crop of its cover card's art in place of the dimmed band and small cards. Colors, state, record and age share one line, and the win rate is now only under **Matches**.
+- **Deck tiles (desktop):** a deck past the limit says how far over it is in red, such as **3 over**. A deck with a conflict says **Review**. Decks without art show their colors and a shield.
+- **Right-click (desktop):** text opens a menu on the app's own panel with Undo, Redo, Cut, Copy, Paste and Select all, their shortcuts, and only what applies.
+- **Deck editor (desktop):** the deck's first problem sits in the header beside its state, so it coming or going never moves your cards.
+- **Export:** **Save PNG** goes straight to Downloads, next to any file of the same name. The save dialog opens only when that can't be done, as on Android 8 and 9.
+- **Phones:** dialogs shrink to fit above the keyboard, so Cancel and Create stay in reach, and the New deck dialog scrolls when there isn't room for all of it.
+
 ## 26.11.9 (2026-11-05)
 
 Everything that used to switch at once now moves, and desktop controls share one look.
