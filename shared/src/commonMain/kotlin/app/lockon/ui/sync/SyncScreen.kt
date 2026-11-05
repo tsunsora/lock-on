@@ -1,5 +1,9 @@
 package app.lockon.ui.sync
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
+import app.lockon.ui.components.LineIcons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Warning
@@ -182,7 +186,7 @@ fun SyncScreen(
     var chosen by remember { mutableStateOf(emptyList<String>()) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier.width(240.dp), fill = true, soft = true)
+            PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, if (app.lockon.ui.components.LocalTopBand.current.height == 0.dp) Modifier else Modifier.width(240.dp), fill = true, soft = true)
         }
         Crossfade(sending, Modifier.fillMaxSize(), label = "sync-page") { send ->
             if (send) SendPage(controller, decks, cards, chosen) { chosen = it }
@@ -230,6 +234,7 @@ private fun ThisDevicePanel(
 ) {
     // A non-breaking hyphen, so "Wi-Fi" never splits over two lines.
     val caption = "On Wi‑Fi"
+    val narrow = app.lockon.ui.components.LocalTopBand.current.height == 0.dp
     Column(
         modifier.dealIn("this-device", 0).glass(LockOnShapes.panel)
             .animateContentSize(glide())
@@ -248,17 +253,29 @@ private fun ThisDevicePanel(
                 app.lockon.ui.BrandTile(56.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(deviceName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(LineIcons.Wifi, contentDescription = null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
                 }
                 if (onOtherWays != null) {
-                    GameButton(qrLabel, onClick = onOtherWays, style = GameButtonStyle.SECONDARY, compact = true)
-                    GameButton("Address", onClick = onOtherWays, style = GameButtonStyle.SECONDARY, compact = true)
+                    if (!narrow) OtherWays(onOtherWays, qrLabel, Modifier)
                 }
             }
+            if (onOtherWays != null && narrow) OtherWays(onOtherWays, qrLabel, Modifier.fillMaxWidth())
         }
         // Only what needs attention: a ready device says so by being here.
         if (status.message != null && (status.isError || status.working)) StatusStrip(status, Modifier.fillMaxWidth())
         more()
+    }
+}
+
+/** Pairing another way: by a QR code or by typing an address. */
+@Composable
+private fun OtherWays(onClick: () -> Unit, qrLabel: String, modifier: Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        GameButton(qrLabel, onClick = onClick, style = GameButtonStyle.SECONDARY, icon = LineIcons.Qr, compact = true, modifier = if (modifier == Modifier) Modifier else Modifier.weight(1f))
+        GameButton("Address", onClick = onClick, style = GameButtonStyle.SECONDARY, compact = true, modifier = if (modifier == Modifier) Modifier else Modifier.weight(1f))
     }
 }
 
@@ -455,7 +472,6 @@ private fun PairedTile(
         Row(Modifier.heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
             Box {
                 DeviceGlyph(device.role == DeviceRole.HOST)
-                if (transfer?.state == SyncTransfer.State.DONE) DoneBadge(Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp))
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -464,7 +480,7 @@ private fun PairedTile(
                     Text(
                         transfer.label(), style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
                         color = when (transfer.state) {
-                            SyncTransfer.State.DONE -> celebrate
+                            SyncTransfer.State.DONE -> scheme.onSurfaceVariant
                             SyncTransfer.State.FAILED -> scheme.error
                             else -> scheme.onSurfaceVariant
                         },
@@ -474,7 +490,7 @@ private fun PairedTile(
                     val problem = device.lastError
                     val line = listOfNotNull(problem ?: live?.first ?: "Paired", device.lastSyncAt?.let { app.lockon.platform.ageLabel(it) } ?: "not synced yet").joinToString(" · ")
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (problem != null) Icon(Icons.Default.Warning, contentDescription = null, Modifier.size(14.dp), tint = scheme.error)
+                        if (problem != null) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = scheme.error)
                         else if (live != null) Box(Modifier.size(8.dp).clip(CircleShape).background(if (live.second) scheme.primary else scheme.outline))
                         Text(line, style = MaterialTheme.typography.bodySmall, color = if (problem != null) scheme.error else scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
@@ -484,11 +500,11 @@ private fun PairedTile(
                 transfer?.state == SyncTransfer.State.WAITING -> GameButton("Cancel", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
                 busy -> ReticleSpinner(size = 18.dp, modifier = Modifier.padding(end = 12.dp))
                 transfer != null -> GameButton("OK", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
-                device.lastError != null -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Refresh, compact = true, onTone = scheme.error)
-                else -> GameButton("Sync", onClick = onTap, icon = Icons.Default.Refresh, compact = true)
+                device.lastError != null -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync, compact = true, onTone = scheme.error)
+                else -> GameButton("Sync", onClick = onTap, icon = LineIcons.Sync, compact = true)
             }
         }
-        if (transfer != null) {
+        if (transfer != null && (busy || transfer.state != SyncTransfer.State.DONE)) {
             TransferBar(
                 fraction = if (busy) null else 1f,
                 tone = when (transfer.state) {
@@ -529,7 +545,7 @@ private fun SyncChoiceDialog(
                 ModeOption(
                     "Make $here match ${device.name}",
                     "Everything here is replaced by what's on ${device.name}.",
-                    Icons.Default.KeyboardArrowDown, primary = true,
+                    LineIcons.Chevd, primary = true,
                 ) { confirming = SyncMode.TAKE }
                 ModeOption(
                     "Make ${device.name} match $here",
@@ -541,7 +557,7 @@ private fun SyncChoiceDialog(
                 ModeOption(
                     "Merge both ways",
                     "Every deck from both ends up on both. Settings and the card list stay as they are, and a deck edited on both shows as a conflict.",
-                    Icons.Default.Refresh,
+                    LineIcons.Sync,
                 ) { onSync(SyncMode.MERGE); onDismiss() }
                 if (merging != null) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
@@ -646,7 +662,7 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
                     inviting = false,
                     hint = if (device.deviceId in pairedIds) "Paired" else "Not paired",
                     action = "Send",
-                    actionIcon = Icons.Default.Send,
+                    actionIcon = LineIcons.Send,
                     spotlight = spotlight,
                     index = i,
                     onTap = {
@@ -747,12 +763,15 @@ private fun WhatToSend(
                 app.lockon.ui.components.ColorPips(colors, size = 18.dp)
                 Text(deck.snapshot.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp))
                 Icon(
-                    Icons.Default.Close, contentDescription = "Leave out ${deck.snapshot.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    LineIcons.X, contentDescription = "Leave out ${deck.snapshot.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(28.dp).clip(LockOnShapes.button).clickable { onChosen(ids - deck.deckId) }.padding(5.dp),
                 )
             }
         }
-        if (decks.isNotEmpty()) GameButton("Choose decks", onClick = onChoose, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Add, compact = true)
+        if (decks.isNotEmpty()) GameButton(
+            "Choose decks", onClick = onChoose, style = GameButtonStyle.GHOST, icon = LineIcons.Plus, compact = true,
+            modifier = Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, LockOnShapes.button),
+        )
         else Text("No decks to send yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         // Every deck, or a folder's worth, in one tap.
         if (selected.isEmpty() && decks.size in 2..ShareInbox.MAX_DECKS) GameButton("All ${decks.size} decks", onClick = { onChosen(decks.map { it.deckId }) }, style = GameButtonStyle.GHOST, compact = true)
@@ -857,8 +876,8 @@ private fun SearchingCard() {
 private fun OutgoingShare.label(): String = when (state) {
     OutgoingShare.State.SENDING -> progress?.let { "Sending ${deckCount(deckCount)}… ${(it * 100).roundToInt()}%" }
         ?: "Sending ${deckCount(deckCount)}…"
-    OutgoingShare.State.WAITING -> "Sent. Waiting for $deviceName to accept…"
-    OutgoingShare.State.SAVED -> "Done: ${deckCount(deckCount)} saved there"
+    OutgoingShare.State.WAITING -> "Waiting for $deviceName to accept…"
+    OutgoingShare.State.SAVED -> "Saved ${deckCount(deckCount)}"
     else -> message.orEmpty()
 }
 
@@ -894,7 +913,6 @@ private fun DeviceTile(
         Row(Modifier.heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
             Box {
                 DeviceGlyph(device.isDesktop)
-                if (send?.state == OutgoingShare.State.SAVED) DoneBadge(Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp))
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -907,7 +925,7 @@ private fun DeviceTile(
                         send.label(),
                         style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
                         color = when (send.state) {
-                            OutgoingShare.State.SAVED -> celebrate
+                            OutgoingShare.State.SAVED -> scheme.onSurfaceVariant
                             OutgoingShare.State.FAILED -> scheme.error
                             else -> scheme.onSurfaceVariant
                         },
@@ -920,7 +938,7 @@ private fun DeviceTile(
                 GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.SECONDARY, compact = true)
             } else GameButton(action, onClick = onTap, enabled = device.compatible, icon = actionIcon, compact = true)
         }
-        if (send != null) {
+        if (send != null && send.state != OutgoingShare.State.SAVED) {
             TransferBar(
                 fraction = when (send.state) {
                     OutgoingShare.State.SENDING -> send.progress
@@ -996,7 +1014,7 @@ private fun DoneBadge(modifier: Modifier = Modifier, size: Dp = 20.dp) {
             .clip(CircleShape).background(MaterialTheme.colorScheme.tertiary),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Default.Check, contentDescription = "Done", tint = MaterialTheme.colorScheme.onTertiary, modifier = Modifier.size(size * 0.7f))
+        Icon(LineIcons.Check, contentDescription = "Done", tint = MaterialTheme.colorScheme.onTertiary, modifier = Modifier.size(size * 0.7f))
     }
 }
 
@@ -1211,17 +1229,19 @@ fun SyncPrompts(controller: SyncController) {
             prompt?.let { p ->
                 GameDialog(
                     onDismissRequest = {},
-                    title = if (p.invited) "${p.deviceName} accepted" else "${p.deviceName} wants to pair",
+                    confirmButton = {},
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("Pair only if ${p.deviceName} shows this same number:")
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            DeviceGlyph(false, size = 64)
+                            Text(if (p.invited) "${p.deviceName} accepted" else "${p.deviceName} wants to pair", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
                             CheckNumber(p.verificationCode)
-                            Text("Paired devices can make each other match, or merge, whenever you sync.",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Same number on ${p.deviceName}?", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                GameButton("Cancel", onClick = { controller.answerPairing(p.requestId, false) }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY)
+                                GameButton("Pair", onClick = { controller.answerPairing(p.requestId, true) }, Modifier.weight(1f), icon = LineIcons.Check)
+                            }
                         }
                     },
-                    confirmButton = { GameButton("Pair", onClick = { controller.answerPairing(p.requestId, true) }) },
-                    dismissButton = { GameButton("Decline", onClick = { controller.answerPairing(p.requestId, false) }, style = GameButtonStyle.GHOST, compact = true) },
                 )
             }
         }
@@ -1325,7 +1345,7 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(deck.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         if (!asking && i < s.saved) {
-                            Icon(Icons.Default.Check, contentDescription = "Saved", tint = scheme.primary, modifier = Modifier.size(16.dp))
+                            Icon(LineIcons.Check, contentDescription = "Saved", tint = scheme.primary, modifier = Modifier.size(16.dp))
                         }
                         Text("Main ${deck.count(DeckSection.MAIN)}", style = MaterialTheme.typography.bodyMedium.merge(TabularNumbers),
                             color = scheme.onSurfaceVariant)
@@ -1340,7 +1360,7 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
                 when (s.state) {
                     IncomingShare.State.ASKING -> {
                         GameButton("Decline", onClick = { sharing.answer(s.shareId, false) }, style = GameButtonStyle.SECONDARY)
-                        GameButton("Accept", onClick = { sharing.answer(s.shareId, true) }, icon = Icons.Default.Check)
+                        GameButton("Accept", onClick = { sharing.answer(s.shareId, true) }, icon = LineIcons.Check)
                     }
                     IncomingShare.State.SAVING -> GameButton("Saving…", onClick = {}, enabled = false)
                     IncomingShare.State.SAVED -> GameButton("Done", onClick = { sharing.dismiss(s.shareId) })
@@ -1352,31 +1372,24 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
 
 /** The number both screens show while pairing, big enough to compare at a glance. */
 @Composable
-private fun CheckNumber(value: String) {
-    Text(value, style = MaterialTheme.typography.displaySmall.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary)
+private fun CheckNumber(code: String) {
+    val digits = code.filter { !it.isWhitespace() && it != '-' && it != '–' }
+    val half = digits.length / 2
+    Row(Modifier.semantics { contentDescription = "Number to check: $code" }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        digits.forEachIndexed { i, digit ->
+            if (i == half && digits.length > 3) Text("–", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 2.dp))
+            Box(Modifier.widthIn(max = 52.dp).weight(1f).height(66.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)), contentAlignment = Alignment.Center) {
+                Text("$digit", style = MaterialTheme.typography.headlineMedium.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
 }
 
 /** A drawn monitor or phone in a circle, so devices read at a glance without an icon pack. */
 @Composable
-private fun DeviceGlyph(desktop: Boolean, size: Int = 44) {
-    val ink = MaterialTheme.colorScheme.onSecondaryContainer
+internal fun DeviceGlyph(desktop: Boolean, size: Int = 44) {
     Box(
-        Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+        Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
         contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.size((size * 0.55f).dp)) {
-            val stroke = Stroke(width = this.size.minDimension * 0.09f)
-            val r = CornerRadius(this.size.minDimension * 0.08f)
-            if (desktop) {
-                drawRoundRect(ink, topLeft = Offset(0f, this.size.height * 0.08f),
-                    size = Size(this.size.width, this.size.height * 0.62f), cornerRadius = r, style = stroke)
-                drawLine(ink, Offset(this.size.width / 2, this.size.height * 0.7f), Offset(this.size.width / 2, this.size.height * 0.88f), stroke.width)
-                drawLine(ink, Offset(this.size.width * 0.28f, this.size.height * 0.9f), Offset(this.size.width * 0.72f, this.size.height * 0.9f), stroke.width)
-            } else {
-                drawRoundRect(ink, topLeft = Offset(this.size.width * 0.24f, 0f),
-                    size = Size(this.size.width * 0.52f, this.size.height), cornerRadius = r * 1.6f, style = stroke)
-                drawCircle(ink, radius = stroke.width * 0.7f, center = Offset(this.size.width / 2, this.size.height * 0.84f))
-            }
-        }
-    }
+    ) { Icon(if (desktop) LineIcons.Desktop else LineIcons.Phone, contentDescription = null, Modifier.size((size * 0.5f).dp), tint = MaterialTheme.colorScheme.onSurface) }
 }

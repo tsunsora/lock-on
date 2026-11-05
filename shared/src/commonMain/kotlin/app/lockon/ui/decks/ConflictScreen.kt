@@ -1,4 +1,26 @@
 package app.lockon.ui.decks
+import app.lockon.ui.theme.onCardColor
+import app.lockon.ui.theme.cardColor
+import app.lockon.ui.theme.TabularNumbers
+import app.lockon.ui.theme.LockOnShapes
+import app.lockon.ui.sync.DeviceGlyph
+import app.lockon.ui.components.glassColors
+import app.lockon.ui.components.glass
+import app.lockon.ui.components.clearOfNav
+import app.lockon.ui.components.StateTag
+import app.lockon.ui.components.ProgressGauge
+import app.lockon.ui.components.CostOrb
+import app.lockon.ui.components.ColorPips
+import app.lockon.platform.isMobile
+import app.lockon.platform.dayAndTimeLabel
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.GameButton
 
@@ -58,13 +80,13 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
 
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().clearOfNav().padding(horizontal = if (wide) 0.dp else 12.dp, vertical = if (wide) 0.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Wide windows go back from the player card in the corner.
-            if (!wide) GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", state::goBack)
-            // The versions side by side, each with Keep, say the rest.
-            Text("Compare versions", style = MaterialTheme.typography.titleLarge)
+            // Wide windows go back from the button in the corner.
+            if (!wide) GlassIconButton(LineIcons.Back, "Back", state::goBack)
+            Text(summary?.snapshot?.name.orEmpty(), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            StateTag(legal = false, review = true)
         }
         val body: @Composable (DeckVersion, Modifier) -> Unit = { version, modifier ->
             VersionCard(
@@ -72,6 +94,8 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
                 others = versions - version,
                 cards = cards,
                 deviceLabel = deviceLabel(version.originDeviceId, container.identity.deviceId, devices),
+                fromComputer = if (version.originDeviceId == container.identity.deviceId) !isMobile
+                    else devices.firstOrNull { it.deviceId == version.originDeviceId }?.role == app.lockon.sync.DeviceRole.HOST,
                 modifier = modifier,
                 onKeep = {
                     state.appScope.launch {
@@ -83,8 +107,16 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
             )
         }
         if (wide) {
-            Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                versions.forEach { body(it, Modifier.weight(1f)) }
+            Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
+                Row(Modifier.widthIn(max = 1240.dp).fillMaxWidth().padding(horizontal = 24.dp, vertical = 56.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    versions.forEachIndexed { i, version ->
+                        if (i > 0) Box(
+                            Modifier.padding(top = 56.dp).size(40.dp).clip(CircleShape).background(glassColors().strong),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("or", style = MaterialTheme.typography.labelLarge) }
+                        body(version, Modifier.weight(1f))
+                    }
+                }
             }
         } else {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -98,49 +130,64 @@ internal fun deviceLabel(originId: String, localId: String, devices: List<Paired
     if (originId == localId) "This device" else devices.firstOrNull { it.deviceId == originId }?.name ?: "Another device"
 
 @Composable
-private fun VersionCard(
+fun VersionCard(
     version: DeckVersion,
     others: List<DeckVersion>,
     cards: Map<String, GameCard>,
     deviceLabel: String,
+    fromComputer: Boolean,
     modifier: Modifier,
     onKeep: () -> Unit,
 ) {
     val snapshot = version.snapshot
-    Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(deviceLabel, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text("Saved ${formatTimestamp(version.createdAt)}", style = MaterialTheme.typography.bodySmall)
-            if (snapshot.deleted) {
-                Text("Deleted the deck", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
-            } else {
-                Text(snapshot.name, style = MaterialTheme.typography.titleMedium)
-                Text("Main ${snapshot.count(DeckSection.MAIN)}",
-                    style = MaterialTheme.typography.bodySmall)
-                // Differences against the other versions, so people can see what they would lose.
-                val other = others.firstOrNull()?.snapshot
-                if (other != null && !other.deleted) {
-                    val keys = (snapshot.entries + other.entries).map { it.cardNumber to it.section }.distinct()
-                    val diffs = keys.mapNotNull { (number, section) ->
-                        val mine = snapshot.quantityOf(number, section)
-                        val theirs = other.quantityOf(number, section)
-                        if (mine == theirs) null else Triple(number to section, mine, theirs)
-                    }
-                    if (other.name != snapshot.name) Text("Name differs: \"${snapshot.name}\"", style = MaterialTheme.typography.bodySmall)
-                    if (other.notes != snapshot.notes) Text("Notes differ", style = MaterialTheme.typography.bodySmall)
-                    if (diffs.isEmpty() && other.name == snapshot.name) Text("Same cards as the other version.", style = MaterialTheme.typography.bodySmall)
-                    diffs.forEach { (key, mine, theirs) ->
-                        val (number, section) = key
-                        val where = if (section == DeckSection.SIDE) " (side deck)" else ""
+    val scheme = MaterialTheme.colorScheme
+    Column(modifier.glass(LockOnShapes.panel, strong = true).padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            DeviceGlyph(fromComputer)
+            Column(Modifier.weight(1f)) {
+                Text(deviceLabel, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(dayAndTimeLabel(version.createdAt), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            }
+        }
+        if (snapshot.deleted) {
+            Text("Deleted the deck", style = MaterialTheme.typography.titleMedium, color = scheme.error)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ProgressGauge("Main deck", snapshot.count(DeckSection.MAIN), 50, Modifier.weight(1f), compact = true, hold = true, inline = true)
+                val colors = remember(snapshot, cards) { snapshot.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet() }
+                ColorPips(colors, size = 18.dp)
+            }
+            // Differences against the other versions, so people can see what they would lose.
+            val other = others.firstOrNull()?.snapshot
+            if (other != null && !other.deleted) {
+                val keys = (snapshot.entries + other.entries).map { it.cardNumber to it.section }.distinct()
+                val diffs = keys.mapNotNull { (number, section) ->
+                    val mine = snapshot.quantityOf(number, section)
+                    val theirs = other.quantityOf(number, section)
+                    if (mine == theirs) null else Triple(number to section, mine, theirs)
+                }
+                if (other.name != snapshot.name) Text("Named \"${snapshot.name}\"", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                if (other.notes != snapshot.notes) Text("Notes differ", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                if (diffs.isEmpty() && other.name == snapshot.name) Text("Same cards as the other version.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                diffs.forEach { (key, mine, theirs) ->
+                    val (number, section) = key
+                    val card = cards[number]
+                    val by = mine - theirs
+                    Row(
+                        Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.04f)).padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        CostOrb(card?.cost, cardColor(card?.colors?.firstOrNull()), onCardColor(card?.colors?.firstOrNull()), size = 24.dp)
+                        Text(card?.name ?: number, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (section == DeckSection.SIDE) Text("Side", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                         Text(
-                            "${cards[number]?.name ?: number}$where: $mine here, $theirs in the other",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (mine > theirs) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            if (by > 0) "+$by" else "−${-by}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                            color = if (by > 0) scheme.primary else scheme.error,
                         )
                     }
                 }
             }
-            GameButton(if (snapshot.deleted) "Delete the deck" else "Keep this version", onClick = onKeep, modifier = Modifier.padding(top = 8.dp))
         }
+        GameButton(if (snapshot.deleted) "Delete the deck" else "Keep this version", onClick = onKeep, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), icon = LineIcons.Check)
     }
 }

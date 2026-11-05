@@ -22,7 +22,7 @@ enum class InterfaceSize(val label: String, val scale: Float) {
 }
 
 /** A button on the deck editor's bar on phones. */
-enum class EditorBarItem(val label: String) { MORE("More"), ADD("Add cards"), DECK("Deck") }
+enum class EditorBarItem(val label: String) { MORE("More"), ADD("Add"), DECK("Deck") }
 
 /** The deck editor's bar on phones, left to right. Its pages slide in the same order. */
 enum class EditorBarOrder(val items: List<EditorBarItem>) {
@@ -38,7 +38,7 @@ enum class EditorBarOrder(val items: List<EditorBarItem>) {
 
 /** A section the deck editor's More button holds on phones, with its tab number in the editor. */
 enum class EditorMoreItem(val label: String, val tab: Int) {
-    ANALYSIS("Analysis", 2), TEST("Test hand", 3), MATCHES("Matches", 4), VERSIONS("Versions", 5), EXPORT("Export", 6), TEXT("Edit as text", 7)
+    ANALYSIS("Analysis", 2), TEST("Test", 3), MATCHES("Matches", 4), VERSIONS("Versions", 5), EXPORT("Export", 6), TEXT("Edit as text", 7)
 }
 
 /**
@@ -55,7 +55,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _autoDeckColors = MutableStateFlow(true)
     private val _editorSplit = MutableStateFlow<Float?>(null)
     private val _welcomed = MutableStateFlow(true)
-    private val _editorBar = MutableStateFlow(EditorBarOrder.MORE_ADD_DECK)
+    private val _editorBar = MutableStateFlow(EditorBarOrder.DECK_ADD_MORE)
     private val _moreHidden = MutableStateFlow<Set<EditorMoreItem>>(emptySet())
     private val _cardSort = MutableStateFlow(CardSort.NUMBER)
     private val _deckAsCards = MutableStateFlow(false)
@@ -91,7 +91,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _catalogChecks.value = meta.get(KEY_CATALOG_CHECKS) != "false"
         _autoDeckColors.value = meta.get(KEY_AUTO_DECK_COLORS) != "false"
         _editorSplit.value = meta.get(KEY_EDITOR_SPLIT)?.toFloatOrNull()
-        _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.MORE_ADD_DECK)
+        _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.DECK_ADD_MORE)
         _cardSort.value = enumOr(meta.get(KEY_CARD_SORT), CardSort.NUMBER)
         _deckAsCards.value = meta.get(KEY_DECK_AS_CARDS) == "true"
         _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')

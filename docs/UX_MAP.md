@@ -61,7 +61,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - name (tap to rename), color pips, legality tag, `Main n/50`
   - **Export**
   - a conflict banner when one exists
-- **Panes:** wide windows show two areas, the card list and a deck panel: the gauge, **Export** and **More** (Edit as text, Card view or List view) above **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar built around building the deck: **Deck · Add cards · More**, with Analysis, Test, Matches, Versions, Export and Edit as text under More, which opens them as a two-row grid of tiles just above the bar (Settings › Deck editor can leave any of them out):
+- **Panes:** wide windows show two areas, the card list and a deck panel: the gauge, **Export** and **More** (Edit as text, Card view or List view) above **Deck · Analysis · Test · Matches · Versions** tabs. Phones show them in a bottom bar built around building the deck: **Deck · Add · More**, with Analysis, Test, Matches, Versions, Export and Edit as text under More, which opens them as a two-row grid of tiles just above the bar (Settings › Deck editor can leave any of them out):
   1. **Add cards:** catalog search with filters, as a grid of whole cards (3 across on phones), with the deck count, outline and − / + under each card.
      - **Deck · Side deck** beside the search picks where + and dropped cards go.
      - Each card shows its in-deck count and − / +, and gets **Max** at the copy limit and **Off-color** when it would add a third color. Adding to the side deck, the counts are side deck copies, and a card already in the deck is tagged **Deck n**.

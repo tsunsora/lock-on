@@ -1,4 +1,12 @@
 package app.lockon.ui.cards
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import app.lockon.ui.theme.LockOnShapes
+import app.lockon.ui.components.LineIcons
+import app.lockon.ui.components.glass
+import app.lockon.ui.components.PillTextField
+import app.lockon.platform.formatMonthDay
+import androidx.compose.foundation.layout.padding
 import app.lockon.ui.components.CountPill
 import app.lockon.ui.components.LocalArtworkStore
 import app.lockon.ui.components.PillSwitch
@@ -53,6 +61,7 @@ import kotlinx.coroutines.launch
  * Shows the installed catalog and brings in a new one from a file or a link. Every install goes
  * through a preview first, because replacing the catalog can't be undone (UX rule C2).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, onDismiss: () -> Unit) {
     val info by container.catalog.info.collectAsState()
@@ -61,7 +70,6 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
     var problem by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<CatalogPreview?>(null) }
     var check by remember { mutableStateOf<CatalogUpdater.UpdateCheck?>(null) }
-    var otherSources by remember { mutableStateOf(info?.origin == CatalogOrigin.URL || info?.origin == CatalogOrigin.FILE) }
     val scope = state.appScope
 
     fun attempt(block: suspend () -> CatalogPreview?) {
@@ -81,7 +89,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
 
     GameDialog(
         onDismissRequest = onDismiss,
-        title = if (preview == null) "Card catalog" else "Install this catalog?",
+        title = if (preview == null) "Card database" else "Install this catalog?",
         text = {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val pending = preview
@@ -91,19 +99,24 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     val official = info?.origin == CatalogOrigin.GCG_API
                     val muted = MaterialTheme.typography.bodySmall.merge(TabularNumbers)
                     info?.let { current ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(current.name, style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    listOfNotNull(
-                                        "Version ${current.version}",
-                                        current.origin.label.takeUnless { official },
-                                        current.installedAt?.let { "installed ${formatTimestamp(it)}" },
-                                    ).joinToString(" · "),
-                                    style = muted, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                        Column(
+                            Modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(if (official) "Official card list" else current.name, style = MaterialTheme.typography.titleMedium)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOfNotNull(
+                                    "Version" to "${current.version}",
+                                    "Cards" to "${current.cardCount}",
+                                    "Source" to if (official) "gcg-api" else current.origin.label,
+                                    current.installedAt?.let { "Installed" to formatMonthDay(it) },
+                                ).forEach { (label, value) ->
+                                    Column {
+                                        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(value, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)
+                                    }
+                                }
                             }
-                            CountPill("${current.cardCount} cards")
                         }
                     }
                     if (!official) {
@@ -123,7 +136,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                         try { check = container.catalogUpdater.checkCardDatabase() } catch (e: CatalogException) { problem = e.message }
                                         busy = false
                                     }
-                                }, enabled = !busy, compact = true)
+                                }, enabled = !busy, icon = LineIcons.Sync, compact = true)
                                 if (result is CatalogUpdater.UpdateCheck.UpToDate) {
                                     Text("Up to date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
                                 }
@@ -140,39 +153,24 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                             style = muted,
                         )
                     }
-                    HorizontalDivider()
                     val showArtwork by container.catalog.showArtwork.collectAsState()
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Show card artwork", style = MaterialTheme.typography.titleSmall)
-                            val images = LocalArtworkStore.current?.status?.collectAsState()?.value
-                            Text(
-                                when {
-                                    !showArtwork || images == null || images.total == 0 -> "Saved on this device, never synced"
-                                    images.complete -> "${images.total} images saved offline"
-                                    images.downloading -> "Saving images: ${images.saved} of ${images.total}"
-                                    else -> "${images.saved} of ${images.total} images saved, the rest when online"
-                                },
-                                style = muted, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        PillSwitch(checked = showArtwork, onCheckedChange = { scope.launch { container.catalog.setShowArtwork(it) } })
-                    }
-                    HorizontalDivider()
-                    SectionHeader("Other sources", trailing = {
-                        GameButton(if (otherSources) "Hide" else "Show", onClick = { otherSources = !otherSources }, style = GameButtonStyle.GHOST, compact = true)
-                    })
-                    if (otherSources) {
-                        OutlinedTextField(
-                            url, { url = it.trim() },
-                            label = { Text("Lock On catalog link (https://)") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                    val images = LocalArtworkStore.current?.status?.collectAsState()?.value
+                    if (showArtwork && images != null && images.total > 0) Text(
+                        when {
+                            images.complete -> "${images.total} images saved offline"
+                            images.downloading -> "Saving images: ${images.saved} of ${images.total}"
+                            else -> "${images.saved} of ${images.total} images saved, the rest when online"
+                        },
+                        style = muted, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text("Other sources", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    run {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            GameButton(if (url == info?.updateUrl) "Check for update" else "Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, compact = true)
-                            GameButton("Import file", onClick = {
+                            PillTextField(url, { url = it.trim() }, "https://", Modifier.weight(1f))
+                            GameButton(if (url == info?.updateUrl) "Check for update" else "Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, style = GameButtonStyle.SECONDARY, icon = LineIcons.Download, compact = true)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            GameButton("Import file", icon = LineIcons.Folder, onClick = {
                                 attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
                             }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
                             if (info?.origin != CatalogOrigin.BUNDLED) {
@@ -183,7 +181,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                         busy = false
                                         state.notify("Sample catalog restored.")
                                     }
-                                }, style = GameButtonStyle.GHOST, enabled = !busy, compact = true)
+                                }, style = GameButtonStyle.SECONDARY, enabled = !busy, icon = LineIcons.Undo, compact = true)
                             }
                         }
                     }
@@ -208,7 +206,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     }
                 }, enabled = !busy, compact = true)
             } else {
-                GameButton("Close", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true)
+                GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
             }
         },
         dismissButton = {

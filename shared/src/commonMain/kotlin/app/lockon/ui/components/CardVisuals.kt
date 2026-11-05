@@ -1,4 +1,7 @@
 package app.lockon.ui.components
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
@@ -112,6 +115,7 @@ import app.lockon.ui.theme.onCardColor
 /** Physical cards are 63 × 88 mm with corners about 5% of their width (UX rule V4: never crop a card). */
 const val CARD_ASPECT = 63f / 88f
 val CardShape = RoundedCornerShape(percent = 5)
+private val BackShape = RoundedCornerShape(percent = 9)
 
 /**
  * A card at its true shape: the official image when the catalog has one, otherwise a designed
@@ -270,9 +274,17 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTypeGlyph(type:
 @Composable
 fun CardBack(modifier: Modifier = Modifier) {
     Box(
-        modifier.aspectRatio(CARD_ASPECT).clip(CardShape)
+        modifier.aspectRatio(CARD_ASPECT).clip(BackShape)
             .background(Brush.linearGradient(listOf(Color(0xFF4F80F0), Color(0xFF2A3FC4))))
-            .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
+            .drawBehind {
+                val step = 9.dp.toPx()
+                var x = -size.height
+                while (x < size.width) {
+                    drawLine(Color.White.copy(alpha = 0.08f), Offset(x, size.height), Offset(x + size.height, 0f), 3.dp.toPx())
+                    x += step
+                }
+            }
+            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)), BackShape),
         contentAlignment = Alignment.Center,
     ) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -305,24 +317,17 @@ fun CardTile(
     val haptics = LocalHapticFeedback.current
     val scheme = MaterialTheme.colorScheme
     val count = quantity ?: 0
-    val outline = when {
-        selected -> scheme.secondary
-        count > 0 -> scheme.primary
-        else -> Color.Transparent
-    }
     Column(modifier) {
         Box(
             Modifier.fillMaxWidth().focusRing(CardShape, selected)
                 .hoverState(hover)
-                .hoverLift(press, glow = if (count > 0) scheme.primary else lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape,
-                    resting = if (count > 0) 0.35f else 0f)
+                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape)
                 .flashOnChange(count, scheme.primary, scheme.error, CardShape)
-                .then(if (outline != Color.Transparent) Modifier.border(BorderStroke(2.dp, outline), CardShape) else Modifier)
                 .clip(CardShape)
                 .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
         ) {
             CardImage(card, Modifier.fillMaxWidth(), shadow = false)
-            Box(Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) { tag() }
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)) { tag() }
             CardHoverPreview(card, null, hovered)
         }
         if (onMinus != null && onPlus != null) {
@@ -330,15 +335,14 @@ fun CardTile(
             // Row squeezed the + against the edge. Pinned to either end, both buttons sit the same
             // distance in, and their hit areas may overlap the count, which is never tapped.
             Box(
-                Modifier.fillMaxWidth().padding(top = 6.dp).clip(SmallPlate)
-                    .background(Brush.verticalGradient(listOf(scheme.surfaceContainerHighest.copy(alpha = 0.9f), scheme.surfaceContainerLow.copy(alpha = 0.9f))))
-                    .border(BorderStroke(1.dp, if (count > 0) scheme.primary.copy(alpha = 0.5f) else scheme.outlineVariant), SmallPlate),
+                Modifier.fillMaxWidth().padding(top = 6.dp).shadow(if (isTwilight()) 0.dp else 2.dp, SmallPlate).clip(SmallPlate).background(glassColors().strong)
+                    .border(BorderStroke(1.dp, if (isTwilight()) Color.White.copy(alpha = 0.12f) else Color.Transparent), SmallPlate),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     RollingNumber(
                         count, MaterialTheme.typography.titleLarge.merge(TabularNumbers),
-                        if (count > 0) scheme.primary else scheme.onSurfaceVariant, Modifier.bumpOnIncrease(count),
+                        if (count > 0) scheme.onSurface else scheme.onSurfaceVariant, Modifier.bumpOnIncrease(count),
                     )
                     if (limit != null) CopyPips(count, limit, pip = 5.dp)
                 }
@@ -379,7 +383,7 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
                 .background(
                     when {
                         !enabled -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
-                        primary -> Brush.verticalGradient(listOf(lighten(Accent, if (hovered) 0.5f else 0.25f), Accent))
+                        primary -> SolidColor(lighten(Accent, if (hovered) 0.15f else 0f))
                         else -> Brush.verticalGradient(listOf(scheme.onSurface.copy(alpha = if (hovered) 0.22f else 0.12f), scheme.onSurface.copy(alpha = 0.06f)))
                     },
                 ),
@@ -389,6 +393,8 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
                 color = when {
                     !enabled -> scheme.outline.copy(alpha = 0.6f)
                     primary -> OnAccent
+                    // Past the copy limit + still works, for formats that allow it, but it steps back.
+                    symbol == "+" -> scheme.onSurface.copy(alpha = 0.4f)
                     else -> scheme.onSurface
                 })
         }
@@ -416,7 +422,7 @@ fun DeckStrip(
     val interaction = remember { MutableInteractionSource() }
     val hover = remember { HoverState() }
     val hovered = hover.hovered
-    val base = if (isTwilight()) Color(0xFF414A88) else scheme.surfaceContainerLowest
+    val base = if (isTwilight()) Color(0xFF414A88) else Color(0xFFF3F6FB)
     Box(
         modifier.fillMaxWidth().height(if (compact) 48.dp else 54.dp)
             .flashOnChange(quantity, scheme.primary, scheme.error, StripShape)
@@ -426,7 +432,7 @@ fun DeckStrip(
             .clickable(interaction, indication = LocalIndication.current, enabled = card != null, onClick = onClick),
     ) {
         // A lit edge on hover.
-        if (hovered) Box(Modifier.fillMaxSize().border(BorderStroke(1.dp, scheme.primary.copy(alpha = 0.7f)), StripShape))
+        Box(Modifier.fillMaxSize().border(BorderStroke(1.dp, if (hovered) scheme.primary.copy(alpha = 0.7f) else if (isTwilight()) Color.White.copy(alpha = 0.1f) else Color.Transparent), StripShape))
         // A strip shows only a crop of the art, so the whole card opens beside it on hover.
         if (card != null) CardHoverPreview(card, printingId, hovered)
         Row(Modifier.fillMaxSize().padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -442,7 +448,7 @@ fun DeckStrip(
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(card?.name ?: "Unknown card", maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium, color = scheme.onSurface)
+                    style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
                 if (subtitle != null) {
                     Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = (if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium).merge(TabularNumbers),
@@ -476,7 +482,7 @@ fun CompactStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
             )
         }
         IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }) {
-            Icon(Icons.Default.Add, contentDescription = "Add one")
+            Icon(LineIcons.Plus, contentDescription = "Add one")
         }
     }
 }
@@ -491,14 +497,15 @@ fun CompactStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
 @Composable
 fun CardDetailContent(
     card: Card, printings: List<Printing>, modifier: Modifier = Modifier, actions: (@Composable () -> Unit)? = null,
-    chosenPrinting: String? = null, onChoosePrinting: ((String) -> Unit)? = null,
+    chosenPrinting: String? = null, onChoosePrinting: ((String) -> Unit)? = null, showName: Boolean = false,
 ) {
     // Starts over when choosing turns on (the card was just added), so the lit tile is the one the deck uses.
     var shown by remember(card.cardNumber, onChoosePrinting != null) { mutableStateOf(chosenPrinting) }
     var inspecting by remember(card.cardNumber) { mutableStateOf(false) }
     BoxWithConstraints(modifier) {
         val sideBySide = maxWidth >= 640.dp
-        val roomy = maxWidth >= 380.dp
+        // A phone's sheet names the card itself; a side panel, however narrow, keeps the card beside its numbers.
+        val roomy = !showName && maxWidth >= 300.dp
         val imageWidth = (maxWidth * 0.4f).coerceIn(260.dp, 380.dp)
         val thumbWidth = (maxWidth * 0.4f).coerceAtMost(156.dp)
         // The card sits in a pool of its own colour, like a card raised for inspection.
@@ -536,7 +543,7 @@ fun CardDetailContent(
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionHeader(if (onChoosePrinting != null) "Printing in this deck" else "Printings", readout = "${printings.size}")
+                    if (onChoosePrinting != null) SectionHeader("Printing in this deck", readout = "${printings.size}")
                     if (!roomy) {
                         // Phones: a sideways strip of tiles big enough to tell the art apart, rather than
                         // a grid of slivers. The fade only shows while there is more to scroll to.
@@ -557,7 +564,7 @@ fun CardDetailContent(
                             val gap = 8.dp
                             val fit = ((maxWidth + gap) / (76.dp + gap)).toInt().coerceIn(1, 5)
                             val rows = (printings.size + fit - 1) / fit
-                            val columns = if (fit == 5) 5 else (printings.size + rows - 1) / rows
+                            val columns = if (fit == 5 || printings.size <= fit) fit else (printings.size + rows - 1) / rows
                             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
                             // Fixed rows rather than a FlowRow: tile widths rounding a pixel past the line made
                             // it wrap a column early.
@@ -606,13 +613,9 @@ fun CardDetailContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (actions != null) {
-                Column(Modifier.padding(top = 4.dp).fillMaxWidth().glass(LockOnShapes.tile)) {
-                    PanelTitle("In this deck")
-                    // Phones trim the panel's margins so the deck controls take less of a short screen; the
-                    // steppers' 48 dp targets keep their circles in line with the title.
-                    Box(if (roomy) Modifier.padding(start = 16.dp, end = 12.dp, bottom = 14.dp)
-                        else Modifier.padding(start = 8.dp, end = 8.dp, bottom = 6.dp)) { actions() }
-                    if (printingsInPanel) Box(Modifier.padding(start = 16.dp, end = 12.dp, bottom = if (roomy) 14.dp else 10.dp)) { printingStrip() }
+                Column(Modifier.padding(top = 4.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    actions()
+                    if (printingsInPanel) printingStrip()
                 }
             }
         }
@@ -652,15 +655,13 @@ fun CardDetailContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     image(Modifier.width(thumbWidth), true)
                     Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (showName) Text(card.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             ColorPips(card.colors)
-                            Text(
-                                listOf(card.type.label, card.cardNumber, card.rarity).filter { it.isNotBlank() }.joinToString(" · "),
-                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Text(listOf(card.type.label, card.cardNumber).filter { it.isNotBlank() }.joinToString("  "), style = MaterialTheme.typography.labelLarge)
                         }
                         val stats = listOfNotNull(
-                            card.level?.let { "Lv" to it }, card.cost?.let { "Cost" to it },
+                            card.cost?.let { "Cost" to it }, card.level?.let { "Level" to it },
                             card.ap?.let { "AP" to it }, card.hp?.let { "HP" to it },
                         )
                         if (stats.isNotEmpty()) {
@@ -668,21 +669,24 @@ fun CardDetailContent(
                                 stats.forEach { (label, value) -> StatCell(label, "$value", Modifier.weight(1f)) }
                             }
                         }
-                        if (card.traits.isNotEmpty()) {
-                            Text(card.traits.joinToString(" ") { "($it)" }, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (card.zones.isNotEmpty()) {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                card.zones.forEach { Chip(it, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, compact = true) }
-                            }
-                        }
-                        card.link?.let {
-                            Text("Link  $it", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        }
                     }
                 }
-                body()
+                if (card.displayText.isNotBlank()) Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
+                    Text(effectText(card.displayText), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(10.dp).fillMaxWidth())
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (card.traits.isNotEmpty()) LabelledLine("Traits", card.traits.joinToString(", "))
+                    if (card.zones.isNotEmpty()) LabelledLine("Zones", card.zones.joinToString(", "))
+                    card.link?.let { LabelledLine("Link", it) }
+                    if (card.rarity.isNotBlank() || card.setCode.isNotBlank()) LabelledLine("Set", listOf(card.setCode, card.rarity).filter { it.isNotBlank() }.joinToString(" · "))
+                }
+                if (card.correctedText != null) {
+                    Text("Shows corrected text. Printed: ${card.text}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (actions != null) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    actions()
+                    if (printingsInPanel) printingStrip()
+                }
                 if (!printingsInPanel) printingStrip()
             }
         } else {
@@ -693,6 +697,7 @@ fun CardDetailContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     image(Modifier.weight(1.25f), true)
                     Column(Modifier.weight(1f).padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (showName) Text(card.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             ColorPips(card.colors)
                             Text(
@@ -730,6 +735,7 @@ fun CardDetailDialog(
     extraActions: (@Composable () -> Unit)? = null,
 ) {
     val arrival = rememberArrival()
+    BlurBehind()
     Dialog(onDismissRequest = onDismiss, properties = app.lockon.platform.fullWindowDialogProperties()) {
         app.lockon.platform.LightSystemBarIcons()
         // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
@@ -745,21 +751,32 @@ fun CardDetailDialog(
         // Phones keep a slimmer frame so the card details get the width.
         val narrow = maxWidth < 600.dp
         Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = if (narrow) RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp) else MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
             // The cap comes first: after fillMaxWidth the width is already fixed and widthIn can't shrink it.
-            modifier = Modifier.widthIn(max = 1040.dp).fillMaxWidth(0.94f).heightIn(max = maxHeight)
-                .arrive(arrival).glassFrame(),
+            // Phones get a sheet up from the bottom edge, with a handle to pull it away.
+            modifier = (if (narrow) Modifier.align(Alignment.BottomCenter).fillMaxWidth() else Modifier.widthIn(max = 1040.dp).fillMaxWidth(0.94f))
+                .heightIn(max = maxHeight).arrive(arrival).glassFrame(),
         ) {
             Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = if (narrow) 16.dp else 8.dp, bottom = 16.dp)) {
                 // The frame's end is slim to leave the details their scroll bar's lane; Close keeps a proper margin.
-                Row(Modifier.padding(end = if (narrow) 12.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (narrow) Box(
+                    Modifier.fillMaxWidth().padding(end = 12.dp, bottom = 8.dp).pointerInput(Unit) {
+                        var pulled = 0f
+                        detectVerticalDragGestures(onDragStart = { pulled = 0f }) { _, amount ->
+                            pulled += amount
+                            if (pulled > 60.dp.toPx()) onDismiss()
+                        }
+                    }.semantics { contentDescription = "Close" }.clickable(interactionSource = null, indication = null, onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) { Box(Modifier.padding(vertical = 4.dp).size(width = 40.dp, height = 5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))) }
+                else Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(card.name, style = if (narrow) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
                 }
                 CardDetailContent(card, printings, Modifier.weight(1f, fill = false).padding(end = 12.dp, top = 8.dp), actions = extraActions,
-                    chosenPrinting = chosenPrinting, onChoosePrinting = onChoosePrinting)
+                    chosenPrinting = chosenPrinting, onChoosePrinting = onChoosePrinting, showName = narrow)
             }
         }
         }
@@ -843,7 +860,7 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
                     Modifier.padding(4.dp).size(20.dp).shadow(3.dp, CircleShape).background(Accent, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null, tint = OnAccent, modifier = Modifier.size(14.dp))
+                    Icon(LineIcons.Check, contentDescription = null, tint = OnAccent, modifier = Modifier.size(14.dp))
                 }
             }
         }
@@ -891,16 +908,17 @@ private val EffectMarker = Regex("【[^】]*】|<[^>]*>")
  * count and, with a [limit], copy pips under it.
  */
 @Composable
-fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () -> Unit, limit: Int? = null) {
+fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () -> Unit, limit: Int? = null, pips: Boolean = false) {
     val haptics = LocalHapticFeedback.current
     val scheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically) {
         TileButton("−", "Remove one $name", enabled = quantity > 0) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }
-        Box(Modifier.widthIn(min = 30.dp), contentAlignment = Alignment.Center) {
+        Column(Modifier.widthIn(min = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             RollingNumber(
                 quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers),
                 if (limit != null && quantity > limit) scheme.error else scheme.onSurface, Modifier.bumpOnIncrease(quantity),
             )
+            if (pips && limit != null) CopyPips(quantity, limit, pip = 5.dp)
         }
         TileButton("+", "Add one $name", primary = limit == null || quantity < limit) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
     }

@@ -88,7 +88,7 @@ fun CardInspectDialog(card: Card, printingId: String?, onDismiss: () -> Unit) {
                         textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
                 }
                 IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    Icon(LineIcons.X, contentDescription = "Close", tint = Color.White)
                 }
             }
         }

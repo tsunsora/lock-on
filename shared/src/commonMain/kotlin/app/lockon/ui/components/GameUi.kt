@@ -1,4 +1,5 @@
 package app.lockon.ui.components
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
@@ -510,7 +511,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
  * when exactly full, red when over. The colour and the number say it; nothing is drawn on the bar.
  */
 @Composable
-fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false) {
+fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false, numberLast: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
     // One value for the gauge's state, 0 filling, 1 exactly full, 2 over, so the teal warms to gold
@@ -523,8 +524,8 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     val numberColor = if (tone <= 1f) androidx.compose.ui.graphics.lerp(scheme.onSurface, gold, tone)
         else androidx.compose.ui.graphics.lerp(gold, scheme.error, tone - 1f)
     val slate = if (isTwilight()) ChartSlateTwilight else ChartSlate
-    val fillingBrush = if (hold) SolidColor(slate) else Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
-    val fullBrush = Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
+    val fillingBrush = SolidColor(if (hold) slate else accent)
+    val fullBrush = SolidColor(Color(0xFFFFB84D))
     val error = scheme.error
     val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
     @Composable
@@ -532,7 +533,7 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
         RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
             numberColor, Modifier.bumpOnIncrease(count))
         Text("/$limit", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 2.dp, bottom = 3.dp))
+            modifier = Modifier.padding(bottom = 3.dp))
     }
     @Composable
     fun Bar(barModifier: Modifier) {
@@ -561,9 +562,9 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
         modifier.widthIn(min = 110.dp).semantics(mergeDescendants = true) { contentDescription = "$label: $count of $limit" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.Bottom) { Number() }
-        Spacer(Modifier.width(10.dp))
+        if (!numberLast) { Row(verticalAlignment = Alignment.Bottom) { Number() }; Spacer(Modifier.width(10.dp)) }
         Bar(Modifier.weight(1f))
+        if (numberLast) { Spacer(Modifier.width(10.dp)); Row(verticalAlignment = Alignment.Bottom) { Number() } }
     } else Column(modifier.widthIn(min = 110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
@@ -968,7 +969,7 @@ fun PillSearchField(
     modifier: Modifier = Modifier,
     onClear: (() -> Unit)? = null,
     shortcut: String? = null,
-) = PillField(value, onValueChange, placeholder, modifier, Icons.Default.Search, onClear, shortcut)
+) = PillField(value, onValueChange, placeholder, modifier, LineIcons.Search, onClear, shortcut)
 
 /**
  * A text field on the same glass pill as [PillSearchField], without the search icon, for short
@@ -1022,9 +1023,9 @@ private fun PillField(
                 }
                 if (onClear != null) {
                     IconButton(onClick = onClear, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear search and filters", tint = scheme.onSurfaceVariant)
+                        Icon(LineIcons.X, contentDescription = "Clear search and filters", tint = scheme.onSurfaceVariant)
                     }
-                } else if (shortcut != null && !app.lockon.platform.isMobile && !focused) {
+                } else if (shortcut != null && !app.lockon.platform.isMobile && !focused && LocalTopBand.current.height > 0.dp) {
                     Text(
                         shortcut, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1,
                         modifier = Modifier.padding(end = 8.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, scheme.outlineVariant, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
@@ -1041,13 +1042,13 @@ private fun PillField(
  * text chips.
  */
 @Composable
-fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolean, target: Dp = 38.dp, outlined: Boolean = false, onToggle: () -> Unit) {
+fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolean, target: Dp = 38.dp, outlined: Boolean = false, dimmed: Boolean = true, onToggle: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val ring = Accent
     // The dot brightens and the ring draws in from a little wider, so turning a colour on reads as a
     // choice being made, not a swap.
-    val lit by animateFloatAsState(if (selected || hovered) 1f else 0.6f, motion(Motion.SHORT), label = "orb-lit")
+    val lit by animateFloatAsState(if (selected || hovered || !dimmed) 1f else 0.5f, motion(Motion.SHORT), label = "orb-lit")
     val on by animateFloatAsState(if (selected) 1f else 0f, motion(Motion.MEDIUM), label = "orb-ring")
     Box(
         Modifier.size(target).hoverable(interaction)
@@ -1066,6 +1067,20 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
     }
 }
 
+/** How many dialogs are up, so the app can soften what's behind them. */
+object DialogBackdrop {
+    var open by mutableIntStateOf(0)
+}
+
+/** Softens the app behind a dialog for as long as this stays in the composition. */
+@Composable
+fun BlurBehind() {
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        DialogBackdrop.open++
+        onDispose { DialogBackdrop.open-- }
+    }
+}
+
 /**
  * A dialog on a rounded card: Material's dialog behaviour with the glass rim, a friendly title
  * and [GameButton] actions.
@@ -1079,6 +1094,7 @@ fun GameDialog(
     title: String? = null,
     text: (@Composable () -> Unit)? = null,
 ) {
+    BlurBehind()
     val scheme = MaterialTheme.colorScheme
     // The card fades in and grows from just under its size, so a dialog arrives rather than appears.
     val shown = remember { MutableTransitionState(false) }.apply { targetState = true }
@@ -1178,7 +1194,7 @@ fun GameMenuItem(
             text, color = tone, style = MaterialTheme.typography.labelLarge, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
         )
-        if (selected) Icon(Icons.Default.Check, contentDescription = "Selected", tint = Accent, modifier = Modifier.size(18.dp))
+        if (selected) Icon(LineIcons.Check, contentDescription = "Selected", tint = Accent, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -1249,7 +1265,7 @@ fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier
     // The track itself answers the pointer; a ripple over the whole 48 dp target reads as a stray square.
     val lit by animateFloatAsState(if (hovered && enabled && onCheckedChange != null) 1f else 0f, motion(Motion.SHORT), label = "switch-hover")
     Box(
-        modifier.size(width = 60.dp, height = 48.dp)
+        modifier.size(width = 44.dp, height = 48.dp)
             .then(
                 if (onCheckedChange != null) {
                     Modifier.hoverable(interaction, enabled)
@@ -1259,20 +1275,17 @@ fun PillSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.size(width = 52.dp, height = 30.dp).clip(LockOnShapes.pill)
+            Modifier.size(width = 44.dp, height = 26.dp).clip(LockOnShapes.pill)
                 .background(SolidColor(scheme.onSurface.copy(alpha = 0.12f + 0.08f * lit)))
                 // The teal fills in as the knob travels, so the track and knob change together.
                 .drawBehind {
                     val on = position.coerceIn(0f, 1f)
-                    if (on > 0f) drawRect(
-                        Brush.verticalGradient(listOf(lighten(accent, 0.25f + 0.15f * lit), lighten(accent, 0.12f * lit))),
-                        alpha = on,
-                    )
+                    if (on > 0f) drawRect(lighten(accent, 0.12f * lit), alpha = on)
                 },
         ) {
             Box(
-                Modifier.padding(3.dp).size(24.dp)
-                    .graphicsLayer { translationX = position * 22.dp.toPx(); shape = CircleShape; shadowElevation = 2.dp.toPx() }
+                Modifier.padding(3.dp).size(20.dp)
+                    .graphicsLayer { translationX = position * 18.dp.toPx(); shape = CircleShape; shadowElevation = 1.dp.toPx() }
                     .clip(CircleShape)
                     .background(if (enabled) Color.White else scheme.outline),
             )
@@ -1371,7 +1384,7 @@ fun PillChip(
     val fill by animateColorAsState(
         when {
             selected -> Accent.copy(alpha = if (pressed) 0.24f else if (hovered) 0.18f else 0.13f).compositeOver(g.strong)
-            else -> Accent.copy(alpha = if (pressed) 0.16f else if (hovered) 0.08f else 0f).compositeOver(g.strong)
+            else -> scheme.onSurface.copy(alpha = if (pressed) 0.14f else if (hovered) 0.11f else 0.07f).compositeOver(g.strong)
         },
         motion(Motion.SHORT), label = "chip-fill",
     )
@@ -1380,7 +1393,11 @@ fun PillChip(
         if (selected) Accent else if (hovered) Accent.copy(alpha = 0.5f) else g.rimLow,
         motion(Motion.SHORT), label = "chip-rim",
     )
-    CompositionLocalProvider(LocalRippleConfiguration provides null) { FilterChip(
+    CompositionLocalProvider(
+        LocalRippleConfiguration provides null,
+        // A pointer needs no 48 dp target, so rows of chips sit close and line up with buttons beside them.
+        androidx.compose.material3.LocalMinimumInteractiveComponentSize provides if (app.lockon.platform.isMobile) 48.dp else 0.dp,
+    ) { FilterChip(
         selected = selected, onClick = { if (held[0]) held[0] = false else onClick() }, label = label,
         modifier = modifier.then(longClickSemantics).pressScale(interactions), leadingIcon = leadingIcon,
         shape = LockOnShapes.button, interactionSource = interactions,
@@ -1414,7 +1431,7 @@ fun MenuChip(
             label = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     label()
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(LineIcons.Chevd, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
             },
         )
@@ -1474,6 +1491,7 @@ fun PillNavBar(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     labels: Boolean = false,
+    spread: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
@@ -1519,10 +1537,10 @@ fun PillNavBar(
             val itemFill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
             // Once the shared pill slides, items draw no fill of their own; before then the chosen one lights itself.
             val fill = if (!labels) itemFill else if (isSelected && !placed) accent else Color.Transparent
-            val content by animateColorAsState(if (isSelected) onAccent else scheme.onSurface.copy(alpha = 0.62f), motion(Motion.LONG), label = "pill-content")
+            val content by animateColorAsState(if (isSelected) onAccent else scheme.onSurface.copy(alpha = 0.85f), motion(Motion.LONG), label = "pill-content")
             Box(
                 // With every label showing, items take their own width; otherwise they share the bar.
-                (if (labels) Modifier else Modifier.weight(share)).fillMaxHeight()
+                (if (labels && !spread) Modifier else Modifier.weight(share)).fillMaxHeight()
                     .onPlaced { spots.getOrNull(i)?.value = it.positionInParent().x to it.size.width.toFloat() }
                     .then(
                         if (item.onLongClick == null) Modifier.selectable(isSelected, role = Role.Tab, interactionSource = null, indication = null) { onSelect(i) }
@@ -1565,14 +1583,14 @@ fun PillNavBar(
  * at most [widest] across (see [floatingPillWidth]).
  */
 @Composable
-fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp = 440.dp, onSelect: (Int) -> Unit) {
+fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp = 440.dp, labels: Boolean = false, onSelect: (Int) -> Unit) {
     BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)) {
-        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(floatingPillWidth(maxWidth, widest)))
+        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(floatingPillWidth(maxWidth, widest)), labels = labels, spread = labels)
     }
 }
 
 /** How wide a [FloatingPillNav] is on a screen [screen] wide: most of it, up to [widest]. */
-fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen * 0.88f, widest)
+fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen * 0.92f, widest)
 
 /** Small drawn icons for the editor's sections and the export, which Material's core icon set lacks. */
 object GameIcons {
@@ -1582,20 +1600,10 @@ object GameIcons {
         ).build()
 
     /** Two stacked cards: the deck. */
-    val Deck: ImageVector = icon("Deck") {
-        moveTo(8f, 3f); lineTo(19f, 3f); quadTo(21f, 3f, 21f, 5f); lineTo(21f, 17f); quadTo(21f, 19f, 19f, 19f); lineTo(18f, 19f)
-        lineTo(18f, 7f); quadTo(18f, 5f, 16f, 5f); lineTo(6f, 5f); quadTo(6f, 3f, 8f, 3f); close()
-        moveTo(5f, 7f); lineTo(14f, 7f); quadTo(16f, 7f, 16f, 9f); lineTo(16f, 19f); quadTo(16f, 21f, 14f, 21f); lineTo(5f, 21f)
-        quadTo(3f, 21f, 3f, 19f); lineTo(3f, 9f); quadTo(3f, 7f, 5f, 7f); close()
-    }
+    val Deck: ImageVector get() = LineIcons.Decks
 
     /** One card with a diamond in it: the card list. */
-    val Card: ImageVector = icon("Card") {
-        moveTo(6.5f, 2f); lineTo(17.5f, 2f); quadTo(20f, 2f, 20f, 4.5f); lineTo(20f, 19.5f); quadTo(20f, 22f, 17.5f, 22f); lineTo(6.5f, 22f)
-        quadTo(4f, 22f, 4f, 19.5f); lineTo(4f, 4.5f); quadTo(4f, 2f, 6.5f, 2f); close()
-        // Winds against the card, so the diamond stays hollow.
-        moveTo(12f, 7f); lineTo(8.5f, 12f); lineTo(12f, 17f); lineTo(15.5f, 12f); close()
-    }
+    val Card: ImageVector get() = LineIcons.Cards
 
     /** Three rising bars: the analysis. */
     val Curve: ImageVector = icon("Curve") {

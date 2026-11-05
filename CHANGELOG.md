@@ -14,6 +14,10 @@ The rest of the new look: the screens that still followed the old layout now mat
 - **Deck editor:** the back button is plain, the header is one line, and rows are − count +. Settings can open decks as card images by default.
 - **Sync:** this device has QR code and Address beside it, and every row has its action. Send decks keeps your choice in a tray above the same lists.
 - **Settings and Cards:** one-line rows with shorter names, and the card details put the card beside its numbers.
+- **Icons and details:** outline icons everywhere, a smaller logo inside its plate, flat gauges and switches, softer chips, and the app blurs behind dialogs where the device can.
+- **Compare and pairing:** versions to choose between show their device, gauge and each card's difference side by side. Pairing shows the number as large digits.
+- **Card database:** the installed list as a card with its version, count, source and date, with other sources always in view.
+- **Phones:** deck rows with the card on a strip of its art, folders as tabs, Deck, Add and More always labelled, the card details as a sheet, and a first-run screen with three ways to get a deck.
 
 ## 26.11.6 (2026-11-04)
 

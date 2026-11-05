@@ -1,4 +1,10 @@
 package app.lockon.ui.decks
+import androidx.compose.foundation.border
+import app.lockon.ui.components.softThumbInk
+import app.lockon.ui.components.softThumb
+import app.lockon.ui.components.glassColors
+import androidx.compose.foundation.shape.RoundedCornerShape
+import app.lockon.ui.components.LineIcons
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.animation.animateColorAsState
@@ -155,6 +161,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 
 private sealed interface LibraryDialog {
     data object New : LibraryDialog
+    data object Paste : LibraryDialog
     data class Rename(val deck: DeckSummary) : LibraryDialog
     data class Move(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
@@ -237,15 +244,35 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         // title; phones keep New deck in the thumb zone. New deck also takes a pasted list or a backup.
         // Backing up every deck is in Settings.
         val actions = @Composable {
-            if (wide) GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add, compact = true)
+            if (wide) GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = LineIcons.Plus, compact = true)
         }
+        var phoneSearch by rememberSaveable { mutableStateOf(false) }
+        var deckSort by rememberSaveable { mutableStateOf(DeckSort.LAST_EDITED) }
         ScreenHeader(
-            // Each deck box says Legal or Draft itself, so the title needs no tally under it.
+            // Each deck says Legal or Draft itself, so the title needs no tally under it.
             "Decks",
         ) {
-            if (!wide) actions()
+            if (!wide) {
+                if (!list.isNullOrEmpty()) GlassIconButton(LineIcons.Search, "Search decks", { phoneSearch = !phoneSearch; if (!phoneSearch) search = "" })
+                Box {
+                    var more by remember { mutableStateOf(false) }
+                    GlassIconButton(LineIcons.More, "More", { more = true })
+                    GameMenu(expanded = more, onDismissRequest = { more = false }) {
+                        GameMenuItem("New folder", onClick = { more = false; dialog = LibraryDialog.NewFolder() }, icon = LineIcons.Folderplus)
+                        (folderFilter as? FolderFilter.Named)?.let { open ->
+                            GameMenuItem("Rename folder", onClick = { more = false; renameFolder(open.name) }, icon = LineIcons.Edit)
+                            GameMenuItem("Remove folder", onClick = { more = false; removeFolder(open.name) }, icon = LineIcons.Trash)
+                        }
+                        if (!list.isNullOrEmpty()) {
+                            GameMenuDivider()
+                            DeckSort.entries.forEach { option ->
+                                GameMenuItem(option.label, onClick = { deckSort = option; more = false }, selected = option == deckSort)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        var deckSort by rememberSaveable { mutableStateOf(DeckSort.LAST_EDITED) }
         // This screen stays built while hidden, so only Ctrl+F presses made while it shows count.
         val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
         val focusSeen = remember { intArrayOf(state.searchFocusRequests) }
@@ -266,8 +293,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             Box(Modifier.weight(1f).fillMaxSize()) {
                 Column(Modifier.fillMaxSize()) {
                     // Desktop always has the search bar beside the actions; phones only once there's a list to search.
-                    val searchable = (list?.size ?: 0) > 3 || (wide && !list.isNullOrEmpty())
-                    if (searchable || wide) Row(
+                    val searchable = if (wide) !list.isNullOrEmpty() else phoneSearch || search.isNotEmpty()
+                    if (searchable) Row(
                         Modifier.fillMaxWidth().padding(start = 16.dp, end = if (wide) 12.dp else 16.dp, top = 4.dp, bottom = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -280,7 +307,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         )
                         if (wide && !list.isNullOrEmpty()) Box {
                             var sortMenu by remember { mutableStateOf(false) }
-                            GameButton(deckSort.label, onClick = { sortMenu = true }, style = GameButtonStyle.SECONDARY, icon = Glyphs.Sort, trailingIcon = Icons.Default.ArrowDropDown, compact = true)
+                            GameButton(deckSort.label, onClick = { sortMenu = true }, style = GameButtonStyle.SECONDARY, icon = Glyphs.Sort, trailingIcon = LineIcons.Chevd, compact = true,
+                                modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), LockOnShapes.button))
                             GameMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                                 DeckSort.entries.forEach { option ->
                                     GameMenuItem(option.label, onClick = { deckSort = option; sortMenu = false }, selected = option == deckSort)
@@ -298,11 +326,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (drag.deck == null) {
-                            FolderMenuChip(
-                                total = list.size, folders = folders, unfiled = unfiled, selected = folderFilter,
-                                onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
-                                onRename = renameFolder, onRemove = removeFolder,
-                            )
+                            FolderTabs(list.size, folders, unfiled, showUnfiled, folderFilter) { folderFilter = it }
                         } else {
                             FolderChips(
                                 folders = folders, unfiled = unfiled, showUnfiled = showUnfiled, selected = folderFilter, drag = drag,
@@ -319,12 +343,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     }
                     when {
                         list == null -> Unit
-                        list.isEmpty() -> EmptyState(
-                            "No decks yet",
-                            "Create a deck, import a deck list, or pair with another device to bring your decks over.",
-                        ) {
-                            GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add)
-                        }
+                        list.isEmpty() -> NoDecks(
+                            onNew = { dialog = LibraryDialog.New },
+                            onPaste = { dialog = LibraryDialog.Paste },
+                            onFromDevice = { state.select(Tab.SYNC) },
+                        )
                         else -> {
                             val shown = remember(list, folderFilter, search, deckSort) {
                                 list.filter {
@@ -398,7 +421,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         .clickable(role = Role.Button, onClickLabel = "New deck") { dialog = LibraryDialog.New }
                         .semantics { contentDescription = "New deck" },
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(28.dp)) }
+                ) { Icon(LineIcons.Plus, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(28.dp)) }
             }
         }
         }
@@ -408,9 +431,10 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
     when (val d = dialog) {
         null -> Unit
         // A deck made while a folder is open starts in that folder.
-        LibraryDialog.New -> NewDeckDialog(
+        LibraryDialog.New, LibraryDialog.Paste -> NewDeckDialog(
             container, files, state, onDismiss = { dialog = null },
             folders = folders.map { it.first }, folder = (folderFilter as? FolderFilter.Named)?.name,
+            startPasting = d == LibraryDialog.Paste,
         )
         is LibraryDialog.Rename -> TextPromptDialog("Rename deck", "Deck name", d.deck.snapshot.name, confirm = "Rename", onDismiss = { dialog = null }) { name ->
             dialog = null
@@ -530,7 +554,7 @@ private fun FolderRail(
         // Dropping a deck here names a new folder and puts that deck in it.
         GameButton(
             "New folder", onClick = onNewFolder, style = if (over == DeckDropSpot.NewFolder) GameButtonStyle.PRIMARY else GameButtonStyle.GHOST,
-            icon = Icons.Default.Add, compact = true, modifier = Modifier.padding(top = 4.dp).deckDropSpot(drag, DeckDropSpot.NewFolder),
+            icon = LineIcons.Plus, compact = true, modifier = Modifier.padding(top = 4.dp).deckDropSpot(drag, DeckDropSpot.NewFolder),
         )
     }
 }
@@ -571,7 +595,7 @@ private fun FolderItem(
             color = ink, modifier = Modifier.weight(1f))
         if (onMenu != null && hovered) {
             Icon(
-                Icons.Default.MoreVert, contentDescription = "Folder actions", tint = ink,
+                LineIcons.More, contentDescription = "Folder actions", tint = ink,
                 modifier = Modifier.size(28.dp).clip(LockOnShapes.button).clickable(onClick = onMenu).padding(4.dp),
             )
         } else {
@@ -613,7 +637,7 @@ private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove
         ) {
             GameMenuItem("Rename", onClick = { menuAt = null; onRename(name) })
             GameMenuDivider()
-            GameMenuItem("Remove folder", onClick = { menuAt = null; onRemove(name) }, icon = Icons.Default.Delete, danger = true)
+            GameMenuItem("Remove folder", onClick = { menuAt = null; onRemove(name) }, icon = LineIcons.Trash, danger = true)
         }
     }
 }
@@ -639,7 +663,7 @@ private fun FolderMenuChip(
         FolderFilter.Unfiled -> "No folder · $unfiled"
         is FolderFilter.Named -> "${selected.name} · ${folders.firstOrNull { it.first == selected.name }?.second ?: 0}"
     }
-    GlassIconButton(Icons.Default.Add, "New folder", onNewFolder, compact = true)
+    GlassIconButton(LineIcons.Plus, "New folder", onNewFolder, compact = true)
     MenuChip(selected = selected != FolderFilter.All, label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) }) { close ->
         GameMenuItem("All decks · $total", onClick = { onSelect(FolderFilter.All); close() }, selected = selected == FolderFilter.All)
         folders.forEach { (name, count) ->
@@ -650,8 +674,8 @@ private fun FolderMenuChip(
         }
     }
     (selected as? FolderFilter.Named)?.let { open ->
-        GlassIconButton(Icons.Default.Edit, "Rename ${open.name}", { onRename(open.name) }, compact = true)
-        GlassIconButton(Icons.Default.Delete, "Remove ${open.name}", { onRemove(open.name) }, tint = MaterialTheme.colorScheme.error, compact = true)
+        GlassIconButton(LineIcons.Edit, "Rename ${open.name}", { onRename(open.name) }, compact = true)
+        GlassIconButton(LineIcons.Trash, "Remove ${open.name}", { onRemove(open.name) }, tint = MaterialTheme.colorScheme.error, compact = true)
     }
 }
 
@@ -690,10 +714,10 @@ private fun FolderChips(
     // Stays an assist chip, lighting up only while a deck is held over it.
     if (over == DeckDropSpot.NewFolder) PillChip(
         selected = true, onClick = onNewFolder, label = { Text("New folder") },
-        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
+        leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
     ) else AssistChip(
         onClick = onNewFolder, label = { Text("New folder") },
-        leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
+        leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) }, modifier = Modifier.deckDropSpot(drag, DeckDropSpot.NewFolder),
     )
 }
 
@@ -761,86 +785,89 @@ private fun DeckRow(
         DeckTile(modifier, deck, legal, colors, ruleset, art, fan, press, menu, { menu = it }, onOpen, onRename, onMove, onDuplicate, onExport, onDelete)
         return
     }
-    // A deck box: the cover art fills the plate behind the deck's name, its colours run along the
-    // top edge (UX rule V4).
-    BoxWithConstraints(
-        // Phones get a shorter box with a smaller cover, so more decks fit on one screen.
-        modifier.fillMaxWidth().height(if (compact) CompactDeckBoxHeight else DeckBoxHeight)
-            .clip(LockOnShapes.panel)
-            .background(base)
+    // A deck on a phone: its main card on a strip of its art, then its name, state and gauge.
+    Row(
+        modifier.fillMaxWidth().height(CompactDeckBoxHeight).clip(LockOnShapes.panel).background(glassColors().strong)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
     ) {
-        // Narrow boxes spread the art across the whole box, so the crop stays in the art and out of the rules text.
-        val narrow = maxWidth < 440.dp
-        Box(Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (narrow) 1f else 0.62f).fillMaxHeight()) {
-            CardArtwork(art, null, Modifier.fillMaxSize(), ContentScale.Crop, BiasAlignment(0f, if (narrow) -0.62f else -0.45f)) {
-                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(cardColor(lead).copy(alpha = 0.1f), cardColor(lead).copy(alpha = 0.55f)))))
-            }
+        val hues = colors.sortedBy { it.ordinal }.map { cardColor(it) }
+        val band = when (hues.size) {
+            0 -> Brush.linearGradient(listOf(scheme.surfaceVariant, scheme.outlineVariant))
+            1 -> Brush.linearGradient(listOf(lighten(hues[0], 0.35f), hues[0]))
+            else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(200f, 240f))
         }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to base, 0.4f to base, 0.68f to base.copy(alpha = 0.7f), 1f to base.copy(alpha = 0.25f))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(base.copy(alpha = 0f), base.copy(alpha = if (dark) 0.6f else 0.3f)))))
-        // Colour identity band along the top edge, one segment per deck colour.
-        Row(Modifier.fillMaxWidth().height(4.dp)) {
-            colors.sortedBy { it.ordinal }.ifEmpty { listOf(null) }.forEach { Box(Modifier.weight(1f).fillMaxHeight().background(cardColor(it))) }
+        Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(band), contentAlignment = Alignment.Center) {
+            CardArtwork(art, null, Modifier.matchParentSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f)) { Box(Modifier.fillMaxSize()) }
+            if (art != null) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.24f)))
+            val card = Modifier.width(54.dp).graphicsLayer { rotationZ = -6f }
+            if (cover != null) CardImage(cover.card, card, cover.printingId) else CardBack(card)
         }
-        val coverWidth = if (compact) 76.dp else 104.dp
-        Row(Modifier.fillMaxSize().padding(start = if (compact) 14.dp else 16.dp, top = if (compact) 14.dp else 18.dp, bottom = if (compact) 10.dp else 14.dp, end = 4.dp)) {
-            if (cover != null) CardImage(cover.card, Modifier.width(coverWidth).align(Alignment.CenterVertically), cover.printingId)
-            else CardBack(Modifier.width(coverWidth).align(Alignment.CenterVertically))
-            Column(Modifier.weight(1f).fillMaxHeight().padding(start = if (compact) 14.dp else 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // Clear of the actions button, which floats in the corner.
-                    Text(deck.snapshot.name, style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface, modifier = Modifier.padding(end = 48.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ColorPips(colors)
-                        when {
-                            deck.hasConflict -> Badge("Needs review", scheme.errorContainer, scheme.onErrorContainer)
-                            legal -> Badge("Legal", scheme.secondaryContainer, scheme.onSecondaryContainer)
-                            else -> Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant)
-                        }
-                    }
-                }
-                // Full gauge when the box is wide enough, compact on phones so the label never wraps.
-                BoxWithConstraints {
-                    val main = deck.snapshot.count(DeckSection.MAIN)
-                    if (maxWidth >= 300.dp) ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 16.dp), hold = deck.hasConflict)
-                    else ProgressGauge("Main", main, ruleset.mainDeckSize, Modifier.fillMaxWidth(), compact = true, hold = deck.hasConflict)
-                }
-                val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
-                // As tall with or without a record, so boxes side by side keep their gauges in line.
-                Row(Modifier.heightIn(min = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (record.winRate != null) {
-                        Text(record.score, style = MaterialTheme.typography.titleMedium.merge(TabularNumbers), color = scheme.primary)
-                        Text("${record.winRate}% WIN", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface)
-                    }
-                    Text(
-                        // "In" marks it as a folder, so a name like Testing doesn't read as the deck's state.
-                        deck.snapshot.folder?.takeIf { showFolder }?.let { "In $it" }.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = scheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(deck.snapshot.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface)
+                ColorPips(colors)
+                Box {
+                    Icon(
+                        LineIcons.More, contentDescription = "Deck actions", tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp).clip(LockOnShapes.button).clickable(role = Role.Button) { menu = true }.padding(4.dp),
                     )
+                    GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        GameMenuItem("Rename", onClick = { menu = false; onRename() })
+                        GameMenuItem("Move to folder", onClick = { menu = false; onMove() })
+                        GameMenuItem("Duplicate", onClick = { menu = false; onDuplicate() })
+                        GameMenuItem("Export deck", onClick = { menu = false; onExport() })
+                        GameMenuDivider()
+                        GameMenuItem("Delete", onClick = { menu = false; onDelete() }, icon = LineIcons.Trash, danger = true)
+                    }
                 }
             }
-        }
-        // In the corner rather than a column of its own, so the gauge and the record run to the edge.
-        Box(Modifier.align(Alignment.TopEnd).padding(top = if (compact) 8.dp else 12.dp, end = 10.dp)) {
-            // A glass disc keeps the icon readable over cover art, and matches every other icon button.
-            GlassIconButton(Icons.Default.MoreVert, "Deck actions", { menu = true })
-            GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                GameMenuItem("Rename", onClick = { menu = false; onRename() })
-                GameMenuItem("Move to folder", onClick = { menu = false; onMove() })
-                GameMenuItem("Duplicate", onClick = { menu = false; onDuplicate() })
-                GameMenuItem("Export deck", onClick = { menu = false; onExport() })
-                GameMenuDivider()
-                GameMenuItem("Delete", onClick = { menu = false; onDelete() }, icon = Icons.Default.Delete, danger = true)
+            val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
+            Row(Modifier.padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StateTag(legal, review = deck.hasConflict)
+                Spacer(Modifier.weight(1f))
+                if (record.winRate != null) {
+                    Text(record.score, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)
+                    Text("${record.winRate}%", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
+                }
             }
+            ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 10.dp), compact = true, hold = deck.hasConflict, inline = true)
         }
-        Box(Modifier.matchParentSize().glassFrame())
     }
 }
 
-private val DeckBoxHeight = 196.dp
+/** Phones' folders as a strip of tabs on a soft track; the open one is a white thumb. */
+@Composable
+private fun FolderTabs(total: Int, folders: List<Pair<String, Int>>, unfiled: Int, showUnfiled: Boolean, selected: FolderFilter, onSelect: (FolderFilter) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(Modifier.height(44.dp).clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        val tabs = listOf(Triple("All", total, FolderFilter.All as FolderFilter)) + folders.map { (name, count) -> Triple(name, count, FolderFilter.Named(name) as FolderFilter) } +
+            if (folders.isNotEmpty() && showUnfiled) listOf(Triple("No folder", unfiled, FolderFilter.Unfiled as FolderFilter)) else emptyList()
+        tabs.forEach { (label, count, filter) ->
+            val on = selected == filter
+            Row(
+                Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(if (on) softThumb() else Color.Transparent)
+                    .selectable(on, role = Role.Tab) { onSelect(filter) }.padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) softThumbInk() else scheme.onSurfaceVariant, maxLines = 1)
+                Text("$count", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Before the first deck: three card backs and the ways to get one. */
+@Composable
+fun NoDecks(onNew: () -> Unit, onPaste: () -> Unit, onFromDevice: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
+        CardFan(emptyList(), cardWidth = 92.dp, spread = 0.72f, tilt = 12f, sideDrop = 12.dp)
+        Text("No decks yet", Modifier.padding(top = 12.dp, bottom = 12.dp), style = MaterialTheme.typography.headlineSmall)
+        val width = Modifier.widthIn(max = 340.dp).fillMaxWidth()
+        GameButton("New deck", onClick = onNew, width, icon = LineIcons.Plus)
+        GameButton("Paste a list", onClick = onPaste, width, style = GameButtonStyle.SECONDARY, icon = LineIcons.Paste)
+        GameButton("Get decks from a device", onClick = onFromDevice, width, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync)
+    }
+}
 
 /**
  * A deck on wide windows, four or more to a row: a band in the deck's colours with its cover card
@@ -885,7 +912,7 @@ private fun DeckTile(
             // Keeps the colours readable over busy art, and sets the fan apart from the same art behind it.
             Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = if (art != null) 0.24f else 0f)))
             CardFan(fan, cardWidth = 54.dp, Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 12.dp), spread = 0.42f, tilt = 12f, sideDrop = (-6).dp)
-            Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)) { ColorPips(colors) }
+            Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)) { ColorPips(colors, size = 24.dp) }
         }
         Column(Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -893,7 +920,7 @@ private fun DeckTile(
                     color = scheme.onSurface, modifier = Modifier.weight(1f))
                 Box {
                     Icon(
-                        Icons.Default.MoreVert, contentDescription = "Deck actions", tint = scheme.onSurface,
+                        LineIcons.More, contentDescription = "Deck actions", tint = scheme.onSurface,
                         modifier = Modifier.size(32.dp).clip(LockOnShapes.button).clickable(role = Role.Button) { setMenu(true) }.padding(6.dp),
                     )
                     GameMenu(expanded = menu, onDismissRequest = { setMenu(false) }) {
@@ -902,7 +929,7 @@ private fun DeckTile(
                         GameMenuItem("Duplicate", onClick = { setMenu(false); onDuplicate() })
                         GameMenuItem("Export deck", onClick = { setMenu(false); onExport() })
                         GameMenuDivider()
-                        GameMenuItem("Delete", onClick = { setMenu(false); onDelete() }, icon = Icons.Default.Delete, danger = true)
+                        GameMenuItem("Delete", onClick = { setMenu(false); onDelete() }, icon = LineIcons.Trash, danger = true)
                     }
                 }
             }
@@ -920,7 +947,7 @@ private fun DeckTile(
         }
     }
 }
-private val CompactDeckBoxHeight = 148.dp
+private val CompactDeckBoxHeight = 106.dp
 
 @Composable
 fun TextPromptDialog(

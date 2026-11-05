@@ -1,5 +1,7 @@
 package app.lockon.ui.cards
 
+import app.lockon.ui.components.GameButtonStyle
+import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.motion
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Column
@@ -45,6 +47,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
     // Wide windows always show a card in the details panel, the first one until another is picked,
     // so the panel is never an empty third of the window.
     val shown = selected ?: if (wide) cards.values.minByOrNull { it.cardNumber } else null
+    var detailsOpen by rememberSaveable { mutableStateOf(true) }
 
     Column(Modifier.fillMaxSize()) {
         // In the band beside the floating navigation on wide windows (UX rule N5).
@@ -58,28 +61,28 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
         Row(Modifier.fillMaxSize().padding(start = if (wide) 10.dp else 0.dp, top = if (wide) 8.dp else 0.dp)) {
             val search: @Composable (Modifier) -> Unit = { m ->
                 CardSearchPanel(
-                    cards.values, onCardClick = { selectedNumber = it.cardNumber },
+                    cards.values, onCardClick = { selectedNumber = it.cardNumber; detailsOpen = true },
                     modifier = m, focusRequests = focusRequests, selected = shown?.cardNumber, wide = wide, defaultSort = defaultSort,
                 )
             }
             if (wide) {
-                Panel(Modifier.weight(1f).fillMaxHeight().padding(end = 10.dp, bottom = 10.dp)) {
-                    search(Modifier.fillMaxSize())
-                }
+                search(Modifier.weight(1f).fillMaxHeight().padding(end = 6.dp))
             } else {
                 search(Modifier.weight(1f).fillMaxSize())
             }
-            if (wide) {
-                // The details panel always stays, so the grid never changes width as cards are picked.
-                Panel(Modifier.width(460.dp).fillMaxHeight().padding(end = 12.dp, bottom = 12.dp)) {
+            if (wide && detailsOpen) {
+                // The details panel stays while cards are picked, so the grid never changes width under the pointer.
+                Panel(Modifier.width(420.dp).fillMaxHeight().padding(end = 12.dp, bottom = 12.dp)) {
                     // Picking another card fades its details in over the last one's.
                     Crossfade(shown, animationSpec = motion(), label = "card-details") { card ->
                     if (card == null) {
                         EmptyState("No card selected", "Pick a card to see its effect, stats and printings here.", Modifier.padding(top = 24.dp))
                     } else {
                         Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp)) {
-                            Text(card.name, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 8.dp, end = 12.dp))
+                            Row(Modifier.padding(top = 8.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(card.name, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                GameButton("Close", onClick = { detailsOpen = false }, style = GameButtonStyle.SECONDARY, compact = true)
+                            }
                             CardDetailContent(card, printings[card.cardNumber].orEmpty(), Modifier.padding(end = 12.dp, top = 8.dp, bottom = 12.dp))
                         }
                     }

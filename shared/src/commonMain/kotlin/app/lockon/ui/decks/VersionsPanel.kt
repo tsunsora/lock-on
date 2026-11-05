@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -118,7 +119,7 @@ fun VersionsPanel(
                         else -> ""
                     }
                     Text(note, Modifier.width(62.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    Icon(if (isOpen) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(if (isOpen) LineIcons.Chevd else LineIcons.Chev, contentDescription = null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (isOpen) Compared(version, current, cards) { open = null; onRestore(version) }
             }

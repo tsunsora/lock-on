@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.rememberArrival
 import app.lockon.ui.components.arrive
 import app.lockon.ui.components.LocalNavClearance
@@ -294,7 +295,7 @@ private fun DeckExport(
                 GameButton(if (phone && copied) "Copied" else "Copy", onClick = {
                     clipboard.setText(AnnotatedString(text))
                     if (phone) copied = true else toast("Deck list copied.")
-                }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) Icons.Default.Check else null)
+                }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) LineIcons.Check else null)
                 GameButton("Save file", onClick = {
                     state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
                 }, Modifier.weight(1f))
@@ -302,7 +303,7 @@ private fun DeckExport(
                 GameButton(if (phone && copied) "Copied" else "Copy text", onClick = {
                     clipboard.setText(AnnotatedString(qrText))
                     if (phone) copied = true else toast("Deck list copied.")
-                }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) Icons.Default.Check else null)
+                }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) LineIcons.Check else null)
                 GameButton(if (saving) "Saving…" else "Save QR", onClick = {
                     val code = qr ?: return@GameButton
                     saving = true
@@ -315,7 +316,7 @@ private fun DeckExport(
                     }
                 }, Modifier.weight(1f), enabled = !saving && qr != null)
             } else {
-                GameButton(if (saving) "Saving image…" else "Save image", onClick = {
+                GameButton(if (saving) "Saving…" else "Save PNG", onClick = {
                     saving = true
                     state.appScope.launch {
                         try {
@@ -327,7 +328,7 @@ private fun DeckExport(
                             if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved.")
                         } finally { saving = false }
                     }
-                }, Modifier.weight(1f), enabled = !saving)
+                }, Modifier.weight(1f), enabled = !saving, icon = LineIcons.Save)
             }
         }
     }
@@ -377,6 +378,7 @@ private fun DeckExport(
 
     // Esc closes the full-size view first, then the dialog.
     val arrival = rememberArrival()
+    app.lockon.ui.components.BlurBehind()
     Dialog(onDismissRequest = { if (viewing) viewing = false else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
             // The dialog fills the window, so clicks around the panel land on this backdrop. It sits
@@ -399,12 +401,12 @@ private fun DeckExport(
                     val previewWidth = minOf(440.dp, previewMax)
                     val previewBox = Modifier.width(previewWidth).fillMaxHeight()
                     // Tall windows don't stretch it: a deck list fits well within this, and the panes scroll.
-                    val height = minOf(maxHeight - 48.dp, 720.dp)
+                    val height = minOf(maxHeight - 48.dp, 640.dp)
                     Column(Modifier.width(previewWidth + 24.dp + controlsWidth + 44.dp).height(height).padding(start = 24.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text("Export", Modifier.align(Alignment.CenterStart), style = MaterialTheme.typography.titleLarge)
-                            PillTabs(formats, tab, { tab = it }, Modifier.width(IntrinsicSize.Max), soft = true, icons = listOf(Glyphs.Rows, Glyphs.Grid, Glyphs.Grid).take(formats.size))
+                            PillTabs(formats, tab, { tab = it }, Modifier.width(IntrinsicSize.Max), soft = true, icons = listOf(LineIcons.Text, LineIcons.Image, LineIcons.Qr).take(formats.size))
                         }
                         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                             if (tab == 0) listText(pane.then(previewBox))
@@ -428,11 +430,11 @@ private fun DeckExport(
                                 if (tab == 0) {
                                     GameButton("Save file", onClick = {
                                         state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
-                                    }, Modifier.fillMaxWidth())
+                                    }, Modifier.fillMaxWidth(), icon = LineIcons.Save)
                                     GameButton("Copy", onClick = {
                                         clipboard.setText(AnnotatedString(text))
                                         toast("Deck list copied.")
-                                    }, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY)
+                                    }, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY, icon = LineIcons.Copy)
                                 } else Box(Modifier.fillMaxWidth().height(44.dp)) { buttons(false) }
                                 if (onDismiss != null) GameButton("Close", onClick = onDismiss, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY)
                             }
@@ -734,7 +736,7 @@ private fun ZoomFrame(
                     if (zoom > 1f) "Double-tap to fit" else "Pinch or double-tap to zoom",
                     style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f),
                 )
-                GlassIconButton(Icons.Default.Close, "Close full size", onClick = onClose)
+                GlassIconButton(LineIcons.X, "Close full size", onClick = onClose)
             }
             Spacer(Modifier.align(Alignment.BottomCenter).windowInsetsBottomHeight(WindowInsets.safeDrawing).onSizeChanged { bottomInset = it.height })
         } else CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) { Row(
@@ -746,9 +748,9 @@ private fun ZoomFrame(
             }
             Text("${(zoom * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers))
             IconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM / fit) {
-                Icon(Icons.Default.Add, contentDescription = "Zoom in")
+                Icon(LineIcons.Plus, contentDescription = "Zoom in")
             }
-            IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close full size") }
+            IconButton(onClick = onClose) { Icon(LineIcons.X, contentDescription = "Close full size") }
         } }
     }
 }

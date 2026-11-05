@@ -1,4 +1,5 @@
 package app.lockon.ui
+import app.lockon.ui.components.LineIcons
 import androidx.compose.ui.draw.drawWithContent
 import app.lockon.ui.components.LocalScreenShown
 import androidx.compose.animation.slideOutVertically
@@ -155,6 +156,9 @@ import app.lockon.ui.sync.SyncPrompts
 import app.lockon.ui.theme.LockOnTheme
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.SkyBackground
+import app.lockon.ui.components.DialogBackdrop
+import androidx.compose.ui.draw.blur
+import androidx.compose.animation.core.animateDpAsState
 import app.lockon.ui.components.PillShape
 import app.lockon.ui.components.motion
 import androidx.compose.animation.animateColorAsState
@@ -180,8 +184,8 @@ import app.lockon.ui.components.collectIsPressedHeld
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.DECKS -> app.lockon.ui.components.GameIcons.Deck
     Tab.CARDS -> app.lockon.ui.components.GameIcons.Card
-    Tab.SYNC -> Icons.Default.Refresh
-    Tab.SETTINGS -> Icons.Default.Settings
+    Tab.SYNC -> LineIcons.Sync
+    Tab.SETTINGS -> LineIcons.Settings
 }
 
 /** Shared root for Android and desktop. Wide windows get a side rail and multi-pane editors. */
@@ -352,10 +356,14 @@ fun LockOnApp(
             // the screens and only acts on presses nothing else takes. Narrower windows have no band, so
             // the controls share the screen header's row, which leaves them room at its end.
             val caption = if (wide) band.height.takeIf { it > 0.dp } ?: 88.dp else CaptionHeight
+            val backdrop by animateDpAsState(if (DialogBackdrop.open > 0 || state.touring) 12.dp else 0.dp, motion(Motion.SHORT), label = "backdrop")
+            val soften = if (backdrop.value > 0f) Modifier.blur(backdrop) else Modifier
             SkyBackground(if (chrome != null) chrome.dragArea(Modifier.fillMaxSize(), caption) else Modifier.fillMaxSize()) {
             var controlsWidth by remember { mutableStateOf(0.dp) }
             val statusBarInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top)
             Scaffold(
+                // The screens soften behind a dialog or the tour; both draw above this, unblurred.
+                modifier = soften,
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onBackground,
                 // Snackbars sit above the floating nav bar on phones.
@@ -636,7 +644,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
     val squish by animateFloatAsState(if (live && pressed) 0.96f else 1f, motion(Motion.SHORT), label = "player-card-press")
     val glow by animateFloatAsState(if (live && hovered) 0.38f else 0.2f, motion(Motion.SHORT), label = "player-card-glow")
     val ring by animateColorAsState(if (live && hovered) accent.copy(alpha = 0.7f) else Color.Transparent, motion(Motion.SHORT), label = "player-card-ring")
-    val textStyle = MaterialTheme.typography.headlineSmall
+    val textStyle = MaterialTheme.typography.titleLarge
     Box(
         Modifier.graphicsLayer { scaleX = squish; scaleY = squish }
             .then(
@@ -649,11 +657,11 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
         contentAlignment = Alignment.CenterStart,
     ) {
         if (back == null) Box(
-            Modifier.padding(start = 30.dp)
+            Modifier
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
                 .border(1.dp, ring, NamePlate)
-                .padding(start = 40.dp, end = 22.dp, top = 9.dp, bottom = 10.dp),
+                .padding(start = 62.dp, end = 22.dp, top = 12.dp, bottom = 12.dp),
         ) {
             // Both names are laid out at once, so the plate keeps one width and nothing beside it moves.
             Text(
@@ -666,7 +674,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
                 modifier = Modifier.graphicsLayer { alpha = turn; translationY = (1f - turn) * 10.dp.toPx() },
             )
         }
-        LevelBadge(turn, ring)
+        Box(Modifier.padding(start = if (back == null) 6.dp else 0.dp)) { LevelBadge(turn, ring) }
     }
 }
 
@@ -699,9 +707,9 @@ private fun LevelBadge(turn: Float, ring: Color) {
     val twilight = isTwilight()
     val plain = glassColors().strong
     val ink = androidx.compose.ui.graphics.lerp(if (twilight) Color(0xFF10204A) else Color.White, MaterialTheme.colorScheme.onSurface, turn)
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(14.dp)
     Box(
-        Modifier.size(60.dp).shadow(8.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
+        Modifier.size(44.dp).shadow(4.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
             .clip(shape)
             .background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay))
             // Going back, the tile turns to a plain button.
@@ -710,12 +718,12 @@ private fun LevelBadge(turn: Float, ring: Color) {
         contentAlignment = Alignment.Center,
     ) {
         LockOnMark(
-            size = 36.dp, reticleColor = ink,
+            size = 28.dp, reticleColor = ink,
             modifier = Modifier.graphicsLayer { alpha = 1f - turn; rotationZ = turn * 90f; scaleX = 1f - turn * 0.4f; scaleY = 1f - turn * 0.4f },
         )
         Icon(
-            Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = ink,
-            modifier = Modifier.size(30.dp).graphicsLayer { alpha = turn; rotationZ = (turn - 1f) * 90f; scaleX = 0.6f + turn * 0.4f; scaleY = 0.6f + turn * 0.4f },
+            LineIcons.Back, contentDescription = null, tint = ink,
+            modifier = Modifier.size(22.dp).graphicsLayer { alpha = turn; rotationZ = (turn - 1f) * 90f; scaleX = 0.6f + turn * 0.4f; scaleY = 0.6f + turn * 0.4f },
         )
     }
 }
