@@ -1,8 +1,11 @@
 package app.lockon.desktop
 
+import androidx.compose.foundation.LocalContextMenuRepresentation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.LocalTextContextMenu
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +43,7 @@ import java.net.InetAddress
 import javax.swing.JOptionPane
 import kotlin.system.exitProcess
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun main() {
     // Windows then fills the part of the window a resize uncovers with its background colour, not black.
     System.setProperty("skiko.rendering.noerasebackground", "false")
@@ -127,19 +131,22 @@ fun main() {
                 withTimeoutOrNull(3_000) { bootCover.settled.first { it } }
                 coverSettled = true
             }
-            Box(Modifier.fillMaxSize()) {
-                if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
-                    container, state, sync, DesktopFileBridge(window),
-                    artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
-                    // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
-                    // theme's sky colour rather than white.
-                    windowBackground = { color ->
-                        val awt = java.awt.Color(color.toArgb(), true)
-                        // Every layer, down to the one Direct3D draws on, so a resize uncovers this colour too.
-                        components(window).forEach { it.background = awt }
-                    },
-                )
-                if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
+            val textContextMenu = remember { AppTextContextMenu(window) }
+            CompositionLocalProvider(LocalContextMenuRepresentation provides AppContextMenu, LocalTextContextMenu provides textContextMenu) {
+                Box(Modifier.fillMaxSize()) {
+                    if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
+                        container, state, sync, DesktopFileBridge(window),
+                        artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
+                        // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
+                        // theme's sky colour rather than white.
+                        windowBackground = { color ->
+                            val awt = java.awt.Color(color.toArgb(), true)
+                            // Every layer, down to the one Direct3D draws on, so a resize uncovers this colour too.
+                            components(window).forEach { it.background = awt }
+                        },
+                    )
+                    if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
+                }
             }
             System.getProperty("lockon.scrollProbe")?.let { ScrollProbe(window, state, File(it), exit) }
             System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
