@@ -35,6 +35,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import app.lockon.AppContainer
 import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
+import android.provider.MediaStore
 import android.provider.Settings
 import app.lockon.ui.LockOnApp
 import app.lockon.ui.BootPictureTaker
@@ -48,6 +49,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private var pendingSave: Pair<ByteArray, CompletableDeferred<Boolean>>? = null
@@ -70,6 +72,27 @@ class MainActivity : ComponentActivity() {
             pendingSave = content to result
             createDocument.launch(suggestedName to mimeType)
             return result.await()
+        }
+
+        override suspend fun saveToDownloads(name: String, mimeType: String, content: ByteArray): Boolean {
+            // Before Android 10 this would need a storage permission, so those phones keep the picker.
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return false
+            return withContext(Dispatchers.IO) {
+                val details = android.content.ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, name)
+                    put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, details) ?: return@withContext false
+                try {
+                    contentResolver.openOutputStream(uri)!!.use { it.write(content) }
+                    contentResolver.update(uri, android.content.ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
+                    true
+                } catch (_: java.io.IOException) {
+                    contentResolver.delete(uri, null, null)
+                    false
+                }
+            }
         }
 
         override suspend fun openText(mimeTypes: List<String>): String? {

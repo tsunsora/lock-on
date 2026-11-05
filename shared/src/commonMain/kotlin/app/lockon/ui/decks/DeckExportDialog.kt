@@ -328,7 +328,8 @@ private fun DeckExport(
                             val bitmap = layer.toImageBitmap()
                             val png = withContext(Dispatchers.Default) { encodePng(bitmap) }
                             saving = false
-                            if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved.")
+                            if (files.saveToDownloads("$baseName.png", "image/png", png)) toast("Deck image saved to Downloads.")
+                            else if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved.")
                         } finally { saving = false }
                     }
                 }, Modifier.weight(1f), enabled = !saving, icon = LineIcons.Save)
