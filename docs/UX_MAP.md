@@ -168,7 +168,7 @@ Two pages: **Sync devices** (first) and **Send decks**.
    5. With both open, edits on either device appear on the other within seconds. **Sync now** is there when auto-sync is off.
    - Or, without the camera: the desktop shows under **Nearby desktops** on the phone → **Pair** → type the code.
 4. **Edited on both devices:**
-   1. The deck tile shows **Needs review**.
+   1. The deck tile shows **Review** on wide windows and **Needs review** on phones.
    2. Open **Compare versions** → **Keep this version** → back in the editor.
 5. **Give a friend a deck:**
    1. Both open Lock On on the same Wi-Fi and go to **Sync**.

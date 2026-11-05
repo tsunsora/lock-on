@@ -52,7 +52,7 @@ object Glyphs {
 
 /** A deck's state as an outlined tag: Legal with a check, Needs review in red with a warning, Draft plain. */
 @Composable
-fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modifier, label: String? = null) {
+fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modifier, label: String? = null, icon: Boolean = true) {
     val scheme = MaterialTheme.colorScheme
     val ink = if (review) scheme.error else scheme.onSurface
     val shape = RoundedCornerShape(9.dp)
@@ -60,8 +60,8 @@ fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modif
         modifier.clip(shape).background(if (review) scheme.error.copy(alpha = 0.1f) else scheme.onSurface.copy(alpha = 0.06f)).border(1.dp, if (review) scheme.error else scheme.onSurface.copy(alpha = 0.16f), shape).padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        if (review) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = ink)
-        else if (legal) Icon(LineIcons.Check, contentDescription = null, Modifier.size(14.dp), tint = ink)
+        if (icon && review) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = ink)
+        else if (icon && legal && !review) Icon(LineIcons.Check, contentDescription = null, Modifier.size(14.dp), tint = ink)
         Text(label ?: if (review) "Needs review" else if (legal) "Legal" else "Draft", style = MaterialTheme.typography.labelMedium, color = ink, maxLines = 1, softWrap = false)
     }
 }

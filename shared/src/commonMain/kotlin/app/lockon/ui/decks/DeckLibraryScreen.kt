@@ -56,6 +56,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import app.lockon.ui.components.CardBack
 import app.lockon.ui.components.CardImage
+import app.lockon.ui.components.CardFan
 import app.lockon.ui.components.ColorPips
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -138,7 +139,6 @@ import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.Glyphs
 import app.lockon.ui.components.StateTag
 import app.lockon.ui.components.selectionEdge
-import app.lockon.ui.components.CardFan
 import app.lockon.model.Card
 import kotlinx.coroutines.launch
 import app.lockon.ui.components.PillSearchField
@@ -165,6 +165,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.graphics.SolidColor
+import app.lockon.ui.components.CARD_ASPECT
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
@@ -406,13 +412,12 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     }
                                     val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
                                     val cover = remember(deck, cards) { deckCover(deck.snapshot, cards) }
-                                    val fan = remember(deck, cards) { deckFan(deck.snapshot, cards).map { it.card to it.printingId } }
                                     // Derived, so a drag starting recomposes only the row it picked up.
                                     val held by remember(deck.deckId) { derivedStateOf { drag.deck?.deckId == deck.deckId } }
                                     DeckRow(
                                         // The held deck stays in place, faded, while its plate follows the pointer.
                                         Modifier.animateItem().deckDragSource(deck, drag).settleAlpha(if (held) 0.45f else 1f),
-                                        deck, legal, colors, ruleset, cover, fan, compact = !wide,
+                                        deck, legal, colors, ruleset, cover, compact = !wide,
                                         showFolder = folderFilter == FolderFilter.All,
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                                         onRename = { dialog = LibraryDialog.Rename(deck) },
@@ -790,7 +795,6 @@ private fun DeckRow(
     colors: Set<CardColor>,
     ruleset: Ruleset,
     cover: DeckCover?,
-    fan: List<Pair<Card, String?>>,
     compact: Boolean,
     showFolder: Boolean,
     onOpen: () -> Unit,
@@ -808,7 +812,7 @@ private fun DeckRow(
     val lead = colors.minByOrNull { it.ordinal }
     val art = cover?.let { LocalArtwork.current.urlFor(it.card.cardNumber, it.printingId) }
     if (!compact) {
-        DeckTile(modifier, deck, legal, colors, ruleset, art, fan, press, menu, { menu = it }, onOpen, onRename, onMove, onDuplicate, onExport, onDelete)
+        DeckTile(modifier, deck, legal, colors, ruleset, art, press, menu, { menu = it }, onOpen, onRename, onMove, onDuplicate, onExport, onDelete)
         return
     }
     // A deck on a phone: a strip of its main card's art, then its name, state and gauge.
@@ -942,8 +946,8 @@ fun NoDecks(onNew: () -> Unit, onPaste: () -> Unit, onFromDevice: () -> Unit) {
 }
 
 /**
- * A deck on wide windows, four or more to a row: a band in the deck's colours with its cover card
- * tucked in, then the name, the main deck gauge, and its state and record on one line.
+ * A deck on wide windows, four or more to a row: one large crop of its cover card's illustration,
+ * then its name, the main deck gauge, and its colours, state, record and age on one line.
  */
 @Composable
 private fun DeckTile(
@@ -953,7 +957,6 @@ private fun DeckTile(
     colors: Set<CardColor>,
     ruleset: Ruleset,
     art: String?,
-    fan: List<Pair<Card, String?>>,
     press: MutableInteractionSource,
     menu: Boolean,
     setMenu: (Boolean) -> Unit,
@@ -966,30 +969,25 @@ private fun DeckTile(
 ) {
     val scheme = MaterialTheme.colorScheme
     val hovered by press.collectIsHoveredAsState()
-    val hues = colors.sortedBy { it.ordinal }.map { cardColor(it) }
-    val band = when (hues.size) {
-        0 -> Brush.linearGradient(listOf(scheme.surfaceVariant, scheme.outlineVariant))
-        1 -> Brush.linearGradient(listOf(lighten(hues[0], 0.35f), hues[0]))
-        else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(700f, 260f))
-    }
+    val panel = app.lockon.ui.components.glassColors().strong
     Column(
-        modifier.fillMaxWidth().selectionEdge(LockOnShapes.panel, scheme.primary, hovered).clip(LockOnShapes.panel).background(app.lockon.ui.components.glassColors().strong)
+        modifier.fillMaxWidth().selectionEdge(LockOnShapes.tile, scheme.primary, hovered).clip(LockOnShapes.tile).background(panel)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
     ) {
-        Box(Modifier.fillMaxWidth().height(104.dp).clipToBounds().background(band)) {
-            DeckArtBackdrop(art) {
-                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.Transparent), end = Offset(520f, 260f))))
+        // The deck's colours lie under the art, so they show while it loads and if it never does.
+        Box(Modifier.fillMaxWidth().height(DeckBannerHeight).clipToBounds().background(deckBannerFill(colors, panel))) {
+            if (art == null && colors.isNotEmpty()) {
+                Icon(LineIcons.Shield, contentDescription = null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.align(Alignment.Center).size(48.dp))
             }
-            CardFan(fan, cardWidth = 60.dp, Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 12.dp), spread = 0.42f, tilt = 12f, sideDrop = (-4).dp, elevation = 8.dp)
-            Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)) { ColorPips(colors, size = 24.dp) }
+            CardArtwork(art, null, Modifier.matchParentSize().cardIllustration(), ContentScale.FillBounds) {}
         }
-        Column(Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = scheme.onSurface, modifier = Modifier.weight(1f))
                 Box {
                     Icon(
-                        LineIcons.More, contentDescription = "Deck actions", tint = scheme.onSurface,
+                        LineIcons.More, contentDescription = "Deck actions", tint = scheme.onSurfaceVariant,
                         modifier = Modifier.size(32.dp).clip(LockOnShapes.button).clickable(role = Role.Button) { setMenu(true) }.padding(6.dp),
                     )
                     GameMenu(expanded = menu, onDismissRequest = { setMenu(false) }) {
@@ -1002,28 +1000,91 @@ private fun DeckTile(
                     }
                 }
             }
-            ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true)
+            val count = deck.snapshot.count(DeckSection.MAIN)
+            ProgressGauge("Main deck", count, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true, thinBar = true)
             val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
-            Row(Modifier.heightIn(min = 26.dp).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FadeSwap(legal to deck.hasConflict) { (isLegal, review) -> StateTag(isLegal, review = review) }
-                if (record.winRate != null) {
-                    Text(record.score, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface, maxLines = 1)
-                    Text("${record.winRate}%", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
-                }
-                Spacer(Modifier.weight(1f))
-                Text(ageLabel(deck.updatedAt), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1)
-            }
+            val over = count - ruleset.mainDeckSize
+            DeckFacts(
+                Modifier.fillMaxWidth().heightIn(min = 26.dp).padding(end = 8.dp),
+                lead = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (colors.isNotEmpty()) ColorPips(colors, size = 20.dp)
+                        FadeSwap(Triple(legal, deck.hasConflict, over)) { (isLegal, review, past) ->
+                            when {
+                                review -> StateTag(false, review = true, label = "Review", icon = false)
+                                past > 0 -> StateTag(false, review = true, label = "$past over", icon = false)
+                                else -> StateTag(isLegal)
+                            }
+                        }
+                    }
+                },
+                age = ageLabel(deck.updatedAt),
+                record = record.score.takeIf { record.winRate != null },
+            )
         }
     }
 }
-private val CompactDeckBoxHeight = 106.dp
 
-/** The cover card's art, dimmed, so the sharp cards and colours in front of it stand out from the same art. */
+/**
+ * The tile's last line: its colours and state on the left and its age on the right, always, with
+ * the record beside the age while there's room for it.
+ */
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.DeckArtBackdrop(art: String?, fallback: @Composable () -> Unit) {
-    CardArtwork(art, null, Modifier.matchParentSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f), fallback)
-    if (art != null) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.62f)))
+private fun DeckFacts(modifier: Modifier, lead: @Composable () -> Unit, age: String, record: String?) {
+    val scheme = MaterialTheme.colorScheme
+    Layout(
+        content = {
+            Box { lead() }
+            Text(age, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+            if (record != null) Text(record, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface, maxLines = 1, softWrap = false)
+        },
+        modifier = modifier,
+    ) { measurables, constraints ->
+        val gap = 8.dp.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val agePlaced = measurables[1].measure(loose)
+        val leadPlaced = measurables[0].measure(loose.copy(maxWidth = (constraints.maxWidth - agePlaced.width - gap).coerceAtLeast(0)))
+        val recordPlaced = measurables.getOrNull(2)?.measure(loose)
+            ?.takeIf { leadPlaced.width + gap + it.width + gap + agePlaced.width <= constraints.maxWidth }
+        val height = maxOf(leadPlaced.height, agePlaced.height, recordPlaced?.height ?: 0).coerceAtLeast(constraints.minHeight)
+        layout(constraints.maxWidth, height) {
+            leadPlaced.place(0, (height - leadPlaced.height) / 2)
+            val ageX = constraints.maxWidth - agePlaced.width
+            agePlaced.place(ageX, (height - agePlaced.height) / 2)
+            recordPlaced?.place(ageX - gap - recordPlaced.width, (height - recordPlaced.height) / 2)
+        }
+    }
 }
+
+/** A deck's colours at half strength over the panel, split evenly if it has two, for when there's no art to show. */
+@Composable
+private fun deckBannerFill(colors: Set<CardColor>, panel: Color): Brush {
+    val hues = colors.sortedBy { it.ordinal }.map { androidx.compose.ui.graphics.lerp(panel, cardColor(it), 0.55f) }
+    return when {
+        hues.isEmpty() -> SolidColor(MaterialTheme.colorScheme.surfaceVariant)
+        hues.size == 1 -> SolidColor(hues[0])
+        else -> Brush.horizontalGradient(0f to hues.first(), 0.5f to hues.first(), 0.5f to hues.last(), 1f to hues.last())
+    }
+}
+
+private val DeckBannerHeight = 120.dp
+
+/**
+ * Lays a whole card out larger than this space, so the space shows only its illustration: past the
+ * cost and colour bar on the left and the artist's credit on the right, and below the top frame.
+ * Laying it out at that size also decodes it at that size, so the crop stays sharp.
+ */
+private fun Modifier.cardIllustration(): Modifier = layout { measurable, constraints ->
+    val left = 0.15f
+    val right = 0.93f
+    val top = 0.13f
+    val width = (constraints.maxWidth / (right - left)).roundToInt()
+    val height = (width / CARD_ASPECT).roundToInt()
+    val card = measurable.measure(Constraints.fixed(width, height))
+    layout(constraints.maxWidth, constraints.maxHeight) { card.place(-(width * left).roundToInt(), -(height * top).roundToInt()) }
+}
+
+private val CompactDeckBoxHeight = 106.dp
 
 @Composable
 fun TextPromptDialog(

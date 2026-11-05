@@ -1,5 +1,6 @@
 package app.lockon.desktop
 import androidx.compose.runtime.Composable
+import app.lockon.sync.RevisionDto
 import androidx.compose.foundation.background
 import app.lockon.ui.components.shineSweep
 
@@ -500,6 +501,52 @@ class ScreenshotTest {
         sync.pairingPrompt.value = app.lockon.sync.PairingPrompt("r1", "Pixel 9", "482913", false)
         draw("desktop-pairing", 1440, 900) { app.lockon.ui.sync.SyncPrompts(sync) }
         sync.pairingPrompt.value = null
+    }
+
+    /**
+     * Deck tiles in every state, with the widest last line: two colours, a double-digit record and
+     * "Yesterday". Uses downloaded artwork when this machine has it, since the crop is what's judged.
+     */
+    @Test fun renderDeckTiles() = runBlocking {
+        val cards = container.catalog.cards.value.values.toList()
+        val cached = File("build/artwork-cache").listFiles().orEmpty().filter { it.isFile }.sorted()
+        // A blue and a red card get no art, so a deck of them shows the tile without any.
+        val noArtBlue = cards.last { app.lockon.model.CardColor.BLUE in it.colors }.cardNumber
+        val noArtRed = cards.last { app.lockon.model.CardColor.RED in it.colors }.cardNumber
+        val printings = cards.filter { it.cardNumber != noArtBlue && it.cardNumber != noArtRed }.mapIndexed { i, card ->
+            val url = cached.getOrNull(i * 37)?.let { source ->
+                val copy = File("build/test-art/tile-$i.webp").apply { parentFile.mkdirs() }
+                "file:///" + source.copyTo(copy, overwrite = true).absolutePath.replace('\\', '/')
+            } ?: fakeArt("tile-$i", java.awt.Color(0x2A5BB8))
+            Printing(card.cardNumber, card.cardNumber, "SMP", "R", artworkUrl = url)
+        }
+        container.catalog.install(CatalogFile(catalogId = "tile-test", version = 1, name = "Tile test", cards = cards, printings = printings), CatalogOrigin.FILE, null)
+
+        val blue = cards.first { app.lockon.model.CardColor.BLUE in it.colors }.cardNumber
+        val red = cards.first { app.lockon.model.CardColor.RED in it.colors }.cardNumber
+        
+        val full = container.decks.currentSnapshot(deckId)!!.entries
+        val record = List(11) { MatchRecord("w$it", 1_761_400_000_000, MatchResult.WIN) } + List(4) { MatchRecord("l$it", 1_761_400_000_000, MatchResult.LOSS) }
+        val day = 86_400_000L
+        var serial = 0
+        suspend fun seed(id: String, name: String, entries: List<DeckEntry>, matches: List<MatchRecord> = emptyList(), ago: Long = 0L) {
+            val created = System.currentTimeMillis() - ago
+            container.decks.applyIncoming(listOf(RevisionDto("tile-${serial++}", id, emptyList(), "other-device", created,
+                snapshot = DeckSnapshot(name = name, entries = entries, matches = matches))), "other-device")
+        }
+        seed("full", "friends with the monster", full, ago = 120_000)
+        seed("draft", "Wing Control", listOf(DeckEntry(blue, 4), DeckEntry(red, 4)) + List(9) { DeckEntry(cards[it + 2].cardNumber, 3) }.distinctBy { it.cardNumber }, record, day)
+        seed("empty", "New deck", emptyList())
+        seed("one", "One card so far", listOf(DeckEntry(blue, 1)))
+        seed("review", "Store championship list, second revision", full, record, day)
+        seed("review", "Store championship list, second revision", full.drop(1), record, day)
+        seed("noart", "No art downloaded", listOf(DeckEntry(noArtBlue, 4), DeckEntry(noArtRed, 4)), ago = 5 * day)
+        seed("over", "Over the limit", full + DeckEntry("SMP-012", 3), record, day)
+        seed("legal", "Newtype Control", full, record, day)
+
+        shoot("desktop-tiles", 1980, 1290, hover = androidx.compose.ui.geometry.Offset(1380f, 300f)) { select(Tab.DECKS) }
+        shoot("light-desktop-tiles", 1980, 1290, dark = false, hover = androidx.compose.ui.geometry.Offset(1380f, 300f)) { select(Tab.DECKS) }
+        container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())
     }
 
     /** The deck panel's other tabs on a computer, in both themes. */

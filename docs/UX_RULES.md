@@ -76,7 +76,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - Light mode is a pale, quiet sky. Dark mode is a deep navy dusk, never black. Cards lie directly on the sky, so it stays low in colour and well away from the card faces' brightness. A full deck that needs review holds its gauge in slate rather than gold.
 - **V4a. Cards are never cropped where they are the subject.**
   - Grid tiles, the test hand, card details and printings show the whole card at its real 63:88 shape, with high-quality filtering. Cost and AP/HP are never covered.
-  - The editor banner is the exception, with a crop of a card's art as a backdrop. Deck strips and deck tiles show a small crop or the cover card, and the whole card is always one tap away.
+  - The editor banner is the exception, with a crop of a card's art as a backdrop. Deck strips show a small crop, and deck tiles a large crop of the cover card's illustration. The whole card is always one tap away.
   - Names aren't repeated under cards that already print them.
   - Cards without artwork get a drawn placeholder in the same shape, so grids never shift when images load.
 - **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its colour band, level and type initial. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank.
@@ -86,7 +86,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal, and red past the limit.
   - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold when exactly full, and red when over. Nothing is drawn on the bar itself (K3).
   - **Level curve** (as in MTG Arena): a compact curve sits at the top of the deck list.
-  - **Deck tiles:** on wide windows, four or more to a row: a band in the deck's colours with the cover card tucked in, then the name, the gauge, and the state and record on one line. Phones keep a shorter row with the cover beside the name.
+  - **Deck tiles:** on wide windows, four or more to a row: one bright, undimmed crop of the cover card's illustration, then the name, the gauge, and the colours, state, record and age on one line. The record is first to give way if that line runs out of room. Without art, the crop's space shows the deck's colours and a shield. Phones keep a shorter row with the cover beside the name.
   - **Hero banner:** the editor header is a frosted strip with the cover art fading in from the right.
 - **V9. Navigation floats and fits the theme** (as on Stella Sora's home screen, N5).
   - **The brand** is the Lock On mark on a rounded logo tile beside the name. The tile follows the theme: teal to blue with a white reticle by day, bright cyan with a navy reticle at twilight. Wide screens carry no page title beside the nav; the lit item names the screen.
