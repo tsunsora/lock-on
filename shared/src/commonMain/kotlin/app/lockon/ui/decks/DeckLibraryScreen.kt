@@ -104,7 +104,21 @@ import app.lockon.ui.Screen
 import app.lockon.ui.components.Badge
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.SectionHeader
-import app.lockon.ui.io.ImportDialog
+import app.lockon.ui.io.NewDeckDialog
+import app.lockon.ui.Tab
+import androidx.compose.ui.focus.focusRequester
+import app.lockon.ui.components.glass
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.lockon.platform.ageLabel
+import app.lockon.ui.components.GameIcons
+import app.lockon.ui.components.Glyphs
+import app.lockon.ui.components.StateTag
+import app.lockon.ui.components.focusRing
+import app.lockon.ui.components.CardFan
+import app.lockon.model.Card
 import kotlinx.coroutines.launch
 import app.lockon.ui.components.PillSearchField
 import app.lockon.ui.components.ScreenHeader
@@ -149,7 +163,6 @@ private sealed interface LibraryDialog {
     data class NewFolder(val with: String? = null) : LibraryDialog
     data class RenameFolder(val folder: String) : LibraryDialog
     data class RemoveFolder(val folder: String, val decks: Int) : LibraryDialog
-    data object Import : LibraryDialog
 }
 
 /** Which decks the library shows. A folder filters one list rather than opening a screen (UX rule N2). */
@@ -221,7 +234,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         Column(Modifier.fillMaxSize()) {
         // The title row sits in the band beside the floating navigation on wide windows (UX rule N5).
         // The deck actions. Wide windows put them beside the search bar, so the band keeps space for the
-        // title; phones keep New deck in the thumb zone. Importing a deck list is offered from New deck.
+        // title; phones keep New deck in the thumb zone. New deck also takes a pasted list or a backup.
         // Backing up every deck is in Settings.
         val actions = @Composable {
             if (wide) GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add, compact = true)
@@ -231,6 +244,16 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             "Decks",
         ) {
             if (!wide) actions()
+        }
+        var deckSort by rememberSaveable { mutableStateOf(DeckSort.LAST_EDITED) }
+        // This screen stays built while hidden, so only Ctrl+F presses made while it shows count.
+        val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+        val focusSeen = remember { intArrayOf(state.searchFocusRequests) }
+        LaunchedEffect(state.searchFocusRequests) {
+            if (state.searchFocusRequests != focusSeen[0]) {
+                focusSeen[0] = state.searchFocusRequests
+                if (state.current == null && state.tab == Tab.DECKS) runCatching { searchFocus.requestFocus() }
+            }
         }
         Row(Modifier.fillMaxSize()) {
             if (wide && !list.isNullOrEmpty()) {
@@ -246,15 +269,25 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     val searchable = (list?.size ?: 0) > 3 || (wide && !list.isNullOrEmpty())
                     if (searchable || wide) Row(
                         Modifier.fillMaxWidth().padding(start = 16.dp, end = if (wide) 12.dp else 16.dp, top = 4.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (searchable) PillSearchField(
                             search, { search = it }, placeholder = "Search decks",
-                            modifier = Modifier.weight(1f),
+                            modifier = (if (wide) Modifier.widthIn(max = 460.dp).fillMaxWidth().weight(1f, fill = false) else Modifier.weight(1f)).focusRequester(searchFocus),
                             onClear = if (search.isEmpty()) null else ({ search = "" }),
+                            shortcut = "Ctrl F",
                         )
-                        if (wide) actions()
+                        if (wide && !list.isNullOrEmpty()) Box {
+                            var sortMenu by remember { mutableStateOf(false) }
+                            GameButton(deckSort.label, onClick = { sortMenu = true }, style = GameButtonStyle.SECONDARY, icon = Glyphs.Sort, trailingIcon = Icons.Default.ArrowDropDown, compact = true)
+                            GameMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                                DeckSort.entries.forEach { option ->
+                                    GameMenuItem(option.label, onClick = { deckSort = option; sortMenu = false }, selected = option == deckSort)
+                                }
+                            }
+                        }
+                        if (wide) { Spacer(Modifier.weight(1f)); actions() }
                     }
                     // Phones' folders (desktop has the rail). They pick a folder from one chip's menu, flanked
                     // by New folder and the open folder's actions; while a deck is held the folders spread out
@@ -293,11 +326,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             GameButton("New deck", onClick = { dialog = LibraryDialog.New }, icon = Icons.Default.Add)
                         }
                         else -> {
-                            val shown = remember(list, folderFilter, search) {
+                            val shown = remember(list, folderFilter, search, deckSort) {
                                 list.filter {
                                     folderFilter.matches(it) &&
                                         it.snapshot.name.contains(search.trim(), ignoreCase = true)
-                                }
+                                }.let(deckSort::sorted)
                             }
                             if (shown.isEmpty()) {
                                 val emptyFolder = folderFilter is FolderFilter.Named && list.none(folderFilter::matches)
@@ -335,11 +368,12 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     }
                                     val legal = remember(deck, cards, ruleset) { DeckValidator.validate(deck.snapshot, cards, ruleset).isLegal }
                                     val cover = remember(deck, cards) { deckCover(deck.snapshot, cards) }
+                                    val fan = remember(deck, cards) { deckFan(deck.snapshot, cards).map { it.card to it.printingId } }
                                     DeckRow(
                                         // The held deck stays in place, faded, while its plate follows the pointer.
                                         Modifier.animateItem().deckDragSource(deck, drag)
                                             .graphicsLayer { alpha = if (drag.deck?.deckId == deck.deckId) 0.45f else 1f },
-                                        deck, legal, colors, ruleset, cover, compact = !wide,
+                                        deck, legal, colors, ruleset, cover, fan, compact = !wide,
                                         showFolder = folderFilter == FolderFilter.All,
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                                         onRename = { dialog = LibraryDialog.Rename(deck) },
@@ -373,15 +407,11 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
 
     when (val d = dialog) {
         null -> Unit
-        LibraryDialog.New -> NewDeckDialog(onDismiss = { dialog = null }, onImport = { dialog = LibraryDialog.Import }) { name ->
-            dialog = null
-            // A deck made while a folder is open goes into that folder.
-            val folder = (folderFilter as? FolderFilter.Named)?.name
-            scope.launch {
-                val id = container.decks.create(DeckSnapshot(name = name.ifBlank { "Untitled deck" }, folder = folder))
-                state.open(Screen.DeckEditor(id, startTab = 1))
-            }
-        }
+        // A deck made while a folder is open starts in that folder.
+        LibraryDialog.New -> NewDeckDialog(
+            container, files, state, onDismiss = { dialog = null },
+            folders = folders.map { it.first }, folder = (folderFilter as? FolderFilter.Named)?.name,
+        )
         is LibraryDialog.Rename -> TextPromptDialog("Rename deck", "Deck name", d.deck.snapshot.name, confirm = "Rename", onDismiss = { dialog = null }) { name ->
             dialog = null
             if (name.isNotBlank()) scope.launch { container.decks.save(d.deck.deckId, d.deck.snapshot.copy(name = name.trim()), d.deck.headRevisionId) }
@@ -448,10 +478,17 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dismissButton = { GameButton("Cancel", onClick = { dialog = null }, style = GameButtonStyle.GHOST, compact = true) },
         )
         is LibraryDialog.Export -> DeckExportDialog(d.deck.snapshot, cards, ruleset, files, state, onDismiss = { dialog = null })
-        LibraryDialog.Import -> ImportDialog(
-            container, files, state, onDismiss = { dialog = null },
-            folders = folders.map { it.first }, folder = (folderFilter as? FolderFilter.Named)?.name,
-        )
+    }
+}
+
+/** The orders the deck grid can take. */
+private enum class DeckSort(val label: String) {
+    LAST_EDITED("Last edited"), NAME("Name"), WIN_RATE("Win rate");
+
+    fun sorted(decks: List<DeckSummary>): List<DeckSummary> = when (this) {
+        LAST_EDITED -> decks.sortedByDescending { it.updatedAt }
+        NAME -> decks.sortedBy { it.snapshot.name.lowercase() }
+        WIN_RATE -> decks.sortedByDescending { MatchStats.of(it.snapshot.matches).overall.winRate ?: -1 }
     }
 }
 
@@ -471,10 +508,11 @@ private fun FolderRail(
 ) {
     val over = drag.over
     Column(
-        Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 12.dp, top = 4.dp, end = 4.dp),
+        Modifier.padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 12.dp).width(232.dp)
+            .glass(LockOnShapes.panel, strong = true).verticalScroll(rememberScrollState()).padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        FolderItem("All decks", total, selected == FolderFilter.All, dropOver = false, Modifier) { onSelect(FolderFilter.All) }
+        FolderItem("All decks", total, selected == FolderFilter.All, dropOver = false, Modifier, icon = GameIcons.Deck) { onSelect(FolderFilter.All) }
         folders.forEach { (name, count) ->
             val spot = DeckDropSpot.Folder(name)
             FolderContextMenu(name, onRename, onRemove) { openMenu ->
@@ -506,7 +544,7 @@ private fun FolderRail(
 @Composable
 private fun FolderItem(
     label: String, count: Int, selected: Boolean, dropOver: Boolean, modifier: Modifier,
-    onMenu: (() -> Unit)? = null, onClick: () -> Unit,
+    onMenu: (() -> Unit)? = null, icon: ImageVector = Glyphs.Folder, onClick: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
@@ -525,9 +563,10 @@ private fun FolderItem(
         modifier.fillMaxWidth().height(ControlSize).clip(LockOnShapes.button).background(fill)
             .hoverable(interaction)
             .selectable(selected, interaction, indication = null, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Icon(icon, contentDescription = null, Modifier.size(18.dp), tint = ink)
         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
             color = ink, modifier = Modifier.weight(1f))
         if (onMenu != null && hovered) {
@@ -701,6 +740,7 @@ private fun DeckRow(
     colors: Set<CardColor>,
     ruleset: Ruleset,
     cover: DeckCover?,
+    fan: List<Pair<Card, String?>>,
     compact: Boolean,
     showFolder: Boolean,
     onOpen: () -> Unit,
@@ -718,7 +758,7 @@ private fun DeckRow(
     val lead = colors.minByOrNull { it.ordinal }
     val art = cover?.let { LocalArtwork.current.urlFor(it.card.cardNumber, it.printingId) }
     if (!compact) {
-        DeckTile(modifier, deck, legal, colors, ruleset, cover, press, base, menu, { menu = it }, onOpen, onRename, onMove, onDuplicate, onExport, onDelete)
+        DeckTile(modifier, deck, legal, colors, ruleset, art, fan, press, menu, { menu = it }, onOpen, onRename, onMove, onDuplicate, onExport, onDelete)
         return
     }
     // A deck box: the cover art fills the plate behind the deck's name, its colours run along the
@@ -813,9 +853,9 @@ private fun DeckTile(
     legal: Boolean,
     colors: Set<CardColor>,
     ruleset: Ruleset,
-    cover: DeckCover?,
+    art: String?,
+    fan: List<Pair<Card, String?>>,
     press: MutableInteractionSource,
-    base: Color,
     menu: Boolean,
     setMenu: (Boolean) -> Unit,
     onOpen: () -> Unit,
@@ -826,6 +866,7 @@ private fun DeckTile(
     onDelete: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val hovered by press.collectIsHoveredAsState()
     val hues = colors.sortedBy { it.ordinal }.map { cardColor(it) }
     val band = when (hues.size) {
         0 -> Brush.linearGradient(listOf(scheme.surfaceVariant, scheme.outlineVariant))
@@ -833,13 +874,17 @@ private fun DeckTile(
         else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(700f, 260f))
     }
     Column(
-        modifier.fillMaxWidth().clip(LockOnShapes.panel).background(app.lockon.ui.components.glassColors().strong)
+        modifier.fillMaxWidth().focusRing(LockOnShapes.panel, hovered).clip(LockOnShapes.panel).background(app.lockon.ui.components.glassColors().strong)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
     ) {
         Box(Modifier.fillMaxWidth().height(92.dp).clipToBounds().background(band)) {
-            Box(Modifier.matchParentSize().background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.Transparent), end = Offset(520f, 260f))))
-            val card = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 36.dp).width(56.dp).graphicsLayer { rotationZ = 6f }
-            if (cover != null) CardImage(cover.card, card, cover.printingId) else CardBack(card)
+            // The prominent card's art fills the band; until it loads, or without art, the deck's colours do.
+            CardArtwork(art, null, Modifier.matchParentSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f)) {
+                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.Transparent), end = Offset(520f, 260f))))
+            }
+            // Keeps the colours readable over busy art, and sets the fan apart from the same art behind it.
+            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = if (art != null) 0.24f else 0f)))
+            CardFan(fan, cardWidth = 54.dp, Modifier.align(Alignment.TopEnd).padding(top = 22.dp, end = 12.dp), spread = 0.42f, tilt = 12f, sideDrop = (-6).dp)
             Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 10.dp)) { ColorPips(colors) }
         }
         Column(Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -847,7 +892,10 @@ private fun DeckTile(
                 Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = scheme.onSurface, modifier = Modifier.weight(1f))
                 Box {
-                    GlassIconButton(Icons.Default.MoreVert, "Deck actions", { setMenu(true) }, compact = true)
+                    Icon(
+                        Icons.Default.MoreVert, contentDescription = "Deck actions", tint = scheme.onSurface,
+                        modifier = Modifier.size(32.dp).clip(LockOnShapes.button).clickable(role = Role.Button) { setMenu(true) }.padding(6.dp),
+                    )
                     GameMenu(expanded = menu, onDismissRequest = { setMenu(false) }) {
                         GameMenuItem("Rename", onClick = { setMenu(false); onRename() })
                         GameMenuItem("Move to folder", onClick = { setMenu(false); onMove() })
@@ -858,44 +906,21 @@ private fun DeckTile(
                     }
                 }
             }
-            ProgressGauge("", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict)
+            ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true)
             val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
-            Row(Modifier.heightIn(min = 26.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                when {
-                    deck.hasConflict -> Badge("Needs review", scheme.errorContainer, scheme.onErrorContainer)
-                    legal -> Badge("Legal", scheme.secondaryContainer, scheme.onSecondaryContainer)
-                    else -> Badge("Draft", scheme.surfaceVariant, scheme.onSurfaceVariant)
-                }
+            Row(Modifier.heightIn(min = 26.dp).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StateTag(legal, review = deck.hasConflict)
                 if (record.winRate != null) {
                     Text(record.score, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface, maxLines = 1)
                     Text("${record.winRate}%", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
                 }
+                Spacer(Modifier.weight(1f))
+                Text(ageLabel(deck.updatedAt), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1)
             }
         }
     }
 }
 private val CompactDeckBoxHeight = 148.dp
-
-/** Names a new empty deck, or hands over to [onImport] to bring in a deck list instead. */
-@Composable
-private fun NewDeckDialog(onDismiss: () -> Unit, onImport: () -> Unit, onCreate: (String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    GameDialog(
-        onDismissRequest = onDismiss,
-        title = "New deck",
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Deck name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                GameButton(
-                    "Import a deck list instead", onClick = onImport, style = GameButtonStyle.SECONDARY,
-                    compact = true, modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = { GameButton("Create", onClick = { onCreate(name) }, compact = true) },
-        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
-    )
-}
 
 @Composable
 fun TextPromptDialog(

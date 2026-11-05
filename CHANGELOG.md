@@ -1,5 +1,20 @@
 # Changelog
 
+## Next
+
+The rest of the new look: the screens that still followed the old layout now match the design.
+
+- **Decks:** each tile shows three of the deck's cards over its main card's art, with when it was last edited. Folders sit in a panel with icons, and there's a sort (Last edited, Name, Win rate). Ctrl+F searches decks on this screen.
+- **New deck:** one dialog for everything: name, folder, and start empty or paste a list, which counts the cards as you type. It takes files and Lock On backups too.
+- **Welcome tour:** one picture and one line per stop.
+- **Test:** the hand is held in a fan, the six shields are always there, and Redraw, Draw and New game sit in one row. The first draw keeps the hand.
+- **Analysis:** tiles for Burst, Blockers and Links, Level and Cost charts, and bars split by type and color.
+- **Matches:** a win-rate ring, bars for going first, going second and each opponent, and shorter game rows. Tap a game to see its time or remove it.
+- **Versions:** Now on top, and older versions open in place to show what restoring would change.
+- **Deck editor:** the back button is plain, the header is one line, and rows are − count +. Settings can open decks as card images by default.
+- **Sync:** this device has QR code and Address beside it, and every row has its action. Send decks keeps your choice in a tray above the same lists.
+- **Settings and Cards:** one-line rows with shorter names, and the card details put the card beside its numbers.
+
 ## 26.11.6 (2026-11-04)
 
 A new look, after Nintendo's recent menus: calm solid panels, rounded rectangles and a clearer selection.

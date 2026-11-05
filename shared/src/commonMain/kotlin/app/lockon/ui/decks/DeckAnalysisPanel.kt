@@ -1,4 +1,35 @@
 package app.lockon.ui.decks
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.lockon.ui.components.Glyphs
+import app.lockon.ui.components.SoftTile
+import app.lockon.ui.components.glassColors
+import app.lockon.ui.components.isTwilight
+import app.lockon.ui.theme.onCardColor
+import app.lockon.ui.components.revealIn
+import app.lockon.ui.components.revealOut
+import app.lockon.ui.theme.ChartSlate
+import app.lockon.ui.theme.ChartSlateTwilight
+import app.lockon.ui.theme.TabularNumbers
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
@@ -32,91 +63,93 @@ import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.theme.cardColor
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: DeckLegality, modifier: Modifier = Modifier) {
     val stats = remember(deck, cards) { DeckAnalysis.stats(deck, cards) }
     val scroll = rememberScrollState()
     Box(modifier) {
+    var showLinks by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
-        verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // The level curve and the counts by type, Burst and Blocker, as the game shows them.
-        if (deck.entries.isNotEmpty()) {
-            DeckGlance(stats, Modifier.glass(LockOnShapes.tile, strong = true)
-                .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp))
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SectionHeader("Legality")
-            if (legality.messages.isEmpty()) {
-                Text("This deck meets every construction rule.", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary)
-            }
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // What keeps the deck from being legal, in words, only while something does.
+        if (legality.messages.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
             legality.messages.forEach { message ->
                 Text(
-                    (if (message.severity == Severity.ERROR) "• " else "◦ ") + message.text,
-                    style = MaterialTheme.typography.bodyMedium,
+                    message.text, style = MaterialTheme.typography.bodyMedium,
                     color = if (message.severity == Severity.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (!legality.isLegal) {
-                Text("Incomplete decks still save as drafts.", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
         }
-        HorizontalDivider()
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            SectionHeader("Gundam readouts")
-            CountLine("Burst cards (can trigger from shields)", stats.burstCount)
-            CountLine("Blockers", stats.blockerCount)
-            if (stats.linkPairs.isEmpty()) {
-                Text("No Unit has a matching link Pilot in this deck yet.", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Text("Link pairs", style = MaterialTheme.typography.bodyMedium)
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile(Icons.Default.Star, "Burst", stats.burstCount, Modifier.weight(1f).fillMaxHeight())
+            StatTile(Glyphs.Shield, "Blockers", stats.blockerCount, Modifier.weight(1f).fillMaxHeight())
+            StatTile(Glyphs.Link, "Links", stats.linkPairs.size, Modifier.weight(1f).fillMaxHeight(),
+                onClick = if (stats.linkPairs.isEmpty()) null else ({ showLinks = !showLinks }))
+        }
+        // Which Unit each Pilot links to, under the count that opens it.
+        AnimatedVisibility(showLinks && stats.linkPairs.isNotEmpty(), enter = revealIn(), exit = revealOut()) {
+            SoftTile(Modifier.fillMaxWidth()) {
                 stats.linkPairs.forEach { (unit, pilots) ->
-                    Text("• ${unit.name} ↔ ${pilots.joinToString { it.name }}", style = MaterialTheme.typography.bodySmall)
+                    Text("${unit.name} ↔ ${pilots.joinToString { it.name }}", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
-        HorizontalDivider()
-        // Drawn like the level curve at the top, so the two curves read as one kind of chart.
-        if (stats.costCurve.isNotEmpty()) {
-            Column(
-                Modifier.glass(LockOnShapes.tile, strong = true).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Cost curve", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                    Text("Main deck", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                MiniCurve(stats.costCurve, Modifier.fillMaxWidth(), height = 88.dp, caption = false, prefix = "")
-            }
+        if (stats.levelCurve.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+            Text("Level", style = MaterialTheme.typography.titleSmall)
+            MiniCurve(stats.levelCurve, Modifier.fillMaxWidth(), height = 112.dp, caption = false, prefix = "")
         }
-        HorizontalDivider()
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            SectionHeader("Card types")
-            // Tokens only show when a deck has one by mistake, which legality already flags.
-            CardType.entries.filter { !it.isToken || (stats.typeCounts[it] ?: 0) > 0 }.forEach { type ->
-                CountLine(type.label, stats.typeCounts[type] ?: 0)
-            }
+        if (stats.costCurve.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+            Text("Cost", style = MaterialTheme.typography.titleSmall)
+            MiniCurve(stats.costCurve, Modifier.fillMaxWidth(), height = 112.dp, caption = false, prefix = "")
         }
-        if (stats.colorCounts.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                SectionHeader("Colors")
-                stats.colorCounts.forEach { (color, count) ->
-                    // White would vanish on the light sky, so it keeps the text colour; its name says which it is (I4).
-                    CountLine(color.label, count, accent = if (color == app.lockon.model.CardColor.WHITE) null else cardColor(color))
+        val slate = if (isTwilight()) ChartSlateTwilight else ChartSlate
+        // Tokens only show when a deck has one by mistake, which legality already flags.
+        val types = CardType.entries.filter { !it.isResource }.mapNotNull { type -> stats.typeCounts[type]?.takeIf { it > 0 }?.let { type to it } }
+        if (types.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+            val ramp = listOf(1f, 0.62f, 0.42f, 0.28f)
+            SplitBar(types.mapIndexed { i, (_, count) -> Segment("$count", count, slate.copy(alpha = ramp.getOrElse(i) { 0.2f }).compositeOver(glassColors().strong), if (i == 0) (if (isTwilight()) Color(0xFF1B2147) else Color.White) else MaterialTheme.colorScheme.onSurface) })
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                types.forEachIndexed { i, (type, _) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(slate.copy(alpha = ramp.getOrElse(i) { 0.2f })))
+                        Text("${type.label}s", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
+        }
+        if (stats.colorCounts.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+            SplitBar(stats.colorCounts.entries.sortedBy { it.key.ordinal }.map { (color, count) ->
+                Segment("${color.label.take(1)} $count", count, cardColor(color), onCardColor(color))
+            })
         }
     }
     VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
     }
 }
 
+/** An icon and label over a big number. */
 @Composable
-private fun CountLine(label: String, count: Int, accent: androidx.compose.ui.graphics.Color? = null) {
-    Row(Modifier.fillMaxWidth()) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = accent ?: MaterialTheme.colorScheme.onSurface)
-        Text("$count", style = MaterialTheme.typography.bodyMedium.merge(app.lockon.ui.theme.TabularNumbers))
+private fun StatTile(icon: ImageVector, label: String, value: Int, modifier: Modifier, onClick: (() -> Unit)? = null) {
+    SoftTile(modifier.clip(LockOnShapes.tile).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, contentDescription = null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+        Text("$value", style = MaterialTheme.typography.headlineSmall.merge(TabularNumbers))
+    }
+}
+
+private class Segment(val text: String, val size: Int, val color: Color, val ink: Color)
+
+/** One bar split by share, with each part's number on it. */
+@Composable
+private fun SplitBar(segments: List<Segment>) {
+    Row(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(7.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        segments.forEach { segment ->
+            Box(Modifier.weight(segment.size.toFloat()).fillMaxHeight().background(segment.color), contentAlignment = Alignment.Center) {
+                Text(segment.text, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = segment.ink, maxLines = 1)
+            }
+        }
     }
 }

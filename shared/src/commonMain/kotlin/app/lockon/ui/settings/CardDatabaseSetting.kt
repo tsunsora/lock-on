@@ -26,7 +26,7 @@ fun CardDatabaseSetting(container: AppContainer, state: AppState, files: FileBri
     var managing by remember { mutableStateOf(false) }
     SettingRow(
         "Card database",
-        detail = info?.let { "${it.name} · version ${it.version} · ${cards.size} cards" } ?: "No catalog installed",
+        value = if (info != null) "${cards.size} cards" else "None installed",
         // Only news earns a second line; the installed catalog above says the rest.
         note = update,
     ) {

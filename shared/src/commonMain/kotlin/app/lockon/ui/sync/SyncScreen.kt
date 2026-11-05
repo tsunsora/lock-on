@@ -1,5 +1,8 @@
 package app.lockon.ui.sync
 
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.derivedStateOf
 import app.lockon.ui.components.LocalScreenShown
 import app.lockon.ui.components.rememberArrival
@@ -169,6 +172,8 @@ fun SyncScreen(
     deviceName: String,
     /** Decks that can be sent to a nearby device. */
     decks: List<DeckSummary> = emptyList(),
+    /** The catalog, for showing each chosen deck's colours. */
+    cards: Map<String, app.lockon.model.Card> = emptyMap(),
     /** Which page shows: Send decks, or Sync devices. Kept by the caller so it survives leaving the tab. */
     sending: Boolean = false,
     onSendingChange: (Boolean) -> Unit = {},
@@ -177,10 +182,10 @@ fun SyncScreen(
     var chosen by remember { mutableStateOf(emptyList<String>()) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            PillTabs(listOf("Sync devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier.width(320.dp), fill = true, soft = true)
+            PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier.width(240.dp), fill = true, soft = true)
         }
         Crossfade(sending, Modifier.fillMaxSize(), label = "sync-page") { send ->
-            if (send) SendPage(controller, decks, chosen) { chosen = it }
+            if (send) SendPage(controller, decks, cards, chosen) { chosen = it }
             else DevicesPage(controller, deviceName)
         }
     }
@@ -219,10 +224,12 @@ private fun ThisDevicePanel(
     status: SyncStatus,
     tall: Boolean,
     modifier: Modifier = Modifier.fillMaxWidth(),
+    onOtherWays: (() -> Unit)? = null,
+    qrLabel: String = "QR code",
     more: @Composable ColumnScope.() -> Unit = {},
 ) {
     // A non-breaking hyphen, so "Wi-Fi" never splits over two lines.
-    val caption = "Visible to Lock On on this Wi‑Fi"
+    val caption = "On Wi‑Fi"
     Column(
         modifier.dealIn("this-device", 0).glass(LockOnShapes.panel)
             .animateContentSize(glide())
@@ -238,14 +245,19 @@ private fun ThisDevicePanel(
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Beacon(Modifier.size(56.dp))
+                app.lockon.ui.BrandTile(56.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(deviceName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (onOtherWays != null) {
+                    GameButton(qrLabel, onClick = onOtherWays, style = GameButtonStyle.SECONDARY, compact = true)
+                    GameButton("Address", onClick = onOtherWays, style = GameButtonStyle.SECONDARY, compact = true)
+                }
             }
         }
-        if (status.message != null) StatusStrip(status, Modifier.fillMaxWidth())
+        // Only what needs attention: a ready device says so by being here.
+        if (status.message != null && (status.isError || status.working)) StatusStrip(status, Modifier.fillMaxWidth())
         more()
     }
 }
@@ -322,9 +334,7 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
 
     val spotlight = rememberSpotlight()
     val devices: @Composable () -> Unit = {
-        SectionHeader("Your devices", Modifier.heightIn(min = ControlSize)) {
-            GlassIconButton(Icons.Default.Add, "Connect by address or QR code", onClick = { showOther = true })
-        }
+        SectionHeader("Your devices", readout = "${paired.size}")
         if (paired.isEmpty() && unpaired.isEmpty()) SearchingCard()
         paired.forEachIndexed { i, device ->
             PairedTile(
@@ -341,13 +351,15 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
             )
         }
         if (unpaired.isNotEmpty()) {
-            SectionHeader(if (paired.isEmpty()) "Nearby" else "Nearby, not paired yet")
+            SectionHeader("Nearby", Modifier.padding(top = 10.dp), readout = "${unpaired.size}")
             unpaired.forEachIndexed { i, device ->
                 DeviceTile(
                     device = device,
                     send = null,
                     inviting = device.deviceId in invited,
-                    hint = "Tap to pair and sync",
+                    hint = "Not paired",
+                    action = "Pair",
+                    actionIcon = app.lockon.ui.components.Glyphs.Link,
                     spotlight = spotlight,
                     index = paired.size + i + 1,
                     onTap = { if (device.compatible) pair(device) },
@@ -360,7 +372,7 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // One centred column on every window: this device, then the others.
         SyncPage(spotlight, maxWidth = 760.dp) {
-            ThisDevicePanel(deviceName, status, tall = false)
+            ThisDevicePanel(deviceName, status, tall = false, onOtherWays = { showOther = true }, qrLabel = if (isHost) "QR code" else "Scan QR code")
             devices()
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
@@ -458,24 +470,22 @@ private fun PairedTile(
                         },
                     )
                 } else {
-                    live?.let { (label, healthy) ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Box(Modifier.size(8.dp).clip(CircleShape).background(if (healthy) scheme.secondary else scheme.outline))
-                            Text(label, style = MaterialTheme.typography.bodySmall, color = if (healthy) scheme.secondary else scheme.onSurfaceVariant)
-                        }
+                    // One line: how it's connected or what went wrong, and when it last synced.
+                    val problem = device.lastError
+                    val line = listOfNotNull(problem ?: live?.first ?: "Paired", device.lastSyncAt?.let { app.lockon.platform.ageLabel(it) } ?: "not synced yet").joinToString(" · ")
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (problem != null) Icon(Icons.Default.Warning, contentDescription = null, Modifier.size(14.dp), tint = scheme.error)
+                        else if (live != null) Box(Modifier.size(8.dp).clip(CircleShape).background(if (live.second) scheme.primary else scheme.outline))
+                        Text(line, style = MaterialTheme.typography.bodySmall, color = if (problem != null) scheme.error else scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Text(
-                        device.lastSyncAt?.let { "Last synced ${formatTimestamp(it)}" } ?: "Paired, not synced yet",
-                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
-                    )
-                    device.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error) }
                 }
             }
             when {
                 transfer?.state == SyncTransfer.State.WAITING -> GameButton("Cancel", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
                 busy -> ReticleSpinner(size = 18.dp, modifier = Modifier.padding(end = 12.dp))
                 transfer != null -> GameButton("OK", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
-                else -> GameButton("Sync", onClick = onTap, compact = true)
+                device.lastError != null -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Refresh, compact = true, onTone = scheme.error)
+                else -> GameButton("Sync", onClick = onTap, icon = Icons.Default.Refresh, compact = true)
             }
         }
         if (transfer != null) {
@@ -604,8 +614,9 @@ private fun ModeOption(title: String, detail: String, icon: ImageVector, primary
  * decks. Any nearby device can receive, paired or not. Wide windows put the two side by side.
  */
 @Composable
-private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chosen: List<String>, onChosen: (List<String>) -> Unit) {
+private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards: Map<String, app.lockon.model.Card>, chosen: List<String>, onChosen: (List<String>) -> Unit) {
     val status by controller.status.collectAsState()
+    val paired by controller.pairedDevices.collectAsState(emptyList())
     val sharing = controller.sharing
     val targets by (sharing?.targets ?: remember { MutableStateFlow(emptyList()) }).collectAsState()
     val outgoing by (sharing?.outgoing ?: remember { MutableStateFlow(emptyMap()) }).collectAsState()
@@ -620,43 +631,45 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, chose
     val spotlight = rememberSpotlight()
 
     val where: @Composable () -> Unit = {
-        SectionHeader("Send to", Modifier.heightIn(min = ControlSize))
         if (sharing == null) {
             Text("This device can't send decks.", style = MaterialTheme.typography.bodyMedium)
         } else if (targets.isEmpty()) SearchingCard()
-        targets.forEachIndexed { i, device ->
-            DeviceTile(
-                device = device,
-                send = outgoing[device.deviceId],
-                inviting = false,
-                hint = if (selected.isEmpty()) "Tap to choose decks" else "Tap to send ${deckCount(selected.size)}",
-                spotlight = spotlight,
-                index = i,
-                onTap = {
-                    when {
-                        !device.compatible -> Unit
-                        selected.isEmpty() -> { sendTo = device; choosing = true }
-                        else -> sharing?.send(device, selected.map { it.deckId })
-                    }
-                },
-                onCancel = { sharing?.cancelSend(device.deviceId) },
-            )
+        val pairedIds = paired.map { it.deviceId }.toSet()
+        val (yours, nearby) = targets.partition { it.deviceId in pairedIds }
+        listOf("Your devices" to yours, "Nearby" to nearby).forEach { (title, group) ->
+            if (group.isEmpty()) return@forEach
+            SectionHeader(title, readout = "${group.size}")
+            group.forEachIndexed { i, device ->
+                DeviceTile(
+                    device = device,
+                    send = outgoing[device.deviceId],
+                    inviting = false,
+                    hint = if (device.deviceId in pairedIds) "Paired" else "Not paired",
+                    action = "Send",
+                    actionIcon = Icons.Default.Send,
+                    spotlight = spotlight,
+                    index = i,
+                    onTap = {
+                        when {
+                            !device.compatible -> Unit
+                            selected.isEmpty() -> { sendTo = device; choosing = true }
+                            else -> sharing?.send(device, selected.map { it.deckId })
+                        }
+                    },
+                    onCancel = { sharing?.cancelSend(device.deviceId) },
+                )
+            }
         }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, compact = true)
         }
-        Text(
-            "Decks arrive as new copies and the other device is asked first. To make two devices match, use Sync devices.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
-        )
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         SyncPage(spotlight, maxWidth = 760.dp) {
-            StatusStrip(status, Modifier.fillMaxWidth())
+            if (status.isError || status.working) StatusStrip(status, Modifier.fillMaxWidth())
             val what: @Composable () -> Unit = {
-                WhatToSend(decks, selected, spotlight, onChoose = { choosing = true }, onChosen = onChosen)
+                WhatToSend(decks, selected, cards, onChoose = { choosing = true }, onChosen = onChosen)
             }
             when {
                 sharing != null -> { what(); where() }
@@ -712,41 +725,46 @@ private fun deckCount(n: Int) = if (n == 1) "1 deck" else "$n decks"
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WhatToSend(
-    decks: List<DeckSummary>, selected: List<DeckSummary>, spotlight: Spotlight, onChoose: () -> Unit, onChosen: (List<String>) -> Unit,
+    decks: List<DeckSummary>, selected: List<DeckSummary>, cards: Map<String, app.lockon.model.Card>, onChoose: () -> Unit, onChosen: (List<String>) -> Unit,
 ) {
     val ids = selected.map { it.deckId }
     val folders = remember(decks) {
         decks.groupBy { it.snapshot.folder }.mapNotNull { (folder, inIt) -> folder?.let { it to inIt.map { d -> d.deckId } } }
             .sortedBy { it.first.lowercase() }
     }
-    // As tall as Send to's header, so the two line up side by side.
-    SectionHeader("What to send", Modifier.heightIn(min = ControlSize), readout = if (selected.isEmpty()) null else "${selected.size}") {
-        if (selected.isNotEmpty()) GameButton("Clear", onClick = { onChosen(emptyList()) }, style = GameButtonStyle.GHOST, compact = true)
-    }
-    if (selected.isEmpty()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            val tile = Modifier.weight(1f)
-            PickTile("Choose decks", Icons.Default.Add, spotlight, tile, enabled = decks.isNotEmpty(), onClick = onChoose)
-            if (decks.size in 1..ShareInbox.MAX_DECKS) PickTile("All ${decks.size} decks", Icons.Default.Done, spotlight, tile) { onChosen(decks.map { it.deckId }) }
-        }
-        if (decks.isEmpty()) Text("Build a deck first, then send it from here.", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    } else {
-        SelectionCard(selected, onEdit = onChoose)
-    }
-    if (folders.isNotEmpty()) {
-        Text("Folders", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            folders.forEach { (folder, inFolder) ->
-                val whole = inFolder.all { it in ids }
-                PillChip(
-                    selected = whole,
-                    onClick = { onChosen(if (whole) ids - inFolder.toSet() else (ids + inFolder).distinct().take(ShareInbox.MAX_DECKS)) },
-                    label = { Text("$folder · ${inFolder.size}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    leadingIcon = if (whole) ({ Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }) else null,
-                    modifier = Modifier.widthIn(max = 260.dp),
+    FlowRow(
+        Modifier.fillMaxWidth().glass(LockOnShapes.panel).padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        selected.forEach { deck ->
+            val colors = remember(deck, cards) {
+                deck.snapshot.entries.filter { it.section == app.lockon.model.DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet()
+            }
+            Row(
+                Modifier.height(40.dp).clip(LockOnShapes.button).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)).padding(start = 8.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                app.lockon.ui.components.ColorPips(colors, size = 18.dp)
+                Text(deck.snapshot.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp))
+                Icon(
+                    Icons.Default.Close, contentDescription = "Leave out ${deck.snapshot.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(28.dp).clip(LockOnShapes.button).clickable { onChosen(ids - deck.deckId) }.padding(5.dp),
                 )
             }
+        }
+        if (decks.isNotEmpty()) GameButton("Choose decks", onClick = onChoose, style = GameButtonStyle.SECONDARY, icon = Icons.Default.Add, compact = true)
+        else Text("No decks to send yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Every deck, or a folder's worth, in one tap.
+        if (selected.isEmpty() && decks.size in 2..ShareInbox.MAX_DECKS) GameButton("All ${decks.size} decks", onClick = { onChosen(decks.map { it.deckId }) }, style = GameButtonStyle.GHOST, compact = true)
+        folders.forEach { (folder, inFolder) ->
+            val whole = inFolder.all { it in ids }
+            PillChip(
+                selected = whole,
+                onClick = { onChosen(if (whole) ids - inFolder.toSet() else (ids + inFolder).distinct().take(ShareInbox.MAX_DECKS)) },
+                label = { Text("$folder · ${inFolder.size}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                leadingIcon = { Icon(app.lockon.ui.components.Glyphs.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                modifier = Modifier.widthIn(max = 260.dp),
+            )
         }
     }
 }
@@ -854,6 +872,8 @@ private fun DeviceTile(
     send: OutgoingShare?,
     inviting: Boolean,
     hint: String?,
+    action: String,
+    actionIcon: androidx.compose.ui.graphics.vector.ImageVector,
     spotlight: Spotlight,
     index: Int,
     onTap: () -> Unit,
@@ -892,16 +912,13 @@ private fun DeviceTile(
                             else -> scheme.onSurfaceVariant
                         },
                     )
-                    else -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Tag(if (device.isDesktop) "Computer" else "Phone")
-                        hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant) }
-                    }
+                    else -> hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant) }
                 }
             }
             if (busy) {
                 if (inviting) ReticleSpinner(size = 18.dp)
-                GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.GHOST, compact = true)
-            }
+                GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.SECONDARY, compact = true)
+            } else GameButton(action, onClick = onTap, enabled = device.compatible, icon = actionIcon, compact = true)
         }
         if (send != null) {
             TransferBar(

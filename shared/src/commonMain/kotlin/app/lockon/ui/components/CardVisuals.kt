@@ -315,7 +315,7 @@ fun CardTile(
     }
     Column(modifier) {
         Box(
-            Modifier.fillMaxWidth()
+            Modifier.fillMaxWidth().focusRing(CardShape, selected)
                 .hoverState(hover)
                 .hoverLift(press, glow = if (count > 0) scheme.primary else lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape,
                     resting = if (count > 0) 0.35f else 0f)
@@ -692,8 +692,32 @@ fun CardDetailContent(
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 // In a desktop side panel a full-width card pushes its effect text out of view, so it
                 // stays a readable size there; phones' dialogs keep the big card.
-                image(Modifier.fillMaxWidth(0.82f).widthIn(max = 280.dp).align(Alignment.CenterHorizontally), false)
-                info(Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    image(Modifier.weight(1.25f), true)
+                    Column(Modifier.weight(1f).padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ColorPips(card.colors)
+                            Text(
+                                listOf(card.type.label, card.cardNumber).filter { it.isNotBlank() }.joinToString("  "),
+                                style = MaterialTheme.typography.labelLarge, maxLines = 2,
+                            )
+                        }
+                        listOfNotNull(card.cost?.let { "Cost" to it }, card.level?.let { "Level" to it }, card.ap?.let { "AP" to it }, card.hp?.let { "HP" to it })
+                            .chunked(2).forEach { pair ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    pair.forEach { (label, value) -> StatBox(label, "$value", Modifier.weight(1f)) }
+                                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                }
+                            }
+                    }
+                }
+                body()
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (card.traits.isNotEmpty()) LabelledLine("Traits", card.traits.joinToString(", "))
+                    if (card.zones.isNotEmpty()) LabelledLine("Zones", card.zones.joinToString(", "))
+                    card.link?.let { LabelledLine("Link", it) }
+                    if (card.rarity.isNotBlank() || card.setCode.isNotBlank()) LabelledLine("Set", listOf(card.setCode, card.rarity).filter { it.isNotBlank() }.joinToString(" · "))
+                }
                 if (!printingsInPanel) printingStrip()
             }
         }
@@ -738,14 +762,23 @@ fun CardDetailDialog(
 }
 
 @Composable
-private fun StatBox(label: String, value: String) {
+private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
-        Modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest)
+        modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.titleLarge.merge(TabularNumbers))
+    }
+}
+
+/** A quiet label and its value on one line. */
+@Composable
+private fun LabelledLine(label: String, value: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(label, Modifier.width(52.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(value, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -858,15 +891,11 @@ fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () ->
     val scheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically) {
         TileButton("−", "Remove one $name", enabled = quantity > 0) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }
-        Column(Modifier.widthIn(min = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("×", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
-                RollingNumber(
-                    quantity, MaterialTheme.typography.titleLarge.merge(TabularNumbers),
-                    if (quantity > 0) scheme.primary else scheme.onSurfaceVariant, Modifier.bumpOnIncrease(quantity),
-                )
-            }
-            if (limit != null) CopyPips(quantity, limit, pip = 5.dp)
+        Box(Modifier.widthIn(min = 30.dp), contentAlignment = Alignment.Center) {
+            RollingNumber(
+                quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers),
+                if (limit != null && quantity > limit) scheme.error else scheme.onSurface, Modifier.bumpOnIncrease(quantity),
+            )
         }
         TileButton("+", "Add one $name", primary = limit == null || quantity < limit) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
     }

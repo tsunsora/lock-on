@@ -27,6 +27,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.lockon.model.DeckSnapshot
+import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.PillSegmented
+import app.lockon.ui.theme.TabularNumbers
+import androidx.compose.material3.Icon
 import app.lockon.io.BackupFormat
 import app.lockon.io.DeckListFormat
 import app.lockon.platform.FileBridge
@@ -34,8 +55,15 @@ import app.lockon.ui.AppState
 import app.lockon.ui.Screen
 import kotlinx.coroutines.launch
 
+/**
+ * Makes a deck: name it, pick a folder, and start empty or from a pasted list. The list can also be a
+ * Lock On backup, whose decks bring their own names and folders.
+ *
+ * @param folder the folder chosen to begin with, such as the one open behind the dialog.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ImportDialog(
+fun NewDeckDialog(
     container: AppContainer,
     files: FileBridge,
     state: AppState,
@@ -43,82 +71,127 @@ fun ImportDialog(
     folders: List<String> = emptyList(),
     folder: String? = null,
 ) {
+    val scheme = MaterialTheme.colorScheme
+    var name by remember { mutableStateOf("") }
+    var pasting by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
     var problems by remember { mutableStateOf<List<String>>(emptyList()) }
-    var name by remember { mutableStateOf("") }
     // null is "No folder" and "" is the typed new folder; anything else names an existing folder.
     var folderChoice by remember { mutableStateOf(folder) }
     var newFolder by remember { mutableStateOf("") }
-    var folderMenu by remember { mutableStateOf(false) }
     val scope = state.appScope
+    val input = text.removePrefix("\uFEFF").trim()
     // A backup carries its own names and folders, so the deck options apply to deck lists only.
-    val isBackup = text.removePrefix("﻿").trimStart().startsWith("{")
+    val isBackup = pasting && input.startsWith("{")
+    val catalog by container.catalog.cards.collectAsState()
+    val printings by container.catalog.printings.collectAsState()
+    val parsed = remember(input, catalog, printings) {
+        if (input.isEmpty() || input.startsWith("{")) null else DeckListFormat.parse(input, catalog, printings = printings)
+    }
 
-    fun import() {
-        val input = text.removePrefix("﻿").trim()
-        if (input.isEmpty()) return
+    fun create() {
+        // Reuse an existing folder's spelling when only the case differs, as moving a deck does.
+        val typed = (if (folderChoice == "") newFolder else folderChoice)?.trim()?.takeIf { it.isNotEmpty() }
+        val target = typed?.let { t -> folders.firstOrNull { it.equals(t, ignoreCase = true) } ?: t }
         scope.launch {
-            if (input.startsWith("{")) {
-                val result = runCatching { container.decks.importBackup(BackupFormat.decode(input)) }
-                result.onSuccess { count -> state.notify("Imported $count decks."); onDismiss() }
-                result.onFailure { problems = listOf(it.message ?: "Could not read the backup.") }
-            } else {
-                val parsed = DeckListFormat.parse(input, container.catalog.cards.value, printings = container.catalog.printings.value)
-                if (parsed.snapshot.entries.isEmpty()) {
-                    problems = parsed.problems.ifEmpty { listOf("No cards found. Use lines like \"4 SMP-001\".") }
-                    return@launch
+            when {
+                !pasting -> {
+                    val id = container.decks.create(DeckSnapshot(name = name.trim().ifEmpty { "Untitled deck" }, folder = target))
+                    onDismiss()
+                    state.open(Screen.DeckEditor(id, startTab = 1))
                 }
-                // Reuse an existing folder's spelling when only the case differs, as moving a deck does.
-                val typed = (if (folderChoice == "") newFolder else folderChoice)?.trim()?.takeIf { it.isNotEmpty() }
-                val target = typed?.let { t -> folders.firstOrNull { it.equals(t, ignoreCase = true) } ?: t }
-                val snapshot = parsed.snapshot.copy(name = name.trim().ifEmpty { parsed.snapshot.name }, folder = target)
-                val id = container.decks.create(snapshot)
-                state.notify(if (parsed.problems.isEmpty()) "Deck imported." else "Deck imported with ${parsed.problems.size} skipped or unknown lines.")
-                onDismiss()
-                state.open(Screen.DeckEditor(id))
+                isBackup -> {
+                    val result = runCatching { container.decks.importBackup(BackupFormat.decode(input)) }
+                    result.onSuccess { count -> state.notify("Imported $count decks."); onDismiss() }
+                    result.onFailure { problems = listOf(it.message ?: "Could not read the backup.") }
+                }
+                parsed == null || parsed.snapshot.entries.isEmpty() ->
+                    problems = parsed?.problems.orEmpty().ifEmpty { listOf("No cards found. Use lines like \"4 SMP-001\".") }
+                else -> {
+                    val id = container.decks.create(parsed.snapshot.copy(name = name.trim().ifEmpty { parsed.snapshot.name }, folder = target))
+                    if (parsed.problems.isNotEmpty()) state.notify("Deck made with ${parsed.problems.size} skipped or unknown lines.")
+                    onDismiss()
+                    state.open(Screen.DeckEditor(id))
+                }
             }
         }
     }
 
     GameDialog(
         onDismissRequest = onDismiss,
-        title = "Import",
+        title = "New deck",
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Paste a deck list or a Lock On backup, or open a file.", style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(
-                    text, { text = it; problems = emptyList() },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 320.dp),
-                    placeholder = { Text("# Deck name\n4 SMP-001\n10 SMP-019") },
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                )
-                GameButton("Open file", onClick = {
-                    scope.launch { files.openText(listOf("text/plain", "application/json"))?.let { text = it } }
-                }, style = GameButtonStyle.SECONDARY)
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 if (!isBackup) {
+                    val focus = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { focus.requestFocus() }
                     OutlinedTextField(
-                        name, { name = it }, label = { Text("Deck name") }, singleLine = true,
-                        placeholder = { Text("From the list") }, modifier = Modifier.fillMaxWidth(),
+                        name, { name = it }, placeholder = { Text("Deck name") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
                     )
-                    Box {
-                        GameButton(
-                            when (folderChoice) { null -> "Folder: None"; "" -> "Folder: New folder"; else -> "Folder: $folderChoice" },
-                            onClick = { folderMenu = true }, style = GameButtonStyle.SECONDARY, icon = Icons.Default.ArrowDropDown,
-                        )
-                        GameMenu(folderMenu, onDismissRequest = { folderMenu = false }) {
-                            (listOf("No folder" to null) + folders.map { it to it } + ("New folder" to "")).forEach { (label, value) ->
-                                GameMenuItem(label, onClick = { folderChoice = value; folderMenu = false }, selected = folderChoice == value)
-                            }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (folders.map { it to it } + ("No folder" to null) + ("New folder" to "")).forEach { (label, value) ->
+                            PillChip(
+                                selected = folderChoice == value, onClick = { folderChoice = value }, label = { Text(label) },
+                                leadingIcon = { Icon(if (value == "") Icons.Default.Add else FolderIcon, contentDescription = null, Modifier.size(16.dp)) },
+                            )
                         }
                     }
                     if (folderChoice == "") {
-                        OutlinedTextField(newFolder, { newFolder = it }, label = { Text("Folder name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(newFolder, { newFolder = it }, placeholder = { Text("Folder name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     }
                 }
-                problems.take(6).forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                PillSegmented(
+                    listOf("Empty", "Paste a list"), if (pasting) 1 else 0, { pasting = it == 1; problems = emptyList() },
+                    Modifier.fillMaxWidth(), icons = listOf(Icons.Default.Add, PasteIcon),
+                )
+                if (pasting) {
+                    OutlinedTextField(
+                        text, { text = it; problems = emptyList() },
+                        modifier = Modifier.fillMaxWidth().height(190.dp),
+                        placeholder = { Text("4 SMP-001\n4 SMP-002", fontFamily = FontFamily.Monospace) },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val read = parsed?.snapshot?.entries?.sumOf { it.quantity } ?: 0
+                        val skipped = parsed?.problems?.size ?: 0
+                        when {
+                            isBackup -> Text("Lock On backup", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                            read > 0 -> {
+                                Icon(Icons.Default.Check, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
+                                Text(
+                                    "$read cards read" + if (skipped > 0) ", $skipped lines skipped" else "",
+                                    style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        GameButton("Open file", onClick = {
+                            scope.launch { files.openText(listOf("text/plain", "application/json"))?.let { text = it; problems = emptyList() } }
+                        }, style = GameButtonStyle.GHOST, compact = true)
+                    }
+                    problems.take(6).forEach { Text(it, color = scheme.error, style = MaterialTheme.typography.bodySmall) }
+                }
             }
         },
-        confirmButton = { GameButton("Import", onClick = ::import, enabled = text.isNotBlank(), compact = true) },
-        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
+        confirmButton = { GameButton(if (isBackup) "Import" else "Create", onClick = ::create, enabled = !pasting || input.isNotEmpty(), compact = true) },
+        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true) },
     )
+}
+
+private fun glyph(name: String, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit) =
+    ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(
+        androidx.compose.ui.graphics.vector.PathData(block), fill = SolidColor(Color.Black),
+    ).build()
+
+/** A folder, which Material's core icon set lacks. */
+private val FolderIcon: ImageVector = glyph("Folder") {
+    moveTo(4f, 5f); lineTo(9.5f, 5f); lineTo(11.5f, 7f); lineTo(20f, 7f); quadTo(22f, 7f, 22f, 9f); lineTo(22f, 18f); quadTo(22f, 20f, 20f, 20f)
+    lineTo(4f, 20f); quadTo(2f, 20f, 2f, 18f); lineTo(2f, 7f); quadTo(2f, 5f, 4f, 5f); close()
+}
+
+/** A clipboard, which Material's core icon set lacks. */
+private val PasteIcon: ImageVector = glyph("Paste") {
+    moveTo(9f, 2f); lineTo(15f, 2f); lineTo(15f, 4f); lineTo(18f, 4f); quadTo(20f, 4f, 20f, 6f); lineTo(20f, 20f); quadTo(20f, 22f, 18f, 22f)
+    lineTo(6f, 22f); quadTo(4f, 22f, 4f, 20f); lineTo(4f, 6f); quadTo(4f, 4f, 6f, 4f); lineTo(9f, 4f); close()
 }

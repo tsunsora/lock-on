@@ -325,6 +325,7 @@ fun GameButton(
     compact: Boolean = false,
     tone: Color? = null,
     onTone: Color? = null,
+    trailingIcon: ImageVector? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
@@ -383,6 +384,7 @@ fun GameButton(
                     label, color = content, maxLines = 2, textAlign = TextAlign.Center,
                     style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
                 )
+                if (trailingIcon != null) Icon(trailingIcon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -453,9 +455,9 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     // starts at the selection.
     val slot by animateFloatAsState(selected.toFloat(), glide(), label = "tab-slide")
     val placed by remember(spots, selected) { derivedStateOf { spots.getOrNull(selected)?.value != null } }
-    Box(modifier.fillMaxWidth().then(if (icons != null) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).padding(horizontal = 8.dp, vertical = 6.dp)) {
+    Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).padding(horizontal = 8.dp, vertical = 6.dp)) {
         Row(
-            (if (soft) track.clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)) else track.glass(LockOnShapes.button, strong = true)).padding(4.dp).drawBehind {
+            track.clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(4.dp).drawBehind {
                 if (spots.isEmpty()) return@drawBehind
                 val s = slot.coerceIn(0f, spots.lastIndex.toFloat())
                 val lo = floor(s).toInt()
@@ -488,7 +490,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                         .clip(LockOnShapes.button).background(bg)
                         .hoverable(interaction)
                         .selectable(isSelected, interaction, indication = null, role = Role.Tab) { onSelect(i) }
-                        .padding(horizontal = if (icons != null) 4.dp else 16.dp),
+                        .padding(horizontal = if (icons != null && fill) 4.dp else 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -970,7 +972,8 @@ fun PillSearchField(
     placeholder: String,
     modifier: Modifier = Modifier,
     onClear: (() -> Unit)? = null,
-) = PillField(value, onValueChange, placeholder, modifier, Icons.Default.Search, onClear)
+    shortcut: String? = null,
+) = PillField(value, onValueChange, placeholder, modifier, Icons.Default.Search, onClear, shortcut)
 
 /**
  * A text field on the same glass pill as [PillSearchField], without the search icon, for short
@@ -988,6 +991,7 @@ private fun PillField(
     modifier: Modifier,
     icon: ImageVector?,
     onClear: (() -> Unit)?,
+    shortcut: String? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
@@ -1025,6 +1029,11 @@ private fun PillField(
                     IconButton(onClick = onClear, modifier = Modifier.size(40.dp)) {
                         Icon(Icons.Default.Clear, contentDescription = "Clear search and filters", tint = scheme.onSurfaceVariant)
                     }
+                } else if (shortcut != null && !app.lockon.platform.isMobile && !focused) {
+                    Text(
+                        shortcut, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1,
+                        modifier = Modifier.padding(end = 8.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, scheme.outlineVariant, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
                 }
             }
         },
@@ -1288,7 +1297,7 @@ fun softThumbInk(): Color = if (isTwilight()) Color(0xFF075E67) else MaterialThe
 
 /** One choice among a few on a soft track; the chosen one is a white thumb with teal text. */
 @Composable
-fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, icons: List<ImageVector>? = null) {
     val scheme = MaterialTheme.colorScheme
     val accent = softThumb()
     val onAccent = softThumbInk()
@@ -1312,7 +1321,10 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
                         .selectable(isSelected, interactionSource = null, indication = null, role = Role.RadioButton) { onSelect(i) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = text)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        icons?.getOrNull(i)?.let { Icon(it, contentDescription = null, Modifier.size(16.dp), tint = text) }
+                        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = text)
+                    }
                 }
             }
         }

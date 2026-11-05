@@ -52,7 +52,7 @@ fun AppUpdateCard(updater: AppUpdater?, scope: CoroutineScope) {
 @Composable
 fun AppUpdateSection(updater: AppUpdater?, scope: CoroutineScope) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Version ${BuildInfo.VERSION}", style = MaterialTheme.typography.titleSmall)
+        Text("Lock On ${BuildInfo.VERSION}", style = MaterialTheme.typography.titleSmall)
         if (updater == null || !updater.enabled) {
             Text("This build doesn't check for updates.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)

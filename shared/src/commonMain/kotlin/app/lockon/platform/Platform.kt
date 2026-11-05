@@ -16,6 +16,38 @@ expect fun formatTimestamp(epochMillis: Long): String
 
 expect fun formatDate(epochMillis: Long): String
 
+/** The local calendar day [epochMillis] falls on, as a day count: only differences between two mean anything. */
+expect fun localDay(epochMillis: Long): Long
+
+/** "Oct 28" in the device's locale. */
+expect fun formatMonthDay(epochMillis: Long): String
+
+/** "21:44" or "9:44 PM", as the device tells time. */
+expect fun formatClock(epochMillis: Long): String
+
+private fun nowMillis() = kotlin.time.Clock.System.now().toEpochMilliseconds()
+
+/** "Today", "Yesterday" or "Oct 28". */
+fun dayLabel(epochMillis: Long): String = when (localDay(nowMillis()) - localDay(epochMillis)) {
+    0L -> "Today"
+    1L -> "Yesterday"
+    else -> formatMonthDay(epochMillis)
+}
+
+/** "Today 13:10", "Yesterday 21:44" or "Oct 28 18:02". */
+fun dayAndTimeLabel(epochMillis: Long): String = "${dayLabel(epochMillis)} ${formatClock(epochMillis)}"
+
+/** How long ago, shortest first: "4 min", "2 h", "Yesterday" or "Oct 28". */
+fun ageLabel(epochMillis: Long): String {
+    val minutes = (nowMillis() - epochMillis) / 60_000
+    return when {
+        minutes < 1 -> "Now"
+        minutes < 60 -> "$minutes min"
+        localDay(nowMillis()) == localDay(epochMillis) -> "${minutes / 60} h"
+        else -> dayLabel(epochMillis)
+    }
+}
+
 /** PNG bytes of a rendered image, for saving deck images. */
 expect fun encodePng(image: ImageBitmap): ByteArray
 

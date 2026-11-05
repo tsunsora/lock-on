@@ -11,8 +11,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,10 +25,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -59,13 +52,26 @@ import app.lockon.data.ThemeChoice
 import app.lockon.ui.components.Accent
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
-import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.LockOnMark
-import app.lockon.ui.components.PillChip
+import app.lockon.ui.components.CardBack
+import app.lockon.ui.components.CardFan
+import app.lockon.ui.components.CardImage
+import app.lockon.ui.components.CardShape
+import app.lockon.ui.components.DaySky
+import app.lockon.ui.components.PillSegmented
+import app.lockon.ui.components.TwilightSky
+import app.lockon.ui.components.focusRing
+import app.lockon.model.Card
+import app.lockon.platform.isMobile
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
 import app.lockon.ui.components.ReticleSpinner
 import app.lockon.ui.components.SlidingPages
 import app.lockon.ui.components.WithContentColor
-import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.isTwilight
@@ -84,9 +90,10 @@ private sealed interface Download {
 }
 
 /**
- * The first-run welcome: a glass panel over the app that offers the official card database, then
- * walks through Decks, Cards, Sync and Settings, switching the screen behind it to match. Skip ends
- * it at any stop, and Settings can show it again. [onDone] runs however it ends.
+ * The first-run welcome: a dialog over the app that offers the official card database, then walks
+ * through Decks, Cards, Sync and Settings, switching the screen behind it to match. Each stop is one
+ * picture and one line. Skip ends it at any stop, the dots go back, and Settings can show it again.
+ * [onDone] runs however it ends.
  */
 @Composable
 fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable () -> Unit)?, onDone: () -> Unit) {
@@ -96,6 +103,12 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
     var download by remember { mutableStateOf<Download>(Download.Idle) }
     val info by container.catalog.info.collectAsState()
     val official = info?.origin == CatalogOrigin.GCG_API
+    val catalog by container.catalog.cards.collectAsState()
+    // A card of each colour where there are enough, so the pictures show the range.
+    val showcase = remember(catalog) {
+        val playable = catalog.values.filter { !it.type.isResource && !it.type.isToken }.sortedBy { it.cardNumber }
+        (playable.distinctBy { it.colors.firstOrNull() } + playable).distinct().take(6)
+    }
     LaunchedEffect(current) { current.tab?.let { state.select(it) } }
 
     fun startDownload() {
@@ -121,178 +134,201 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
 
     Box(
         Modifier.fillMaxSize()
-            .background(if (isTwilight()) Color(0xFF060B1E).copy(alpha = 0.55f) else Color(0xFF3E5F8A).copy(alpha = 0.45f))
+            .background(if (isTwilight()) Color(0xFF060B1E).copy(alpha = 0.45f) else Color(0xFF3E5F8A).copy(alpha = 0.3f))
             // The screen behind is a preview: nothing there takes a press until the tour ends.
             .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } },
         contentAlignment = Alignment.Center,
     ) {
         // Outside the app's Scaffold, so text would default to black; twilight needs it light.
         WithContentColor(MaterialTheme.colorScheme.onSurface) { Column(
-            Modifier.padding(16.dp).widthIn(max = 520.dp).fillMaxWidth()
+            Modifier.padding(16.dp).widthIn(max = 560.dp).fillMaxWidth()
                 .shadow(24.dp, LockOnShapes.panel, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-                // Solid like a dialog, since the busy screen behind would show through glass.
                 .clip(LockOnShapes.panel)
-                .background(if (isTwilight()) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest)
-                .glassFrame(LockOnShapes.panel)
-                .padding(24.dp),
+                .background(glassColors().strong)
+                .glassFrame(LockOnShapes.panel),
         ) {
-            StepDots(stop, TourStop.entries.size)
-            Spacer(Modifier.height(16.dp))
             // Weighted so a short phone screen scrolls the page rather than pushing the buttons off.
             SlidingPages(stop, Modifier.weight(1f, fill = false).fillMaxWidth().animateContentSize(motion())) { page ->
-                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     when (TourStop.entries[page]) {
-                        TourStop.WELCOME -> Welcome()
-                        TourStop.CARD_DATABASE -> CardDatabase(download, official, cardCount = container.catalog.cards.value.size, ::startDownload)
-                        TourStop.DECKS -> Feature(
-                            GameIcons.Deck, "Decks", "Your decks live here. Create one, then tap + for each copy you want.",
-                            "Each deck has Analysis, Test, Matches and Versions tabs: legality and curves, practice opening hands, a win–loss log and earlier versions to restore.",
-                            "Folders and search keep a big collection tidy. Export a text list, a deck image or a registration sheet.",
-                        )
-                        TourStop.CARDS -> Feature(
-                            Icons.Default.Search, "Cards", "Search every card by name or text, and filter by color, type, level and cost.",
-                            "Tap a card for its details and every printing. On a computer, Ctrl+F jumps here from anywhere.",
-                            "Max and Off-color tags show the deck rules while you build.",
-                        )
-                        TourStop.SYNC -> Feature(
-                            Icons.Default.Refresh, "Sync", "Keep your phone and computer in step over your own Wi-Fi. There's no account and no cloud.",
-                            "Pair two devices once; after that, edits reach the other one within seconds.",
-                            "You can also send a single deck to a friend's device nearby.",
-                        )
-                        TourStop.SETTINGS -> SettingsStop(container)
+                        TourStop.WELCOME -> {
+                            Picture { BrandTile(96.dp) }
+                            Words("Welcome to Lock On", "A deck builder for the Gundam Card Game.")
+                        }
+                        TourStop.CARD_DATABASE -> {
+                            Picture { Fan(showcase.drop(3)) }
+                            Words("Get every card", "Download the official list, with images.")
+                            CardDatabase(download, official, cardCount = catalog.size, ::startDownload)
+                        }
+                        TourStop.DECKS -> {
+                            Picture { Fan(showcase) }
+                            Words("Build a deck", "${if (isMobile) "Tap" else "Click"} + on a card to add a copy. The gauge turns gold at 50.")
+                        }
+                        TourStop.CARDS -> {
+                            Picture { CardRow(showcase.drop(1)) }
+                            Words("Find any card", "Search by name or text, and filter by color, type, level and cost.")
+                        }
+                        TourStop.SYNC -> {
+                            Picture { TwoDevices(showcase.firstOrNull()) }
+                            Words("Sync your devices", "Pair a phone and a computer once, over your own Wi-Fi. No account, no cloud.")
+                        }
+                        TourStop.SETTINGS -> {
+                            Picture { ThemeTiles() }
+                            Words("Make it yours", "Pick a theme. Interface size, animations and this tour are in Settings.")
+                            ThemeChoices(container)
+                        }
                     }
                 }
             }
-            Spacer(Modifier.height(20.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!last) GameButton("Skip tour", onClick = onDone, style = GameButtonStyle.GHOST, compact = true)
-                Spacer(Modifier.weight(1f))
-                if (stop > 0) GameButton("Back", onClick = { state.tourStop-- }, style = GameButtonStyle.SECONDARY, compact = true)
-                val next = when {
-                    last -> "Start building"
-                    current == TourStop.WELCOME -> "Show me around"
-                    current == TourStop.CARD_DATABASE && download == Download.Idle && !official -> "Not now"
-                    else -> "Next"
-                }
-                GameButton(next, onClick = { if (last) onDone() else state.tourStop++ }, compact = true)
+            Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 24.dp), contentAlignment = Alignment.Center) {
+                if (!last) GameButton("Skip", onClick = onDone, style = GameButtonStyle.GHOST, compact = true, modifier = Modifier.align(Alignment.CenterStart))
+                StepDots(stop, TourStop.entries.size) { state.tourStop = it }
+                val notNow = current == TourStop.CARD_DATABASE && download == Download.Idle && !official
+                GameButton(
+                    when {
+                        last -> "Start building"
+                        notNow -> "Not now"
+                        else -> "Next"
+                    },
+                    onClick = { if (last) onDone() else state.tourStop++ }, compact = true,
+                    // The download is this stop's main action, so moving past it stays quiet.
+                    style = if (notNow) GameButtonStyle.SECONDARY else GameButtonStyle.PRIMARY,
+                    trailingIcon = if (last || notNow) null else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
             }
         } }
         trailing?.let { Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { it() } }
     }
 }
 
-/** Where the tour is: a pill for the current stop, dots for the rest, as on the boot screen. */
+/** Where the tour is: a pill for the current stop, dots for the rest. A dot goes straight to its stop. */
 @Composable
-private fun StepDots(current: Int, count: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun StepDots(current: Int, count: Int, onSelect: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { i ->
             // The pill slides along as the tour moves, rather than jumping from dot to dot.
-            val width by animateDpAsState(if (i == current) 18.dp else 8.dp, glide(), label = "step-width")
+            val width by animateDpAsState(if (i == current) 22.dp else 8.dp, glide(), label = "step-width")
             val fill by animateColorAsState(
-                if (i <= current) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), motion(), label = "step-fill",
+                if (i == current) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f), motion(), label = "step-fill",
             )
-            Box(Modifier.size(width = width, height = 8.dp).clip(CircleShape).background(fill))
+            Box(
+                Modifier.clip(CircleShape).clickable(onClickLabel = "Go to step ${i + 1}") { onSelect(i) }.padding(horizontal = 3.dp, vertical = 12.dp),
+            ) { Box(Modifier.size(width = width, height = 8.dp).clip(CircleShape).background(fill)) }
         }
     }
 }
 
+/** The stop's picture, in a band that washes down from teal into the dialog. */
 @Composable
-private fun Welcome() {
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier.size(96.dp).shadow(12.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-                .clip(CircleShape).glass(CircleShape, strong = true),
-            contentAlignment = Alignment.Center,
-        ) { LockOnMark(size = 64.dp, reticleColor = MaterialTheme.colorScheme.onSurface) }
-        Spacer(Modifier.height(16.dp))
-        Text("Welcome to Lock On", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "A deck builder for the Gundam Card Game. First the card list, then a quick look around. It takes about a minute, and you can skip it at any point.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
-        )
+private fun Picture(content: @Composable () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().height(216.dp).clipToBounds()
+            .background(Brush.verticalGradient(listOf(Accent.copy(alpha = 0.16f), Color.Transparent))),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+@Composable
+private fun Words(title: String, line: String) {
+    Text(title, Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+    Spacer(Modifier.height(10.dp))
+    Text(
+        line, Modifier.padding(horizontal = 32.dp).widthIn(max = 460.dp), style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun Fan(cards: List<Card>) {
+    CardFan(cards.take(3).let { three -> listOfNotNull(three.getOrNull(1), three.getOrNull(0), three.getOrNull(2)) }.map { it to null }, cardWidth = 96.dp, middleOnTop = false)
+}
+
+/** Three cards laid out like the card list, with the focus cursor on the middle one. */
+@Composable
+private fun CardRow(cards: List<Card>) {
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(3) { i ->
+            val card = cards.getOrNull(i)
+            val place = Modifier.width(96.dp).then(if (i == 1) Modifier.focusRing(CardShape) else Modifier)
+            if (card != null) CardImage(card, place) else CardBack(place)
+        }
+    }
+}
+
+/** A computer and a phone showing the same card, with dots running between them. */
+@Composable
+private fun TwoDevices(card: Card?) {
+    val body = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
+    @Composable
+    fun Screen(modifier: Modifier, shape: RoundedCornerShape, cardWidth: androidx.compose.ui.unit.Dp) {
+        Box(modifier.clip(shape).background(body).padding(6.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(5.dp)).background(glassColors().strong), contentAlignment = Alignment.Center) {
+                if (card != null) CardImage(card, Modifier.width(cardWidth), shadow = false) else CardBack(Modifier.width(cardWidth))
+            }
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Screen(Modifier.size(width = 168.dp, height = 112.dp), RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 4.dp, bottomEnd = 4.dp), 58.dp)
+            Box(Modifier.size(width = 196.dp, height = 8.dp).clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)).background(body))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(3) { Box(Modifier.size(8.dp).clip(CircleShape).background(Accent)) }
+        }
+        Screen(Modifier.size(width = 72.dp, height = 132.dp), RoundedCornerShape(14.dp), 44.dp)
+    }
+}
+
+/** The mark on each theme's sky. */
+@Composable
+private fun ThemeTiles() {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        listOf(DaySky to Color(0xFF0E3A5E), TwilightSky to Color.White).forEach { (sky, ink) ->
+            Box(
+                Modifier.size(width = 148.dp, height = 112.dp).clip(LockOnShapes.tile).background(Brush.verticalGradient(sky)),
+                contentAlignment = Alignment.Center,
+            ) { LockOnMark(size = 56.dp, reticleColor = ink) }
+        }
     }
 }
 
 @Composable
 private fun CardDatabase(download: Download, official: Boolean, cardCount: Int, onDownload: () -> Unit) {
-    StopTitle(Icons.Default.List, "Get the full card list")
-    Text(
-        "Lock On comes with a few sample cards. Download the official list for every card and printing, with images. " +
-            "It's a few megabytes, and a weekly check tells you when a newer one is out.",
-        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(16.dp))
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Spacer(Modifier.height(14.dp))
+    Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         when {
             download is Download.Done || (official && download == Download.Idle) -> {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Accent)
-                Text(
-                    "Installed: ${(download as? Download.Done)?.cards ?: cardCount} cards",
-                    style = MaterialTheme.typography.titleSmall,
-                )
+                Text("${(download as? Download.Done)?.cards ?: cardCount} cards installed", style = MaterialTheme.typography.titleSmall)
             }
             download == Download.Running -> {
                 ReticleSpinner(size = 22.dp)
-                Text("Downloading… you can carry on meanwhile.", style = MaterialTheme.typography.titleSmall)
+                Text("Downloading…", style = MaterialTheme.typography.titleSmall)
             }
-            else -> GameButton(
-                if (download is Download.Failed) "Try again" else "Download card database",
-                onClick = onDownload, large = true,
-            )
+            else -> GameButton(if (download is Download.Failed) "Try again" else "Download card database", onClick = onDownload)
         }
     }
     (download as? Download.Failed)?.let {
         Spacer(Modifier.height(8.dp))
-        Text(it.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        Text(it.message, Modifier.padding(horizontal = 32.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
     }
-    Spacer(Modifier.height(12.dp))
-    Text(GcgApi.ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-}
-
-/** A stop about one screen: what it's for, then two things worth knowing. */
-@Composable
-private fun Feature(icon: ImageVector, title: String, lead: String, vararg points: String) {
-    StopTitle(icon, title)
-    Text(lead, style = MaterialTheme.typography.bodyLarge)
-    points.forEach { point ->
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.padding(top = 7.dp).size(6.dp).clip(CircleShape).background(Accent))
-            Text(point, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+    Spacer(Modifier.height(10.dp))
+    Text(
+        GcgApi.ATTRIBUTION, Modifier.padding(horizontal = 32.dp), style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.outline, textAlign = TextAlign.Center,
+    )
 }
 
 /** The last stop picks a theme on the spot, since that's what most people change first. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SettingsStop(container: AppContainer) {
+private fun ThemeChoices(container: AppContainer) {
     val scope = rememberCoroutineScope()
     val theme by container.settings.theme.collectAsState()
-    Feature(
-        Icons.Default.Settings, "Settings", "Theme, interface size, animations and where Lock On opens are all here.",
-        "So are the card database, app updates, and this tour if you want it again.",
-    )
     Spacer(Modifier.height(14.dp))
-    Text("Theme", style = MaterialTheme.typography.titleSmall)
-    Spacer(Modifier.height(6.dp))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        ThemeChoice.entries.forEach { choice ->
-            PillChip(selected = choice == theme, onClick = { scope.launch { container.settings.setTheme(choice) } }, label = { Text(choice.label) })
-        }
-    }
-}
-
-@Composable
-private fun StopTitle(icon: ImageVector, title: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(40.dp).clip(CircleShape).background(Accent.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, contentDescription = null, tint = Accent, modifier = Modifier.size(22.dp)) }
-        Spacer(Modifier.width(12.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge)
-    }
-    Spacer(Modifier.height(12.dp))
+    PillSegmented(
+        ThemeChoice.entries.map { it.label }, ThemeChoice.entries.indexOf(theme),
+        { i -> scope.launch { container.settings.setTheme(ThemeChoice.entries[i]) } },
+        Modifier.padding(horizontal = 32.dp).widthIn(max = 340.dp).fillMaxWidth(),
+    )
 }
