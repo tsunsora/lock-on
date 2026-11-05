@@ -52,6 +52,8 @@ data class Card(
     val rarity: String = "",
 ) {
     val displayText: String get() = correctedText ?: text
+
+    internal val searchText: CardSearchText by lazy(LazyThreadSafetyMode.PUBLICATION) { CardSearchText(this) }
 }
 
 @Serializable
@@ -78,6 +80,9 @@ data class CardQuery(
     val setCodes: Set<String> = emptySet(),
     val trait: String = "",
 ) {
+    private val foldedText = SearchText.fold(text.trim())
+    private val compactText = SearchText.compact(foldedText)
+
     val isEmpty: Boolean
         get() = text.isBlank() && colors.isEmpty() && types.isEmpty() && levels.isEmpty() &&
             costs.isEmpty() && aps.isEmpty() && hps.isEmpty() && setCodes.isEmpty() && trait.isBlank()
@@ -91,13 +96,6 @@ data class CardQuery(
         if (hps.isNotEmpty() && card.hp !in hps) return false
         if (setCodes.isNotEmpty() && card.setCode !in setCodes) return false
         if (trait.isNotBlank() && card.traits.none { it.contains(trait.trim(), ignoreCase = true) }) return false
-        val needle = text.trim()
-        if (needle.isNotEmpty()) {
-            // Checked one at a time, so most cards are settled without building the trait line.
-            val found = card.name.contains(needle, ignoreCase = true) || card.cardNumber.contains(needle, ignoreCase = true) ||
-                card.displayText.contains(needle, ignoreCase = true) || card.traits.joinToString(" ").contains(needle, ignoreCase = true)
-            if (!found) return false
-        }
-        return true
+        return foldedText.isEmpty() || card.searchText.contains(foldedText, compactText)
     }
 }
