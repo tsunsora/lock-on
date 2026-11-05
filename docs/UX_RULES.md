@@ -59,7 +59,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple yet functional, removing anything uncomfortable before adding anything. A clear sky frames calm, solid panels, with chunky rounded type and rounded rectangles. Material 3 still supplies behaviour, menus, text fields and accessibility. The deck-builder patterns come from the games players praise most: Hearthstone, Marvel Snap, Legends of Runeterra and Master Duel (see [research](#research-behind-the-rules)). The shared toolkit is in `ui/components/GameUi.kt`.
 
 - **V1. Solid panels over sky.**
-  - Large panels are calm and solid (`GlassPanel`, `Modifier.glass`, named for their history): white by day, a dusk blue at twilight. The sky frames them rather than showing through.
+  - Large panels are calm and solid (`GlassPanel`, `Modifier.glass`, named for their history): white by day, a deep navy at twilight. The sky frames them rather than showing through.
   - Corners are rounded rectangles: panels 22 dp, tiles 16 dp, and buttons, chips, tabs, search fields and icon buttons 14 dp (`LockOnShapes.button`). Only the floating nav pill and switches keep pill ends (`LockOnShapes.pill`).
   - No stock Material controls show through. Buttons are `GameButton`, tabs `PillTabs`, chips `PillChip`, switches `PillSwitch`, segmented choices `PillSegmented`, and dialogs `GameDialog`. A dialog's main action is the solid teal button, and it closes with a Cancel or Close button, never a corner ×.
   - **Selection:** solid teal marks navigation and main actions only (the nav pill, the editor's panel tabs, primary buttons). Every other single choice is a white thumb with teal text (`PillSegmented`, `PillTabs(soft = true)`). Filter chips that are on get a teal outline and tint.
@@ -72,7 +72,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - **Tertiary (soft gold)** is for celebration only: a full gauge, the *Locked on!* state, sparkles and the Lock On moment.
   - Errors keep Material's error role.
   - Card colours are for card identity: cost orbs, strip edges and hover glows.
-  - Light mode is a clear sky. Dark mode is a soft dusk, never black. A full deck that needs review holds its gauge in slate rather than gold.
+  - Light mode is a pale, quiet sky. Dark mode is a deep navy dusk, never black. Cards lie directly on the sky, so it stays low in colour and well away from the card faces' brightness. A full deck that needs review holds its gauge in slate rather than gold.
 - **V4a. Cards are never cropped where they are the subject.**
   - Grid tiles, the test hand, card details and printings show the whole card at its real 63:88 shape, with high-quality filtering. Cost and AP/HP are never covered.
   - The editor banner is the exception, with a crop of a card's art as a backdrop. Deck strips and deck tiles show a small crop or the cover card, and the whole card is always one tap away.
@@ -108,7 +108,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - **Reduced motion:** with the system's "Remove animations" setting on, every animation becomes an instant change or a very short fade. Tilt, bumps, flashes and the shine are skipped.
 - **V6. Dark and light are equals.** Both themes use the same colour roles. Contrast is at least 4.5:1 for text and 3:1 for controls and tags, including text on glass over the sky.
 - **V7. Decoration is never the only signal.**
-  - **The sky:** a gradient with soft colour glows and a diagonal beam of light. Nothing floats in it.
+  - **The sky:** a gradient with faint colour glows and a faint diagonal beam of light. Nothing floats in it.
   - **Sparkles** mark headings, the selected destination and celebration.
   - **The Lock On mark:** a bold targeting reticle with a center dot, all in one colour. The app icon is flat: the mark in white on a tile with a clear diagonal gradient from teal #19C2CF at the top right to blue #3B7CF0 at the bottom left, with no glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
   - **Yellow-and-black caution stripes** are reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
