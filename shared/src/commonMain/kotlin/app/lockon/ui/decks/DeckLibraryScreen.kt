@@ -130,7 +130,7 @@ import app.lockon.platform.ageLabel
 import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.Glyphs
 import app.lockon.ui.components.StateTag
-import app.lockon.ui.components.focusRing
+import app.lockon.ui.components.selectionEdge
 import app.lockon.ui.components.CardFan
 import app.lockon.model.Card
 import kotlinx.coroutines.launch
@@ -958,7 +958,7 @@ private fun DeckTile(
         else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(700f, 260f))
     }
     Column(
-        modifier.fillMaxWidth().focusRing(LockOnShapes.panel, hovered).clip(LockOnShapes.panel).background(app.lockon.ui.components.glassColors().strong)
+        modifier.fillMaxWidth().selectionEdge(LockOnShapes.panel, scheme.primary, hovered).clip(LockOnShapes.panel).background(app.lockon.ui.components.glassColors().strong)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
     ) {
         Box(Modifier.fillMaxWidth().height(104.dp).clipToBounds().background(band)) {
@@ -1007,7 +1007,7 @@ private val CompactDeckBoxHeight = 106.dp
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.DeckArtBackdrop(art: String?, fallback: @Composable () -> Unit) {
     CardArtwork(art, null, Modifier.matchParentSize(), ContentScale.Crop, BiasAlignment(0f, -0.5f), fallback)
-    if (art != null) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.42f)))
+    if (art != null) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.62f)))
 }
 
 @Composable

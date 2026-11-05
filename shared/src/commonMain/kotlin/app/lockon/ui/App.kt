@@ -683,13 +683,13 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
 
 private val NamePlate = RoundedCornerShape(18.dp)
 
-/** The logo tile's gradient by day: the focus cursor's teal to blue. */
+/** The logo tile's gradient by day: teal to blue. */
 private val LogoTileDay = listOf(Color(0xFF19C2CF), Color(0xFF2F9FE8), Color(0xFF3B7CF0))
 /** At twilight: bright cyan to periwinkle, like the theme's primary buttons. */
 private val LogoTileTwilight = listOf(Color(0xFF6FE7EC), Color(0xFF7CC4FF), Color(0xFF8FB0FF))
 
 /**
- * The logo tile: the Lock On mark on a rounded tile in the focus cursor's teal-to-blue, with a white
+ * The logo tile: the Lock On mark on a rounded tile in teal-to-blue, with a white
  * reticle by day and bright cyan with a navy reticle at twilight, so it belongs to both themes. As
  * [turn] goes to 1 the reticle spins away and a back arrow spins in where it was.
  */
