@@ -257,6 +257,7 @@ class ScreenshotTest {
         val sending = client.sharing.outgoing.value
         client.sharing.outgoing.value = sending + ("desk-2" to OutgoingShare("Studio iMac", 3, OutgoingShare.State.SENDING, progress = 0.6f))
         shoot("phone-sync-sending", 600, 1260, controller = client) { select(Tab.SYNC); syncSending = true }
+        shoot("light-phone-sync-sending", 600, 1260, dark = false, controller = client) { select(Tab.SYNC); syncSending = true }
         shoot("desktop-sync-sending", 1980, 1290, controller = client) { select(Tab.SYNC); syncSending = true }
         client.sharing.outgoing.value = sending
         client.sharing.incoming.value = IncomingShare("s-2", "DESKTOP-VPP8OD2", decks, IncomingShare.State.SAVING, saved = 1)
@@ -277,10 +278,11 @@ class ScreenshotTest {
         client.transfers.value = mapOf("desk-1" to app.lockon.sync.SyncTransfer("DESKTOP-VPP8OD2", app.lockon.sync.SyncMode.MERGE,
             app.lockon.sync.SyncTransfer.State.WORKING, null))
         shoot("phone-sync-working", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("phone-sync-small", 540, 960, controller = client) { select(Tab.SYNC) }
         val summary = app.lockon.sync.MirrorSummary(updated = 3, added = 2, removed = 1, settings = true)
         client.transfers.value = mapOf("desk-1" to app.lockon.sync.SyncTransfer("DESKTOP-VPP8OD2", app.lockon.sync.SyncMode.TAKE,
             app.lockon.sync.SyncTransfer.State.DONE, app.lockon.sync.matchedMessage("This phone", "DESKTOP-VPP8OD2", summary)))
-        shoot("phone-sync-matched", 600, 1260, controller = client) { select(Tab.SYNC) }
+        shoot("phone-sync-matched", 600, 1260, controller = client, hover = androidx.compose.ui.geometry.Offset(5f, 5f)) { select(Tab.SYNC) }
         shoot("desktop-sync-devices", 1980, 1290, controller = client) { select(Tab.SYNC) }
         client.transfers.value = emptyMap()
     }
@@ -313,10 +315,120 @@ class ScreenshotTest {
         shoot("phone-settings", 600, 1260) { select(Tab.SETTINGS) }
         shoot("light-phone-settings", 600, 1260, dark = false) { select(Tab.SETTINGS) }
         shoot("phone-settings-full", 600, 3000) { select(Tab.SETTINGS) }
+        shoot("light-phone-settings-full", 600, 3000, dark = false) { select(Tab.SETTINGS) }
         // More is the bar's last button: the pill spans most of the 400 dp phone, 42 dp above the bottom.
         val more = androidx.compose.ui.geometry.Offset(476f, 1260f - 1.5f * 42f)
         shoot("phone-more-menu", 600, 1260, taps = listOf(more)) { open(Screen.DeckEditor(deckId)) }
         shoot("light-phone-more-menu", 600, 1260, dark = false, taps = listOf(more)) { open(Screen.DeckEditor(deckId)) }
+    }
+
+    /** The phone deck editor, with a throwaway first shot since the first can catch the boot cover. */
+    @Test fun renderPhoneEditor() {
+        shoot("tmp-phone-first", 600, 1260) { open(Screen.DeckEditor(deckId)) }
+        shoot("phone-editor", 600, 1260) { open(Screen.DeckEditor(deckId)) }
+        shoot("light-phone-editor", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId)) }
+        shoot("phone-add-cards", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        shoot("light-phone-add-cards", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        val filters = androidx.compose.ui.geometry.Offset(545f, 181f)
+        // The way a person gets there: open the deck, tap Add in the bar, then Filters.
+        val add = androidx.compose.ui.geometry.Offset(300f, 1198f)
+        // Opened from the Decks list after the app has started, not restored while it boots.
+        val row = androidx.compose.ui.geometry.Offset(350f, 640f)
+        shoot("light-phone-add-filters-path", 600, 1260, dark = false, taps = listOf(row, add, filters)) { select(Tab.DECKS) }
+        shoot("phone-add-filters-path", 600, 1260, taps = listOf(row, add, filters)) { select(Tab.DECKS) }
+        shoot("phone-add-filters-picked", 600, 1260, taps = listOf(row, add, filters, androidx.compose.ui.geometry.Offset(105f, 642f), androidx.compose.ui.geometry.Offset(270f, 798f), androidx.compose.ui.geometry.Offset(335f, 798f))) { select(Tab.DECKS) }
+        shoot("light-phone-add-filters-picked", 600, 1260, dark = false, taps = listOf(row, add, filters, androidx.compose.ui.geometry.Offset(105f, 642f), androidx.compose.ui.geometry.Offset(270f, 798f), androidx.compose.ui.geometry.Offset(335f, 798f))) { select(Tab.DECKS) }
+        shoot("phone-small-filters", 540, 960, taps = listOf(androidx.compose.ui.geometry.Offset(485f, 181f))) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        shoot("phone-card-details", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(110f, 330f))) { select(Tab.CARDS) }
+        shoot("light-phone-card-details", 600, 1260, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(110f, 330f))) { select(Tab.CARDS) }
+        shoot("phone-cards-closed", 600, 1260) { select(Tab.CARDS) }
+        shoot("light-phone-cards-closed", 600, 1260, dark = false) { select(Tab.CARDS) }
+        shoot("phone-cards-filters", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(545f, 114f))) { select(Tab.CARDS) }
+        shoot("light-phone-cards-filters", 600, 1260, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(545f, 114f))) { select(Tab.CARDS) }
+        shoot("phone-add-filters", 600, 1260, taps = listOf(filters), hover = androidx.compose.ui.geometry.Offset(5f, 5f)) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        shoot("light-phone-add-filters", 600, 1260, dark = false, taps = listOf(filters), hover = androidx.compose.ui.geometry.Offset(5f, 5f)) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+    }
+
+    /** One deck section at a time, for going through them: both themes, and a tall shot of the whole page. */
+    @Test fun renderPhoneSections() {
+        shoot("tmp-phone-first", 600, 1260) { open(Screen.DeckEditor(deckId)) }
+        val rest = androidx.compose.ui.geometry.Offset(5f, 5f)
+        val draw = androidx.compose.ui.geometry.Offset(300f, 1115f)
+        shoot("phone-test-settled", 600, 1260, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("light-phone-test-settled", 600, 1260, dark = false, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("phone-test-long", 600, 1260, taps = listOf(draw, draw, draw)) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("phone-test-small", 540, 960, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 3)) }
+        shoot("phone-matches-picked", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(380f, 985f)), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("light-phone-matches-picked", 600, 1260, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(380f, 985f)), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("phone-matches-small", 540, 960, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        listOf(2 to "analysis", 3 to "test", 4 to "matches", 5 to "versions").forEach { (tab, name) ->
+            shoot("s-phone-$name", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = tab)) }
+            shoot("s-light-phone-$name", 600, 1260, dark = false) { open(Screen.DeckEditor(deckId, startTab = tab)) }
+            shoot("s-light-phone-$name-full", 600, 2800, dark = false) { open(Screen.DeckEditor(deckId, startTab = tab)) }
+            // Cards taken out, so the list shows a loss as well as gains.
+        runBlocking {
+            val now = container.decks.currentSnapshot(deckId)!!
+            val fewer = now.withQuantity("SMP-001", DeckSection.MAIN, 2)
+            container.decks.keepVersion(deckId, fewer)
+            container.decks.keepVersion(deckId, fewer.withQuantity("SMP-002", DeckSection.MAIN, 3))
+        }
+        shoot("phone-versions-losses", 600, 1260, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 5)) }
+        shoot("light-phone-versions-losses", 600, 1260, dark = false, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 5)) }
+        shoot("light-phone-versions-open", 600, 1260, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(300f, 245f)), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 5)) }
+        shoot("phone-versions-open", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(300f, 245f)), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 5)) }
+    }
+    }
+
+    /**
+     * The filter sheet with the ranges the real card database has (level and cost to 10, AP and HP 0 to 7):
+     * the bundled sample stops short of them, and the strips list what the cards have.
+     */
+    @Test fun renderPhoneFilterRanges() {
+        val cards = container.catalog.cards.value.values.toList()
+        val top = cards.first { it.cost != null }.copy(cardNumber = "RNG-001", level = 10, cost = 10, ap = 7, hp = 7)
+        val low = top.copy(cardNumber = "RNG-002", level = 1, cost = 1, ap = 0, hp = 0)
+        runBlocking { container.catalog.install(CatalogFile(catalogId = "range-test", version = 1, name = "Range test", cards = cards + top + low, printings = emptyList()), CatalogOrigin.FILE, null) }
+        shoot("tmp-phone-first", 600, 1260) { select(Tab.DECKS) }
+        val row = androidx.compose.ui.geometry.Offset(350f, 640f)
+        val add = androidx.compose.ui.geometry.Offset(300f, 1198f)
+        val filters = androidx.compose.ui.geometry.Offset(545f, 181f)
+        shoot("phone-filters-real", 600, 1260, taps = listOf(row, add, filters)) { select(Tab.DECKS) }
+        shoot("light-phone-filters-real", 600, 1260, dark = false, taps = listOf(row, add, filters)) { select(Tab.DECKS) }
+        shoot("phone-small-filters-real", 540, 960, taps = listOf(androidx.compose.ui.geometry.Offset(485f, 181f))) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        shoot("light-phone-cards-filters-real", 600, 1260, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(545f, 114f))) { select(Tab.CARDS) }
+        runBlocking { container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText()) }
+    }
+
+    /** The phone Decks screen, and its + opened. */
+    /** The header on every page of a deck on a phone. */
+    @Test fun renderPhoneDeckHeaders() {
+        shoot("tmp-phone-first", 600, 1260) { select(Tab.DECKS) }
+        (0..7).forEach { tab ->
+            shoot("head-phone-$tab", 600, 1260, hover = androidx.compose.ui.geometry.Offset(5f, 5f)) { open(Screen.DeckEditor(deckId, startTab = tab)) }
+        }
+        shoot("head-light-phone-0", 600, 1260, dark = false, hover = androidx.compose.ui.geometry.Offset(5f, 5f)) { open(Screen.DeckEditor(deckId, startTab = 0)) }
+    }
+
+    /** What desktop took from the phone review. */
+    @Test fun renderDesktopParity() {
+        shoot("tmp-desktop-first", 1980, 1290) { select(Tab.DECKS) }
+        val rest = androidx.compose.ui.geometry.Offset(5f, 700f)
+        for (dark in listOf(true, false)) {
+            val t = if (dark) "dark" else "light"
+            shoot("par-settings-$t", 1980, 1290, dark = dark, hover = rest) { select(Tab.SETTINGS) }
+            shoot("par-sync-$t", 1980, 1290, dark = dark, controller = client, hover = rest) { select(Tab.SYNC) }
+            shoot("par-filters-$t", 1980, 1290, dark = dark, taps = listOf(androidx.compose.ui.geometry.Offset(930f, 195f)), hover = rest) { open(Screen.DeckEditor(deckId)) }
+            shoot("par-details-$t", 1980, 1290, dark = dark, taps = listOf(androidx.compose.ui.geometry.Offset(140f, 460f)), hover = rest) { open(Screen.DeckEditor(deckId)) }
+            shoot("par-versions-$t", 1980, 1290, dark = dark, taps = listOf(androidx.compose.ui.geometry.Offset(1880f, 243f)), hover = rest) { open(Screen.DeckEditor(deckId)) }
+        }
+    }
+
+    @Test fun renderPhoneDecks() {
+        val plus = androidx.compose.ui.geometry.Offset(531f, 1068f)
+        shoot("phone-library", 600, 1260) { select(Tab.DECKS) }
+        shoot("light-phone-library", 600, 1260, dark = false) { select(Tab.DECKS) }
+        shoot("phone-decks-actions", 600, 1260, taps = listOf(plus)) { select(Tab.DECKS) }
+        shoot("light-phone-decks-actions", 600, 1260, dark = false, taps = listOf(plus)) { select(Tab.DECKS) }
     }
 
     /** New deck, drawn on its own because it opens from a button. */

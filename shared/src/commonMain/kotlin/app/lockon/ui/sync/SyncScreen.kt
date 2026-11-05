@@ -135,7 +135,7 @@ import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.GameDialog
-import app.lockon.ui.components.GlassCard
+import app.lockon.ui.components.panelFill
 import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.LocalReduceMotion
@@ -186,7 +186,7 @@ fun SyncScreen(
     var chosen by remember { mutableStateOf(emptyList<String>()) }
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, if (app.lockon.ui.components.LocalTopBand.current.height == 0.dp) Modifier else Modifier.width(240.dp), fill = true, soft = true)
+            PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, if (app.lockon.ui.components.LocalTopBand.current.height == 0.dp) Modifier.padding(horizontal = 8.dp) else Modifier.width(240.dp), fill = true, soft = true)
         }
         Crossfade(sending, Modifier.fillMaxSize(), label = "sync-page") { send ->
             if (send) SendPage(controller, decks, cards, chosen) { chosen = it }
@@ -194,6 +194,11 @@ fun SyncScreen(
         }
     }
 }
+
+/** A panel on this screen: the solid fill of the other screens, in the phone's tile shape or the given wider one. */
+@Composable
+private fun Modifier.syncPanel(wide: androidx.compose.ui.graphics.Shape): Modifier =
+    clip(if (app.lockon.ui.components.LocalTopBand.current.height == 0.dp) LockOnShapes.tile else wide).background(panelFill())
 
 /** Windows at least this wide put a page's two parts side by side. */
 private val SideBySide = 840.dp
@@ -236,9 +241,9 @@ private fun ThisDevicePanel(
     val caption = "On Wi‑Fi"
     val narrow = app.lockon.ui.components.LocalTopBand.current.height == 0.dp
     Column(
-        modifier.dealIn("this-device", 0).glass(LockOnShapes.panel)
+        modifier.dealIn("this-device", 0).syncPanel(LockOnShapes.panel)
             .animateContentSize(glide())
-            .padding(horizontal = 18.dp, vertical = if (tall) 22.dp else 16.dp),
+            .padding(horizontal = if (narrow) 16.dp else 18.dp, vertical = if (tall) 22.dp else 16.dp),
         horizontalAlignment = if (tall) Alignment.CenterHorizontally else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -274,7 +279,7 @@ private fun ThisDevicePanel(
 @Composable
 private fun OtherWays(onClick: () -> Unit, qrLabel: String, modifier: Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GameButton(qrLabel, onClick = onClick, style = GameButtonStyle.SECONDARY, icon = LineIcons.Qr, compact = true, modifier = if (modifier == Modifier) Modifier else Modifier.weight(1f))
+        GameButton(qrLabel, onClick = onClick, style = GameButtonStyle.SECONDARY, icon = if (modifier == Modifier) LineIcons.Qr else null, compact = true, modifier = if (modifier == Modifier) Modifier else Modifier.weight(1f))
         GameButton("Address", onClick = onClick, style = GameButtonStyle.SECONDARY, compact = true, modifier = if (modifier == Modifier) Modifier else Modifier.weight(1f))
     }
 }
@@ -462,11 +467,11 @@ private fun PairedTile(
     val busy = transfer?.active == true
     val celebrate = if (isTwilight()) Gold else scheme.tertiary
     Column(
-        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).glass(LockOnShapes.tile)
+        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).syncPanel(LockOnShapes.tile)
             .spotlit(spotlight, LockOnShapes.tile).workingRim(busy, LockOnShapes.tile)
             .clickable(interaction, indication = null, enabled = !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(Modifier.heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -474,7 +479,7 @@ private fun PairedTile(
                 DeviceGlyph(device.role == DeviceRole.HOST)
             }
             Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(Modifier.weight(1f).padding(end = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (transfer != null) {
                     Text(
@@ -501,7 +506,7 @@ private fun PairedTile(
                 busy -> ReticleSpinner(size = 18.dp, modifier = Modifier.padding(end = 12.dp))
                 transfer != null -> GameButton("OK", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
                 device.lastError != null -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync, compact = true, onTone = scheme.error)
-                else -> GameButton("Sync", onClick = onTap, icon = LineIcons.Sync, compact = true)
+                else -> GameButton("Sync", onClick = onTap, style = GameButtonStyle.SECONDARY, compact = true)
             }
         }
         if (transfer != null && (busy || transfer.state != SyncTransfer.State.DONE)) {
@@ -513,8 +518,7 @@ private fun PairedTile(
                     SyncTransfer.State.FAILED -> BarTone.FAILED
                     else -> BarTone.WORKING
                 },
-                modifier = Modifier.padding(end = 8.dp),
-            )
+                            )
         }
     }
 }
@@ -749,7 +753,7 @@ private fun WhatToSend(
             .sortedBy { it.first.lowercase() }
     }
     FlowRow(
-        Modifier.fillMaxWidth().glass(LockOnShapes.panel).padding(14.dp),
+        Modifier.fillMaxWidth().syncPanel(LockOnShapes.panel).padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         selected.forEach { deck ->
@@ -814,7 +818,7 @@ private fun PickTile(
 private fun SelectionCard(selected: List<DeckSummary>, onEdit: () -> Unit) {
     val groups = selected.groupBy { it.snapshot.folder }.entries
         .sortedWith(compareBy({ it.key == null }, { it.key?.lowercase() }))
-    GlassCard {
+    Column(Modifier.fillMaxWidth().syncPanel(LockOnShapes.tile)) {
         Column(Modifier.animateContentSize(glide()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -854,7 +858,7 @@ private fun SelectionCard(selected: List<DeckSummary>, onEdit: () -> Unit) {
 /** While nothing is found: the shape of a device, faded, so it's clear what will appear. */
 @Composable
 private fun SearchingCard() {
-    GlassCard {
+    Column(Modifier.fillMaxWidth().syncPanel(LockOnShapes.tile)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)), contentAlignment = Alignment.Center) {
                 ReticleSpinner(size = 22.dp, color = MaterialTheme.colorScheme.outline)
@@ -903,11 +907,11 @@ private fun DeviceTile(
     val busy = send?.active == true || inviting
     val celebrate = if (isTwilight()) Gold else scheme.tertiary
     Column(
-        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).glass(LockOnShapes.tile)
+        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).syncPanel(LockOnShapes.tile)
             .spotlit(spotlight, LockOnShapes.tile).workingRim(busy, LockOnShapes.tile)
             .clickable(interaction, indication = null, enabled = device.compatible && !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(Modifier.heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -915,7 +919,7 @@ private fun DeviceTile(
                 DeviceGlyph(device.isDesktop)
             }
             Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.weight(1f).padding(end = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 when {
                     !device.compatible -> Text("Needs a Lock On update", style = MaterialTheme.typography.bodySmall, color = scheme.error)
@@ -951,8 +955,7 @@ private fun DeviceTile(
                     OutgoingShare.State.FAILED -> BarTone.FAILED
                     else -> BarTone.WORKING
                 },
-                modifier = Modifier.padding(end = 8.dp),
-            )
+                            )
         }
     }
 }

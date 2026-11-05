@@ -1,4 +1,6 @@
 package app.lockon.ui.decks
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.revealOut
 import app.lockon.ui.components.revealIn
@@ -372,7 +374,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val c = MaterialTheme.colorScheme
-                        ColorPips(deckColors, size = 16.dp)
+                        ColorPips(deckColors, size = 22.dp)
                         // The state alone; Analysis has the rest.
                         // The stamp turns over with the Lock On moment instead of swapping under it.
                         Crossfade(legality.isLegal, animationSpec = motion(), label = "legality") { legal -> StateTag(legal) }
@@ -382,12 +384,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         )
                     }
                 }
-                if (!wide) GlassIconButton(LineIcons.Export, "Export", { phoneTab = 6 })
             }
             }
             // The row keeps one height on every tab, so the chip coming and going never moves the page.
             if (!wide) Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 0.dp, bottom = 8.dp).heightIn(min = 36.dp),
+                Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 2.dp).heightIn(min = 26.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 ProgressGauge("Main deck", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1f),
@@ -475,9 +476,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 fun AddTo(tabs: Modifier) {
                     PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = if (wide) listOf(Glyphs.Rows, Glyphs.SideCard) else null)
                 }
-                // A wide card list fits the switch at the end of the search row, and phones keep it in
-                // the header beside the gauge, so the cards get that row's height back (UX rule N4,
-                // space goes to cards).
+                // A wide card list fits the switch in the search row, so the cards get a row's height back
+                // (UX rule N4, space goes to cards). Phones give it a row of its own beside Deck colors.
                 val inline = wide && maxWidth >= 720.dp
                 Column {
                     if (wide && !inline) Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -666,6 +666,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 // Phones: the deck and side deck steppers share one row under small labels, and the
                 // buttons say less, so the panel takes half the height of a row per control.
                 val narrow = maxWidth < 280.dp
+                // Desktop's dialog: both steppers on one row, each beside its name.
+                val sideBySide = maxWidth >= 440.dp
                 val deckStepper: @Composable () -> Unit = {
                     PlateStepper(inDeck, "copy", onMinus = { change(card, -1) }, onPlus = { change(card, 1) }, limit = copyLimit(card, ruleset), pips = true)
                 }
@@ -673,11 +675,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 val sideStepper: @Composable () -> Unit = {
                     PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(if (narrow) 2.dp else 6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(if (narrow) 2.dp else if (sideBySide) 0.dp else 6.dp)) {
                     if (narrow) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             DetailActionCell(section.label, Modifier.weight(1f), deckStepper)
                             DetailActionCell("Side deck", Modifier.weight(1f), sideStepper)
+                        }
+                    } else if (sideBySide) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            DetailActionRow(section.label, deckStepper, Modifier.weight(1f))
+                            // The last + reaches the panel's right edge; its target runs on into the margin.
+                            DetailActionRow("Side deck", sideStepper, Modifier.weight(1f).offset(x = 8.dp))
                         }
                     } else {
                         DetailActionRow(section.label, deckStepper)
@@ -686,7 +694,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     // The library shows the deck by this card instead of its highest-level Unit.
                     val canCover = inDeck > 0 || deck.coverCard == card.cardNumber
                     if (side > 0 || inDeck > 0 || canCover) {
-                        FlowRow(Modifier.padding(top = if (narrow) 0.dp else 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(if (sideBySide) Modifier.offset(x = (-14).dp) else Modifier.padding(top = if (narrow) 0.dp else 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             when {
                                 side > 0 -> GameButton(if (narrow) "1 to deck" else "Move 1 to deck", onClick = { move(card, toSide = false) }, style = GameButtonStyle.GHOST, compact = true)
                                 inDeck > 0 -> GameButton(if (narrow) "1 to side" else "Move 1 to side deck", onClick = { move(card, toSide = true) }, style = GameButtonStyle.GHOST, compact = true)
@@ -772,7 +780,7 @@ private fun DeckList(
         DeckProblemBar(legality, onOpenAnalysis)
     }
     Box(Modifier.weight(1f).fillMaxWidth()) {
-    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 6.dp + LocalNavClearance.current),
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = if (compact) 6.dp else 0.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (deck.entries.isEmpty()) {
             item(key = "empty-deck", contentType = "empty") {
@@ -807,9 +815,9 @@ private fun DeckList(
         }
         for ((label, entries) in groups) {
             item(key = "header-$label", contentType = "header") {
-                SectionHeader(label, Modifier.animateItem().padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 2.dp),
+                SectionHeader(label, Modifier.animateItem().padding(start = 6.dp, end = 6.dp, top = if (!compact && label == groups.first().first) 0.dp else 6.dp, bottom = 2.dp),
                     readout = "${entries.sumOf { it.quantity }}") {
-                    if (label == groups.first().first) ViewToggle(cardView, onCardView)
+                    if (compact && label == groups.first().first) ViewToggle(cardView, onCardView)
                 }
             }
             if (cardView) {
@@ -826,7 +834,7 @@ private fun DeckList(
                                 DeckCard(
                                     card, entry.quantity, entry.printingId, onClick = { onCardClick(card) },
                                     onMinus = { onChange(card, -1) }, onPlus = { onChange(card, 1) },
-                                    modifier = Modifier.weight(1f), limit = copyLimit(card, ruleset), target = if (compact) 40.dp else 48.dp,
+                                    modifier = Modifier.weight(1f), limit = copyLimit(card, ruleset), target = if (compact) 40.dp else 44.dp,
                                 )
                             } else {
                                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -973,8 +981,8 @@ private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Bool
 
 /** One labelled line in the card details' "In this deck" panel: the label left, its control right. */
 @Composable
-private fun DetailActionRow(label: String, control: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun DetailActionRow(label: String, control: @Composable () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(end = 12.dp))
         control()
     }
@@ -1091,6 +1099,15 @@ private fun BoxScope.EditorNav(
     val select by rememberUpdatedState(onSelect)
     // How far a swipe along the bar must travel before it switches.
     val swipe = with(LocalDensity.current) { 40.dp.toPx() }
+    // A dim over the screen but under the bar, so the menu and the button that opened it stand out. This
+    // box starts below the deck's header, so the dim is painted up past its top edge to cover that too.
+    val dim by animateFloatAsState(if (moreOpen) 0.45f else 0f, motion(Motion.SHORT), label = "more-dim")
+    Spacer(Modifier.matchParentSize().drawBehind {
+        if (dim > 0f) {
+            val above = 400.dp.toPx()
+            drawRect(Color.Black.copy(alpha = dim), Offset(0f, -above), Size(size.width, size.height + above))
+        }
+    })
     BoxWithConstraints(
         Modifier.align(Alignment.BottomCenter).fillMaxWidth()
             .pointerInput(Unit) {
@@ -1118,7 +1135,12 @@ private fun BoxScope.EditorNav(
             },
     ) {
         val buttons = mapOf(
-            EditorBarItem.MORE to BottomItem("More") { Icon(LineIcons.More, contentDescription = null, modifier = Modifier.size(20.dp)) },
+            // The three dots are far narrower than their box, so only their own width counts, or the label looks off centre.
+            EditorBarItem.MORE to BottomItem("More") {
+                Box(Modifier.width(8.dp), contentAlignment = Alignment.Center) {
+                    Icon(LineIcons.More, contentDescription = null, modifier = Modifier.requiredSize(20.dp))
+                }
+            },
             EditorBarItem.ADD to BottomItem("Add") { Icon(LineIcons.Plus, contentDescription = null) },
             // Holding Deck flips the deck list between cards and a text list, and opens it.
             EditorBarItem.DECK to BottomItem(
@@ -1127,10 +1149,10 @@ private fun BoxScope.EditorNav(
                 onLongClickLabel = if (cardView) "Show as list" else "Show as cards",
             ) { Icon(LineIcons.List, contentDescription = null, modifier = Modifier.size(20.dp)) },
         )
-        if (moreOpen) app.lockon.ui.components.BlurBehind()
         FloatingPillNav(
             order.items.map { buttons.getValue(it) },
-            selected = phoneNavItem(tab, order),
+            // More lights up while its menu is open, and the pill goes back when it closes.
+            selected = if (moreOpen) order.items.indexOf(EditorBarItem.MORE) else phoneNavItem(tab, order),
             onSelect = {
                 when (order.items[it]) {
                     EditorBarItem.MORE -> moreOpen = true
@@ -1141,9 +1163,9 @@ private fun BoxScope.EditorNav(
             widest = EDITOR_NAV_WIDTH,
             labels = true,
         )
-        // As wide as the pill and opening just above it, so every section is a short thumb move away.
+        // As wide as the pill and opening 8 dp above it, so every section is a short thumb move away.
         val pillWidth = floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH)
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = navClearance() - 12.dp).width(pillWidth)) {
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = navClearance() + 1.dp).width(pillWidth)) {
             GameMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }, modifier = Modifier.width(pillWidth)) {
                 Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     more.chunked(MORE_COLUMNS).forEach { row ->

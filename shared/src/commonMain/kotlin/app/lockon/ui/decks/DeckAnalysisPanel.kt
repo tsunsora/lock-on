@@ -1,4 +1,6 @@
 package app.lockon.ui.decks
+import androidx.compose.foundation.layout.ColumnScope
+import app.lockon.ui.components.LocalTopBand
 import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -74,7 +76,7 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // What keeps the deck from being legal, in words, only while something does.
-        if (legality.messages.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+        if (legality.messages.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
             legality.messages.forEach { message ->
                 Text(
                     message.text, style = MaterialTheme.typography.bodyMedium,
@@ -90,17 +92,17 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         }
         // Which Unit each Pilot links to, under the count that opens it.
         AnimatedVisibility(showLinks && stats.linkPairs.isNotEmpty(), enter = revealIn(), exit = revealOut()) {
-            SoftTile(Modifier.fillMaxWidth()) {
+            AnalysisTile(Modifier.fillMaxWidth()) {
                 stats.linkPairs.forEach { (unit, pilots) ->
                     Text("${unit.name} ↔ ${pilots.joinToString { it.name }}", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
-        if (stats.levelCurve.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+        if (stats.levelCurve.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
             Text("Level", style = MaterialTheme.typography.titleSmall)
             MiniCurve(stats.levelCurve, Modifier.fillMaxWidth(), height = 112.dp, caption = false, prefix = "")
         }
-        if (stats.costCurve.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+        if (stats.costCurve.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
             Text("Cost", style = MaterialTheme.typography.titleSmall)
             // Few cards cost more than 5, so they share a bar.
             val high = stats.costCurve.filter { it.first >= 5 }.sumOf { it.second }
@@ -110,19 +112,22 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
         val slate = if (isTwilight()) ChartSlateTwilight else ChartSlate
         // Tokens only show when a deck has one by mistake, which legality already flags.
         val types = CardType.entries.filter { !it.isResource }.mapNotNull { type -> stats.typeCounts[type]?.takeIf { it > 0 }?.let { type to it } }
-        if (types.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
-            val ramp = listOf(1f, 0.62f, 0.42f, 0.28f)
-            SplitBar(types.mapIndexed { i, (_, count) -> Segment("$count", count, slate.copy(alpha = ramp.getOrElse(i) { 0.2f }).compositeOver(glassColors().strong), if (i == 0) (if (isTwilight()) Color(0xFF1B2147) else Color.White) else MaterialTheme.colorScheme.onSurface) })
+        if (types.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
+            // Evenly spaced steps, and each square under the bar is its segment's exact colour.
+            val ramp = listOf(1f, 0.62f, 0.36f, 0.18f)
+            val under = if (isTwilight()) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest
+            val shades = types.indices.map { i -> slate.copy(alpha = ramp.getOrElse(i) { 0.18f }).compositeOver(under) }
+            SplitBar(types.mapIndexed { i, (_, count) -> Segment("$count", count, shades[i], if (i == 0) (if (isTwilight()) Color(0xFF1B2147) else Color.White) else MaterialTheme.colorScheme.onSurface) })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 types.forEachIndexed { i, (type, _) ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(slate.copy(alpha = ramp.getOrElse(i) { 0.2f })))
-                        Text("${type.label}s", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(shades[i]))
+                        Text("${type.label}s", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
         }
-        if (stats.colorCounts.isNotEmpty()) SoftTile(Modifier.fillMaxWidth()) {
+        if (stats.colorCounts.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
             SplitBar(stats.colorCounts.entries.sortedBy { it.key.ordinal }.map { (color, count) ->
                 Segment("${color.label.take(1)} $count", count, cardColor(color), onCardColor(color))
             })
@@ -132,10 +137,15 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
     }
 }
 
+/** A [SoftTile], solid on a phone where it sits on the sky rather than on a panel. */
+@Composable
+private fun AnalysisTile(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
+    SoftTile(modifier, solid = LocalTopBand.current.height == 0.dp, content = content)
+
 /** An icon and label over a big number. */
 @Composable
 private fun StatTile(icon: ImageVector, label: String, value: Int, modifier: Modifier, onClick: (() -> Unit)? = null) {
-    SoftTile(modifier.clip(LockOnShapes.tile).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
+    AnalysisTile(modifier.clip(LockOnShapes.tile).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(icon, contentDescription = null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)

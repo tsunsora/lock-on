@@ -58,7 +58,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _editorBar = MutableStateFlow(EditorBarOrder.DECK_ADD_MORE)
     private val _moreHidden = MutableStateFlow<Set<EditorMoreItem>>(emptySet())
     private val _cardSort = MutableStateFlow(CardSort.NUMBER)
-    private val _deckAsCards = MutableStateFlow(false)
+    private val _deckAsCards = MutableStateFlow(true)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -93,7 +93,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _editorSplit.value = meta.get(KEY_EDITOR_SPLIT)?.toFloatOrNull()
         _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.DECK_ADD_MORE)
         _cardSort.value = enumOr(meta.get(KEY_CARD_SORT), CardSort.NUMBER)
-        _deckAsCards.value = meta.get(KEY_DECK_AS_CARDS) == "true"
+        _deckAsCards.value = meta.get(KEY_DECK_AS_CARDS) != "false"
         _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')
             .mapNotNull { name -> EditorMoreItem.entries.firstOrNull { it.name == name } }.toSet()
             .takeIf { it.size < EditorMoreItem.entries.size }.orEmpty()

@@ -1,4 +1,8 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.panelFill
+import app.lockon.ui.components.LocalTopBand
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
 import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -81,25 +85,35 @@ fun VersionsPanel(
 ) {
     var open by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
-    Box(modifier) {
-    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
-        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        item(key = "now") {
+    // On a phone the versions read as one solid panel, and keeping one stays above the bar under the thumb.
+    val phone = LocalTopBand.current.height == 0.dp
+    val fill = panelFill()
+    val headChanges = @Composable { versions.firstOrNull()?.let { head -> versions.getOrNull(1)?.let { Changes(it.snapshot, head.snapshot) } } }
+    Column(modifier) {
+    Box(Modifier.weight(1f).fillMaxWidth()) {
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = if (phone) 8.dp else 16.dp, bottom = if (phone) 8.dp else 16.dp + LocalNavClearance.current),
+        verticalArrangement = Arrangement.spacedBy(if (phone) 0.dp else 6.dp)) {
+        if (!phone) item(key = "now") {
             Row(
                 Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                     .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("Now", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                versions.firstOrNull()?.let { head -> versions.getOrNull(1)?.let { Changes(it.snapshot, head.snapshot) } }
+                headChanges()
                 GameButton("Keep as a version", onClick = onKeep, compact = true)
             }
         }
         itemsIndexed(versions.drop(1), key = { _, v -> v.revisionId }) { index, version ->
             val older = versions.getOrNull(index + 2)?.snapshot
             val isOpen = open == version.revisionId
+            val corner = LockOnShapes.tileRadius
+            val top = if (index == 0) corner else 0.dp
+            val end = if (index == versions.size - 2) corner else 0.dp
             Column(
-                Modifier.animateItem().fillMaxWidth().clip(LockOnShapes.tile)
+                Modifier.animateItem().fillMaxWidth()
+                    .then(if (phone) Modifier.background(fill, RoundedCornerShape(top, top, end, end)).padding(top = if (index == 0) 6.dp else 0.dp, bottom = if (index == versions.size - 2) 6.dp else 0.dp) else Modifier)
+                    .clip(LockOnShapes.tile)
                     .background(if (isOpen) glassColors().strong else Color.Transparent)
                     .then(if (isOpen) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), LockOnShapes.tile) else Modifier)
                     .animateContentSize(motion()),
@@ -110,15 +124,18 @@ fun VersionsPanel(
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Icon(if (fromPhone(version.originDeviceId)) Glyphs.Phone else Glyphs.Monitor, deviceLabel(version.originDeviceId), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(dayAndTimeLabel(version.createdAt), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    Text("${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Box(Modifier.width(62.dp)) { if (older != null) Changes(older, version.snapshot) else Text("+${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary) }
                     val note = when {
                         older == null -> "Created"
                         older.name != version.snapshot.name -> "Renamed"
                         else -> ""
                     }
-                    Text(note, Modifier.width(62.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    // The note sits under the time, so nothing floats in the row's middle.
+                    Column(Modifier.weight(1f)) {
+                        Text(dayAndTimeLabel(version.createdAt), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                    Text("${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(Modifier.width(62.dp)) { if (older != null) Changes(older, version.snapshot) else Text("+${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary) }
                     Icon(if (isOpen) LineIcons.Chevd else LineIcons.Chev, contentDescription = null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (isOpen) Compared(version, current, cards) { open = null; onRestore(version) }
@@ -126,6 +143,14 @@ fun VersionsPanel(
         }
     }
     VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
+    }
+    if (phone) Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = LocalNavClearance.current + 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        headChanges()
+        GameButton("Keep as a version", onClick = onKeep, Modifier.weight(1f).height(48.dp))
+    }
     }
 }
 
