@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.SuitColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
 import androidx.compose.foundation.interaction.InteractionSource
 import kotlin.time.TimeSource
 
@@ -318,7 +319,9 @@ fun InteractionSource.collectIsPressedHeld(): State<Boolean> {
     LaunchedEffect(this) {
         var presses = 0
         var since = TimeSource.Monotonic.markNow()
-        interactions.collectLatest { event ->
+        // Only presses: buttons share this source with hover, and a hover ending (a menu opening over the
+        // button, say) would otherwise cancel the wait below and leave the button stuck down.
+        interactions.filter { it is PressInteraction }.collectLatest { event ->
             when (event) {
                 is PressInteraction.Press -> { presses++; since = TimeSource.Monotonic.markNow(); held.value = true }
                 is PressInteraction.Release, is PressInteraction.Cancel -> {
