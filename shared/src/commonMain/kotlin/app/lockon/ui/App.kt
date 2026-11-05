@@ -307,12 +307,18 @@ fun LockOnApp(
                     ArtworkLoads.inFlight.first { it == 0 }
                     if (withTimeoutOrNull(BootQuietTime) { ArtworkLoads.inFlight.first { it > 0 } } == null) break
                 }
-                val shown = started.elapsedNow()
-                if (shown < BootMinimum) delay(BootMinimum - shown)
-                // It waits for the seeker to lock, so it seldom fades out mid-hunt, but not past [BootLockGrace]:
-                // where its own frames keep stalling (phones), it falls well behind. Polled rather than per
-                // frame, so nothing redraws for it.
-                withTimeoutOrNull(BootLockGrace) { while (!bootReduce && !bootClock.locked) delay(16) }
+                // Polled rather than per frame, so nothing redraws for it.
+                if (bootCover?.showing?.value == true) {
+                    // A cover plays in real time from before the app started building, so the lock alone
+                    // says when: a further minimum would only hold finished screens back.
+                    while (!bootClock.locked) delay(16)
+                } else {
+                    val shown = started.elapsedNow()
+                    if (shown < BootMinimum) delay(BootMinimum - shown)
+                    // It waits for the seeker to lock, so it seldom fades out mid-hunt, but not past
+                    // [BootLockGrace]: here its own frames keep stalling, and it can fall well behind.
+                    withTimeoutOrNull(BootLockGrace) { while (!bootReduce && !bootClock.locked) delay(16) }
+                }
             }
             state.booted = true
             bootCover?.lift()
@@ -490,10 +496,7 @@ fun LockOnApp(
                     else if (LocalReduceMotion.current) fadeOut(tween(90))
                     else fadeOut(tween(Motion.SIGNATURE, easing = Motion.emphasizedAccelerate)) + scaleOut(tween(Motion.SIGNATURE), targetScale = 1.06f),
             ) {
-                Box {
-                    bootCover?.takeIf { it.wantsPictures }?.let { cover -> BootPictureTaker(bootClock, cover::pictures) }
-                    BootScreen(bootStep, bootClock, playing = !coverShowing, trailing = chrome?.controls)
-                }
+                BootScreen(bootStep, bootClock, playing = !coverShowing, trailing = chrome?.controls)
             }
             }
         }

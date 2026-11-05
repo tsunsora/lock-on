@@ -16,6 +16,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import app.lockon.data.MotionChoice
+import app.lockon.data.ThemeChoice
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -45,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private var pendingSave: Pair<ByteArray, CompletableDeferred<Boolean>>? = null
     private var pendingOpen: CompletableDeferred<String?>? = null
     private var syncController: AndroidSyncController? = null
+    private var bootCover: AndroidBootCover? = null
 
     private val createDocument = registerForActivityResult(CreateTextDocument()) { uri -> finishSave(uri) }
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> finishOpen(uri) }
@@ -100,18 +109,39 @@ class MainActivity : ComponentActivity() {
             // The boot screen plays on a surface of its own, so the screens building under it can't make it
             // stutter. Reduced motion holds it still, so then there is nothing to play.
             val state = remember {
-                AppState(app.appScope).also { s -> if (!reduceMotion) s.bootCover = AndroidBootCover(this@MainActivity, s.bootClock) }
+                AppState(app.appScope).also { s ->
+                    if (!reduceMotion) s.bootCover = AndroidBootCover(this@MainActivity, s.bootClock).also { bootCover = it }
+                }
             }
             val c = container
             val s = sync
-            if (c == null || s == null) {
-                // The boot screen starts while the decks open, in the phone's own light or dark until
-                // Settings can say which; the app's boot screen then carries on from the same moment.
-                val covered by (state.bootCover?.showing ?: remember { MutableStateFlow(false) }).collectAsState()
-                CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
-                    LockOnTheme(dark = isSystemInDarkTheme()) {
-                        state.bootCover?.let { cover -> BootPictureTaker(state.bootClock, cover::pictures) }
-                        BootScreen(BootStep.DECKS, state.bootClock, playing = !covered)
+            val coverSettled by (bootCover?.settled ?: remember { MutableStateFlow(true) }).collectAsState()
+            // Should the cover take too long, the app starts anyway and its own boot screen plays.
+            var coverLate by remember { mutableStateOf(false) }
+            LaunchedEffect(c != null) { if (c != null) { delay(3_000); coverLate = true } }
+            if (c == null || s == null || !(coverSettled || coverLate)) {
+                // Until the cover is up, the window holds the boot screen's first frame, which the cover's
+                // matches. Taking its pictures holds this thread up, so nothing here moves yet, and the app
+                // starts building only once the cover plays over it.
+                val choice = c?.settings
+                val systemDark = isSystemInDarkTheme()
+                val dark = when (choice?.theme?.value) {
+                    ThemeChoice.LIGHT -> false
+                    ThemeChoice.DARK -> true
+                    else -> systemDark
+                }
+                val base = LocalDensity.current
+                val density = Density(base.density * (choice?.size?.value?.scale ?: 1f), base.fontScale)
+                val reduce = reduceMotion || choice?.motion?.value == MotionChoice.REDUCED
+                CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density) {
+                    LockOnTheme(dark = dark) {
+                        // Once Settings can say which theme and size, so they are taken only once, and right.
+                        val cover = bootCover
+                        if (choice != null && cover != null) {
+                            if (reduce) LaunchedEffect(Unit) { cover.lift() }
+                            else BootPictureTaker(state.bootClock, cover::pictures)
+                        }
+                        BootScreen(BootStep.DECKS, state.bootClock, playing = false)
                     }
                 }
             } else {
@@ -137,6 +167,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        bootCover?.close()
         syncController?.scanner = null
         super.onDestroy()
     }
