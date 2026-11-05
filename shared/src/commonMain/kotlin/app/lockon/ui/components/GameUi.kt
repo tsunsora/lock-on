@@ -362,7 +362,7 @@ fun GameButton(
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedHeld()
     val lift by animateFloatAsState(if (hovered && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-hover")
-    val squish by animateFloatAsState(if (pressed) 0.96f else 1f, motion(Motion.SHORT), label = "button-press")
+    val squish by animateFloatAsState(if (pressed) (if (desktopControls) PressScale else 0.96f) else 1f, motion(Motion.SHORT), label = "button-press")
     // A press dims the face a touch as it sinks, so a tap reads even on a wide button whose scale barely shows.
     val dim by animateFloatAsState(if (pressed && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-dim")
     val shape = LockOnShapes.button
@@ -377,17 +377,17 @@ fun GameButton(
         }
         style == GameButtonStyle.SECONDARY -> {
             // A soft fill in the ink colour; hover deepens it.
-            fill = SolidColor(scheme.onSurface.copy(alpha = 0.07f + 0.05f * lift))
+            fill = SolidColor(if (desktopControls) neutralFill(hovered, pressed) else scheme.onSurface.copy(alpha = 0.07f + 0.05f * lift))
             content = scheme.onSurface; rim = Color.Transparent
         }
         else -> { fill = SolidColor(accent.copy(alpha = 0.10f * lift)); content = accent; rim = Color.Transparent }
     }
     Box(
         modifier
-            .heightIn(min = if (large) 54.dp else if (compact) 38.dp else 44.dp)
+            .heightIn(min = if (large) 54.dp else if (desktopControls) ControlSize else if (compact) 38.dp else 44.dp)
             .graphicsLayer {
                 scaleX = squish; scaleY = squish
-                if (style == GameButtonStyle.PRIMARY && enabled) {
+                if (style == GameButtonStyle.PRIMARY && enabled && !desktopControls) {
                     this.shape = shape
                     shadowElevation = (2f + 3f * lift) * density
                     ambientShadowColor = accent; spotShadowColor = accent
@@ -437,42 +437,81 @@ fun GlassIconButton(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedHeld()
-    val squish by animateFloatAsState(if (pressed) 0.94f else 1f, motion(Motion.SHORT), label = "icon-press")
+    val squish by animateFloatAsState(if (pressed) (if (desktopControls) PressScale else 0.94f) else 1f, motion(Motion.SHORT), label = "icon-press")
     // Hover eases in rather than switching, like the buttons beside it.
-    val disc by animateColorAsState(if (hovered) lighten(g.strong, 0.08f) else g.strong, motion(Motion.SHORT), label = "icon-disc")
-    val ring by animateColorAsState(if (hovered) Accent.copy(alpha = 0.6f) else g.rimLow, motion(Motion.SHORT), label = "icon-ring")
-    val glyph by animateColorAsState(if (hovered) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
+    val disc by animateColorAsState(
+        if (desktopControls) neutralFill(hovered, pressed) else if (hovered) lighten(g.strong, 0.08f) else g.strong,
+        motion(Motion.SHORT), label = "icon-disc",
+    )
+    val ring by animateColorAsState(if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.6f) else g.rimLow, motion(Motion.SHORT), label = "icon-ring")
+    val glyph by animateColorAsState(if (hovered && !desktopControls) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
+    val small = if (desktopControls) SmallControlShape else RoundedCornerShape(11.dp)
     Box(
         modifier
             .size(if (compact) 32.dp else ControlSize)
             .graphicsLayer { scaleX = squish; scaleY = squish }
-            .clip(if (compact) RoundedCornerShape(11.dp) else LockOnShapes.button)
+            .clip(if (compact) small else LockOnShapes.button)
             .background(disc)
-            .border(BorderStroke(1.dp, ring), if (compact) RoundedCornerShape(11.dp) else LockOnShapes.button)
+            .border(BorderStroke(1.dp, ring), if (compact) small else LockOnShapes.button)
             .hoverable(interaction)
             .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(if (compact) 18.dp else 22.dp))
+        Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(if (compact) 18.dp else if (desktopControls) 20.dp else 22.dp))
     }
 }
 
-/** The one height for buttons, fields and icon buttons that share a row. */
-val ControlSize = 44.dp
+/** The one height for buttons, fields and icon buttons that share a row. A pointer needs less than a thumb. */
+val ControlSize = if (app.lockon.platform.isMobile) 44.dp else 40.dp
+
+/** Desktop draws every control from one recipe (UX rule K3); phones keep the look they were reviewed in. */
+internal val desktopControls = !app.lockon.platform.isMobile
+
+/** How far a control sinks when pressed on desktop. */
+internal const val PressScale = 0.97f
+
+/** Desktop's second control height, for chips and small icon buttons. */
+val SmallControlSize = 32.dp
+internal val SmallControlShape = RoundedCornerShape(10.dp)
+
+/** The corners of a thumb or button inset 4 dp inside a [LockOnShapes.button], so the two curves stay parallel. */
+internal val InsetControlShape = RoundedCornerShape(8.dp)
+
+/**
+ * Desktop's one neutral look, for anything that isn't teal: a flat wash of ink, one step deeper on hover
+ * and another when pressed, with no rim. See-through, so it can sit on another wash; on its own, use [neutralFill].
+ */
+@Composable
+fun neutralWash(hovered: Boolean = false, pressed: Boolean = false): Color {
+    val dark = isTwilight()
+    val alpha = when {
+        pressed -> if (dark) 0.18f else 0.14f
+        hovered -> if (dark) 0.14f else 0.10f
+        else -> if (dark) 0.08f else 0.06f
+    }
+    return MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+}
+
+/** [neutralWash] on the panel colour, so a control looks the same on a panel and stays solid directly on the sky. */
+@Composable
+fun neutralFill(hovered: Boolean = false, pressed: Boolean = false): Color = neutralWash(hovered, pressed).compositeOver(panelFill())
 
 /**
  * Pill tabs on a glass track: the selected tab is a teal pill. They scroll when the track is
  * narrower than its tabs, or share the width equally with [fill].
  */
 @Composable
-fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, fill: Boolean = false, soft: Boolean = false, icons: List<ImageVector>? = null) {
+fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, fill: Boolean = false, soft: Boolean = false, icons: List<ImageVector>? = null, flush: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     // Icons give way to the words when the row gets too narrow for both.
     val iconRoom = with(androidx.compose.ui.platform.LocalDensity.current) { 440.dp.toPx() }
     var showIcons by remember { mutableStateOf(true) }
     val accent = if (soft) softThumb() else Accent
     val onAccent = if (soft) softThumbInk() else OnAccent
+    val thumbShape = if (desktopControls) InsetControlShape else LockOnShapes.button
+    val thumbRadius = if (desktopControls) 8.dp else 11.dp
+    val trackFill = if (desktopControls) neutralWash() else scheme.onSurface.copy(alpha = 0.09f)
     val track = if (fill) Modifier.fillMaxWidth() else Modifier.horizontalScroll(rememberScrollState())
     // Where each tab sits in the row, so one teal pill can slide between them (the tabs differ in width).
     // Only the draw reads them, so a resize moves the pill with its tab instead of recomposing the
@@ -482,9 +521,9 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     // starts at the selection.
     val slot by animateFloatAsState(selected.toFloat(), glide(), label = "tab-slide")
     val placed by remember(spots, selected) { derivedStateOf { spots.getOrNull(selected)?.value != null } }
-    Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).padding(horizontal = 8.dp, vertical = 6.dp)) {
+    Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).then(if (flush && desktopControls) Modifier else Modifier.padding(horizontal = 8.dp, vertical = 6.dp))) {
         Row(
-            track.clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(horizontal = 4.dp).drawBehind {
+            track.clip(LockOnShapes.button).background(trackFill).padding(horizontal = 4.dp).drawBehind {
                 if (spots.isEmpty()) return@drawBehind
                 val s = slot.coerceIn(0f, spots.lastIndex.toFloat())
                 val lo = floor(s).toInt()
@@ -493,7 +532,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 val f = s - lo
                 val px = a.first + (b.first - a.first) * f
                 val pw = a.second + (b.second - a.second) * f
-                if (pw > 0f) drawRoundRect(accent, Offset(px, 4.dp.toPx()), Size(pw, size.height - 8.dp.toPx()), CornerRadius(11.dp.toPx()))
+                if (pw > 0f) drawRoundRect(accent, Offset(px, 4.dp.toPx()), Size(pw, size.height - 8.dp.toPx()), CornerRadius(thumbRadius.toPx()))
             },
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -512,12 +551,12 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 )
                 val text by animateColorAsState(if (isSelected) onAccent else scheme.onSurfaceVariant, motion(Motion.MEDIUM), label = "tab-text")
                 Box(
-                    // The whole 44 dp of the track takes the tap; the thumb inside it is 36 dp.
-                    (if (fill) Modifier.weight(1f) else Modifier).height(44.dp)
+                    // The whole height of the track takes the tap; the thumb inside it is 8 dp shorter.
+                    (if (fill) Modifier.weight(1f) else Modifier).height(ControlSize)
                         .onPlaced { spots.getOrNull(i)?.value = it.positionInParent().x to it.size.width.toFloat() }
                         .hoverable(interaction)
                         .selectable(isSelected, interaction, indication = null, role = Role.Tab) { onSelect(i) }
-                        .padding(vertical = 4.dp).clip(LockOnShapes.button).background(bg)
+                        .padding(vertical = 4.dp).clip(thumbShape).background(bg)
                         .padding(horizontal = if (icons != null && fill) 4.dp else 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -623,7 +662,7 @@ fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(total) { i ->
             val on = i < count
-            val color = if (i >= limit) scheme.error else if (on) lit else scheme.onSurface.copy(alpha = 0.22f)
+            val color = if (i >= limit) scheme.error else if (on) lit else scheme.onSurface.copy(alpha = if (desktopControls) 0.38f else 0.22f)
             Canvas(Modifier.size(pip)) {
                 if (on) drawCircle(color) else drawCircle(color, style = Stroke(1.dp.toPx()))
             }
@@ -1021,7 +1060,7 @@ private fun PillField(
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     // Focus draws the rim and icon in teal over a moment, so the field visibly wakes up.
-    val rimColor by animateColorAsState(if (focused) scheme.primary else g.rimLow, motion(Motion.SHORT), label = "field-rim")
+    val rimColor by animateColorAsState(if (focused) scheme.primary else if (desktopControls) Color.Transparent else g.rimLow, motion(Motion.SHORT), label = "field-rim")
     val rimWidth by animateFloatAsState(if (focused) 1.6f else 1f, motion(Motion.SHORT), label = "field-rim-width")
     val iconTint by animateColorAsState(if (focused) scheme.primary else scheme.onSurfaceVariant, motion(Motion.SHORT), label = "field-icon")
     val shape = LockOnShapes.button
@@ -1032,10 +1071,10 @@ private fun PillField(
         interactionSource = interaction,
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),
         cursorBrush = SolidColor(scheme.primary),
-        modifier = modifier.height(44.dp),
+        modifier = modifier.height(ControlSize),
         decorationBox = { field ->
             Row(
-                Modifier.fillMaxSize().clip(shape).background(g.strong)
+                Modifier.fillMaxSize().clip(shape).background(if (desktopControls) neutralFill() else g.strong)
                     .border(BorderStroke(rimWidth.dp, rimColor), shape)
                     .padding(start = if (icon != null) 14.dp else 18.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1378,6 +1417,7 @@ fun PillChip(
     leadingIcon: (@Composable () -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     onLongClickLabel: String? = null,
+    tall: Boolean = false,
 ) {
     // FilterChip takes no long click, so a press held past the timeout runs it and swallows the click on release.
     val interactions = remember { MutableInteractionSource() }
@@ -1406,16 +1446,18 @@ fun PillChip(
     val pressed by interactions.collectIsPressedHeld()
     // Material's chip switches colour at once; these fade, and stand in for both its states. Hover and
     // press tint the chip itself: Material's grey state layer and ripple turn the teal muddy as it fades in.
+    val base = if (desktopControls) panelFill() else g.strong
     val fill by animateColorAsState(
         when {
-            selected -> Accent.copy(alpha = if (pressed) 0.24f else if (hovered) 0.18f else 0.13f).compositeOver(g.strong)
-            else -> scheme.onSurface.copy(alpha = if (pressed) 0.14f else if (hovered) 0.11f else 0.07f).compositeOver(g.strong)
+            selected -> Accent.copy(alpha = if (pressed) 0.24f else if (hovered) 0.18f else 0.13f).compositeOver(base)
+            desktopControls -> neutralFill(hovered, pressed)
+            else -> scheme.onSurface.copy(alpha = if (pressed) 0.14f else if (hovered) 0.11f else 0.07f).compositeOver(base)
         },
         motion(Motion.SHORT), label = "chip-fill",
     )
     val text by animateColorAsState(if (selected) Accent else scheme.onSurface, motion(Motion.SHORT), label = "chip-text")
     val rim by animateColorAsState(
-        if (selected) Accent else if (hovered) Accent.copy(alpha = 0.5f) else g.rimLow,
+        if (selected) Accent else if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.5f) else g.rimLow,
         motion(Motion.SHORT), label = "chip-rim",
     )
     CompositionLocalProvider(
@@ -1424,8 +1466,8 @@ fun PillChip(
         androidx.compose.material3.LocalMinimumInteractiveComponentSize provides if (app.lockon.platform.isMobile) 48.dp else 0.dp,
     ) { FilterChip(
         selected = selected, onClick = { if (held[0]) held[0] = false else onClick() }, label = label,
-        modifier = modifier.then(longClickSemantics).pressScale(interactions), leadingIcon = leadingIcon,
-        shape = LockOnShapes.button, interactionSource = interactions,
+        modifier = modifier.then(if (tall && desktopControls) Modifier.height(ControlSize) else Modifier).then(longClickSemantics).pressScale(interactions), leadingIcon = leadingIcon,
+        shape = if (desktopControls && !tall) SmallControlShape else LockOnShapes.button, interactionSource = interactions,
         colors = FilterChipDefaults.filterChipColors(
             containerColor = fill,
             labelColor = text,
@@ -1448,12 +1490,13 @@ fun MenuChip(
     label: @Composable RowScope.() -> Unit,
     modifier: Modifier = Modifier,
     chipModifier: Modifier = Modifier,
+    tall: Boolean = false,
     items: @Composable ColumnScope.(close: () -> Unit) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         PillChip(
-            selected = selected, onClick = { open = true }, modifier = chipModifier,
+            selected = selected, onClick = { open = true }, modifier = chipModifier, tall = tall,
             label = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     label()

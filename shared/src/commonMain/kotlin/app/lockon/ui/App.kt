@@ -646,7 +646,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
     val live = back != null
     val squish by animateFloatAsState(if (live && pressed) 0.96f else 1f, motion(Motion.SHORT), label = "player-card-press")
     val glow by animateFloatAsState(if (live && hovered) 0.38f else 0.2f, motion(Motion.SHORT), label = "player-card-glow")
-    val ring by animateColorAsState(if (live && hovered) accent.copy(alpha = 0.7f) else Color.Transparent, motion(Motion.SHORT), label = "player-card-ring")
+    val ring by animateColorAsState(if (live && hovered && !app.lockon.ui.components.desktopControls) accent.copy(alpha = 0.7f) else Color.Transparent, motion(Motion.SHORT), label = "player-card-ring")
     val textStyle = MaterialTheme.typography.titleLarge
     Box(
         Modifier.graphicsLayer { scaleX = squish; scaleY = squish }
@@ -677,7 +677,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
                 modifier = Modifier.graphicsLayer { alpha = turn; translationY = (1f - turn) * 10.dp.toPx() },
             )
         }
-        Box(Modifier.padding(start = if (back == null) 6.dp else 0.dp)) { LevelBadge(turn, ring) }
+        Box(Modifier.padding(start = if (back == null) 6.dp else 0.dp)) { LevelBadge(turn, ring, live && hovered, live && pressed) }
     }
 }
 
@@ -706,9 +706,13 @@ internal fun BrandTile(size: Dp) {
 }
 
 @Composable
-private fun LevelBadge(turn: Float, ring: Color) {
+private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Boolean) {
     val twilight = isTwilight()
-    val plain = glassColors().strong
+    val desktop = app.lockon.ui.components.desktopControls
+    val plain by animateColorAsState(
+        if (desktop) app.lockon.ui.components.neutralFill(hovered, pressed) else glassColors().strong,
+        motion(Motion.SHORT), label = "back-fill",
+    )
     val ink = androidx.compose.ui.graphics.lerp(if (twilight) Color(0xFF10204A) else Color.White, MaterialTheme.colorScheme.onSurface, turn)
     val shape = RoundedCornerShape(14.dp)
     Box(
@@ -717,7 +721,8 @@ private fun LevelBadge(turn: Float, ring: Color) {
             .background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay))
             // Going back, the tile turns to a plain button.
             .drawWithContent { drawRect(plain, alpha = turn); drawContent() }
-            .border(1.5.dp, if (ring == Color.Transparent) Color.White.copy(alpha = 0.4f) else ring, shape),
+            // The logo's rim fades with it on desktop, so the back button has no outline its neighbours lack.
+            .border(1.5.dp, if (ring == Color.Transparent) Color.White.copy(alpha = if (desktop) 0.4f * (1f - turn) else 0.4f) else ring, shape),
         contentAlignment = Alignment.Center,
     ) {
         LockOnMark(

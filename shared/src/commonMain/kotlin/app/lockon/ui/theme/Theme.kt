@@ -113,10 +113,10 @@ object LockOnShapes {
     /** Corner radius of [tile], for parts of one that round only some corners. */
     val tileRadius = 16.dp
     val thumb = RoundedCornerShape(8.dp)
+    /** Corner radius of [button], for controls that draw their own fill. Desktop's controls are shorter, so a little tighter. */
+    val buttonRadius = if (app.lockon.platform.isMobile) 14.dp else 12.dp
     /** Buttons, chips, tabs, search fields, icon buttons and stamps. */
-    val button = RoundedCornerShape(14.dp)
-    /** Corner radius of [button], for controls that draw their own fill. */
-    val buttonRadius = 14.dp
+    val button = RoundedCornerShape(buttonRadius)
     /** The floating nav pill and its items, and switches. */
     val pill = RoundedCornerShape(percent = 50)
 }

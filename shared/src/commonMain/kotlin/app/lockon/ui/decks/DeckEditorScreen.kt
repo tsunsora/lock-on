@@ -474,7 +474,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             BoxWithConstraints(modifier) {
                 @Composable
                 fun AddTo(tabs: Modifier) {
-                    PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = if (wide) listOf(Glyphs.Rows, Glyphs.SideCard) else null)
+                    PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = if (wide) listOf(Glyphs.Rows, Glyphs.SideCard) else null, flush = true)
                 }
                 // A wide card list fits the switch in the search row, so the cards get a row's height back (UX
                 // rule N4, space goes to cards). Below this width the search would lose its placeholder to the
@@ -813,7 +813,11 @@ private fun DeckList(
             item(key = "header-$label", contentType = "header") {
                 SectionHeader(label, Modifier.animateItem().padding(start = 6.dp, end = 6.dp, top = if (!compact && label == groups.first().first) 0.dp else 6.dp, bottom = 2.dp),
                     readout = "${entries.sumOf { it.quantity }}") {
-                    if (compact && label == groups.first().first) ViewToggle(cardView, onCardView)
+                    if (compact && label == groups.first().first) ViewToggle(
+                        cardView, onCardView, small = true,
+                        // Out to the edge of the cards below, past the header's inset for its label.
+                        modifier = if (app.lockon.platform.isMobile) Modifier else Modifier.offset(x = 6.dp),
+                    )
                 }
             }
             if (cardView) {

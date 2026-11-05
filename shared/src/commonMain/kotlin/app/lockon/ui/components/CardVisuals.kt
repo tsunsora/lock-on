@@ -352,14 +352,18 @@ fun CardTile(
             // distance in, and their hit areas may overlap the count, which is never tapped.
             Box(
                 // Flat in both themes: a thin outline rather than a raised plate.
-                Modifier.fillMaxWidth().padding(top = 4.dp).clip(SmallPlate)
-                    .background(if (isTwilight()) glassColors().strong else Color.White.copy(alpha = 0.55f))
-                    .border(BorderStroke(1.dp, if (isTwilight()) Color.White.copy(alpha = 0.12f) else scheme.onSurface.copy(alpha = 0.14f)), SmallPlate),
+                Modifier.fillMaxWidth().padding(top = 4.dp).then(
+                    if (desktopControls) Modifier.stepperPlate()
+                    else Modifier.clip(SmallPlate)
+                        .background(if (isTwilight()) glassColors().strong else Color.White.copy(alpha = 0.55f))
+                        .border(BorderStroke(1.dp, if (isTwilight()) Color.White.copy(alpha = 0.12f) else scheme.onSurface.copy(alpha = 0.14f)), SmallPlate),
+                ),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(Modifier.centredOverPips(MaterialTheme.typography.titleLarge, limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
+                val countStyle = if (desktopControls) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
+                Column(Modifier.centredOverPips(countStyle, limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
                     RollingNumber(
-                        count, MaterialTheme.typography.titleLarge.merge(TabularNumbers),
+                        count, countStyle.merge(TabularNumbers),
                         if (count > 0) scheme.onSurface else scheme.onSurfaceVariant, Modifier.bumpOnIncrease(count),
                     )
                     if (limit != null) CopyPips(count, limit, pip = 5.dp)
@@ -380,6 +384,10 @@ fun CardTile(
 }
 
 private val SmallPlate = RoundedCornerShape(14.dp)
+
+/** Desktop's plate under a card, the same in the card list and the deck panel: one control's height and fill, holding − count +. */
+@Composable
+private fun Modifier.stepperPlate(): Modifier = height(ControlSize).clip(LockOnShapes.button).background(neutralFill())
 
 /**
  * Lifts a count with copy pips under it, so what you see sits in the middle: the number's line has
@@ -402,18 +410,21 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
     val interaction = remember { MutableInteractionSource() }
     val hover = remember { HoverState() }
     val hovered = hover.hovered
+    val pressed by interaction.collectIsPressedHeld()
     Box(
-        Modifier.size(target).semantics { contentDescription = description }
+        // On desktop the hit area is the plate's height, which leaves the button 4 dp inside it all round.
+        Modifier.size(if (desktopControls) ControlSize else target).semantics { contentDescription = description }
             .hoverable(interaction).hoverState(hover)
             .clickable(interaction, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.size(32.dp).pressScale(interaction).clip(RoundedCornerShape(10.dp))
+            Modifier.size(32.dp).pressScale(interaction).clip(if (desktopControls) InsetControlShape else RoundedCornerShape(10.dp))
                 .background(
                     when {
                         !enabled -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
-                        primary -> SolidColor(lighten(Accent, if (hovered) 0.15f else 0f))
+                        primary -> SolidColor(lighten(Accent, if (hovered) (if (desktopControls) 0.08f else 0.15f) else 0f))
+                        desktopControls -> SolidColor(neutralWash(hovered, pressed))
                         else -> Brush.verticalGradient(listOf(scheme.onSurface.copy(alpha = if (hovered) 0.22f else 0.12f), scheme.onSurface.copy(alpha = 0.06f)))
                     },
                 ),
@@ -423,10 +434,11 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
             Icon(
                 if (symbol == "+") LineIcons.Plus else LineIcons.Minus, contentDescription = null, Modifier.size(18.dp),
                 tint = when {
+                    !enabled && desktopControls -> scheme.onSurface.copy(alpha = 0.38f)
                     !enabled -> scheme.outline.copy(alpha = 0.6f)
                     primary -> OnAccent
                     // Past the copy limit + still works, for formats that allow it, but it steps back.
-                    symbol == "+" -> scheme.onSurface.copy(alpha = 0.4f)
+                    symbol == "+" && !desktopControls -> scheme.onSurface.copy(alpha = 0.4f)
                     else -> scheme.onSurface
                 },
             )
@@ -1000,16 +1012,16 @@ fun DeckCard(
             CardHoverPreview(card, printingId, hovered)
         }
         // Stacked, like CardTile's plate, so a narrow phone column can't squeeze the + against the edge.
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().then(if (desktopControls) Modifier.padding(top = 4.dp).stepperPlate() else Modifier), contentAlignment = Alignment.Center) {
             Column(Modifier.centredOverPips(MaterialTheme.typography.titleMedium, limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("×", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 1.dp))
-                    RollingNumber(quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers), scheme.primary, Modifier.bumpOnIncrease(quantity))
+                    if (!desktopControls) Text("×", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 1.dp))
+                    RollingNumber(quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers), if (desktopControls) scheme.onSurface else scheme.primary, Modifier.bumpOnIncrease(quantity))
                 }
                 if (limit != null) CopyPips(quantity, limit, pip = 5.dp)
             }
             // Each button's visible 32 dp sits just inside the card's edge.
-            val toEdge = ((target - 32.dp) / 2 - 4.dp).coerceAtLeast(0.dp)
+            val toEdge = if (desktopControls) 0.dp else ((target - 32.dp) / 2 - 4.dp).coerceAtLeast(0.dp)
             Box(Modifier.align(Alignment.CenterStart).offset(x = -toEdge)) {
                 TileButton("−", "Remove one ${card.name}", enabled = quantity > 0, target = target) {
                     haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus()
