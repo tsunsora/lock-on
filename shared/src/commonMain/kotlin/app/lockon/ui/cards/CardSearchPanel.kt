@@ -285,6 +285,17 @@ fun CardSearchPanel(
         sort = defaultSort
     }
     val anyFilterSet = query != CardQuery(text = query.text) || deckColorsOnly || sort != defaultSort
+    // Under Deck colors the orbs show the deck's colours lit, so a press changes what is lit: Deck colors
+    // hands those colours over as plain picks and turns off, with the pressed one toggled.
+    fun pressColor(color: CardColor) {
+        query = query.copy(colors = (query.colors + colorLimit.orEmpty()).toggle(color))
+        deckColorsOnly = false
+    }
+    // Turning it on takes the picks back, or a colour picked away earlier would stay lit but show no cards.
+    fun toggleDeckColors() {
+        if (!deckColorsOnly) query = query.copy(colors = emptySet())
+        deckColorsOnly = !deckColorsOnly
+    }
     Column(modifier) {
         // A narrow pane has no room for the view switch beside the search, so it rides above with [leading].
         if (wide && leadingAbove) Row(
@@ -335,7 +346,7 @@ fun CardSearchPanel(
                 Box(Modifier.align(Alignment.CenterVertically)) {
                     ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors || (colorLimit != null && color in colorLimit),
                         outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
-                        query = query.copy(colors = query.colors.toggle(color))
+                        pressColor(color)
                     }
                 }
             }
@@ -352,7 +363,7 @@ fun CardSearchPanel(
             if (deckColorsChip) {
                 PillChip(
                     selected = deckColorsOnly,
-                    onClick = { deckColorsOnly = !deckColorsOnly },
+                    onClick = { toggleDeckColors() },
                     label = { Text("Deck colors") },
                     modifier = Modifier.align(Alignment.CenterVertically),
                 )
@@ -366,7 +377,7 @@ fun CardSearchPanel(
             leading?.invoke(this)
             Spacer(Modifier.weight(1f))
             if (deckColorsChip) PillChip(
-                selected = deckColorsOnly, onClick = { deckColorsOnly = !deckColorsOnly }, label = { Text("Deck colors") }, modifier = Modifier.height(ControlSize),
+                selected = deckColorsOnly, onClick = { toggleDeckColors() }, label = { Text("Deck colors") }, modifier = Modifier.height(ControlSize),
                 leadingIcon = if (deckColorsOnly) ({ Icon(LineIcons.Check, contentDescription = null, Modifier.size(16.dp)) }) else null,
             )
         } else Row(
@@ -376,7 +387,7 @@ fun CardSearchPanel(
         ) {
             CardColor.entries.forEach { color ->
                 ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors || (colorLimit != null && color in colorLimit), outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
-                    query = query.copy(colors = query.colors.toggle(color))
+                    pressColor(color)
                 }
             }
             Spacer(Modifier.width(4.dp))
@@ -458,7 +469,7 @@ fun CardSearchPanel(
                     CardColor.entries.forEach { color ->
                         ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors || (colorLimit != null && color in colorLimit),
                             target = ControlSize, outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
-                            query = query.copy(colors = query.colors.toggle(color))
+                            pressColor(color)
                         }
                     }
                 }
