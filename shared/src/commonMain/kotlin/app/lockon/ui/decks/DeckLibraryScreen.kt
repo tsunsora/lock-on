@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.border
 import app.lockon.ui.components.softThumbInk
 import app.lockon.ui.components.softThumb
 import app.lockon.ui.components.glassColors
@@ -315,7 +314,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         if (wide && !list.isNullOrEmpty()) Box {
                             var sortMenu by remember { mutableStateOf(false) }
                             GameButton(deckSort.label, onClick = { sortMenu = true }, style = GameButtonStyle.SECONDARY, icon = Glyphs.Sort, trailingIcon = LineIcons.Chevd, compact = true,
-                                modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), LockOnShapes.button))
+                                outline = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f))
                             GameMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                                 DeckSort.entries.forEach { option ->
                                     GameMenuItem(option.label, onClick = { deckSort = option; sortMenu = false }, selected = option == deckSort)
