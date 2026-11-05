@@ -1,6 +1,5 @@
 package app.lockon.ui.components
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -352,8 +351,10 @@ fun CardTile(
             // Row squeezed the + against the edge. Pinned to either end, both buttons sit the same
             // distance in, and their hit areas may overlap the count, which is never tapped.
             Box(
-                Modifier.fillMaxWidth().padding(top = 6.dp).shadow(if (isTwilight()) 0.dp else 2.dp, SmallPlate).clip(SmallPlate).background(glassColors().strong)
-                    .border(BorderStroke(1.dp, if (isTwilight()) Color.White.copy(alpha = 0.12f) else Color.Transparent), SmallPlate),
+                // Flat in both themes: a thin outline rather than a raised plate.
+                Modifier.fillMaxWidth().padding(top = 4.dp).clip(SmallPlate)
+                    .background(if (isTwilight()) glassColors().strong else Color.White.copy(alpha = 0.55f))
+                    .border(BorderStroke(1.dp, if (isTwilight()) Color.White.copy(alpha = 0.12f) else scheme.onSurface.copy(alpha = 0.14f)), SmallPlate),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(Modifier.centredOverPips(MaterialTheme.typography.titleLarge, limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -418,14 +419,17 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Text(symbol, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
-                color = when {
+            // Drawn, so each sits in the exact middle of its button; a font's − and + don't.
+            Icon(
+                if (symbol == "+") LineIcons.Plus else LineIcons.Minus, contentDescription = null, Modifier.size(18.dp),
+                tint = when {
                     !enabled -> scheme.outline.copy(alpha = 0.6f)
                     primary -> OnAccent
                     // Past the copy limit + still works, for formats that allow it, but it steps back.
                     symbol == "+" -> scheme.onSurface.copy(alpha = 0.4f)
                     else -> scheme.onSurface
-                })
+                },
+            )
         }
     }
 }
@@ -535,19 +539,19 @@ fun CardDetailContent(
         val sideBySide = maxWidth >= 640.dp
         // A phone's sheet names the card itself; a side panel, however narrow, keeps the card beside its numbers.
         val roomy = !showName && maxWidth >= 300.dp
-        val imageWidth = (maxWidth * 0.4f).coerceIn(260.dp, 380.dp)
+        val imageWidth = (maxWidth * 0.4f).coerceIn(260.dp, 340.dp)
         val thumbWidth = (maxWidth * 0.4f).coerceAtMost(156.dp)
         // The card sits in a pool of its own colour, like a card raised for inspection.
         val pool = cardColor(card.colors.firstOrNull())
         val image: @Composable (Modifier, Boolean) -> Unit = { m, tight ->
-            // The glow is an oval squeezed to the box, fading out within its own padding, so a scrolling
-            // column never cuts it off at the sides.
-            Box(m.drawBehind {
+            // Tight: the glow is an oval squeezed to the box, fading out within its own padding, so a
+            // scrolling column never cuts it off at the sides. The roomy dialog shows the card alone.
+            Box(if (!tight) m else m.drawBehind {
                 val r = size.height / 2
                 scale(scaleX = size.width / size.height, scaleY = 1f, pivot = center) {
                     drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), pool.copy(alpha = 0f)), center, r), radius = r)
                 }
-            }.padding(horizontal = if (tight) 8.dp else 16.dp, vertical = if (tight) 8.dp else 14.dp)) {
+            }.padding(8.dp)) {
                 // A click opens the card full size, to turn in the light.
                 val press = remember { MutableInteractionSource() }
                 CardImage(card, Modifier.fillMaxWidth().pressScale(press).pointerHoverIcon(PointerIcon.Hand)
@@ -572,7 +576,7 @@ fun CardDetailContent(
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (onChoosePrinting != null) SectionHeader("Printing in this deck", readout = "${printings.size}")
+                    if (onChoosePrinting != null && !sideBySide) SectionHeader("Printing in this deck", readout = "${printings.size}")
                     if (!roomy) {
                         // Phones: a sideways strip of tiles big enough to tell the art apart, rather than
                         // a grid of slivers. The fade only shows while there is more to scroll to.
@@ -591,7 +595,7 @@ fun CardDetailContent(
                         // Either way the tiles stretch to fill the width rather than leaving a gap at the end.
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
                             val gap = 8.dp
-                            val fit = ((maxWidth + gap) / (76.dp + gap)).toInt().coerceIn(1, 5)
+                            val fit = ((maxWidth + gap) / ((if (sideBySide) 92.dp else 76.dp) + gap)).toInt().coerceIn(1, 5)
                             val rows = (printings.size + fit - 1) / fit
                             val columns = if (fit == 5 || printings.size <= fit) fit else (printings.size + rows - 1) / rows
                             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
@@ -632,9 +636,9 @@ fun CardDetailContent(
         // The card text and the deck controls, the same in every layout.
         val body: @Composable () -> Unit = {
             if (card.displayText.isNotBlank()) {
-                Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
+                Surface(color = if (isTwilight()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
                     Text(effectText(card.displayText), style = if (roomy) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(if (roomy) 14.dp else 10.dp).fillMaxWidth())
+                        modifier = Modifier.padding(if (roomy) 12.dp else 10.dp).fillMaxWidth())
                 }
             }
             if (card.correctedText != null) {
@@ -649,28 +653,45 @@ fun CardDetailContent(
             }
         }
         val info: @Composable (Modifier) -> Unit = { m ->
-            Column(m, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                idLine()
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatBox("Type", card.type.label)
-                    card.level?.let { StatBox("Level", "$it") }
-                    card.cost?.let { StatBox("Cost", "$it") }
-                    card.ap?.let { StatBox("AP", "$it") }
-                    card.hp?.let { StatBox("HP", "$it") }
+            Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // The type joins the id line, as on a phone.
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ColorPips(card.colors)
+                    Text(
+                        listOf(card.type.label, card.cardNumber, card.rarity, card.setCode).filter { it.isNotBlank() }.joinToString(" · "),
+                        style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                tags()
-                link()
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    card.level?.let { StatBox("Level", "$it", compact = true) }
+                    card.cost?.let { StatBox("Cost", "$it", compact = true) }
+                    card.ap?.let { StatBox("AP", "$it", compact = true) }
+                    card.hp?.let { StatBox("HP", "$it", compact = true) }
+                }
+                // Traits, zones and the link share one line, wrapping only if they must.
+                if (card.traits.isNotEmpty() || card.zones.isNotEmpty() || card.link != null) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        card.traits.forEach { Box(Modifier.align(Alignment.CenterVertically)) { Chip("($it)") } }
+                        card.zones.forEach { Box(Modifier.align(Alignment.CenterVertically)) { Chip(it, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) } }
+                        card.link?.let {
+                            Row(Modifier.align(Alignment.CenterVertically), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Link", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(it, style = MaterialTheme.typography.titleSmall)
+                            }
+                        }
+                    }
+                }
                 body()
             }
         }
         if (sideBySide) {
             // The printings sit in the wider text column, where a row holds three or four of them, rather
             // than stacking two to a row under the art and leaving the text column half empty.
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Column(Modifier.width(imageWidth).verticalScroll(rememberScrollState())) {
                     image(Modifier.fillMaxWidth(), false)
                 }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     info(Modifier.fillMaxWidth())
                     if (!printingsInPanel) printingStrip()
                 }
@@ -700,7 +721,7 @@ fun CardDetailContent(
                         }
                     }
                 }
-                if (card.displayText.isNotBlank()) Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
+                if (card.displayText.isNotBlank()) Surface(color = if (isTwilight()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
                     Text(effectText(card.displayText), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(10.dp).fillMaxWidth())
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -764,13 +785,13 @@ fun CardDetailDialog(
     extraActions: (@Composable () -> Unit)? = null,
 ) {
     val arrival = rememberArrival()
-    BlurBehind()
     Dialog(onDismissRequest = onDismiss, properties = app.lockon.platform.fullWindowDialogProperties()) {
         app.lockon.platform.LightSystemBarIcons()
         // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
-        // the panel rather than around it, so clicks inside never reach it. Phones get no system dim, so it paints one.
+        // the panel rather than around it, so clicks inside never reach it. Phones get no system dim, so it paints one,
+        // the same as the filter sheet's.
         Spacer(Modifier.fillMaxSize().graphicsLayer { alpha = arrival.value }
-            .then(if (app.lockon.platform.isMobile) Modifier.background(Color.Black.copy(alpha = 0.6f)) else Modifier)
+            .then(if (app.lockon.platform.isMobile) Modifier.background(Color.Black.copy(alpha = 0.45f)) else Modifier)
             .clickable(interactionSource = null, indication = null, onClick = onDismiss))
         BoxWithConstraints(
             Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.safeDrawing),
@@ -780,32 +801,23 @@ fun CardDetailDialog(
         // Phones keep a slimmer frame so the card details get the width.
         val narrow = maxWidth < 600.dp
         Surface(
-            shape = if (narrow) RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp) else MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shape = if (narrow) LockOnShapes.panel else MaterialTheme.shapes.extraLarge,
+            color = panelFill(),
             // The cap comes first: after fillMaxWidth the width is already fixed and widthIn can't shrink it.
-            // Phones get a sheet up from the bottom edge, with a handle to pull it away.
-            modifier = (if (narrow) Modifier.align(Alignment.BottomCenter).fillMaxWidth() else Modifier.widthIn(max = 1040.dp).fillMaxWidth(0.94f))
-                .heightIn(max = maxHeight).arrive(arrival).glassFrame(),
+            // Phones get the same floating sheet as the filters, closed by its button.
+            modifier = (if (narrow) Modifier.align(Alignment.BottomCenter).padding(8.dp).widthIn(max = 480.dp).fillMaxWidth() else Modifier.widthIn(max = 980.dp).fillMaxWidth(0.94f))
+                .heightIn(max = maxHeight).arrive(arrival).then(if (narrow) Modifier else Modifier.glassFrame()),
         ) {
-            Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = if (narrow) 16.dp else 8.dp, bottom = 16.dp)) {
+            Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = if (narrow) 16.dp else 8.dp, bottom = if (narrow) 16.dp else 24.dp)) {
                 // The frame's end is slim to leave the details their scroll bar's lane; Close keeps a proper margin.
-                if (narrow) Box(
-                    Modifier.fillMaxWidth().padding(end = 12.dp, bottom = 8.dp).pointerInput(Unit) {
-                        var pulled = 0f
-                        detectVerticalDragGestures(onDragStart = { pulled = 0f }) { _, amount ->
-                            pulled += amount
-                            if (pulled > 60.dp.toPx()) onDismiss()
-                        }
-                    }.semantics { contentDescription = "Close" }.clickable(interactionSource = null, indication = null, onClick = onDismiss),
-                    contentAlignment = Alignment.Center,
-                ) { Box(Modifier.padding(vertical = 4.dp).size(width = 40.dp, height = 5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))) }
-                else Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!narrow) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(card.name, style = if (narrow) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.weight(1f).padding(end = 12.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
+                    GameButton("Close", onClick = onDismiss, Modifier.padding(end = 12.dp), style = GameButtonStyle.SECONDARY, compact = true)
                 }
                 CardDetailContent(card, printings, Modifier.weight(1f, fill = false).padding(end = 12.dp, top = 8.dp), actions = extraActions,
                     chosenPrinting = chosenPrinting, onChoosePrinting = onChoosePrinting, showName = narrow)
+                if (narrow) GameButton("Close", onClick = onDismiss, Modifier.padding(end = 12.dp, top = 12.dp).fillMaxWidth().height(48.dp), style = GameButtonStyle.SECONDARY)
             }
         }
         }
@@ -813,14 +825,14 @@ fun CardDetailDialog(
 }
 
 @Composable
-private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
+private fun StatBox(label: String, value: String, modifier: Modifier = Modifier, compact: Boolean = false) {
     Column(
-        modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+        modifier.clip(MaterialTheme.shapes.small).background(if (isTwilight()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 14.dp, vertical = if (compact) 4.dp else 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleLarge.merge(TabularNumbers))
+        Text(value, style = (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers))
     }
 }
 
@@ -837,7 +849,7 @@ private fun LabelledLine(label: String, value: String) {
 @Composable
 private fun StatCell(label: String, value: String, modifier: Modifier) {
     Column(
-        modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest)
+        modifier.clip(MaterialTheme.shapes.small).background(if (isTwilight()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainerHighest)
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -996,12 +1008,14 @@ fun DeckCard(
                 }
                 if (limit != null) CopyPips(quantity, limit, pip = 5.dp)
             }
-            Box(Modifier.align(Alignment.CenterStart)) {
+            // Each button's visible 32 dp sits just inside the card's edge.
+            val toEdge = ((target - 32.dp) / 2 - 4.dp).coerceAtLeast(0.dp)
+            Box(Modifier.align(Alignment.CenterStart).offset(x = -toEdge)) {
                 TileButton("−", "Remove one ${card.name}", enabled = quantity > 0, target = target) {
                     haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus()
                 }
             }
-            Box(Modifier.align(Alignment.CenterEnd)) {
+            Box(Modifier.align(Alignment.CenterEnd).offset(x = toEdge)) {
                 TileButton("+", "Add one ${card.name}", primary = limit == null || quantity < limit, target = target) {
                     haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
                 }

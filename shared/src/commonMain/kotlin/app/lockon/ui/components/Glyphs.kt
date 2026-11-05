@@ -1,5 +1,6 @@
 package app.lockon.ui.components
 
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -80,11 +81,19 @@ fun ViewToggle(asCards: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier
     }
 }
 
-/** A quiet tile on a panel: a soft fill rather than another card with an edge. */
+/** The fill of a solid panel on the sky, the same as the phone's sheets. */
 @Composable
-fun SoftTile(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun panelFill(): Color = if (isTwilight()) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest
+
+/**
+ * A quiet tile on a panel: a soft fill rather than another card with an edge. [solid] is for a tile on
+ * the sky, with no panel under it, and takes the colour of the phone's sheets.
+ */
+@Composable
+fun SoftTile(modifier: Modifier = Modifier, solid: Boolean = false, padding: Dp = 16.dp, content: @Composable ColumnScope.() -> Unit) {
+    val fill = if (solid) panelFill() else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
     Column(
-        modifier.clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)).padding(16.dp),
+        modifier.clip(LockOnShapes.tile).background(fill).padding(padding),
         verticalArrangement = Arrangement.spacedBy(8.dp), content = content,
     )
 }

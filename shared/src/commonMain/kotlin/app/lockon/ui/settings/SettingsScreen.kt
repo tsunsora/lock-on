@@ -1,5 +1,12 @@
 package app.lockon.ui.settings
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import app.lockon.ui.components.softThumbInk
+import app.lockon.ui.components.softThumb
+import app.lockon.ui.components.SoftTile
 import androidx.compose.ui.geometry.Offset
 import app.lockon.ui.components.motion
 import androidx.compose.ui.draw.drawBehind
@@ -257,45 +264,13 @@ private val SEGMENTED_WIDTH = 290.dp
 /** Whether rows have room for every control beside the setting's name, rather than under it. */
 internal val LocalRoomyRows = compositionLocalOf { false }
 
+/** A solid panel, with space rather than hairlines between rows. */
 @Composable
-private fun SettingsGroup(section: SettingsSection, modifier: Modifier = Modifier) {
-    GlassCard(modifier) {
-        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(section.title, style = MaterialTheme.typography.titleMedium)
-            RuledRows { section.content(this) }
-        }
+private fun SettingsGroup(section: SettingsSection) {
+    SoftTile(Modifier.fillMaxWidth(), solid = true) {
+        Text(section.title, style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) { section.content(this) }
     }
-}
-
-/** Spaces rows evenly and notes where the hairlines between them go, skipping anything with no height, such as a closed dialog. */
-private class RuledArrangement(private val gap: androidx.compose.ui.unit.Dp) : Arrangement.Vertical {
-    var rules: List<Int> = emptyList()
-        private set
-    override val spacing get() = gap
-    override fun androidx.compose.ui.unit.Density.arrange(totalSize: Int, sizes: IntArray, outPositions: IntArray) {
-        val space = gap.roundToPx()
-        var y = 0
-        val lines = mutableListOf<Int>()
-        sizes.forEachIndexed { i, size ->
-            if (size > 0 && y > 0) { lines += y + space / 2; y += space }
-            outPositions[i] = y
-            y += size
-        }
-        rules = lines
-    }
-}
-
-/** Rows with a hairline between each. */
-@Composable
-private fun RuledRows(content: @Composable ColumnScope.() -> Unit) {
-    val line = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-    val arrangement = remember { RuledArrangement(16.dp) }
-    Column(
-        Modifier.fillMaxWidth().drawBehind {
-            arrangement.rules.forEach { y -> drawLine(line, Offset(0f, y.toFloat()), Offset(size.width, y.toFloat()), 1.dp.toPx()) }
-        },
-        verticalArrangement = arrangement, content = content,
-    )
 }
 
 /**
@@ -361,15 +336,32 @@ private fun <T> Segmented(options: List<T>, selected: T, label: (T) -> String, o
     )
 }
 
-/** Which sections the phone editor's More menu holds: each is a chip, teal while it is in the menu. */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Which sections the phone editor's More menu holds, as a grid of choices on one soft track, the same
+ * thumb as the app's other choices marking those in the menu.
+ */
 @Composable
 private fun MoreMenuChoice(hidden: Set<EditorMoreItem>, onChange: (EditorMoreItem, Boolean) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
     SettingRow("In the More menu", stacked = true) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            EditorMoreItem.entries.forEach { item ->
-                val shown = item !in hidden
-                PillChip(selected = shown, onClick = { onChange(item, !shown) }, label = { Text(item.label) })
+        Column(
+            Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            EditorMoreItem.entries.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    row.forEach { item ->
+                        val shown = item !in hidden
+                        Box(
+                            Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(11.dp)).background(if (shown) softThumb() else Color.Transparent)
+                                .toggleable(shown, role = Role.Checkbox, interactionSource = null, indication = null) { onChange(item, it) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(item.label, style = MaterialTheme.typography.labelLarge, color = if (shown) softThumbInk() else scheme.onSurfaceVariant, maxLines = 1)
+                        }
+                    }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
     }

@@ -65,7 +65,11 @@ import app.lockon.ui.components.CardFace
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
+import app.lockon.ui.components.ControlSize
 import app.lockon.ui.components.LocalNavClearance
+import app.lockon.ui.components.LocalTopBand
+import app.lockon.ui.components.SoftTile
+import androidx.compose.foundation.layout.heightIn
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.VerticalScrollBar
@@ -75,12 +79,19 @@ import app.lockon.ui.theme.TabularNumbers
 
 /** Hand cards grow with the panel up to this width. */
 private val MAX_HAND_CARD = 176.dp
-/** Smaller than this, a card in hand can't be read, so the hand scrolls instead. */
-private val MIN_HAND_CARD = 96.dp
+/** Smaller than this, a card face drops its level and name, so the hand scrolls instead. */
+private val MIN_HAND_CARD = 100.dp
 /** Past this many cards a fan can't show each one, so later draws start a new fan under it. */
 private const val FAN_SIZE = 10
 /** How far apart neighbouring cards tilt, in degrees, and sit lower toward the ends. */
 private const val FAN_TILT = 4f
+/** A phone's fan tilts less, so its end cards swing out less and every card shows more of itself. */
+private const val PHONE_FAN_TILT = 3f
+/** What a fan needs beyond its cards' height, for the drop toward its ends and its tilted corners. */
+private val FAN_ROOM = 32.dp
+private val PANEL_PADDING = 12.dp
+private val PAGE_TOP = 8.dp
+private val PAGE_BOTTOM = 8.dp
 private val FAN_STEP_DROP = 6.dp
 private val STATS_HEIGHT = 24.dp
 private val HEADER_HEIGHT = 30.dp
@@ -109,25 +120,40 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     val handCards = game.hand.map { cards[it] }
     val bursts = game.shields.count { cards[it]?.displayText?.contains("Burst】") == true }
 
+    // On a phone the hand and shields sit on solid panels, and the buttons stay above the bar under the thumb.
+    val phone = LocalTopBand.current.height == 0.dp
+    val tall = if (phone) Modifier.height(ControlSize) else Modifier
+    val buttons = @Composable { rowModifier: Modifier ->
+        Row(rowModifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The first draw keeps the hand and sets the shields, as the rules go.
+            GameButton("Redraw", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f).then(tall), style = GameButtonStyle.SECONDARY, enabled = game.canRedraw, icon = if (phone) null else LineIcons.Hand, compact = true)
+            GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f).then(tall), enabled = game.canDraw, icon = LineIcons.Draw, compact = true)
+            GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, Modifier.weight(1f).then(tall), style = GameButtonStyle.SECONDARY, icon = if (phone) null else LineIcons.Shuffle, compact = true)
+        }
+    }
+
     Column(modifier) {
     BoxWithConstraints(Modifier.weight(1f)) {
     val inner = maxWidth - 32.dp
     // All six shields share one row under the hand, like the shield zone on the board.
-    val shieldWidth = minOf(MAX_SHIELD, (inner - SHIELD_GAP * (SampleHand.SHIELDS - 1)) / SampleHand.SHIELDS)
+    val shieldSpace = if (phone) inner - PANEL_PADDING * 2 else inner
+    val shieldWidth = minOf(MAX_SHIELD, (shieldSpace - SHIELD_GAP * (SampleHand.SHIELDS - 1)) / SampleHand.SHIELDS)
+    // A phone's panel gives the fan its whole width and every spare bit of height, the fan centred in it.
+    val shieldPanel = PANEL_PADDING * 2 + HEADER_HEIGHT + GAP + shieldWidth / CARD_ASPECT
+    val handHeader = PANEL_PADDING * 2 + HEADER_HEIGHT + GAP
+    val fanArea = (maxHeight - PAGE_TOP - PAGE_BOTTOM - 12.dp - shieldPanel - handHeader).coerceAtLeast(0.dp)
     // Cards take about a third of the width, but no taller than lets the opening hand's fan and the
     // shields fit without scrolling.
     val besideHand = 32.dp + STATS_HEIGHT + HEADER_HEIGHT * 2 + 12.dp * 5 + shieldWidth / CARD_ASPECT + 36.dp + 44.dp
-    val fitWidth = (maxHeight - besideHand) * CARD_ASPECT
-    val handWidth = minOf(inner * 0.3f, MAX_HAND_CARD, fitWidth.coerceAtLeast(MIN_HAND_CARD))
+    val fitWidth = (if (phone) fanArea - FAN_ROOM else maxHeight - besideHand) * CARD_ASPECT
+    val handWidth = minOf(inner * (if (phone) 0.4f else 0.3f), MAX_HAND_CARD, fitWidth.coerceAtLeast(MIN_HAND_CARD))
     val scroll = rememberScrollState()
     val newest = remember { BringIntoViewRequester() }
     // A drawn card lands at the end of the hand, which may be below the fold: bring it into view.
     LaunchedEffect(game.drawsTaken) { if (game.drawsTaken > 0) newest.bringIntoView() }
-    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HandStats(game)
-        SectionHeader("Hand", readout = "${game.hand.size}")
+    val fans = @Composable {
         handCards.withIndex().chunked(FAN_SIZE).forEach { fan ->
-            HandFan(fan.size, handWidth, inner) { at, place ->
+            HandFan(fan.size, handWidth, inner, if (phone) PHONE_FAN_TILT else FAN_TILT) { at, place ->
                 val (i, card) = fan[at]
                 val drawn = i - SampleHand.HAND_SIZE + 1
                 val stagger = if (drawn <= 0) i else 0
@@ -141,33 +167,46 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
                 }
             }
         }
+    }
+    val shields = @Composable {
         SectionHeader("Shields", readout = "${SampleHand.SHIELDS}") {
             if (revealShields) Badge("Burst $bursts", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Modifier.padding(start = 6.dp))
             // Revealing keeps the hand, since that is when the shields are set.
             GameButton(if (revealShields) "Hide" else "Reveal", onClick = { game = game.keep(); revealShields = !revealShields }, style = GameButtonStyle.GHOST, compact = true)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(SHIELD_GAP)) {
+        // Sharing the row keeps them equal: fixed widths round to whole pixels, which left the last one short.
+        val share = shieldWidth < MAX_SHIELD
+        Row(if (share) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.spacedBy(SHIELD_GAP)) {
             repeat(SampleHand.SHIELDS) { i ->
                 val card = game.shields.getOrNull(i)?.let { cards[it] }
                 FlippingShield(
                     card, revealed = revealShields, index = i,
-                    modifier = Modifier.width(shieldWidth).dealIn("$dealId-shield-$i", i).clickable(enabled = revealShields && card != null) { detail = card },
+                    modifier = (if (share) Modifier.weight(1f) else Modifier.width(shieldWidth)).dealIn("$dealId-shield-$i", i).clickable(enabled = revealShields && card != null) { detail = card },
                 )
             }
         }
-        Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp, bottom = LocalNavClearance.current),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // The first draw keeps the hand and sets the shields, as the rules go.
-            GameButton("Redraw", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, enabled = game.canRedraw, icon = LineIcons.Hand, compact = true)
-            GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f), enabled = game.canDraw, icon = LineIcons.Draw, compact = true)
-            GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (app.lockon.ui.components.LocalTopBand.current.height == 0.dp) null else LineIcons.Shuffle, compact = true)
+    }
+    if (phone) Column(
+        Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = PAGE_TOP, bottom = PAGE_BOTTOM),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SoftTile(Modifier.fillMaxWidth(), solid = true, padding = 0.dp) {
+            SectionHeader("Hand", Modifier.padding(start = PANEL_PADDING, end = PANEL_PADDING, top = PANEL_PADDING), readout = "${game.hand.size}") { HandStats(game) }
+            Box(Modifier.fillMaxWidth().heightIn(min = fanArea).padding(bottom = PANEL_PADDING), contentAlignment = Alignment.Center) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { fans() }
+            }
         }
+        SoftTile(Modifier.fillMaxWidth(), solid = true, padding = PANEL_PADDING) { shields() }
+    } else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        HandStats(game)
+        SectionHeader("Hand", readout = "${game.hand.size}")
+        fans()
+        shields()
+        buttons(Modifier.padding(top = 4.dp, bottom = LocalNavClearance.current))
     }
     VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
     }
+    if (phone) buttons(Modifier.padding(start = 16.dp, end = 16.dp, bottom = LocalNavClearance.current + 4.dp))
     }
     detail?.let { CardDetailDialog(it, emptyList(), onDismiss = { detail = null }) }
 }
@@ -177,10 +216,10 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
  * below the hand. The card under the pointer comes to the front, so a covered card can be read.
  */
 @Composable
-private fun HandFan(count: Int, cardWidth: Dp, width: Dp, card: @Composable (Int, Modifier) -> Unit) {
+private fun HandFan(count: Int, cardWidth: Dp, width: Dp, maxTilt: Float, card: @Composable (Int, Modifier) -> Unit) {
     val cardHeight = cardWidth / CARD_ASPECT
     val middle = (count - 1) / 2f
-    val tilt = if (count > 1) minOf(FAN_TILT, 16f / middle) else 0f
+    val tilt = if (count > 1) minOf(maxTilt, 16f / middle) else 0f
     val widest = tilt * middle
     // The end cards' top corners swing out past their own width.
     val swing = cardHeight * 1.2f * sin(widest * PI.toFloat() / 180f)
@@ -208,7 +247,7 @@ private fun HandFan(count: Int, cardWidth: Dp, width: Dp, card: @Composable (Int
 private fun HandStats(game: SampleHand) {
     val scheme = MaterialTheme.colorScheme
     val left = game.library.size - if (game.shieldsPlaced) 0 else SampleHand.SHIELDS
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         listOf(LineIcons.Decks to "$left left", LineIcons.Flag to "Turn ${game.drawsTaken + 1}").forEach { (icon, text) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(icon, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)

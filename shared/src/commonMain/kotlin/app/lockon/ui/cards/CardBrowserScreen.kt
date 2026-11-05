@@ -62,7 +62,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
             val search: @Composable (Modifier) -> Unit = { m ->
                 CardSearchPanel(
                     cards.values, onCardClick = { selectedNumber = it.cardNumber; detailsOpen = true },
-                    modifier = m, focusRequests = focusRequests, selected = shown?.cardNumber, wide = wide, defaultSort = defaultSort,
+                    modifier = m, focusRequests = focusRequests, selected = shown?.cardNumber.takeIf { wide }, wide = wide, defaultSort = defaultSort,
                 )
             }
             if (wide) {
