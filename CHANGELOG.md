@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.11.9 (2026-11-05)
+
+Everything that used to switch at once now moves, and desktop controls share one look.
+
+- **Motion:** dialogs fade out as they close, and the dim behind them eases in and out. On desktop, changing the theme fades across.
+- **Motion:** outlines, the + and − buttons, copy dots, card tags and buttons ease between states. The card preview and dragged cards and decks fade away instead of vanishing.
+- **Motion:** Sync, Analysis, Matches, Versions, Export, the update card and the welcome tour fade between states, and counts and bars move to their new values. Test hands make room for a drawn card.
+- **Desktop controls:** buttons, chips and steppers share two heights and one flat fill, one step deeper on hover and again when pressed.
+- **Desktop selection:** selected and hovered things get one solid teal line right on their edge, with no gap or gradient. Deck art is a little darker.
+- **Deck colors:** pressing a color under **Deck colors** turns it off and toggles that color, keeping the deck's others picked. Turning it back on clears the picks.
+- **Buttons:** they always come back up after a click, and the sort button no longer opens a gap around itself when pressed.
+- **Deck editor:** the divider loses its glow. Hovered or dragged, its grip only turns the accent color.
+- **Phone Matches:** the logging panel rises above the keyboard, so the Opponent and Note fields stay visible while you type.
+
 ## 26.11.8 (2026-11-05)
 
 Phone screens get a cleaner, more solid layout, the background is quieter so cards stand out, and the boot screen plays smoothly on phones.
