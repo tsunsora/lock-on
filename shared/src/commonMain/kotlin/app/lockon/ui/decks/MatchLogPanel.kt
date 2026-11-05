@@ -59,9 +59,14 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -233,7 +238,10 @@ fun MatchLogPanel(
     }
     VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
     }
-    if (phone) logPanel(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = LocalNavClearance.current + 4.dp))
+    // Above the nav bar, and above the keyboard while it's open: the window itself doesn't shrink for it.
+    val aboveBar = WindowInsets(bottom = LocalNavClearance.current + 4.dp)
+    val aboveKeyboard = WindowInsets.ime.add(WindowInsets(bottom = 8.dp))
+    if (phone) logPanel(Modifier.windowInsetsPadding(aboveBar.union(aboveKeyboard)).padding(start = 16.dp, end = 16.dp, top = 8.dp))
     }
 }
 
