@@ -113,7 +113,8 @@ fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Mod
                 val target = if (shown) (count.toFloat() / max).coerceAtLeast(0.02f) else 0.02f
                 val grow by animateFloatAsState(target, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "bar")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                    Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = color)
+                    if (count > 0) RollingNumber(count, MaterialTheme.typography.labelLarge.merge(TabularNumbers), color)
+                    else Text("", style = MaterialTheme.typography.labelLarge)
                     // Bars are lit columns: a bright cap over a fading body, cut like armour.
                     Box(
                         Modifier.fillMaxWidth().fillMaxHeight(fraction = grow * 0.8f)
@@ -190,7 +191,13 @@ fun SectionHeader(label: String, modifier: Modifier = Modifier, readout: String?
     val scheme = MaterialTheme.colorScheme
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
-        if (readout != null) Text(readout, Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleSmall.merge(TabularNumbers), color = scheme.onSurfaceVariant)
+        if (readout != null) {
+            // A count rolls as it changes, like the others.
+            val number = readout.toIntOrNull()
+            val style = MaterialTheme.typography.titleSmall.merge(TabularNumbers)
+            if (number != null) RollingNumber(number, style, scheme.onSurfaceVariant, Modifier.padding(start = 8.dp))
+            else Text(readout, Modifier.padding(start = 8.dp), style = style, color = scheme.onSurfaceVariant)
+        }
         Spacer(Modifier.weight(1f))
         trailing()
     }
@@ -255,7 +262,8 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
             bars.forEachIndexed { index, (level, count) ->
                 val grow by animateFloatAsState(if (shown) count.toFloat() / max else 0f, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "curve")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                    Text(if (count > 0) "$count" else "", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurface)
+                    if (count > 0) RollingNumber(count, MaterialTheme.typography.labelMedium.merge(TabularNumbers), scheme.onSurface)
+                    else Text("", style = MaterialTheme.typography.labelMedium)
                     Box(
                         // The bar gets the room left after its count and label, so heights compare honestly.
                         Modifier.widthIn(max = 40.dp).fillMaxWidth(0.72f).weight(1f, fill = false).fillMaxHeight(fraction = grow.coerceAtLeast(0.06f))
@@ -297,14 +305,15 @@ fun DeckGlance(stats: app.lockon.rules.DeckStats, modifier: Modifier = Modifier,
             counts.forEachIndexed { i, (label, n) ->
                 val dim = n == 0
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "$n", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
-                        color = when {
+                    val tone by androidx.compose.animation.animateColorAsState(
+                        when {
                             dim -> scheme.onSurfaceVariant.copy(alpha = 0.5f)
                             i >= 4 -> scheme.primary
                             else -> scheme.onSurface
                         },
+                        motion(Motion.MEDIUM), label = "glance-count",
                     )
+                    RollingNumber(n, MaterialTheme.typography.titleMedium.merge(TabularNumbers), tone)
                     Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false,
                         color = scheme.onSurfaceVariant.copy(alpha = if (dim) 0.6f else 1f))
                 }

@@ -1,5 +1,6 @@
 package app.lockon.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -77,13 +78,25 @@ fun ViewToggle(asCards: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier
         listOf(LineIcons.List to false, LineIcons.Grid to true).let { if (cardsFirst) it.reversed() else it }.forEach { (icon, cards) ->
             val on = asCards == cards
             Box(
-                Modifier.fillMaxHeight().width(if (desktopControls && small) 30.dp else 36.dp).clip(thumbShape).background(if (on) softThumb() else Color.Transparent)
+                Modifier.fillMaxHeight().width(if (desktopControls && small) 30.dp else 36.dp).clip(thumbShape).background(softThumbFill(on))
                     .selectable(on, role = Role.RadioButton) { onChange(cards) }.semantics { contentDescription = if (cards) "Show as cards" else "Show as list" },
                 contentAlignment = Alignment.Center,
-            ) { Icon(icon, contentDescription = null, Modifier.size(18.dp), tint = if (on) softThumbInk() else scheme.onSurfaceVariant) }
+            ) { Icon(icon, contentDescription = null, Modifier.size(18.dp), tint = softThumbTone(on)) }
         }
     }
 }
+
+/** A hand-laid thumb's fill, which eases as the choice moves on to or off it. */
+@Composable
+fun softThumbFill(on: Boolean): Color {
+    val thumb = softThumb()
+    return animateColorAsState(if (on) thumb else thumb.copy(alpha = 0f), motion(Motion.SHORT), label = "thumb").value
+}
+
+/** A hand-laid thumb's label or icon, easing with [softThumbFill]. */
+@Composable
+fun softThumbTone(on: Boolean): Color =
+    animateColorAsState(if (on) softThumbInk() else MaterialTheme.colorScheme.onSurfaceVariant, motion(Motion.SHORT), label = "thumb-ink").value
 
 /** The fill of a solid panel on the sky, the same as the phone's sheets. */
 @Composable

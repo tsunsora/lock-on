@@ -61,6 +61,9 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import app.lockon.ui.WindowChrome
 import app.lockon.ui.components.Motion
+import app.lockon.ui.components.arrive
+import app.lockon.ui.components.collectIsPressedHeld
+import app.lockon.ui.components.rememberArrival
 import app.lockon.ui.components.PillShape
 import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.isTwilight
@@ -267,21 +270,23 @@ internal fun WindowControls(
         ControlButton("Minimize", onMinimize, compact = compact) { ink, unit ->
             drawLine(ink, Offset(center.x - 5 * unit, center.y), Offset(center.x + 5 * unit, center.y), 1.4f * unit, StrokeCap.Round)
         }
+        // The two glyphs fade across as the window changes, read while drawing so nothing recomposes for it.
+        val restoring = animateFloatAsState(if (maximized) 1f else 0f, motion(Motion.MEDIUM), label = "control-maximize")
         ControlButton(if (maximized) "Restore" else "Maximize", onToggleMaximize, compact = compact) { ink, unit ->
             val stroke = Stroke(1.4f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            if (maximized) {
+            val t = restoring.value
+            if (t > 0f) {
                 // Two overlapping windows: the front one whole, the back one peeking out above and right.
-                drawRoundRect(ink, Offset(center.x - 4.5f * unit, center.y - 2.5f * unit), Size(7 * unit, 7 * unit), CornerRadius(1.5f * unit), stroke)
+                drawRoundRect(ink.copy(alpha = ink.alpha * t), Offset(center.x - 4.5f * unit, center.y - 2.5f * unit), Size(7 * unit, 7 * unit), CornerRadius(1.5f * unit), stroke)
                 drawPath(Path().apply {
                     moveTo(center.x - 2 * unit, center.y - 2.5f * unit)
                     lineTo(center.x - 2 * unit, center.y - 5 * unit)
                     lineTo(center.x + 5 * unit, center.y - 5 * unit)
                     lineTo(center.x + 5 * unit, center.y + 2 * unit)
                     lineTo(center.x + 2.5f * unit, center.y + 2 * unit)
-                }, ink, style = stroke)
-            } else {
-                drawRoundRect(ink, Offset(center.x - 4.5f * unit, center.y - 4.5f * unit), Size(9 * unit, 9 * unit), CornerRadius(2 * unit), stroke)
+                }, ink.copy(alpha = ink.alpha * t), style = stroke)
             }
+            if (t < 1f) drawRoundRect(ink.copy(alpha = ink.alpha * (1f - t)), Offset(center.x - 4.5f * unit, center.y - 4.5f * unit), Size(9 * unit, 9 * unit), CornerRadius(2 * unit), stroke)
         }
         ControlButton("Close", onClose, danger = true, compact = compact) { ink, unit ->
             val r = 4.5f * unit
@@ -298,7 +303,7 @@ private fun ControlButton(label: String, onClick: () -> Unit, danger: Boolean = 
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedAsState()
+    val pressed by interaction.collectIsPressedHeld()
     val lit = hovered || pressed
     val fill by animateColorAsState(
         when {
@@ -334,7 +339,8 @@ private fun ControlTooltip(text: String) {
     val g = glassColors()
     Text(
         text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.shadow(6.dp, PillShape, ambientColor = g.shade, spotColor = g.shade).clip(PillShape)
+        modifier = Modifier.arrive(rememberArrival(Motion.SHORT), from = 0.97f)
+            .shadow(6.dp, PillShape, ambientColor = g.shade, spotColor = g.shade).clip(PillShape)
             .background(if (isTwilight()) MaterialTheme.colorScheme.surfaceContainerHighest else Color.White)
             .border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)), PillShape)
             .padding(horizontal = 10.dp, vertical = 4.dp),

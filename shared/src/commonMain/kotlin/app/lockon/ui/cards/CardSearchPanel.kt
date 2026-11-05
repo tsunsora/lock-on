@@ -1,4 +1,5 @@
 package app.lockon.ui.cards
+import app.lockon.ui.components.Reveal
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.WindowInsets
@@ -323,16 +324,18 @@ fun CardSearchPanel(
                 shortcut = "Ctrl F",
             )
             // The placeholder has the count until a search is typed over it.
-            if (query.text.isNotEmpty()) Text(
-                "${results.size}", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
-                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 4.dp),
-            )
+            Reveal(query.text.isNotEmpty(), sideways = true) {
+                Text(
+                    "${results.size}", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
+                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
             if (wide) ViewControls()
             // Teal while anything in the sheet is set, so a closed sheet still says so. Holding it resets them.
             else PillChip(selected = hiddenFilters > 0, onClick = { showMore = true }, modifier = Modifier.height(ControlSize),
                 label = {
                     Icon(LineIcons.Sliders, contentDescription = "Filters", Modifier.size(18.dp))
-                    if (hiddenFilters > 0) Text("$hiddenFilters", Modifier.padding(start = 4.dp))
+                    Reveal(hiddenFilters > 0, sideways = true) { Text("$hiddenFilters", Modifier.padding(start = 4.dp)) }
                 },
                 onLongClick = { resetFilters() },
                 onLongClickLabel = "Reset filters")
@@ -360,12 +363,11 @@ fun CardSearchPanel(
                     modifier = Modifier.align(Alignment.CenterVertically),
                 )
             }
-            if (deckColorsChip) {
+            Reveal(deckColorsChip, Modifier.align(Alignment.CenterVertically), sideways = true) {
                 PillChip(
                     selected = deckColorsOnly,
                     onClick = { toggleDeckColors() },
                     label = { Text("Deck colors") },
-                    modifier = Modifier.align(Alignment.CenterVertically),
                 )
             }
         }
@@ -376,10 +378,12 @@ fun CardSearchPanel(
         ) {
             leading?.invoke(this)
             Spacer(Modifier.weight(1f))
-            if (deckColorsChip) PillChip(
-                selected = deckColorsOnly, onClick = { toggleDeckColors() }, label = { Text("Deck colors") }, modifier = Modifier.height(ControlSize),
-                leadingIcon = if (deckColorsOnly) ({ Icon(LineIcons.Check, contentDescription = null, Modifier.size(16.dp)) }) else null,
-            )
+            Reveal(deckColorsChip, sideways = true) {
+                PillChip(
+                    selected = deckColorsOnly, onClick = { toggleDeckColors() }, label = { Text("Deck colors") }, modifier = Modifier.height(ControlSize),
+                    leadingIcon = if (deckColorsOnly) ({ Icon(LineIcons.Check, contentDescription = null, Modifier.size(16.dp)) }) else null,
+                )
+            }
         } else Row(
             Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -446,7 +450,7 @@ fun CardSearchPanel(
                         }
                     }
                     PillTextField(query.trait, { query = query.copy(trait = it) }, "Trait", Modifier.weight(1f))
-                    if (anyFilterSet) PillChip(selected = false, onClick = { resetFilters() }, label = { Text("Clear") }, tall = true)
+                    Reveal(anyFilterSet, sideways = true) { PillChip(selected = false, onClick = { resetFilters() }, label = { Text("Clear") }, tall = true) }
                 }
             }
         }
@@ -589,6 +593,7 @@ private fun FilterSheet(
     content: @Composable () -> Unit,
 ) {
     val state = remember { MutableTransitionState(false) }.apply { targetState = visible }
+    app.lockon.ui.components.DimsWindow(visible)
     if (!state.currentState && !state.targetState) return
     val reduce = LocalReduceMotion.current
     val scheme = MaterialTheme.colorScheme

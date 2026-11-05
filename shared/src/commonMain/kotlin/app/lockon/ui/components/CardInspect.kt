@@ -71,7 +71,7 @@ fun CardInspectDialog(card: Card, printingId: String?, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { appear.animateTo(1f, spec) }
     Dialog(onDismissRequest = onDismiss, properties = fullWindowDialogProperties()) {
         LightSystemBarIcons()
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = appear.value }) {
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = appear.value }.onDialogStage()) {
             // Clicks around the card land on this backdrop, which sits behind it. Phones get no system dim
             // under it, so it is darker there.
             Spacer(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (isMobile) 0.84f else 0.62f))

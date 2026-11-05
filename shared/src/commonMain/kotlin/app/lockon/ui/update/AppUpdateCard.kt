@@ -1,4 +1,5 @@
 package app.lockon.ui.update
+import androidx.compose.animation.animateContentSize
 import app.lockon.ui.components.PillSwitch
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
@@ -55,7 +56,7 @@ fun AppUpdateSection(updater: AppUpdater?, scope: CoroutineScope) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Lock On ${BuildInfo.VERSION}", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             val state = updater?.takeIf { it.enabled }?.state?.collectAsState()?.value
-            if (state == UpdateState.UpToDate) app.lockon.ui.components.StateTag(legal = true, label = "Up to date")
+            app.lockon.ui.components.Reveal(state == UpdateState.UpToDate, sideways = true) { app.lockon.ui.components.StateTag(legal = true, label = "Up to date") }
         }
         if (updater == null || !updater.enabled) {
             Text("This build doesn't check for updates.", style = MaterialTheme.typography.bodySmall,
@@ -89,7 +90,10 @@ private fun UpdateBody(updater: AppUpdater, scope: CoroutineScope) {
         notes?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = muted) }
     }
 
-    when (val s = state) {
+    // Each stage fades into the next; a download's rising progress stays one stage.
+    app.lockon.ui.components.FadeSwap(state, Modifier.fillMaxWidth(), contentKey = { it::class }) { s ->
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    when (s) {
         UpdateState.Idle -> Line(checkedAt?.let { "Last checked ${formatTimestamp(it)}" } ?: "Not checked for updates yet.")
         UpdateState.Checking -> Line("Checking for updates…", working = true)
         UpdateState.UpToDate -> Unit
@@ -100,9 +104,7 @@ private fun UpdateBody(updater: AppUpdater, scope: CoroutineScope) {
         }
         is UpdateState.Downloading -> {
             Line("Downloading version ${s.version}…")
-            val progress = s.progress
-            if (progress == null) LinearProgressIndicator(Modifier.fillMaxWidth())
-            else LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            app.lockon.ui.sync.TransferBar(s.progress, app.lockon.ui.sync.BarTone.WORKING)
         }
         is UpdateState.Ready -> {
             Line(
@@ -115,8 +117,10 @@ private fun UpdateBody(updater: AppUpdater, scope: CoroutineScope) {
         is UpdateState.Installing -> Line(if (windows) "Closing Lock On to install version ${s.version}…" else "Installing version ${s.version}…", working = true)
         is UpdateState.Failed -> Line(s.message, error = true)
     }
+    }
+    }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.animateContentSize(app.lockon.ui.components.motion()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         when (state) {
             is UpdateState.Available -> if (canInstall) GameButton("Download", onClick = { scope.launch { updater.downloadNow() } })
             is UpdateState.Ready -> GameButton(if (windows) "Restart and update" else "Install update", onClick = { scope.launch { updater.installNow() } })

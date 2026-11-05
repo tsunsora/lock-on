@@ -1,5 +1,8 @@
 package app.lockon.ui.cards
 
+import androidx.compose.animation.core.animateFloatAsState
+import app.lockon.ui.components.Motion
+import app.lockon.ui.components.motion
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
@@ -91,7 +94,13 @@ fun Modifier.cardDragSource(card: Card, drag: CardDrag?): Modifier = if (drag ==
 /** The card under the pointer while it is dragged. Place it over the whole screen. */
 @Composable
 fun CardDragGhost(drag: CardDrag, modifier: Modifier = Modifier) {
-    val card = drag.card ?: return
+    // Kept while it fades, so a drop lets the card go instead of removing it.
+    var last by remember { mutableStateOf(drag.card) }
+    drag.card?.let { last = it }
+    val appear by animateFloatAsState(if (drag.card != null) 1f else 0f, motion(Motion.SHORT), label = "card-ghost")
+    val aimed by animateFloatAsState(if (drag.overTarget) 1f else 0f, motion(Motion.SHORT), label = "card-ghost-aim")
+    val card = last
+    if (card == null || (drag.card == null && appear == 0f)) return
     var origin by remember { mutableStateOf(Offset.Zero) }
     val width = 110.dp
     val half = with(LocalDensity.current) { Offset(width.toPx() / 2, width.toPx() * 0.7f) }
@@ -100,7 +109,11 @@ fun CardDragGhost(drag: CardDrag, modifier: Modifier = Modifier) {
             card,
             // The pointer is read during layout, so following it moves the card without recomposing.
             Modifier.offset { (drag.pointer - origin - half).let { IntOffset(it.x.roundToInt(), it.y.roundToInt()) } }.width(width)
-                .graphicsLayer { alpha = if (drag.overTarget) 0.95f else 0.8f; rotationZ = -3f },
+                .graphicsLayer {
+                    alpha = appear * (0.8f + 0.15f * aimed); rotationZ = -3f
+                    val s = 0.92f + 0.08f * appear
+                    scaleX = s; scaleY = s
+                },
         )
     }
 }

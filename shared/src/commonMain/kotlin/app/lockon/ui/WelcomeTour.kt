@@ -182,7 +182,9 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
                 }
             }
             Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 24.dp), contentAlignment = Alignment.Center) {
-                if (!last) GameButton("Skip", onClick = onDone, style = GameButtonStyle.GHOST, compact = true, modifier = Modifier.align(Alignment.CenterStart))
+                app.lockon.ui.components.Reveal(!last, Modifier.align(Alignment.CenterStart), fadeOnly = true) {
+                    GameButton("Skip", onClick = onDone, style = GameButtonStyle.GHOST, compact = true)
+                }
                 StepDots(stop, TourStop.entries.size) { state.tourStop = it }
                 val notNow = current == TourStop.CARD_DATABASE && download == Download.Idle && !official
                 GameButton(
@@ -297,6 +299,7 @@ private fun ThemeTiles() {
 @Composable
 private fun CardDatabase(download: Download, official: Boolean, cardCount: Int, onDownload: () -> Unit) {
     Spacer(Modifier.height(14.dp))
+    app.lockon.ui.components.FadeSwap(download, contentAlignment = Alignment.Center, contentKey = { it::class to official }) { download ->
     Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         when {
             download is Download.Done || (official && download == Download.Idle) -> {
@@ -310,9 +313,9 @@ private fun CardDatabase(download: Download, official: Boolean, cardCount: Int, 
             else -> GameButton(if (download is Download.Failed) "Try again" else "Download card database", onClick = onDownload)
         }
     }
-    (download as? Download.Failed)?.let {
-        Spacer(Modifier.height(8.dp))
-        Text(it.message, Modifier.padding(horizontal = 32.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+    }
+    app.lockon.ui.components.RevealValue(download as? Download.Failed) {
+        Text(it.message, Modifier.padding(start = 32.dp, end = 32.dp, top = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
     }
     Spacer(Modifier.height(10.dp))
     Text(

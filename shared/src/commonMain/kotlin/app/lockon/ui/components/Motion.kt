@@ -1,6 +1,9 @@
 package app.lockon.ui.components
 
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.ExitTransition
@@ -380,6 +383,95 @@ fun revealIn(): EnterTransition =
 fun revealOut(): ExitTransition =
     if (LocalReduceMotion.current) fadeOut(tween(90))
     else shrinkVertically(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) + fadeOut(tween(Motion.SHORT))
+
+/** [revealIn] sideways, for something that opens in a row. */
+@Composable
+fun revealSideIn(): EnterTransition =
+    if (LocalReduceMotion.current) fadeIn(tween(90))
+    else expandHorizontally(tween(Motion.MEDIUM, easing = Motion.emphasized)) + fadeIn(tween(Motion.MEDIUM, Motion.STAGGER))
+
+/** The way back for [revealSideIn]. */
+@Composable
+fun revealSideOut(): ExitTransition =
+    if (LocalReduceMotion.current) fadeOut(tween(90))
+    else shrinkHorizontally(tween(Motion.SHORT, easing = Motion.emphasizedAccelerate)) + fadeOut(tween(Motion.SHORT))
+
+/** Opens and closes [content], making room for it as [revealIn] does. Holds still when a screen first shows it. */
+@Composable
+fun Reveal(visible: Boolean, modifier: Modifier = Modifier, sideways: Boolean = false, fadeOnly: Boolean = false, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible, modifier,
+        // Inside something that already eases its own size, only the fade is left to do.
+        enter = if (fadeOnly) fadeIn(tween(if (LocalReduceMotion.current) 90 else Motion.MEDIUM)) else if (sideways) revealSideIn() else revealIn(),
+        exit = if (fadeOnly) fadeOut(tween(if (LocalReduceMotion.current) 90 else Motion.SHORT)) else if (sideways) revealSideOut() else revealOut(),
+    ) { content() }
+}
+
+/** [Reveal] for something that has a value only while it is there: it keeps showing the last one as it closes. */
+@Composable
+fun <T : Any> RevealValue(value: T?, modifier: Modifier = Modifier, sideways: Boolean = false, fadeOnly: Boolean = false, content: @Composable (T) -> Unit) {
+    // Not state: it only matters in the composition the new value already caused.
+    val last = remember { arrayOfNulls<Any>(1) }
+    if (value != null) last[0] = value
+    Reveal(value != null, modifier, sideways, fadeOnly) {
+        @Suppress("UNCHECKED_CAST")
+        (last[0] as T?)?.let { content(it) }
+    }
+}
+
+/**
+ * A short list of rows that open as they arrive and close as they leave, each keeping its place while
+ * it does. For a handful of things like nearby devices, not for a grid.
+ */
+@Composable
+fun <T> RevealItems(items: List<T>, key: (T) -> Any, content: @Composable (T) -> Unit) {
+    // Not state: each composition rebuilds it, and a row finishing its exit recomposes through its transition.
+    val kept = remember { mutableListOf<T>() }
+    val first = remember { booleanArrayOf(true) }
+    val live = items.mapTo(HashSet()) { key(it) }
+    val merged = items.toMutableList()
+    kept.forEachIndexed { i, item -> if (key(item) !in live) merged.add(i.coerceAtMost(merged.size), item) }
+    kept.clear(); kept += merged
+    val settled = first[0]
+    merged.forEach { item ->
+        val id = key(item)
+        androidx.compose.runtime.key(id) {
+            val shown = remember { MutableTransitionState(settled) }
+            shown.targetState = id in live
+            if (shown.isIdle && !shown.currentState && id !in live) kept.removeAll { key(it) == id }
+            AnimatedVisibility(shown, enter = revealIn(), exit = revealOut()) { content(item) }
+        }
+    }
+    first[0] = false
+}
+
+/**
+ * Fades one thing into another when [value] changes, for a status line, a loading state or a set of
+ * buttons. The old one goes quicker than the new one comes, and the space between them eases.
+ */
+@Composable
+fun <T> FadeSwap(
+    value: T,
+    modifier: Modifier = Modifier,
+    contentAlignment: Alignment = Alignment.TopStart,
+    /** What counts as another thing: a transfer's state, say, so its rising progress fades nothing. */
+    contentKey: (T) -> Any? = { it },
+    content: @Composable (T) -> Unit,
+) {
+    val reduce = LocalReduceMotion.current
+    AnimatedContent(
+        targetState = value,
+        modifier = modifier,
+        contentAlignment = contentAlignment,
+        contentKey = contentKey,
+        transitionSpec = {
+            if (reduce) fadeIn(tween(90)) togetherWith fadeOut(tween(90)) using SizeTransform(clip = false) { _, _ -> snap() }
+            else fadeIn(tween(Motion.MEDIUM, Motion.STAGGER)) togetherWith fadeOut(tween(Motion.SHORT)) using
+                SizeTransform(clip = false) { _, _ -> tween(Motion.MEDIUM, easing = Motion.emphasized) }
+        },
+        label = "fade-swap",
+    ) { content(it) }
+}
 
 /** Fades in and grows from just under its size as [progress] runs, so a panel arrives rather than appears. */
 fun Modifier.arrive(progress: State<Float>, from: Float = 0.94f): Modifier = graphicsLayer {

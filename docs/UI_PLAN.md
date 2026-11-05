@@ -33,12 +33,14 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 - **new** Phones: the app's pill sinks away as a deck opens while the editor's pill fades in, so there is never a moment without one.
 - **new** Banners and hints unfold into place and fold away (`revealIn` / `revealOut`).
 - **new** Counts in section pills roll, like every other count (`CountPill`).
-- ◻ Dialogs still close at once. An exit needs each caller to keep the dialog composed for 120 ms after dismiss.
-- ◻ `GameButton` doesn't animate between enabled and disabled, or between styles.
+- **new** Dialogs close: the last frame fades and shrinks slightly while the dim, which now eases in and out too, lifts behind it (`DialogStage`, desktop). No caller changes, and nothing is left to click twice. A change of theme fades across the same way.
+- **new** `GameButton` eases between enabled and disabled, between styles, and on hover; a label of another width eases too.
+
+- **new** Left instant on purpose: typing, search-result counts and filtering (results must feel live), scroll position, layer order, a Material menu's check (the menu closes on the pick), and anything that follows a window resize.
 
 ### Decks
 - ✓ Deck boxes glide, and the selected folder's fill fades.
-- ◻ When a drag starts, phones swap the folder chip for the full chip row at once. The *No folder* rail item and the New folder button's style also pop.
+- **new** When a drag starts, phones fade from the folder tabs to the chip row. *No folder*, the folder header and the empty note unfold; the held deck and the ghost plate fade.
 
 ### Deck editor
 - ✓ Rows and strips glide. The Lock On moment, the gauges' fill and count bump, add and remove tints, and the split handle.
@@ -47,8 +49,8 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 - **new** The Legal/Draft stamp fades over as the deck locks on.
 - **new** Gauges warm from teal to gold at exactly 50 and to red when over, instead of switching (one animated tone per gauge).
 - **new** The level curve grows from the floor when it first shows (V5: charts).
-- ◻ Copy pips turn gold at once. It needs a single Canvas with one animated value, since pips sit in every grid tile.
-- ◻ Card tiles' in-deck outline, the + button's limit state, the deck strip's hover rim and the Off-color, Side and Deck tags all switch at once. These are in lazy grids, so each change should be a draw-phase value in a modifier node, never per-tile `animate*AsState`.
+- **new** Copy pips fill one at a time: one drawing with one moving number per row, so a grid pays nothing for them at rest (`drawSettled`).
+- **new** Card tiles' in-deck outline, the + and − buttons' states, the deck strip's hover rim and the Off-color, Side and Deck tags all ease. `Settle.kt` holds a plain number at rest and starts its one coroutine only on a change, and a reused tile starts at rest.
 
 ### Test hand
 - ✓ Cards deal in, and shields deal in and flip.
@@ -67,16 +69,16 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 ### Sync
 - ✓ Pages, tiles dealing in, the pointer spotlight, the working rim, the transfer bar and the beacon.
 - **new** The *Done* badge settles in without overshoot and is instant with reduced motion (it bounced before, against V5).
-- ◻ Device status lines and their trailing controls (Cancel, spinner, OK, Sync) swap at once. The transfer bar's tone switches.
+- **new** Device status lines, their trailing controls, the transfer bar and its tone fade across (`FadeSwap`, `RevealValue`). Devices open and close as they come and go (`RevealItems`).
 
 ### Settings
 - **new** The rail's light moves down the groups as the page scrolls.
-- ◻ App update: the status lines swap at once, and the download uses Material's linear bar. It should be the transfer bar's style (V5: progress).
+- **new** App update: each stage fades into the next and the download uses the transfer bar.
 
 ### Welcome tour
 - ✓ Stops slide.
 - **new** The step pill glides along the dots. The stop's height change now respects reduced motion.
-- ◻ The download, spinner and *Installed* states swap at once.
+- **new** The download, spinner and *Installed* states fade across.
 
 ### Kept as they are
 - The beacon's slow turn and the switch knob's slight settle are already in UX_MAP and in `glide()`'s documentation. They stay.

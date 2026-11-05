@@ -1,5 +1,10 @@
 package app.lockon.ui.sync
 
+import app.lockon.ui.components.Reveal
+import app.lockon.ui.components.RevealValue
+import app.lockon.ui.components.RevealItems
+import app.lockon.ui.components.FadeSwap
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
@@ -11,6 +16,7 @@ import androidx.compose.runtime.derivedStateOf
 import app.lockon.ui.components.LocalScreenShown
 import app.lockon.ui.components.rememberArrival
 import app.lockon.ui.components.arrive
+import app.lockon.ui.components.onDialogStage
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -188,7 +194,7 @@ fun SyncScreen(
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, if (app.lockon.ui.components.LocalTopBand.current.height == 0.dp) Modifier.padding(horizontal = 8.dp) else Modifier.width(240.dp), fill = true, soft = true)
         }
-        Crossfade(sending, Modifier.fillMaxSize(), label = "sync-page") { send ->
+        Crossfade(sending, Modifier.fillMaxSize(), animationSpec = motion(), label = "sync-page") { send ->
             if (send) SendPage(controller, decks, cards, chosen) { chosen = it }
             else DevicesPage(controller, deviceName)
         }
@@ -270,7 +276,7 @@ private fun ThisDevicePanel(
             if (onOtherWays != null && narrow) OtherWays(onOtherWays, qrLabel, Modifier.fillMaxWidth())
         }
         // Only what needs attention: a ready device says so by being here.
-        if (status.message != null && (status.isError || status.working)) StatusStrip(status, Modifier.fillMaxWidth())
+        RevealValue(status.takeIf { it.message != null && (it.isError || it.working) }) { StatusStrip(it, Modifier.fillMaxWidth()) }
         more()
     }
 }
@@ -357,8 +363,9 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
     val spotlight = rememberSpotlight()
     val devices: @Composable () -> Unit = {
         SectionHeader("Your devices", readout = "${paired.size}")
-        if (paired.isEmpty() && unpaired.isEmpty()) SearchingCard()
-        paired.forEachIndexed { i, device ->
+        Reveal(paired.isEmpty() && unpaired.isEmpty()) { SearchingCard() }
+        RevealItems(paired, { it.deviceId }) { device ->
+            val i = paired.indexOf(device).coerceAtLeast(0)
             PairedTile(
                 device = device,
                 transfer = transfers[device.deviceId],
@@ -372,22 +379,20 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
                 onClear = { controller.clearTransfer(device.deviceId) },
             )
         }
-        if (unpaired.isNotEmpty()) {
-            SectionHeader("Nearby", Modifier.padding(top = 10.dp), readout = "${unpaired.size}")
-            unpaired.forEachIndexed { i, device ->
-                DeviceTile(
-                    device = device,
-                    send = null,
-                    inviting = device.deviceId in invited,
-                    hint = "Not paired",
-                    action = "Pair",
-                    actionIcon = app.lockon.ui.components.Glyphs.Link,
-                    spotlight = spotlight,
-                    index = paired.size + i + 1,
-                    onTap = { if (device.compatible) pair(device) },
-                    onCancel = { (controller as? HostSyncController)?.cancelInvite(device.deviceId); pairingWith = null },
-                )
-            }
+        Reveal(unpaired.isNotEmpty()) { SectionHeader("Nearby", Modifier.padding(top = 10.dp), readout = "${unpaired.size}") }
+        RevealItems(unpaired, { it.deviceId }) { device ->
+            DeviceTile(
+                device = device,
+                send = null,
+                inviting = device.deviceId in invited,
+                hint = "Not paired",
+                action = "Pair",
+                actionIcon = app.lockon.ui.components.Glyphs.Link,
+                spotlight = spotlight,
+                index = paired.size + unpaired.indexOf(device).coerceAtLeast(0) + 1,
+                onTap = { if (device.compatible) pair(device) },
+                onCancel = { (controller as? HostSyncController)?.cancelInvite(device.deviceId); pairingWith = null },
+            )
         }
     }
 
@@ -481,10 +486,12 @@ private fun PairedTile(
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f).padding(end = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (transfer != null) {
+                // Fades across as a transfer changes state; its rising count stays in the one line.
+                FadeSwap(transfer, contentKey = { it?.state }) { shownTransfer ->
+                if (shownTransfer != null) {
                     Text(
-                        transfer.label(), style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
-                        color = when (transfer.state) {
+                        shownTransfer.label(), style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                        color = when (shownTransfer.state) {
                             SyncTransfer.State.DONE -> scheme.onSurfaceVariant
                             SyncTransfer.State.FAILED -> scheme.error
                             else -> scheme.onSurfaceVariant
@@ -500,25 +507,36 @@ private fun PairedTile(
                         Text(line, style = MaterialTheme.typography.bodySmall, color = if (problem != null) scheme.error else scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
+                }
             }
-            when {
-                transfer?.state == SyncTransfer.State.WAITING -> GameButton("Cancel", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
-                busy -> ReticleSpinner(size = 18.dp, modifier = Modifier.padding(end = 12.dp))
-                transfer != null -> GameButton("OK", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
-                device.lastError != null -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync, compact = true, onTone = scheme.error)
-                else -> GameButton("Sync", onClick = onTap, style = GameButtonStyle.SECONDARY, compact = true)
+            val trailing = when {
+                transfer?.state == SyncTransfer.State.WAITING -> "cancel"
+                busy -> "working"
+                transfer != null -> "ok"
+                device.lastError != null -> "retry"
+                else -> "sync"
+            }
+            FadeSwap(trailing, contentAlignment = Alignment.CenterEnd) { action ->
+                when (action) {
+                    "cancel" -> GameButton("Cancel", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
+                    "working" -> ReticleSpinner(size = 18.dp, modifier = Modifier.padding(end = 12.dp))
+                    "ok" -> GameButton("OK", onClick = onClear, style = GameButtonStyle.GHOST, compact = true)
+                    "retry" -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync, compact = true, onTone = scheme.error)
+                    else -> GameButton("Sync", onClick = onTap, style = GameButtonStyle.SECONDARY, compact = true)
+                }
             }
         }
-        if (transfer != null && (busy || transfer.state != SyncTransfer.State.DONE)) {
+        // The tile already eases its own height, so the bar only fades.
+        RevealValue(transfer?.takeIf { busy || it.state != SyncTransfer.State.DONE }, fadeOnly = true) { shownTransfer ->
             TransferBar(
-                fraction = if (busy) null else 1f,
-                tone = when (transfer.state) {
+                fraction = if (shownTransfer.active) null else 1f,
+                tone = when (shownTransfer.state) {
                     SyncTransfer.State.DONE -> BarTone.DONE
                     SyncTransfer.State.DECLINED -> BarTone.STOPPED
                     SyncTransfer.State.FAILED -> BarTone.FAILED
                     else -> BarTone.WORKING
                 },
-                            )
+            )
         }
     }
 }
@@ -687,7 +705,7 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         SyncPage(spotlight, maxWidth = 760.dp) {
-            if (status.isError || status.working) StatusStrip(status, Modifier.fillMaxWidth())
+            RevealValue(status.takeIf { it.isError || it.working }) { StatusStrip(it, Modifier.fillMaxWidth()) }
             val what: @Composable () -> Unit = {
                 WhatToSend(decks, selected, cards, onChoose = { choosing = true }, onChosen = onChosen)
             }
@@ -717,7 +735,7 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
 private fun StatusStrip(status: SyncStatus, modifier: Modifier = Modifier) {
     val message = status.message ?: return
     val scheme = MaterialTheme.colorScheme
-    val tone = if (status.isError) scheme.error else scheme.primary
+    val tone by animateColorAsState(if (status.isError) scheme.error else scheme.primary, motion(), label = "status-tone")
     Row(
         modifier.height(IntrinsicSize.Min).clip(LockOnShapes.tile).background(tone.copy(alpha = 0.1f))
             .padding(end = 12.dp, start = if (status.isError) 0.dp else 12.dp, top = 8.dp, bottom = 8.dp),
@@ -921,58 +939,65 @@ private fun DeviceTile(
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f).padding(end = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                when {
-                    !device.compatible -> Text("Needs a Lock On update", style = MaterialTheme.typography.bodySmall, color = scheme.error)
-                    inviting -> Text("Waiting for ${device.name} to accept pairing…", style = MaterialTheme.typography.bodySmall,
-                        color = scheme.onSurfaceVariant)
-                    send != null -> Text(
-                        send.label(),
-                        style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
-                        color = when (send.state) {
-                            OutgoingShare.State.SAVED -> scheme.onSurfaceVariant
-                            OutgoingShare.State.FAILED -> scheme.error
-                            else -> scheme.onSurfaceVariant
-                        },
-                    )
-                    else -> hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant) }
+                FadeSwap(send, contentKey = { listOf(device.compatible, inviting, it?.state) }) { shownSend ->
+                    when {
+                        !device.compatible -> Text("Needs a Lock On update", style = MaterialTheme.typography.bodySmall, color = scheme.error)
+                        inviting -> Text("Waiting for ${device.name} to accept pairing…", style = MaterialTheme.typography.bodySmall,
+                            color = scheme.onSurfaceVariant)
+                        shownSend != null -> Text(
+                            shownSend.label(),
+                            style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                            color = when (shownSend.state) {
+                                OutgoingShare.State.SAVED -> scheme.onSurfaceVariant
+                                OutgoingShare.State.FAILED -> scheme.error
+                                else -> scheme.onSurfaceVariant
+                            },
+                        )
+                        else -> hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant) }
+                    }
                 }
             }
-            if (busy) {
-                if (inviting) ReticleSpinner(size = 18.dp)
-                GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.SECONDARY, compact = true)
-            } else GameButton(action, onClick = onTap, enabled = device.compatible, icon = actionIcon, compact = true)
+            FadeSwap(busy, contentAlignment = Alignment.CenterEnd) { working ->
+                if (working) Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (inviting) ReticleSpinner(size = 18.dp)
+                    GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.SECONDARY, compact = true)
+                } else GameButton(action, onClick = onTap, enabled = device.compatible, icon = actionIcon, compact = true)
+            }
         }
-        if (send != null && send.state != OutgoingShare.State.SAVED) {
+        // The tile already eases its own height, so the bar only fades.
+        RevealValue(send?.takeIf { it.state != OutgoingShare.State.SAVED }, fadeOnly = true) { shownSend ->
             TransferBar(
-                fraction = when (send.state) {
-                    OutgoingShare.State.SENDING -> send.progress
+                fraction = when (shownSend.state) {
+                    OutgoingShare.State.SENDING -> shownSend.progress
                     OutgoingShare.State.WAITING -> null
                     else -> 1f
                 },
-                tone = when (send.state) {
+                tone = when (shownSend.state) {
                     OutgoingShare.State.SAVED -> BarTone.DONE
                     OutgoingShare.State.DECLINED -> BarTone.STOPPED
                     OutgoingShare.State.FAILED -> BarTone.FAILED
                     else -> BarTone.WORKING
                 },
-                            )
+            )
         }
     }
 }
 
-private enum class BarTone { WORKING, DONE, STOPPED, FAILED }
+internal enum class BarTone { WORKING, DONE, STOPPED, FAILED }
 
 /**
  * How far a transfer has got. A [fraction] fills the bar; null sweeps it while the other side
  * works or decides (still and half-filled with reduced motion). Done turns it gold, like a full gauge.
  */
 @Composable
-private fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = Modifier) {
+internal fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val reduce = LocalReduceMotion.current
     val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
     val accent = Accent
-    val fill = when (tone) {
+    // Finishing or failing, the bar's colour fades across; the two can't be blended as one brush.
+    Crossfade(tone, modifier.fillMaxWidth(), animationSpec = motion(), label = "transfer-tone") { shownTone ->
+    val fill = when (shownTone) {
         BarTone.WORKING -> Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
         BarTone.DONE -> Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
         BarTone.STOPPED -> SolidColor(scheme.outline)
@@ -985,7 +1010,7 @@ private fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = Mo
         t.animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "sweep")
     }
     Canvas(
-        modifier.fillMaxWidth().height(6.dp).clip(LockOnShapes.button).semantics {
+        Modifier.fillMaxWidth().height(6.dp).clip(LockOnShapes.button).semantics {
             progressBarRangeInfo = if (fraction == null) ProgressBarRangeInfo.Indeterminate else ProgressBarRangeInfo(fraction, 0f..1f)
         },
     ) {
@@ -1000,6 +1025,7 @@ private fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = Mo
                 drawRoundRect(fill, topLeft = Offset(x, 0f), size = Size(segment, size.height), cornerRadius = r)
             }
         }
+    }
     }
 }
 
@@ -1305,12 +1331,13 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
     val done = s.state == IncomingShare.State.SAVED
     Dialog(
         onDismissRequest = { if (done) sharing.dismiss(s.shareId) },
-        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = done, dismissOnBackPress = done),
+        properties = app.lockon.platform.plainDialogProperties(usePlatformDefaultWidth = false, dismissible = done),
     ) {
         val scheme = MaterialTheme.colorScheme
         Column(
             Modifier.padding(20.dp).widthIn(max = 460.dp).fillMaxWidth()
                 .arrive(rememberArrival())
+                .onDialogStage()
                 .clip(MaterialTheme.shapes.extraLarge)
                 .background(if (isTwilight()) scheme.surfaceContainerHigh else scheme.surfaceContainerLowest)
                 .glassFrame(MaterialTheme.shapes.extraLarge)
@@ -1333,7 +1360,7 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
                 style = MaterialTheme.typography.bodyLarge.merge(TabularNumbers),
                 color = if (done) (if (isTwilight()) Gold else scheme.tertiary) else scheme.onSurface,
             )
-            if (!asking) {
+            Reveal(!asking) {
                 TransferBar(
                     fraction = s.saved.toFloat() / s.decks.size.coerceAtLeast(1),
                     tone = if (done) BarTone.DONE else BarTone.WORKING,
@@ -1347,7 +1374,7 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
                 s.decks.forEachIndexed { i, deck ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(deck.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        if (!asking && i < s.saved) {
+                        Reveal(!asking && i < s.saved, sideways = true) {
                             Icon(LineIcons.Check, contentDescription = "Saved", tint = scheme.primary, modifier = Modifier.size(16.dp))
                         }
                         Text("Main ${deck.count(DeckSection.MAIN)}", style = MaterialTheme.typography.bodyMedium.merge(TabularNumbers),
@@ -1359,14 +1386,16 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
                 if (done) "They're in your decks now." else "They're added as new decks. Nothing else changes.",
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
-                when (s.state) {
-                    IncomingShare.State.ASKING -> {
-                        GameButton("Decline", onClick = { sharing.answer(s.shareId, false) }, style = GameButtonStyle.SECONDARY)
-                        GameButton("Accept", onClick = { sharing.answer(s.shareId, true) }, icon = LineIcons.Check)
+            FadeSwap(s.state, Modifier.padding(top = 4.dp), contentAlignment = Alignment.Center) { shownState ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when (shownState) {
+                        IncomingShare.State.ASKING -> {
+                            GameButton("Decline", onClick = { sharing.answer(s.shareId, false) }, style = GameButtonStyle.SECONDARY)
+                            GameButton("Accept", onClick = { sharing.answer(s.shareId, true) }, icon = LineIcons.Check)
+                        }
+                        IncomingShare.State.SAVING -> GameButton("Saving…", onClick = {}, enabled = false)
+                        IncomingShare.State.SAVED -> GameButton("Done", onClick = { sharing.dismiss(s.shareId) })
                     }
-                    IncomingShare.State.SAVING -> GameButton("Saving…", onClick = {}, enabled = false)
-                    IncomingShare.State.SAVED -> GameButton("Done", onClick = { sharing.dismiss(s.shareId) })
                 }
             }
         }

@@ -63,7 +63,14 @@ actual fun formatMonthDay(epochMillis: Long): String =
 actual fun formatClock(epochMillis: Long): String =
     java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT).withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(epochMillis))
 
-actual fun fullWindowDialogProperties() = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+actual fun fullWindowDialogProperties() = plainDialogProperties(usePlatformDefaultWidth = false)
+
+actual fun plainDialogProperties(usePlatformDefaultWidth: Boolean, dismissible: Boolean) = androidx.compose.ui.window.DialogProperties(
+    dismissOnBackPress = dismissible,
+    dismissOnClickOutside = dismissible,
+    usePlatformDefaultWidth = usePlatformDefaultWidth,
+    scrimColor = androidx.compose.ui.graphics.Color.Transparent,
+)
 
 @androidx.compose.runtime.Composable
 actual fun LightSystemBarIcons() = Unit

@@ -3,6 +3,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.geometry.Size
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.StrokeCap
@@ -143,15 +149,23 @@ private const val HOVER_PREVIEW_DELAY_MS = 350L
  */
 @Composable
 fun CardHoverPreview(card: Card, printingId: String?, hovered: Boolean) {
-    // Nothing is kept for cards the pointer isn't on, which is nearly all of a grid.
-    if (!hovered) return
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(HOVER_PREVIEW_DELAY_MS); shown = true }
-    if (!shown) return
+    // Nothing but this flag is kept for cards the pointer isn't on, which is nearly all of a grid. It
+    // stays up after the pointer leaves, for as long as the preview takes to fade.
+    var open by remember { mutableStateOf(false) }
+    if (hovered && !open) LaunchedEffect(Unit) { delay(HOVER_PREVIEW_DELAY_MS); open = true }
+    if (!open) return
+    val reduce = LocalReduceMotion.current
+    val arrival = remember { Animatable(0f) }
+    LaunchedEffect(hovered) {
+        if (reduce) arrival.snapTo(if (hovered) 1f else 0f)
+        else if (hovered) arrival.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate))
+        else arrival.animateTo(0f, tween(Motion.SHORT, easing = Motion.emphasizedAccelerate))
+        if (!hovered) open = false
+    }
     val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
     Popup(popupPositionProvider = remember(gap) { BesideAnchor(gap) }, properties = PopupProperties(focusable = false)) {
         // As large as fits the window, up to a size where the effect text reads easily.
-        Box(Modifier.widthIn(max = 300.dp).padding(vertical = 8.dp).arrive(rememberArrival(), from = 0.97f).clearAndSetSemantics {}) {
+        Box(Modifier.widthIn(max = 300.dp).padding(vertical = 8.dp).arrive(arrival.asState(), from = 0.97f).clearAndSetSemantics {}) {
             // The drawn placeholder face is partly see-through, so it gets a solid backing out here.
             CardImage(card, Modifier.shadow(18.dp, CardShape).background(MaterialTheme.colorScheme.surface, CardShape), printingId)
         }
@@ -420,31 +434,35 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
             .clickable(interaction, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier.size(32.dp).pressScale(interaction).clip(if (desktopControls) InsetControlShape else RoundedCornerShape(10.dp))
-                .background(
-                    when {
-                        !enabled -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
-                        primary -> SolidColor(lighten(Accent, if (hovered) (if (desktopControls) 0.08f else 0.15f) else 0f))
-                        desktopControls -> SolidColor(neutralWash(hovered, pressed))
-                        else -> Brush.verticalGradient(listOf(scheme.onSurface.copy(alpha = if (hovered) 0.22f else 0.12f), scheme.onSurface.copy(alpha = 0.06f)))
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            // Drawn, so each sits in the exact middle of its button; a font's − and + don't.
-            Icon(
-                if (symbol == "+") LineIcons.Plus else LineIcons.Minus, contentDescription = null, Modifier.size(18.dp),
-                tint = when {
-                    !enabled && desktopControls -> scheme.onSurface.copy(alpha = 0.38f)
-                    !enabled -> scheme.outline.copy(alpha = 0.6f)
-                    primary -> OnAccent
-                    // Past the copy limit + still works, for formats that allow it, but it steps back.
-                    symbol == "+" && !desktopControls -> scheme.onSurface.copy(alpha = 0.4f)
-                    else -> scheme.onSurface
-                },
-            )
+        val top: Color
+        val bottom: Color
+        when {
+            !enabled -> { top = Color.Transparent; bottom = Color.Transparent }
+            primary -> { top = lighten(Accent, if (hovered) (if (desktopControls) 0.08f else 0.15f) else 0f); bottom = top }
+            desktopControls -> { top = neutralWash(hovered, pressed); bottom = top }
+            else -> { top = scheme.onSurface.copy(alpha = if (hovered) 0.22f else 0.12f); bottom = scheme.onSurface.copy(alpha = 0.06f) }
         }
+        val ink = when {
+            !enabled && desktopControls -> scheme.onSurface.copy(alpha = 0.38f)
+            !enabled -> scheme.outline.copy(alpha = 0.6f)
+            primary -> OnAccent
+            // Past the copy limit + still works, for formats that allow it, but it steps back.
+            symbol == "+" && !desktopControls -> scheme.onSurface.copy(alpha = 0.4f)
+            else -> scheme.onSurface
+        }
+        val glyph = rememberVectorPainter(if (symbol == "+") LineIcons.Plus else LineIcons.Minus)
+        // Everything is drawn here, so a tile's two buttons ease their colours with no state of their own
+        // at rest. The glyph is drawn too, so it sits in the exact middle of its button; a font's − and + don't.
+        Spacer(
+            Modifier.size(32.dp).pressScale(interaction).clip(if (desktopControls) InsetControlShape else RoundedCornerShape(10.dp))
+                .drawTones(top, bottom, ink) { fillTop, fillBottom, tone ->
+                    if (fillTop == fillBottom) drawRect(fillTop) else drawRect(Brush.verticalGradient(listOf(fillTop, fillBottom)))
+                    val s = 18.dp.toPx()
+                    translate((size.width - s) / 2, (size.height - s) / 2) {
+                        with(glyph) { draw(Size(s, s), colorFilter = ColorFilter.tint(tone)) }
+                    }
+                },
+        )
     }
 }
 
@@ -470,6 +488,7 @@ fun DeckStrip(
     val hover = remember { HoverState() }
     val hovered = hover.hovered
     val base = if (isTwilight()) Color(0xFF414A88) else Color(0xFFF3F6FB)
+    val plateRim = scheme.outlineVariant.copy(alpha = 0.8f)
     Box(
         modifier.fillMaxWidth().height(if (compact) 48.dp else 54.dp)
             .flashOnChange(quantity, scheme.primary, scheme.error, StripShape)
@@ -503,12 +522,15 @@ fun DeckStrip(
             // Controls sit on their own dark plate so busy artwork never hides them.
             Row(
                 Modifier.clip(SmallPlate).background(base.copy(alpha = 0.9f))
-                    .border(BorderStroke(1.dp, if (hovered) Color.Transparent else scheme.outlineVariant.copy(alpha = 0.8f)), SmallPlate),
+                    .drawSettled(if (hovered) 0f else 1f) { rest ->
+                        drawContent()
+                        if (rest > 0f) drawOutline(SmallPlate.createOutline(size, layoutDirection, this), plateRim, alpha = rest, style = Stroke(1.dp.toPx()))
+                    },
                 verticalAlignment = Alignment.CenterVertically,
             ) { controls() }
         }
         // A lit edge on hover, over the controls so their plate does not cut it.
-        Box(Modifier.fillMaxSize().border(BorderStroke(if (hovered) SelectionEdgeWidth else 1.dp, if (hovered) scheme.primary else if (isTwilight()) Color.White.copy(alpha = 0.1f) else Color.Transparent), StripShape))
+        Box(Modifier.fillMaxSize().then(if (isTwilight()) Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), StripShape) else Modifier).selectionEdge(StripShape, scheme.primary, hovered))
     }
 }
 
@@ -568,8 +590,13 @@ fun CardDetailContent(
             }.padding(8.dp)) {
                 // A click opens the card full size, to turn in the light.
                 val press = remember { MutableInteractionSource() }
-                CardImage(card, Modifier.fillMaxWidth().pressScale(press).pointerHoverIcon(PointerIcon.Hand)
-                    .clickable(press, indication = null, onClickLabel = "View larger") { inspecting = true }, printingId = shown)
+                // Another printing fades in over the last, so the art never blanks between them.
+                androidx.compose.animation.Crossfade(
+                    shown,
+                    Modifier.fillMaxWidth().pressScale(press).pointerHoverIcon(PointerIcon.Hand)
+                        .clickable(press, indication = null, onClickLabel = "View larger") { inspecting = true },
+                    animationSpec = motion(), label = "printing",
+                ) { CardImage(card, Modifier.fillMaxWidth(), printingId = it) }
             }
         }
         if (inspecting) CardInspectDialog(card, shown, onDismiss = { inspecting = false })
@@ -820,7 +847,7 @@ fun CardDetailDialog(
             // The cap comes first: after fillMaxWidth the width is already fixed and widthIn can't shrink it.
             // Phones get the same floating sheet as the filters, closed by its button.
             modifier = (if (narrow) Modifier.align(Alignment.BottomCenter).padding(8.dp).widthIn(max = 480.dp).fillMaxWidth() else Modifier.widthIn(max = 980.dp).fillMaxWidth(0.94f))
-                .heightIn(max = maxHeight).arrive(arrival).then(if (narrow) Modifier else Modifier.glassFrame()),
+                .heightIn(max = maxHeight).arrive(arrival).onDialogStage().then(if (narrow) Modifier else Modifier.glassFrame()),
         ) {
             Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = if (narrow) 16.dp else 8.dp, bottom = if (narrow) 16.dp else 24.dp)) {
                 // The frame's end is slim to leave the details their scroll bar's lane; Close keeps a proper margin.

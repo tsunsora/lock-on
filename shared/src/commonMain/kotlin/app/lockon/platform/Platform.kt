@@ -70,6 +70,9 @@ expect val isMobile: Boolean
  */
 expect fun fullWindowDialogProperties(): androidx.compose.ui.window.DialogProperties
 
+/** Any other dialog. On desktop the dim behind it is left to [app.lockon.ui.components.DialogStage], which eases it. */
+expect fun plainDialogProperties(usePlatformDefaultWidth: Boolean = true, dismissible: Boolean = true): androidx.compose.ui.window.DialogProperties
+
 /** Inside a [fullWindowDialogProperties] dialog: the bars' clock and icons stay light over its dark dim, in either theme. */
 @androidx.compose.runtime.Composable
 expect fun LightSystemBarIcons()
