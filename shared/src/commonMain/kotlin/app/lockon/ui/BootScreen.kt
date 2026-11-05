@@ -122,10 +122,6 @@ interface BootCover {
     fun step(step: BootStep)
     /** Fades it out, showing the app beneath, once the app has booted. */
     fun lift()
-    /** True for a cover that draws pictures the app takes of its boot screen ([BootPictureTaker]) rather than taking its own. */
-    val wantsPictures: Boolean get() = false
-    /** The app's latest pictures of its boot screen, when [wantsPictures]; taken again whenever its theme or size changes. */
-    fun pictures(pictures: BootPictures) {}
 }
 
 /** The boot screen's still layers as pictures, all the size of the screen, and where the targeting goes between them. */
@@ -172,10 +168,17 @@ enum class BootLayers { ALL, SKY, FRONT }
 
 /** Where the targeting field sits on the boot screen and how it looks, for a [BootCover] that draws it itself. */
 class BootTargeting(val center: Offset, val reach: Float, val target: Float, val scan: Color, val ink: Color, val labelStyle: TextStyle) {
-    fun draw(scope: DrawScope, clock: BootClock, labels: TextMeasurer) = with(scope) {
+    /** Draws the field at [clock]; with [rings] false, without the parts that never move ([drawRings]), for a cover that keeps those in a picture. */
+    fun draw(scope: DrawScope, clock: BootClock, labels: TextMeasurer, rings: Boolean = true) = with(scope) {
         translate(this@BootTargeting.center.x - size.width / 2, this@BootTargeting.center.y - size.height / 2) {
+            if (rings) drawRadarRings(reach, scan)
             drawTargeting(clock.stage, clock.loop, reach, target, scan, ink, labels, labelStyle)
         }
+    }
+
+    /** Draws the parts of the field that never move: the range rings and the ticks round them. */
+    fun drawRings(scope: DrawScope) = with(scope) {
+        translate(this@BootTargeting.center.x - size.width / 2, this@BootTargeting.center.y - size.height / 2) { drawRadarRings(reach, scan) }
     }
 
     /** Lays out the seeker's readouts ahead of time, so drawing on another thread later only reads them from [labels]' cache. */
@@ -251,7 +254,10 @@ fun BootScreen(
                             },
                         ),
                     ) {
-                        if (layers == BootLayers.ALL) drawTargeting(time(), sweep(), reach.toPx(), 62.dp.toPx(), scan, ink, labels, labelStyle)
+                        if (layers == BootLayers.ALL) {
+                            drawRadarRings(reach.toPx(), scan)
+                            drawTargeting(time(), sweep(), reach.toPx(), 62.dp.toPx(), scan, ink, labels, labelStyle)
+                        }
                     }
                     Box(
                         Modifier.size(124.dp).shadow(16.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
@@ -311,6 +317,18 @@ private fun readouts(ink: Color) = Triple("SEARCHING" to ink.copy(alpha = 0.55f)
 /** Faint contacts on the radar, as (bearing in turns, range as a share of reach); the sweep lights each as it passes. */
 private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.63f to 1.05f, 0.79f to 1.42f, 0.93f to 0.7f)
 
+/** The radar field's dashed range rings and the ticks round them, around the canvas centre, [reach] out. */
+private fun DrawScope.drawRadarRings(reach: Float, scan: Color) {
+    val c = center
+    val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 8.dp.toPx()))
+    listOf(0.55f, 1.05f, 1.55f).forEach { drawCircle(scan.copy(alpha = 0.16f), reach * it, c, style = Stroke(1.dp.toPx(), pathEffect = dash)) }
+    repeat(12) { i ->
+        val a = i / 12f * 2 * PI.toFloat()
+        val d = Offset(cos(a), sin(a))
+        drawLine(scan.copy(alpha = 0.22f), c + d * (reach * 1.55f - 6.dp.toPx()), c + d * (reach * 1.55f + 6.dp.toPx()), 2.dp.toPx())
+    }
+}
+
 /**
  * Draws the whole targeting pass around the canvas centre (the mark), [reach] out, at pass time [t],
  * with the radar sweep at [loop] of its own loop. [target] is the mark's radius, where the brackets come to rest.
@@ -318,14 +336,7 @@ private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.
 private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target: Float, scan: Color, ink: Color, labels: TextMeasurer, labelStyle: TextStyle) {
     val c = center
     val line = 2.dp.toPx()
-    // The radar field: dashed range rings, a sweeping wedge, and contacts that glow as it passes.
-    val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 8.dp.toPx()))
-    listOf(0.55f, 1.05f, 1.55f).forEach { drawCircle(scan.copy(alpha = 0.16f), reach * it, c, style = Stroke(1.dp.toPx(), pathEffect = dash)) }
-    repeat(12) { i ->
-        val a = i / 12f * 2 * PI.toFloat()
-        val d = Offset(cos(a), sin(a))
-        drawLine(scan.copy(alpha = 0.22f), c + d * (reach * 1.55f - 6.dp.toPx()), c + d * (reach * 1.55f + 6.dp.toPx()), line)
-    }
+    // Over the rings: a sweeping wedge, and contacts that glow as it passes.
     // Two sweeps per loop, so the wedge comes round again where it started.
     val sweep = loop * 2 * 360f
     rotate(sweep, pivot = c) {
