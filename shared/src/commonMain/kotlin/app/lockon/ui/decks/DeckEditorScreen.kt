@@ -168,7 +168,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
@@ -1029,7 +1028,7 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
 
 /**
  * The divider between the card list and the deck: drag to resize, double-click to reset. A pill grip
- * sits in the gap, and lights up in the accent with a soft glow while hovered or dragged.
+ * sits in the gap, and turns the accent colour while hovered or dragged.
  */
 @Composable
 private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDragEnd: () -> Unit, onReset: () -> Unit) {
@@ -1043,7 +1042,6 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
     val scheme = MaterialTheme.colorScheme
     val active = dragging || hovered
     val grip by animateColorAsState(if (active) scheme.primary else scheme.onSurfaceVariant.copy(alpha = 0.3f), motion(Motion.SHORT))
-    val glow by animateFloatAsState(if (active) 1f else 0f, motion(Motion.SHORT))
     Box(
         Modifier.width(SPLIT_HANDLE).fillMaxHeight()
             .hoverable(interaction)
@@ -1059,16 +1057,7 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
             .pointerInput(Unit) { detectTapGestures(onDoubleTap = { reset() }) },
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier.width(4.dp).height(54.dp)
-                .drawBehind {
-                    if (glow > 0f) drawRoundRect(
-                        Brush.radialGradient(listOf(scheme.primary.copy(alpha = 0.35f * glow), scheme.primary.copy(alpha = 0f)), radius = size.height * 0.75f),
-                        topLeft = Offset(-size.height / 2, -size.height / 4), size = Size(size.height + size.width, size.height * 1.5f),
-                    )
-                }
-                .clip(RoundedCornerShape(2.dp)).background(grip),
-        )
+        Box(Modifier.width(4.dp).height(54.dp).clip(RoundedCornerShape(2.dp)).background(grip))
     }
 }
 
