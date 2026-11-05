@@ -96,6 +96,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val moreHidden by settings.moreHidden.collectAsState()
     val catalogChecks by settings.catalogChecks.collectAsState()
     val autoDeckColors by settings.autoDeckColors.collectAsState()
+    val deckAsCards by settings.deckAsCards.collectAsState()
     val editorSplit by settings.editorSplit.collectAsState()
     val cardSort by settings.cardSort.collectAsState()
     val showArtwork by container.catalog.showArtwork.collectAsState()
@@ -156,6 +157,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                             }
                         }
                     }
+                    Toggle("Open decks as card images", deckAsCards) { scope.launch { settings.setDeckAsCards(it) } }
                     MoreMenuChoice(moreHidden) { item, shown ->
                         scope.launch {
                             if (!settings.setMoreShown(item, shown)) state.notify("The More menu keeps at least one section.")

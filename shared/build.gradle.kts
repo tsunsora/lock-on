@@ -81,6 +81,7 @@ kotlin {
         // Plain HTTPS downloads (catalog updates) use the system trust store, unlike sync.
         // zxing draws the deck image's share QR code; both platforms already ship it for pairing.
         androidMain.dependencies {
+            implementation("androidx.core:core:1.16.0")
             implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
             implementation("com.google.zxing:core:3.5.3")
         }

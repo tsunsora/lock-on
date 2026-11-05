@@ -44,3 +44,26 @@ actual val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIco
     androidx.compose.ui.input.pointer.PointerIcon(android.view.PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW)
 
 actual val isMobile: Boolean = true
+
+actual fun fullWindowDialogProperties() =
+    androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+
+@androidx.compose.runtime.Composable
+actual fun LightSystemBarIcons() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(view) {
+        (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { window ->
+            @Suppress("DEPRECATION")
+            run {
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+            androidx.core.view.WindowCompat.getInsetsController(window, view).run {
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
+            }
+        }
+        onDispose {}
+    }
+}

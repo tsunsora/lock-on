@@ -30,3 +30,14 @@ expect val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIco
 
 /** Whether Lock On runs on a phone or tablet, for settings that only apply there. */
 expect val isMobile: Boolean
+
+/**
+ * A dialog that fills the window. On phones it reaches under the status and navigation bars, so the
+ * dim it paints darkens them too; the system adds no dim of its own there, and the dialog's content
+ * keeps clear of the bars with window insets.
+ */
+expect fun fullWindowDialogProperties(): androidx.compose.ui.window.DialogProperties
+
+/** Inside a [fullWindowDialogProperties] dialog: the bars' clock and icons stay light over its dark dim, in either theme. */
+@androidx.compose.runtime.Composable
+expect fun LightSystemBarIcons()

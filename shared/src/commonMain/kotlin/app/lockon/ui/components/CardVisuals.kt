@@ -41,6 +41,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -99,7 +101,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
-import androidx.compose.ui.window.DialogProperties
 import app.lockon.model.Card
 import app.lockon.model.Printing
 import app.lockon.ui.theme.LockOnShapes
@@ -705,11 +706,17 @@ fun CardDetailDialog(
     extraActions: (@Composable () -> Unit)? = null,
 ) {
     val arrival = rememberArrival()
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Dialog(onDismissRequest = onDismiss, properties = app.lockon.platform.fullWindowDialogProperties()) {
+        app.lockon.platform.LightSystemBarIcons()
         // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
-        // the panel rather than around it, so clicks inside never reach it.
-        Spacer(Modifier.fillMaxSize().clickable(interactionSource = null, indication = null, onClick = onDismiss))
+        // the panel rather than around it, so clicks inside never reach it. Phones get no system dim, so it paints one.
+        Spacer(Modifier.fillMaxSize().graphicsLayer { alpha = arrival.value }
+            .then(if (app.lockon.platform.isMobile) Modifier.background(Color.Black.copy(alpha = 0.6f)) else Modifier)
+            .clickable(interactionSource = null, indication = null, onClick = onDismiss))
+        BoxWithConstraints(
+            Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.safeDrawing),
+            contentAlignment = Alignment.Center,
+        ) {
         val maxHeight = maxHeight * 0.9f
         // Phones keep a slimmer frame so the card details get the width.
         val narrow = maxWidth < 600.dp
@@ -720,8 +727,9 @@ fun CardDetailDialog(
             modifier = Modifier.widthIn(max = 1040.dp).fillMaxWidth(0.94f).heightIn(max = maxHeight)
                 .arrive(arrival).glassFrame(),
         ) {
-            Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = 8.dp, bottom = 16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.padding(start = if (narrow) 16.dp else 24.dp, end = if (narrow) 4.dp else 12.dp, top = if (narrow) 16.dp else 8.dp, bottom = 16.dp)) {
+                // The frame's end is slim to leave the details their scroll bar's lane; Close keeps a proper margin.
+                Row(Modifier.padding(end = if (narrow) 12.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(card.name, style = if (narrow) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
                         modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     GameButton("Close", onClick = onDismiss, style = GameButtonStyle.SECONDARY, compact = true)
