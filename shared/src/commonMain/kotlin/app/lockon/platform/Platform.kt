@@ -8,6 +8,8 @@ interface FileBridge {
     suspend fun saveText(suggestedName: String, mimeType: String, content: String): Boolean
     /** Returns false when the person cancelled. */
     suspend fun saveBytes(suggestedName: String, mimeType: String, content: ByteArray): Boolean
+    /** Adds a file to the Downloads folder without asking, beside any of the same name. Returns false when it can't, so the caller can ask with [saveBytes]. */
+    suspend fun saveToDownloads(name: String, mimeType: String, content: ByteArray): Boolean = false
     /** Returns null when the person cancelled. */
     suspend fun openText(mimeTypes: List<String>): String?
 }
