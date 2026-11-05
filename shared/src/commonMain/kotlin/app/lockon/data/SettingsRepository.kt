@@ -58,6 +58,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _editorBar = MutableStateFlow(EditorBarOrder.MORE_ADD_DECK)
     private val _moreHidden = MutableStateFlow<Set<EditorMoreItem>>(emptySet())
     private val _cardSort = MutableStateFlow(CardSort.NUMBER)
+    private val _deckAsCards = MutableStateFlow(false)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -78,6 +79,8 @@ class SettingsRepository(private val meta: MetaDao) {
     val moreHidden: StateFlow<Set<EditorMoreItem>> = _moreHidden.asStateFlow()
     /** The order the Cards screen lists cards in until another is picked there. */
     val cardSort: StateFlow<CardSort> = _cardSort.asStateFlow()
+    /** Whether the editor opens decks as whole card images instead of a list. */
+    val deckAsCards: StateFlow<Boolean> = _deckAsCards.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -90,6 +93,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _editorSplit.value = meta.get(KEY_EDITOR_SPLIT)?.toFloatOrNull()
         _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.MORE_ADD_DECK)
         _cardSort.value = enumOr(meta.get(KEY_CARD_SORT), CardSort.NUMBER)
+        _deckAsCards.value = meta.get(KEY_DECK_AS_CARDS) == "true"
         _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')
             .mapNotNull { name -> EditorMoreItem.entries.firstOrNull { it.name == name } }.toSet()
             .takeIf { it.size < EditorMoreItem.entries.size }.orEmpty()
@@ -121,6 +125,7 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setCatalogChecks(on: Boolean) { _catalogChecks.value = on; meta.put(MetaEntity(KEY_CATALOG_CHECKS, on.toString())) }
     /** Null goes back to the default split. */
     suspend fun setEditorSplit(split: Float?) { _editorSplit.value = split; meta.put(MetaEntity(KEY_EDITOR_SPLIT, split?.toString().orEmpty())) }
+    suspend fun setDeckAsCards(on: Boolean) { _deckAsCards.value = on; meta.put(MetaEntity(KEY_DECK_AS_CARDS, on.toString())) }
     suspend fun setCardSort(sort: CardSort) { _cardSort.value = sort; meta.put(MetaEntity(KEY_CARD_SORT, sort.name)) }
     suspend fun setAutoDeckColors(on: Boolean) { _autoDeckColors.value = on; meta.put(MetaEntity(KEY_AUTO_DECK_COLORS, on.toString())) }
 
@@ -163,5 +168,6 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_EDITOR_BAR = "settings.editorBar"
         const val KEY_MORE_HIDDEN = "settings.editorMoreHidden"
         const val KEY_CARD_SORT = "settings.cardSort"
+        const val KEY_DECK_AS_CARDS = "settings.deckAsCards"
     }
 }

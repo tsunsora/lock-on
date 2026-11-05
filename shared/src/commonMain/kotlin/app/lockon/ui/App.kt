@@ -1,4 +1,5 @@
 package app.lockon.ui
+import androidx.compose.ui.draw.drawWithContent
 import app.lockon.ui.components.LocalScreenShown
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideInVertically
@@ -325,7 +326,8 @@ fun LockOnApp(
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when {
                         event.key == Key.F && (event.isCtrlPressed || event.isMetaPressed) -> {
-                            if (state.current == null && state.tab != Tab.CARDS) state.select(Tab.CARDS)
+                            // Decks has its own search; everywhere else it means the cards.
+                            if (state.current == null && state.tab != Tab.CARDS && state.tab != Tab.DECKS) state.select(Tab.CARDS)
                             state.requestSearchFocus(); true
                         }
                         event.key == Key.Escape && state.canGoBack -> { state.goBack(); true }
@@ -381,7 +383,7 @@ fun LockOnApp(
                                         val decks = remember(all) { all.filterNot { it.snapshot.deleted } }
                                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                                             Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(
-                                                sync, container.identity.deviceName, decks,
+                                                sync, container.identity.deviceName, decks, container.catalog.cards.collectAsState().value,
                                                 sending = state.syncSending, onSendingChange = { state.syncSending = it },
                                             ) }
                                         }
@@ -646,7 +648,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
             ),
         contentAlignment = Alignment.CenterStart,
     ) {
-        Box(
+        if (back == null) Box(
             Modifier.padding(start = 30.dp)
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
@@ -680,15 +682,30 @@ private val LogoTileTwilight = listOf(Color(0xFF6FE7EC), Color(0xFF7CC4FF), Colo
  * reticle by day and bright cyan with a navy reticle at twilight, so it belongs to both themes. As
  * [turn] goes to 1 the reticle spins away and a back arrow spins in where it was.
  */
+/** The Lock On mark on its rounded tile, in the theme's colours. */
+@Composable
+internal fun BrandTile(size: Dp) {
+    val twilight = isTwilight()
+    val shape = RoundedCornerShape(size * 0.3f)
+    Box(
+        Modifier.size(size).shadow(8.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
+            .clip(shape).background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay)),
+        contentAlignment = Alignment.Center,
+    ) { LockOnMark(size = size * 0.6f, reticleColor = if (twilight) Color(0xFF10204A) else Color.White) }
+}
+
 @Composable
 private fun LevelBadge(turn: Float, ring: Color) {
     val twilight = isTwilight()
-    val ink = if (twilight) Color(0xFF10204A) else Color.White
+    val plain = glassColors().strong
+    val ink = androidx.compose.ui.graphics.lerp(if (twilight) Color(0xFF10204A) else Color.White, MaterialTheme.colorScheme.onSurface, turn)
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier.size(60.dp).shadow(8.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
             .clip(shape)
             .background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay))
+            // Going back, the tile turns to a plain button.
+            .drawWithContent { drawRect(plain, alpha = turn); drawContent() }
             .border(1.5.dp, if (ring == Color.Transparent) Color.White.copy(alpha = 0.4f) else ring, shape),
         contentAlignment = Alignment.Center,
     ) {

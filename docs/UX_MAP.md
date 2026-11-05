@@ -15,7 +15,7 @@ flowchart LR
 
     D -->|tap deck| E[Deck editor]
     D -->|New deck| E
-    D -->|Import| IMP{{Import sheet}}
+    D -->|New deck: paste a list| IMP{{Reads the list, opens the editor}}
     IMP -->|deck list| E
     D -->|deck menu| DM{{Rename / Move to folder / Tags / Duplicate / Export / Delete}}
     DM -->|Delete| UNDO([Snackbar: Undo])
@@ -51,8 +51,8 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   - Folders sync with the decks.
 - **Actions:**
   - Beside search on desktop, a round **+** at the bottom right on phones: **New deck**.
-  - Import a deck list from **New deck**; **Back up all decks** is in Settings.
-  - Search decks by name, and filter by folder and tag.
+  - **New deck** names the deck, picks a folder (or a new one), and starts **Empty** or from **Paste a list**, which reads the list as you type, opens a file, and also takes a Lock On backup. **Back up all decks** is in Settings.
+  - Search decks by name (Ctrl+F on a computer), sort by **Last edited**, **Name** or **Win rate**, and filter by folder and tag.
   - Each tile's menu: Rename, Move to folder (pick a folder in use, or type a new one), Edit tags, Duplicate (keeps folder and cover, not matches), Export, Delete (with Undo).
 - **Empty state:** explains the three ways to get a deck: create one, import one, or pair a device.
 
@@ -75,24 +75,26 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - Card details also offer **Use as deck cover**.
      - Notes go at the end.
   3. **Analysis:**
-     - legality messages first
-     - Gundam readouts: Burst cards (how many can trigger from shields), Blockers, and Unit–Pilot link pairs present
-     - level curve, cost curve, type and color counts
+     - what keeps the deck from being legal, only while something does
+     - **Burst**, **Blockers** and **Links** as three tiles; **Links** opens the Unit–Pilot pairs
+     - **Level** and **Cost** curves
+     - one bar split by type with a legend, and one split by color
   4. **Test (sample hand):**
-     - Shuffle and draw 5, with one **Redraw** that follows the official rule.
-     - The next 6 cards become shields, face down until you reveal them.
-     - **Draw** adds one card per turn.
+     - Shuffle and draw 5, held in a fan, with cards left and the turn above it. The card under the pointer comes to the front.
+     - **Redraw** follows the official rule, once.
+     - 6 shields wait face down; **Reveal** turns them over.
+     - **Draw** adds one card per turn; the first draw keeps the hand and sets the shields.
      - **New game** shuffles again.
-     - Stats show how many Units of level 2 or lower are in hand.
   5. **Matches (win/loss log):**
-     - record, win rate, and results going first and second
-     - **Log a match:** an optional opponent (picked from earlier opponents or typed), turn order and note, then **Win**, **Loss** or **Draw** logs it in one tap
-     - results by opponent, then every game, newest first, each removable with Undo
+     - win rate as a ring, the record, and a bar each for going first and second
+     - **Log a match:** an optional opponent (picked from earlier opponents or typed), **1st** or **2nd**, a note behind the pencil, then **Win**, **Loss** or **Draw** logs it in one tap
+     - a bar per opponent, then every game, newest first; tapping one shows its time and removes it with Undo
      - Matches sync. When a conflict is settled, games logged on every device are kept.
   6. **Versions:**
-     - Every version newest first, with time, device, counts and what changed (`+3 −1 cards · renamed`).
+     - **Now** on top, with what has changed so far and **Keep as a version**.
+     - Every older version newest first, with its device as an icon, time, card count, cards added and taken away, and **Renamed** or **Created**.
      - Edits join the current version until you choose **Keep as a version**, it syncs, or the deck sits for 30 minutes.
-     - Opening an older version lists its card differences from now, and **Restore these cards** brings them back with Undo. Name, notes, folder and matches stay as they are.
+     - Opening a version shows in place what restoring would change, and **Restore these cards** brings them back with Undo. Name, notes, folder and matches stay as they are.
 - **Export dialog:** **List** (copy or save the text list), **Image** (a 2160-pixel-wide picture of the main deck, five cards a row, with its cover, colors, legality, curve, type counts and a QR code holding the list, saved as PNG), and **Print sheet** (a deck registration sheet saved as a web page to print from any browser). On wide windows the preview sits beside the controls and shows the whole image at once (**View: Full width** zooms it to scroll); on phones the dialog fills the screen and the preview takes every row the controls leave.
 - **Leaving:** back or the navigation, which saves first.
 
@@ -151,7 +153,7 @@ Two pages: **Sync devices** (first) and **Send decks**.
    4. Switch to **Test** to try hands.
    5. Back. It's already saved.
 2. **Import a list from a friend:**
-   1. Decks → **Import** → paste.
+   1. Decks → **New deck** → **Paste a list**.
    2. The editor opens on the imported deck, with any unreadable lines reported.
 3. **Phone to computer (first time), LocalSend-style:**
    1. Open Lock On on both, on the same Wi-Fi. Each appears in the other's **Nearby** list.

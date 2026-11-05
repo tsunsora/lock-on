@@ -1,4 +1,24 @@
 package app.lockon.ui.decks
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import app.lockon.platform.dayAndTimeLabel
+import app.lockon.ui.components.CostOrb
+import app.lockon.ui.components.Glyphs
+import app.lockon.ui.theme.cardColor
+import app.lockon.ui.components.glassColors
+import app.lockon.ui.components.motion
+import app.lockon.ui.theme.onCardColor
+import app.lockon.ui.theme.LockOnShapes
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
@@ -43,8 +63,9 @@ import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.theme.TabularNumbers
 
 /**
- * The deck's saved versions, newest first. Opening an older one compares it with the deck now and
- * can bring its cards back; name, notes, folder and matches are left alone.
+ * The deck's saved versions, newest first. The top row is the version being edited; opening an older
+ * one compares it with the deck now and can bring its cards back. Name, notes, folder and matches
+ * are left alone.
  */
 @Composable
 fun VersionsPanel(
@@ -52,85 +73,94 @@ fun VersionsPanel(
     current: DeckSnapshot,
     cards: Map<String, Card>,
     deviceLabel: (String) -> String,
+    fromPhone: (String) -> Boolean,
     modifier: Modifier = Modifier,
     onKeep: () -> Unit,
     onRestore: (DeckVersion) -> Unit,
 ) {
-    var comparing by remember { mutableStateOf<DeckVersion?>(null) }
+    var open by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     Box(modifier) {
-    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavClearance.current)) {
-        item(key = "keep") {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader("Versions", readout = "${versions.size}")
-                Text(
-                    "Changes join the current version until you keep it, it syncs to another device, or the deck sits for " +
-                        "${DeckRepository.VERSION_IDLE_MS / 60_000} minutes. Open an older version to compare it or bring its cards back.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                GameButton("Keep as a version", onClick = onKeep, style = GameButtonStyle.SECONDARY)
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        item(key = "now") {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("Now", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                versions.firstOrNull()?.let { head -> versions.getOrNull(1)?.let { Changes(it.snapshot, head.snapshot) } }
+                GameButton("Keep as a version", onClick = onKeep, compact = true)
             }
         }
-        itemsIndexed(versions, key = { _, v -> v.revisionId }) { index, version ->
-            val older = versions.getOrNull(index + 1)?.snapshot
+        itemsIndexed(versions.drop(1), key = { _, v -> v.revisionId }) { index, version ->
+            val older = versions.getOrNull(index + 2)?.snapshot
+            val isOpen = open == version.revisionId
             Column(
-                Modifier.animateItem().fillMaxWidth().clickable(enabled = index > 0) { comparing = version }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                Modifier.animateItem().fillMaxWidth().clip(LockOnShapes.tile)
+                    .background(if (isOpen) glassColors().strong else Color.Transparent)
+                    .then(if (isOpen) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), LockOnShapes.tile) else Modifier)
+                    .animateContentSize(motion()),
             ) {
-                Text(
-                    if (index == 0) "Current · ${formatTimestamp(version.createdAt)}" else formatTimestamp(version.createdAt),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (index == 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    "${deviceLabel(version.originDeviceId)} · Main ${version.snapshot.count(DeckSection.MAIN)}",
-                    style = MaterialTheme.typography.bodySmall.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    if (older == null) "Created" else DeckDiff.summary(older, version.snapshot),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Row(
+                    Modifier.fillMaxWidth().clickable(onClickLabel = if (isOpen) "Close" else "Compare with the deck now") { open = if (isOpen) null else version.revisionId }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(if (fromPhone(version.originDeviceId)) Glyphs.Phone else Glyphs.Monitor, deviceLabel(version.originDeviceId), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(dayAndTimeLabel(version.createdAt), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                    Text("${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(Modifier.width(62.dp)) { if (older != null) Changes(older, version.snapshot) else Text("+${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary) }
+                    val note = when {
+                        older == null -> "Created"
+                        older.name != version.snapshot.name -> "Renamed"
+                        else -> ""
+                    }
+                    Text(note, Modifier.width(62.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Icon(if (isOpen) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (isOpen) Compared(version, current, cards) { open = null; onRestore(version) }
             }
-            HorizontalDivider(Modifier.padding(start = 16.dp))
         }
     }
     VerticalScrollBar(listState, Modifier.align(Alignment.TopEnd))
     }
+}
 
-    comparing?.let { version ->
-        val changes = remember(version, current) { DeckDiff.cards(version.snapshot, current) }
-        GameDialog(
-            onDismissRequest = { comparing = null },
-            title = "Version from ${formatTimestamp(version.createdAt)}",
-            text = {
-                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (changes.isEmpty()) Text("It has the same cards as the deck now.")
-                    DeckSection.entries.forEach { section ->
-                        val inSection = changes.filter { it.section == section }
-                        if (inSection.isEmpty()) return@forEach
-                        Text(section.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 6.dp))
-                        inSection.forEach { change ->
-                            Text(
-                                "${cards[change.cardNumber]?.name ?: change.cardNumber}: ${change.before} then, ${change.after} now",
-                                style = MaterialTheme.typography.bodyMedium.merge(TabularNumbers),
-                            )
-                        }
-                    }
-                    if (changes.isNotEmpty()) {
-                        Text(
-                            "Restoring brings back these cards. The name, notes, folder and match log stay as they are now.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                if (changes.isNotEmpty()) GameButton("Restore these cards", onClick = { comparing = null; onRestore(version) }, compact = true)
-            },
-            dismissButton = { GameButton("Close", onClick = { comparing = null }, style = GameButtonStyle.GHOST, compact = true) },
-        )
+/** Copies added and taken away between two snapshots. */
+@Composable
+private fun Changes(before: DeckSnapshot, after: DeckSnapshot) {
+    val changes = remember(before, after) { DeckDiff.cards(before, after) }
+    val added = changes.sumOf { (it.after - it.before).coerceAtLeast(0) }
+    val removed = changes.sumOf { (it.before - it.after).coerceAtLeast(0) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (added > 0) Text("+$added", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary)
+        if (removed > 0) Text("−$removed", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.error)
+    }
+}
+
+/** What restoring [version] would change in the deck now, and the button that does it. */
+@Composable
+private fun Compared(version: DeckVersion, current: DeckSnapshot, cards: Map<String, Card>, onRestore: () -> Unit) {
+    val changes = remember(version, current) { DeckDiff.cards(current, version.snapshot) }
+    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (changes.isEmpty()) Text("Same cards as now.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        changes.forEach { change ->
+            val card = cards[change.cardNumber]
+            val by = change.after - change.before
+            Row(
+                Modifier.fillMaxWidth().clip(LockOnShapes.button).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), LockOnShapes.button).padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CostOrb(card?.cost, cardColor(card?.colors?.firstOrNull()), onCardColor(card?.colors?.firstOrNull()), size = 24.dp)
+                Text(card?.name ?: change.cardNumber, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                if (change.section == DeckSection.SIDE) Text("Side", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (by > 0) "+$by" else "−${-by}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = if (by > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+            }
+        }
+        if (changes.isNotEmpty()) Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.CenterEnd) {
+            GameButton("Restore these cards", onClick = onRestore, icon = Glyphs.Undo, compact = true)
+        }
     }
 }

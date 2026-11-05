@@ -27,6 +27,7 @@ import app.lockon.ui.components.Gold
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.SkyBackground
 import app.lockon.ui.components.PillTabs
+import app.lockon.ui.components.Glyphs
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.GameIcons
@@ -50,6 +51,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
@@ -400,7 +402,10 @@ private fun DeckExport(
                     val height = minOf(maxHeight - 48.dp, 720.dp)
                     Column(Modifier.width(previewWidth + 24.dp + controlsWidth + 44.dp).height(height).padding(start = 24.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        header()
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("Export", Modifier.align(Alignment.CenterStart), style = MaterialTheme.typography.titleLarge)
+                            PillTabs(formats, tab, { tab = it }, Modifier.width(IntrinsicSize.Max), soft = true, icons = listOf(Glyphs.Rows, Glyphs.Grid, Glyphs.Grid).take(formats.size))
+                        }
                         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                             if (tab == 0) listText(pane.then(previewBox))
                             else if (tab == 2) QrPage(qr, pane.then(previewBox))
@@ -412,16 +417,24 @@ private fun DeckExport(
                                     fit = true,
                                 ) { DeckImage(deck, cards, ruleset, order) }
                             }
-                            Column(Modifier.width(controlsWidth).fillMaxHeight().padding(end = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                tabs()
+                            Column(Modifier.width(controlsWidth).fillMaxHeight().padding(end = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 if (tab != 2) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SectionHeader("Order")
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         orderChips()
                                     }
                                 }
-                                Spacer(Modifier.weight(1f))
-                                buttons(false)
+                                Spacer(Modifier.height(8.dp))
+                                if (tab == 0) {
+                                    GameButton("Save file", onClick = {
+                                        state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
+                                    }, Modifier.fillMaxWidth())
+                                    GameButton("Copy", onClick = {
+                                        clipboard.setText(AnnotatedString(text))
+                                        toast("Deck list copied.")
+                                    }, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY)
+                                } else Box(Modifier.fillMaxWidth().height(44.dp)) { buttons(false) }
+                                if (onDismiss != null) GameButton("Close", onClick = onDismiss, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY)
                             }
                         }
                     }

@@ -190,7 +190,7 @@ fun SectionHeader(label: String, modifier: Modifier = Modifier, readout: String?
     val scheme = MaterialTheme.colorScheme
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
-        if (readout != null) Box(Modifier.padding(start = 8.dp)) { CountPill(readout) }
+        if (readout != null) Text(readout, Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleSmall.merge(TabularNumbers), color = scheme.onSurfaceVariant)
         Spacer(Modifier.weight(1f))
         trailing()
     }

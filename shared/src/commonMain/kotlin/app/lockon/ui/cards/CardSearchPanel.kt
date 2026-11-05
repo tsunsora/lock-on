@@ -1,4 +1,10 @@
 package app.lockon.ui.cards
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import app.lockon.ui.components.Glyphs
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.scaleIn
@@ -137,7 +143,7 @@ private const val TILES_PER_FRAME = 4
  * @param selected highlights the card shown in a side panel.
  * @param scrollToTop goes up by one each time the results should go back to the top.
  * @param jumpToTop goes up by one each time the results should be at the top at once, without scrolling there.
- * @param trailing extra controls at the end of the search row, such as the editor's Add to switch.
+ * @param leading extra controls at the start of the search row, such as the editor's Deck and Side switch.
  * @param defaultSort the order the list starts in, and goes back to when filters are reset.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -154,7 +160,7 @@ fun CardSearchPanel(
     wide: Boolean = false,
     scrollToTop: Int = 0,
     jumpToTop: Int = 0,
-    trailing: (@Composable RowScope.() -> Unit)? = null,
+    leading: (@Composable RowScope.() -> Unit)? = null,
     defaultSort: CardSort = CardSort.NUMBER,
 ) {
     var query by remember { mutableStateOf(CardQuery()) }
@@ -230,16 +236,27 @@ fun CardSearchPanel(
 
     @Composable
     fun ViewControls() {
-        PillChip(selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") })
+        PillChip(
+            selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") },
+            leadingIcon = { Icon(Glyphs.Filters, contentDescription = null, Modifier.size(16.dp)) },
+        )
         Box {
-            PillChip(selected = false, onClick = { sortMenu = true }, label = { Text("Sort: ${sort.label}") })
+            PillChip(
+                selected = false, onClick = { sortMenu = true },
+                label = { Text(sort.label); Icon(Icons.Default.ArrowDropDown, contentDescription = null, Modifier.size(18.dp)) },
+                leadingIcon = { Icon(Glyphs.Sort, contentDescription = "Sort by", Modifier.size(16.dp)) },
+            )
             GameMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                 CardSort.entries.forEach { option ->
                     GameMenuItem(option.label, onClick = { sort = option; sortMenu = false }, selected = option == sort)
                 }
             }
         }
-        PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "List" else "Grid") })
+        // The editor keeps this in Filters, so the row stays clear beside its Deck and Side switch.
+        if (deckColors == null) PillChip(
+            selected = false, onClick = { grid = !grid },
+            label = { Icon(if (grid) Glyphs.Rows else Glyphs.Grid, contentDescription = if (grid) "Show as list" else "Show as grid", Modifier.size(18.dp)) },
+        )
     }
 
     // Filters set beyond the quick row, so a closed Filters chip still says something is on.
@@ -255,13 +272,16 @@ fun CardSearchPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            leading?.invoke(this)
             PillSearchField(
                 query.text, { query = query.copy(text = it) },
                 placeholder = if (query.isEmpty) "Search ${cards.size} cards" else "Name, card number, or text",
                 modifier = Modifier.weight(1f).focusRequester(focus),
                 onClear = if (query.isEmpty) null else ({ query = CardQuery() }),
+                shortcut = "Ctrl F",
             )
-            Text(
+            // The placeholder has the full count, so this shows only once something narrows the list.
+            if (results.size != cards.size) Text(
                 "${results.size}", style = MaterialTheme.typography.titleMedium.merge(TabularNumbers),
                 color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 4.dp),
             )
@@ -275,7 +295,6 @@ fun CardSearchPanel(
                     sort = defaultSort
                 },
                 onLongClickLabel = "Reset filters")
-            trailing?.invoke(this)
         }
         val deckColorsChip = deckColors != null && deckColors.isNotEmpty()
         if (wide) FlowRow(
@@ -290,12 +309,13 @@ fun CardSearchPanel(
                     }
                 }
             }
-            Spacer(Modifier.width(6.dp))
+            Box(Modifier.align(Alignment.CenterVertically).padding(horizontal = 6.dp).size(width = 1.dp, height = 24.dp).background(MaterialTheme.colorScheme.outlineVariant))
             types.forEach { type ->
                 PillChip(
                     selected = type in query.types,
                     onClick = { query = query.copy(types = query.types.toggle(type)) },
                     label = { Text(type.label) },
+                    leadingIcon = { Icon(type.chipIcon(), contentDescription = null, Modifier.size(16.dp)) },
                     modifier = Modifier.align(Alignment.CenterVertically),
                 )
             }
@@ -386,6 +406,7 @@ fun CardSearchPanel(
                         PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "Show as list" else "Show as grid") })
                     }
                 }
+                if (wide && deckColors != null) PillChip(selected = false, onClick = { grid = !grid }, label = { Text(if (grid) "Show as list" else "Show as grid") })
                 // Each stat is one strip of numbers rather than a line of chips, so four fit where two
                 // lines used to: paired on wide panes, one a line on phones where a cell needs the room.
                 val level = @Composable { m: Modifier -> NumberStrip("Level", levels, query.levels, m) { query = query.copy(levels = it) } }
@@ -572,3 +593,11 @@ private fun NumberStrip(label: String, values: List<Int>, selected: Set<Int>, mo
 private fun List<Int>.span(): List<Int> = if (isEmpty()) emptyList() else (min()..max()).toList()
 
 private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - value else this + value
+
+/** A small picture for a card type on its filter chip. */
+private fun CardType.chipIcon(): androidx.compose.ui.graphics.vector.ImageVector = when (this) {
+    CardType.PILOT -> Icons.Default.Person
+    CardType.COMMAND -> Glyphs.Bolt
+    CardType.BASE -> Icons.Default.Home
+    else -> Glyphs.Shield
+}

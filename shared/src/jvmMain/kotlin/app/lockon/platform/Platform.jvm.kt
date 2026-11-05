@@ -53,3 +53,12 @@ actual val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIco
     androidx.compose.ui.input.pointer.PointerIcon(java.awt.Cursor(java.awt.Cursor.E_RESIZE_CURSOR))
 
 actual val isMobile: Boolean = false
+
+actual fun localDay(epochMillis: Long): Long =
+    java.time.Instant.ofEpochMilli(epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
+
+actual fun formatMonthDay(epochMillis: Long): String =
+    java.time.format.DateTimeFormatter.ofPattern("MMM d").withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(epochMillis))
+
+actual fun formatClock(epochMillis: Long): String =
+    java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT).withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(epochMillis))

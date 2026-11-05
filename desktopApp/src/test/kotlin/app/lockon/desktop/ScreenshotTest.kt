@@ -301,6 +301,31 @@ class ScreenshotTest {
         shoot("light-phone-more-menu", 600, 1260, dark = false, taps = listOf(more)) { open(Screen.DeckEditor(deckId)) }
     }
 
+    /** New deck, drawn on its own because it opens from a button. */
+    @Test fun renderNewDeck() {
+        for (dark in listOf(false, true)) {
+            ImageComposeScene(1440, 900, Density(1f)) {
+                app.lockon.ui.theme.LockOnTheme(dark = dark) {
+                    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                        app.lockon.ui.io.NewDeckDialog(container, files, AppState(CoroutineScope(Dispatchers.Default)), onDismiss = {}, folders = listOf("Store championship", "Testing"), folder = "Testing")
+                    }
+                }
+            }.use { scene ->
+                var image = scene.render()
+                repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+                File(out, "new-deck-${if (dark) "dark" else "light"}.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+        }
+    }
+
+    /** The deck panel's other tabs on a computer, in both themes. */
+    @Test fun renderDeckPanelTabs() {
+        for ((name, tab) in listOf("analysis" to 2, "matches" to 4, "versions" to 5)) {
+            shoot("desktop-$name", 1980, 1290) { open(Screen.DeckEditor(deckId, startTab = tab)) }
+            shoot("light-desktop-$name", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId, startTab = tab)) }
+        }
+    }
+
     @Test fun renderScreens() {
         shoot("desktop-library", 1980, 1290) { select(Tab.DECKS) }
         shoot("desktop-editor", 1980, 1290) { open(Screen.DeckEditor(deckId)) }
@@ -536,7 +561,8 @@ class ScreenshotTest {
             }
         }.use { scene ->
             repeat(5) { frame -> Thread.sleep(60); scene.render((frame + 1) * 100_000_000L) }
-            val button = androidx.compose.ui.geometry.Offset(905f, 1170f)
+            File(out, "desktop-export-image-before-save.png").writeBytes(scene.render(600_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            val button = androidx.compose.ui.geometry.Offset(905f, 550f)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press, button)
             scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Release, button)
             // Frames keep coming until the image arrives, as they would in a window.

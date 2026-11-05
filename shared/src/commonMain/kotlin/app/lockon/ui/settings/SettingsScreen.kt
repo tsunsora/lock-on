@@ -1,5 +1,6 @@
 package app.lockon.ui.settings
 
+import androidx.compose.ui.geometry.Offset
 import app.lockon.ui.components.motion
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.animation.animateColorAsState
@@ -96,6 +97,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val moreHidden by settings.moreHidden.collectAsState()
     val catalogChecks by settings.catalogChecks.collectAsState()
     val autoDeckColors by settings.autoDeckColors.collectAsState()
+    val deckAsCards by settings.deckAsCards.collectAsState()
     val editorSplit by settings.editorSplit.collectAsState()
     val cardSort by settings.cardSort.collectAsState()
     val showArtwork by container.catalog.showArtwork.collectAsState()
@@ -113,7 +115,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 SettingRow("Open on", wideControl = true) {
                     Segmented(StartChoice.entries, start, { it.label }) { scope.launch { settings.setStart(it) } }
                 }
-                SettingRow("Sort cards by", detail = "On the Cards screen") {
+                SettingRow("Sort cards by") {
                     MenuChip(selected = false, label = { Text(cardSort.label) }) { close ->
                         CardSort.entries.forEach { sort ->
                             GameMenuItem(sort.label, selected = sort == cardSort, onClick = {
@@ -124,8 +126,9 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 }
                 SettingRow(
                     "Device name",
+                    value = deviceName,
                     // A pending name is the one place a note earns its line: it isn't live yet.
-                    detail = if (deviceName == container.identity.deviceName) deviceName else "$deviceName · from the next launch",
+                    note = if (deviceName == container.identity.deviceName) null else "From the next launch",
                 ) {
                     GameButton("Rename", onClick = { renaming = true }, style = GameButtonStyle.SECONDARY, compact = true)
                 }
@@ -143,7 +146,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 SettingRow("Animations", wideControl = true) {
                     Segmented(MotionChoice.entries, motion, { it.label }) { scope.launch { settings.setMotion(it) } }
                 }
-                Toggle("Show card artwork", showArtwork) { scope.launch { container.catalog.setShowArtwork(it) } }
+                Toggle("Card artwork", showArtwork) { scope.launch { container.catalog.setShowArtwork(it) } }
             },
             SettingsSection("Deck editor") {
                 if (barShown) {
@@ -162,7 +165,8 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                         }
                     }
                 }
-                Toggle("Show only deck colors once a deck has all its colors", autoDeckColors) {
+                Toggle("Open decks as card images", deckAsCards) { scope.launch { settings.setDeckAsCards(it) } }
+                Toggle("Deck colors only", autoDeckColors) {
                     scope.launch { settings.setAutoDeckColors(it) }
                 }
                 if (wide) SettingRow("Divider between cards and deck") {
@@ -173,9 +177,9 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
             },
             SettingsSection("Data") {
                 CardDatabaseSetting(container, state, files)
-                Toggle("Check weekly for card list updates", catalogChecks) { scope.launch { settings.setCatalogChecks(it) } }
+                Toggle("Weekly card list check", catalogChecks) { scope.launch { settings.setCatalogChecks(it) } }
                 SettingRow("Back up all decks") {
-                    GameButton("Back up", style = GameButtonStyle.SECONDARY, compact = true, onClick = {
+                    GameButton("Save", style = GameButtonStyle.SECONDARY, compact = true, onClick = {
                         state.appScope.launch {
                             val backup = BackupFormat.encode(container.decks.exportBackup())
                             if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
@@ -254,11 +258,42 @@ internal val LocalRoomyRows = compositionLocalOf { false }
 @Composable
 private fun SettingsGroup(section: SettingsSection, modifier: Modifier = Modifier) {
     GlassCard(modifier) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionHeader(section.title)
-            section.content(this)
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(section.title, style = MaterialTheme.typography.titleMedium)
+            RuledRows { section.content(this) }
         }
     }
+}
+
+/** Spaces rows evenly and notes where the hairlines between them go, skipping anything with no height, such as a closed dialog. */
+private class RuledArrangement(private val gap: androidx.compose.ui.unit.Dp) : Arrangement.Vertical {
+    var rules: List<Int> = emptyList()
+        private set
+    override val spacing get() = gap
+    override fun androidx.compose.ui.unit.Density.arrange(totalSize: Int, sizes: IntArray, outPositions: IntArray) {
+        val space = gap.roundToPx()
+        var y = 0
+        val lines = mutableListOf<Int>()
+        sizes.forEachIndexed { i, size ->
+            if (size > 0 && y > 0) { lines += y + space / 2; y += space }
+            outPositions[i] = y
+            y += size
+        }
+        rules = lines
+    }
+}
+
+/** Rows with a hairline between each. */
+@Composable
+private fun RuledRows(content: @Composable ColumnScope.() -> Unit) {
+    val line = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    val arrangement = remember { RuledArrangement(16.dp) }
+    Column(
+        Modifier.fillMaxWidth().drawBehind {
+            arrangement.rules.forEach { y -> drawLine(line, Offset(0f, y.toFloat()), Offset(size.width, y.toFloat()), 1.dp.toPx()) }
+        },
+        verticalArrangement = arrangement, content = content,
+    )
 }
 
 /**
@@ -273,6 +308,7 @@ internal fun SettingRow(
     modifier: Modifier = Modifier,
     detail: String? = null,
     note: String? = null,
+    value: String? = null,
     wideControl: Boolean = false,
     stacked: Boolean = false,
     control: @Composable () -> Unit,
@@ -296,6 +332,7 @@ internal fun SettingRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             label(Modifier.weight(1f))
+            value?.let { Text(it, style = MaterialTheme.typography.bodyMedium.merge(app.lockon.ui.theme.TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
             control()
         }
     }

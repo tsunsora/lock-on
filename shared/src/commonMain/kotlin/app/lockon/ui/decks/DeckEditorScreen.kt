@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuDivider
 import app.lockon.ui.components.GameMenuItem
+import app.lockon.ui.components.StateTag
+import app.lockon.ui.components.Glyphs
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.LocalContentColor
 import app.lockon.data.EditorMoreItem
@@ -154,6 +156,7 @@ import app.lockon.ui.components.MiniCurve
 import app.lockon.ui.components.PlateStepper
 import app.lockon.ui.components.glassFrame
 import app.lockon.rules.DeckLegality
+import app.lockon.platform.isMobile
 import app.lockon.ui.components.glass
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
@@ -321,7 +324,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     // The phone editor's tab (0 Deck, 1 Add cards, then Analysis, Test, Matches, Versions, Export, Edit as text).
     var phoneTab by rememberSaveable(deckId) { mutableStateOf(startTab) }
     // Whole small cards or denser strips in the deck list; phones switch it from the bar's ⋮ menu.
-    var cardView by rememberSaveable(deckId) { mutableStateOf(false) }
+    // Until then a deck follows the setting.
+    val deckAsCards by container.settings.deckAsCards.collectAsState()
+    var cardViewChoice by rememberSaveable(deckId) { mutableStateOf<Boolean?>(null) }
+    val cardView = cardViewChoice ?: deckAsCards
     var deckMenu by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
@@ -344,7 +350,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back to decks", state::goBack)
                     Spacer(Modifier.width(14.dp))
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                @Composable
+                fun NameAndState(content: @Composable () -> Unit) =
+                    if (wide) Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+                    else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { content() }
+                NameAndState {
                     // The name itself opens Rename; wide windows add a quiet pencil beside it as the hint.
                     Row(
                         Modifier.clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Rename deck") { renaming = true }
@@ -362,10 +372,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         ColorPips(deckColors, size = 16.dp)
                         // The state alone; Analysis has the rest.
                         // The stamp turns over with the Lock On moment instead of swapping under it.
-                        Crossfade(legality.isLegal, animationSpec = motion(), label = "legality") { legal ->
-                            if (legal) Badge("Legal", c.secondaryContainer, c.onSecondaryContainer)
-                            else Badge("Draft", c.surfaceVariant, c.onSurfaceVariant)
-                        }
+                        Crossfade(legality.isLegal, animationSpec = motion(), label = "legality") { legal -> StateTag(legal) }
                     }
                 }
             }
@@ -471,7 +478,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             BoxWithConstraints(modifier) {
                 @Composable
                 fun AddTo(tabs: Modifier) {
-                    PillTabs(listOf("Deck", "Side deck"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true)
+                    PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = listOf(Glyphs.Rows, Glyphs.SideCard))
                 }
                 // A wide card list fits the switch at the end of the search row, and phones keep it in
                 // the header beside the gauge, so the cards get that row's height back (UX rule N4,
@@ -485,7 +492,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         addable, onCardClick = { detail = it }, modifier = Modifier.weight(1f),
                         focusRequests = focusSeen[0], deckColors = deckColors, maxColors = ruleset.maxColors.takeIf { autoDeckColors }, wide = wide,
                         controls = controls, scrollToTop = cardsToTop, jumpToTop = opened,
-                        trailing = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max)) }) else null,
+                        leading = if (inline) ({ AddTo(Modifier.width(IntrinsicSize.Max)) }) else null,
                     )
                 }
             }
@@ -516,7 +523,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // Loaded only while the panel shows: reading the history decodes every version.
             LaunchedEffect(summary) { history = container.decks.history(deckId) }
             VersionsPanel(
-                history, deck, cards, { deviceLabel(it, container.identity.deviceId, devices) }, modifier,
+                history, deck, cards, { deviceLabel(it, container.identity.deviceId, devices) },
+                fromPhone = { id -> if (id == container.identity.deviceId) isMobile else devices.firstOrNull { it.deviceId == id }?.role != app.lockon.sync.DeviceRole.HOST },
+                modifier = modifier,
                 onKeep = {
                     val keeping = deck
                     saved = keeping
@@ -592,7 +601,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                                 GlassIconButton(Icons.Default.MoreVert, "More", { deckMenu = true }, compact = true)
                                 GameMenu(expanded = deckMenu, onDismissRequest = { deckMenu = false }) {
                                     GameMenuItem("Edit as text", onClick = { deckMenu = false; editingText = true }, icon = Icons.Default.Edit)
-                                    GameMenuItem(if (cardView) "List view" else "Card view", onClick = { deckMenu = false; cardView = !cardView; deckTab = 0 },
+                                    GameMenuItem(if (cardView) "List view" else "Card view", onClick = { deckMenu = false; cardViewChoice = !cardView; deckTab = 0 },
                                         icon = if (cardView) Icons.AutoMirrored.Filled.List else GameIcons.Deck)
                                 }
                             }
@@ -642,7 +651,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                             it == 1 -> cardsToTop++
                         }
                     },
-                    onCardView = { cardView = it; phoneTab = 0 },
+                    onCardView = { cardViewChoice = it; phoneTab = 0 },
                 )
             }
         }
