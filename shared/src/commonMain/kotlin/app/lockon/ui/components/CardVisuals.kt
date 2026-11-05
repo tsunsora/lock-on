@@ -178,6 +178,7 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
  * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
  * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
  * Below 100 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
+ * The disc sits in the exact middle of the card at every size.
  */
 @Composable
 fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
@@ -192,33 +193,39 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
     ) {
         val u = maxWidth.value / 63f // one card millimetre in dp
         val full = maxWidth >= 100.dp
-        // The type symbol on a soft disc, a little right of centre so the level pill clears it.
+        val roomForCost = maxWidth >= 48.dp
+        // The type symbol on a soft disc, with the same margin all round it whichever symbol it is.
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            val c = Offset(w * 0.524f, h * (if (full) 0.466f else 0.5f))
+            val c = Offset(w * 0.5f, h * 0.5f)
             val r = w * (if (full) 0.222f else 0.27f)
             drawCircle(Color.White.copy(alpha = if (white) 0.55f else 0.18f), r, c)
-            drawTypeGlyph(type, c, r * 1.05f, glyphInk, stroke = (w / 63f) * 1.55f)
+            val glyph = r * 0.72f
+            drawTypeGlyph(type, c, glyph, glyphInk, stroke = glyph * 0.16f)
         }
-        // Cost on a white-rimmed disc in the card's colour; a deck row's thumbnail is too small for one, and its cost sits beside it.
-        if (maxWidth >= 48.dp) Box(
-            Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 3.6f).dp).size((u * 15).dp)
-                .clip(CircleShape)
-                .background(color)
-                .border(BorderStroke((u * 0.9f).dp, Color.White.copy(alpha = 0.9f)), CircleShape),
-            contentAlignment = Alignment.Center,
+        Column(
+            Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 3.6f).dp),
+            verticalArrangement = Arrangement.spacedBy((u * 2.4f).dp),
         ) {
-            CenteredGlyph(card?.cost?.toString() ?: "", if (white) Color(0xFF1D2742) else Color.White, (u * 8.6f).sp)
-        }
-        if (!full) return@BoxWithConstraints
-        card?.level?.let {
-            Text(
-                "Lv $it", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
-                modifier = Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 21f).dp)
-                    .clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp),
+            // Cost on a white-rimmed disc in the card's colour; a deck row's thumbnail is too small for one, and its cost sits beside it.
+            val cost = card?.cost
+            if (cost != null && roomForCost) Box(
+                Modifier.size((u * 15).dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .border(BorderStroke((u * 0.9f).dp, Color.White.copy(alpha = 0.9f)), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                CenteredGlyph(cost.toString(), if (white) Color(0xFF1D2742) else Color.White, (u * 8.6f).sp)
+            }
+            val level = card?.level
+            if (level != null && full) Text(
+                "Lv $level", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp),
             )
         }
+        if (!full) return@BoxWithConstraints
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = (u * 1.9f).dp, vertical = (u * 2.6f).dp)
                 .clip(RoundedCornerShape((u * 3.6f).dp)).background(Color(0xCC0A1028))
@@ -231,7 +238,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
                 Spacer(Modifier.weight(1f))
                 if (card?.ap != null || card?.hp != null) {
                     Text(
-                        "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, fontWeight = FontWeight.ExtraBold,
+                        "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp, fontWeight = FontWeight.ExtraBold,
                         style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
                         modifier = Modifier.clip(RoundedCornerShape((u * 1.4f).dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = (u * 1.6f).dp),
                     )
@@ -241,11 +248,19 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
     }
 }
 
-/** The card type's symbol drawn as strokes, centred on [c] and [r] wide: shield, pilot, bolt, base or diamond. */
+/** The card type's symbol drawn as strokes, filling a circle of radius [r] around [c]: shield, pilot, bolt, base or diamond. */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTypeGlyph(type: app.lockon.model.CardType?, c: Offset, r: Float, ink: Color, stroke: Float) {
-    // The glyphs are drawn on a 24-unit grid centred on 12, 12.
-    val s = r / 12f
-    fun p(x: Float, y: Float) = Offset(c.x + (x - 12f) * s, c.y + (y - 12f) * s)
+    // The glyphs are drawn on a 24-unit grid. These are the centre and radius of the smallest circle
+    // around each shape, so it sits evenly in a round disc: a house's middle is lower than its box's.
+    val (cx, cy, reach) = when (type) {
+        app.lockon.model.CardType.PILOT -> Triple(12f, 13.95f, 9.95f)
+        app.lockon.model.CardType.COMMAND -> Triple(11.5f, 12f, 9.12f)
+        app.lockon.model.CardType.BASE, app.lockon.model.CardType.BASE_TOKEN, app.lockon.model.CardType.EX_BASE -> Triple(12f, 14.5f, 10f)
+        app.lockon.model.CardType.RESOURCE, app.lockon.model.CardType.EX_RESOURCE -> Triple(12f, 12f, 8f)
+        else -> Triple(12f, 12f, 9f)
+    }
+    val s = r / reach
+    fun p(x: Float, y: Float) = Offset(c.x + (x - cx) * s, c.y + (y - cy) * s)
     val line = Stroke(stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
     when (type) {
         app.lockon.model.CardType.PILOT -> {
