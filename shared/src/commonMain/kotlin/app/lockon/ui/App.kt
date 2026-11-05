@@ -15,6 +15,7 @@ import app.lockon.ui.components.LocalChromeHeight
 import app.lockon.ui.components.ControlSize
 import app.lockon.ui.components.navClearance
 import app.lockon.ui.components.PillNavBar
+import app.lockon.ui.components.PillNavHeight
 import androidx.compose.material.icons.filled.Settings
 import app.lockon.ui.components.BottomItem
 import app.lockon.ui.components.glass
@@ -602,7 +603,10 @@ private fun FloatingTopNav(
         }
     }
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(12.dp)) {
-        Box(Modifier.align(Alignment.TopStart).onSizeChanged { start = it }) { PlayerCard(back, onBack) }
+        // As tall as the nav pill, so the brand or the smaller back button lines up with its middle.
+        Box(Modifier.align(Alignment.TopStart).height(PillNavHeight).onSizeChanged { start = it }, contentAlignment = Alignment.CenterStart) {
+            PlayerCard(back, onBack)
+        }
         Row(
             Modifier.align(Alignment.TopEnd).onSizeChanged { end = it },
             verticalAlignment = Alignment.CenterVertically,
