@@ -6,7 +6,6 @@ import app.lockon.ui.components.DialogStageHost
 import app.lockon.ui.components.LocalDialogStage
 import app.lockon.ui.components.takesThemeFrame
 import app.lockon.ui.components.LineIcons
-import androidx.compose.ui.draw.drawWithContent
 import app.lockon.ui.components.LocalScreenShown
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideInVertically
@@ -747,9 +746,10 @@ private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Bool
     Box(
         Modifier.size(44.dp).shadow(4.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
             .clip(shape)
-            .background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay))
-            // Going back, the tile turns to a plain button.
-            .drawWithContent { drawRect(plain, alpha = turn); drawContent() }
+            // Going back, the tile turns to a plain button. Each layer goes once the other has fully
+            // taken over: a gradient left under the fill would tint the fill's anti-aliased corners.
+            .then(if (turn > 0f) Modifier.background(plain) else Modifier)
+            .then(if (turn < 1f) Modifier.background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay), alpha = 1f - turn) else Modifier)
             // The logo's rim fades with it on desktop, so the back button has no outline its neighbours lack.
             .border(1.5.dp, if (ring == Color.Transparent) Color.White.copy(alpha = if (desktop) 0.4f * (1f - turn) else 0.4f) else ring, shape),
         contentAlignment = Alignment.Center,
