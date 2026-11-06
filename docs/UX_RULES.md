@@ -72,7 +72,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - **Secondary (sky blue)** is for information. Charts are one slate ramp (`ChartSlate`), so a bar never reads as a card colour or an action.
   - **Tertiary (soft gold)** is for celebration only: a full gauge, a finished sync, the *Locked on!* state, sparkles and the Lock On moment. There is one gold, #FFC34D, for every fill and for text at twilight. Text on a day panel uses the darker #9A6200, because the gold can't carry text on white.
   - Errors keep Material's error role.
-  - Card colours are for card identity: cost orbs, strip edges and hover glows.
+  - Card colours are for card identity: cost orbs and strip edges.
   - Light mode is a pale, quiet sky. Dark mode is a deep navy dusk, never black. Cards lie directly on the sky, so it stays low in colour and well away from the card faces' brightness. A full deck that needs review holds its gauge in slate rather than gold.
 - **V4a. Cards are never cropped where they are the subject.**
   - Grid tiles, the test hand, card details and printings show the whole card at its real 63:88 shape, with high-quality filtering. Cost and AP/HP are never covered.
@@ -99,14 +99,14 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - **States warm, never switch:** a gauge warms from teal to gold to red, and a picked item's light moves to it.
   - **Lists:** rows glide when cards are added, removed or regrouped.
   - **Numbers:** they roll up a short way when they grow and down when they shrink. A count that grows also nudges up in size by a few percent.
-  - **Adding and removing:** the card or strip takes a faint teal tint and thin rim when a copy is added, and red when one is removed.
-  - **Hover (desktop):** cards rise a few pixels and cast a soft shadow tinted with their colour. Strips ease into their art. Buttons brighten a touch. Resting on a card for a moment opens the whole card beside it, never over it. On Sync, a soft teal light follows the pointer over the device tiles, washing the one under it and catching the rims of its neighbours; on phones it shows only under a pressed finger.
+  - **Adding and removing:** the card or strip wears a solid 2 dp line, the same as selection, for about a third of a second: teal when a copy is added, red when one is removed. The count and pips say the rest.
+  - **Hover (desktop):** cards rise a few pixels and wear the selection line, with no shadow. Strips ease into their art. Buttons brighten a touch, and rows and tiles take a 4% ink wash. Resting on a card for a moment opens the whole card beside it, never over it.
   - **Charts:** bars grow into place.
   - **Test hand:** cards fade in and settle up a short way, and shields flip over when revealed.
-  - **Touch:** tiles, cards and buttons sink a hair when pressed. Phones give a light tick on each +/−.
+  - **Touch:** one answer everywhere, `PressWash`: a flat 8% ink wash over the thing's own shape, on at once and gone 120 ms after letting go, with no ripple, no circle and nothing that follows the finger. Tiles, cards and buttons also sink a hair. Keyboard focus is the selection line. Nothing on touch glows. Holding the export preview to open it uses the same wash and sink. Inspecting a card keeps its tilt, with one solid rim in the card's colour. Phones give a light tick on each +/−.
   - **The Lock On moment:** when a deck becomes legal, the brackets close on the reticle, a soft glint crosses the editor banner and its rim warms to gold, then fades. On phones, a confirming haptic plays. It's the one signature animation, and it plays only on the change, never on opening a legal deck.
   - **Loops:** nothing loops except progress, and progress uses the reticle spinner, or on a device tile that is syncing or sending, a band of light running round its rim. The sky is static.
-  - **Reduced motion:** with the system's "Remove animations" setting on, every animation becomes an instant change or a very short fade. Tilt, bumps, flashes and the shine are skipped.
+  - **Reduced motion:** with the system's "Remove animations" setting on, every animation becomes an instant change or a very short fade. Tilt, bumps, the add and remove line and the shine are skipped.
 - **V6. Dark and light are equals.** Both themes use the same colour roles. Contrast is at least 4.5:1 for text and 3:1 for controls and tags, including text on glass over the sky.
 - **V7. Decoration is never the only signal.**
   - **The sky:** a gradient with faint colour glows and a faint diagonal beam of light. Nothing floats in it.

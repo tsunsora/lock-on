@@ -671,7 +671,6 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
     val pressed by interaction.collectIsPressedHeld()
     val live = back != null
     val squish by animateFloatAsState(if (live && pressed) 0.96f else 1f, motion(Motion.SHORT), label = "player-card-press")
-    val glow by animateFloatAsState(if (live && hovered) 0.38f else 0.2f, motion(Motion.SHORT), label = "player-card-glow")
     val ring by animateColorAsState(if (live && hovered && !app.lockon.ui.components.desktopControls) accent.copy(alpha = 0.7f) else Color.Transparent, motion(Motion.SHORT), label = "player-card-ring")
     val textStyle = MaterialTheme.typography.titleLarge
     Box(

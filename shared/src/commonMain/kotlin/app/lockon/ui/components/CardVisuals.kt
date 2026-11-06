@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.ui.BiasAlignment
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -325,7 +324,7 @@ fun CardBack(modifier: Modifier = Modifier) {
 
 /**
  * A card in a grid: the whole card, never covered, so cost and AP/HP stay readable. Cards in the
- * deck get a lit outline and a resting glow; a rule tag sits top-centre (S3). On desktop the card
+ * deck get a lit outline; a rule tag sits top-centre (S3). On desktop the card
  * lifts toward you on hover, and adding or removing a copy flashes it. With controls, a plate under
  * the card holds − count + with copy pips and 48 dp touch targets (S1, R1).
  */
@@ -351,12 +350,12 @@ fun CardTile(
         Box(
             Modifier.fillMaxWidth()
                 .hoverState(hover)
-                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, edge = scheme.primary)
+                .hoverLift(press, CardShape, edge = scheme.primary)
                 // Inside the lift, so a selected card's outline rises with it.
                 .selectionEdge(CardShape, scheme.primary, selected)
                 .flashOnChange(count, scheme.primary, scheme.error, CardShape)
                 .clip(CardShape)
-                .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
+                .clickable(interactionSource = press, indication = pressWash(CardShape, hover = false), onClickLabel = "Card details", onClick = onClick),
         ) {
             CardImage(card, Modifier.fillMaxWidth(), shadow = false)
             Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)) { tag() }
@@ -495,7 +494,7 @@ fun DeckStrip(
             .clip(StripShape)
             .background(base)
             .hoverable(interaction).hoverState(hover)
-            .clickable(interaction, indication = LocalIndication.current, enabled = card != null, onClick = onClick),
+            .clickable(interaction, indication = pressWash(StripShape, hover = false), enabled = card != null, onClick = onClick),
     ) {
         // A strip shows only a crop of the art, so the whole card opens beside it on hover.
         if (card != null) CardHoverPreview(card, printingId, hovered)
@@ -541,7 +540,7 @@ private val StripShape = RoundedCornerShape(16.dp)
 fun CompactStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }, enabled = quantity > 0) {
+        PlainIconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }, enabled = quantity > 0) {
             Text("−", style = MaterialTheme.typography.titleLarge)
         }
         Box(Modifier.widthIn(min = 22.dp), contentAlignment = Alignment.Center) {
@@ -550,7 +549,7 @@ fun CompactStepper(quantity: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
                 if (quantity > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }) {
+        PlainIconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }) {
             Icon(LineIcons.Plus, contentDescription = "Add one")
         }
     }
@@ -1033,10 +1032,10 @@ fun DeckCard(
         Box(
             Modifier.fillMaxWidth()
                 .hoverState(hover)
-                .hoverLift(press, glow = lighten(cardColor(card.colors.firstOrNull()), 0.2f), CardShape, edge = scheme.primary, lift = 2.dp)
+                .hoverLift(press, CardShape, edge = scheme.primary, lift = 2.dp)
                 .flashOnChange(quantity, scheme.primary, scheme.error, CardShape)
                 .clip(CardShape)
-                .clickable(interactionSource = press, indication = LocalIndication.current, onClickLabel = "Card details", onClick = onClick),
+                .clickable(interactionSource = press, indication = pressWash(CardShape, hover = false), onClickLabel = "Card details", onClick = onClick),
         ) {
             CardImage(card, Modifier.fillMaxWidth(), printingId, shadow = false)
             CardHoverPreview(card, printingId, hovered)

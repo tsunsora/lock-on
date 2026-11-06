@@ -341,8 +341,8 @@ val PillShape: Shape = LockOnShapes.button
 enum class GameButtonStyle { PRIMARY, SECONDARY, GHOST }
 
 /**
- * A game button: a pill. Primary is a glossy teal pill with a soft glow; secondary is a white glass
- * pill with a teal rim; ghost is teal text. Hover brightens a touch, press sinks a hair. [outline] draws
+ * A game button: a rounded rectangle. Primary is solid teal; secondary is a soft ink fill; ghost is
+ * teal text. Hover brightens a touch, press sinks a hair. [outline] draws
  * a rim that sinks with the face; a border put on [modifier] would stay behind and leave a gap.
  */
 @Composable
@@ -367,7 +367,6 @@ fun GameButton(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val pressed by interaction.collectIsPressedHeld()
-    val lift by animateFloatAsState(if (hovered && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-hover")
     val squish by animateFloatAsState(if (pressed) (if (desktopControls) PressScale else 0.96f) else 1f, motion(Motion.SHORT), label = "button-press")
     // A press dims the face a touch as it sinks, so a tap reads even on a wide button whose scale barely shows.
     val dim by animateFloatAsState(if (pressed && enabled) 1f else 0f, motion(Motion.SHORT), label = "button-dim")
@@ -394,11 +393,6 @@ fun GameButton(
             .heightIn(min = if (large) 54.dp else if (desktopControls) ControlSize else if (compact) 38.dp else 44.dp)
             .graphicsLayer {
                 scaleX = squish; scaleY = squish
-                if (style == GameButtonStyle.PRIMARY && enabled && !desktopControls) {
-                    this.shape = shape
-                    shadowElevation = (2f + 3f * lift) * density
-                    ambientShadowColor = accent; spotShadowColor = accent
-                }
             }
             .clip(shape)
             .background(fill)
@@ -720,38 +714,32 @@ fun Modifier.hoverState(state: HoverState): Modifier = pointerInput(state) {
 }
 
 /**
- * Hover lift for cards and tiles on desktop: rises a little and casts a soft shadow tinted with its
- * colour. Press sinks it a hair. Phones never hover, so they only get the press. A modifier node
+ * Hover lift for cards and tiles on desktop: rises a little and wears the selection outline, with no
+ * shadow. Press sinks it a hair. Phones never hover, so they only get the press. A modifier node
  * rather than `composed`, so a grid of cards scrolling into view builds no extra state per card.
  */
 fun Modifier.hoverLift(
     interaction: MutableInteractionSource,
-    glow: Color,
     shape: Shape,
     edge: Color,
     lift: Dp = 3.dp,
-    resting: Float = 0f,
-): Modifier = hoverable(interaction) then HoverLiftElement(interaction, glow, shape, edge, lift, resting)
+): Modifier = hoverable(interaction) then HoverLiftElement(interaction, shape, edge, lift)
 
 private data class HoverLiftElement(
     val interaction: MutableInteractionSource,
-    val glow: Color,
     val shape: Shape,
     val edge: Color,
     val lift: Dp,
-    val resting: Float,
 ) : ModifierNodeElement<HoverLiftNode>() {
-    override fun create() = HoverLiftNode(interaction, glow, shape, edge, lift, resting)
-    override fun update(node: HoverLiftNode) = node.update(interaction, glow, shape, edge, lift, resting)
+    override fun create() = HoverLiftNode(interaction, shape, edge, lift)
+    override fun update(node: HoverLiftNode) = node.update(interaction, shape, edge, lift)
 }
 
 internal class HoverLiftNode(
     private var interaction: MutableInteractionSource,
-    private var glow: Color,
     private var shape: Shape,
     private var edge: Color,
     private var lift: Dp,
-    private var resting: Float,
 ) : Modifier.Node(), LayoutModifierNode, PointerInputModifierNode, CompositionLocalConsumerModifierNode, DrawModifierNode {
     private val hover = Animatable(0f)
     private val press = Animatable(1f)
@@ -780,9 +768,9 @@ internal class HoverLiftNode(
         if (isAttached && (hover.value != 0f || press.value != 1f)) coroutineScope.launch { hover.snapTo(0f); press.snapTo(1f) }
     }
 
-    fun update(interaction: MutableInteractionSource, glow: Color, shape: Shape, edge: Color, lift: Dp, resting: Float) {
+    fun update(interaction: MutableInteractionSource, shape: Shape, edge: Color, lift: Dp) {
         if (interaction != this.interaction) { watching?.cancel(); watching = null }
-        this.interaction = interaction; this.glow = glow; this.shape = shape; this.edge = edge; this.lift = lift; this.resting = resting
+        this.interaction = interaction; this.shape = shape; this.edge = edge; this.lift = lift
         invalidatePlacement()
         invalidateDraw()
     }
@@ -795,7 +783,7 @@ internal class HoverLiftNode(
     }
 
     // Presses come from the interaction source, so a long touch counts too. Until a pointer has
-    // reached the tile a keyboard press doesn't sink it; the focus ripple still shows it.
+    // reached the tile a keyboard press doesn't sink it; the press wash still shows it.
     private fun watch() {
         watching = coroutineScope.launch {
             var presses = 0
@@ -819,9 +807,6 @@ internal class HoverLiftNode(
                 val s = (1f + 0.01f * t) * press.value
                 scaleX = s; scaleY = s
                 translationY = -lift.toPx() * t
-                this.shape = this@HoverLiftNode.shape
-                shadowElevation = 8.dp.toPx() * maxOf(t, resting)
-                ambientShadowColor = glow.copy(alpha = 0.5f); spotShadowColor = glow.copy(alpha = 0.5f)
             }
         }
     }
@@ -911,8 +896,9 @@ private class BumpNode(private var value: Int) : Modifier.Node(), LayoutModifier
 }
 
 /**
- * A faint tint over a card when a copy is added (or a red one when removed), fading in under half
- * a second. Drawn over the content, so it never moves anything. A modifier node, like [hoverLift].
+ * A brief solid outline on a card when a copy is added (or a red one when removed), the same line as
+ * selection, gone in about a third of a second. It names which card changed without washing over its
+ * art, and never moves anything. A modifier node, like [hoverLift].
  */
 fun Modifier.flashOnChange(value: Int, add: Color, remove: Color, shape: Shape): Modifier =
     this then FlashElement(value, add, remove, shape)
@@ -943,7 +929,8 @@ private class FlashNode(
             tint = if (value > this.value) add else remove
             coroutineScope.launch {
                 flash.snapTo(1f)
-                flash.animateTo(0f, tween(420, easing = Motion.emphasizedDecelerate))
+                delay(120)
+                flash.animateTo(0f, tween(Motion.MEDIUM, easing = Motion.emphasized))
             }
         }
         reused = false
@@ -955,11 +942,30 @@ private class FlashNode(
         drawContent()
         val a = flash.value
         if (a > 0f) {
-            val outline = shape.createOutline(size, layoutDirection, this)
-            drawOutline(outline, tint.copy(alpha = 0.12f * a))
-            drawOutline(outline, tint.copy(alpha = 0.7f * a), style = Stroke(1.5.dp.toPx()))
+            drawSelectionEdge(shape, tint, a)
         }
     }
+}
+
+/**
+ * An icon with no plate: Material's icon button, but pressing it answers like everything else, with the
+ * flat wash and a small sink rather than a ripple. [ink] is for one sitting on something other than a panel.
+ */
+@Composable
+fun PlainIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    ink: Color = MaterialTheme.colorScheme.onSurface,
+    content: @Composable () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val tint = LocalContentColor.current
+    Box(
+        modifier.size(if (app.lockon.platform.isMobile) 48.dp else 40.dp).pressScale(interaction).clip(CircleShape)
+            .clickable(interaction, indication = pressWash(CircleShape, ink = ink), enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { CompositionLocalProvider(LocalContentColor provides if (enabled) tint else tint.copy(alpha = 0.38f), content = content) }
 }
 
 /** Provides [color] as the content colour, for icons inside custom plates. */
@@ -1123,7 +1129,7 @@ private fun PillField(
                 val trailing = if (onClear != null) FieldTrailing.Clear else if (hint) FieldTrailing.Shortcut else FieldTrailing.None
                 FadeSwap(trailing, contentAlignment = Alignment.CenterEnd) { kind ->
                     when (kind) {
-                        FieldTrailing.Clear -> IconButton(onClick = { onClear?.invoke() }, modifier = Modifier.size(40.dp)) {
+                        FieldTrailing.Clear -> PlainIconButton(onClick = { onClear?.invoke() }, modifier = Modifier.size(40.dp)) {
                             Icon(LineIcons.X, contentDescription = "Clear search and filters", tint = scheme.onSurfaceVariant)
                         }
                         FieldTrailing.Shortcut -> Text(
