@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.11.11 (2026-11-05)
+
+Desktop deck tiles give their art more room.
+
+- **Deck tiles (desktop):** the art is taller, and the main deck gauge is now a thin line along its lower edge. Below it are the deck's name and one line for its colors, state, record and age.
+- **Deck tiles (desktop):** an unfinished deck's tag shows its count, such as **34/50**.
+
 ## 26.11.10 (2026-11-05)
 
 Desktop deck tiles now lead with big, bright card art, and right-clicking text opens a menu that matches the app.
