@@ -160,7 +160,6 @@ import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.theme.LockOnShapes
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -827,7 +826,7 @@ private fun DeckRow(
             else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(200f, 240f))
         }
         Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(band)) {
-            CardArtwork(art, null, Modifier.fillMaxSize(), ContentScale.Crop, BiasAlignment(0f, -0.45f)) { Box(Modifier.fillMaxSize()) }
+            CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.18f, top = 0.05f), ContentScale.FillBounds) { Box(Modifier.fillMaxSize()) }
         }
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -979,7 +978,7 @@ private fun DeckTile(
             if (art == null && colors.isNotEmpty()) {
                 Icon(LineIcons.Shield, contentDescription = null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.align(Alignment.Center).size(32.dp))
             }
-            CardArtwork(art, null, Modifier.matchParentSize().cardIllustration(), ContentScale.FillBounds) {}
+            CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.16f, top = 0.035f), ContentScale.FillBounds) {}
         }
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1060,18 +1059,16 @@ private fun DeckFacts(modifier: Modifier, lead: @Composable () -> Unit, age: Str
 }
 
 /**
- * Lays a whole card out larger than this space, so the space shows only its illustration: past the
- * cost and colour bar on the left and the set code on the right, below the top frame and above the name.
+ * Lays a whole card out larger than this space, so the space shows only its illustration: [side] of
+ * the card's width is cut from each side, past the cost and the set code, and [top] of its height from
+ * the top, leaving the bottom edge above the name.
  * Laying it out at that size also decodes it at that size, so the crop stays sharp.
  */
-private fun Modifier.cardIllustration(): Modifier = layout { measurable, constraints ->
-    val left = 0.22f
-    val right = 0.78f
-    val top = 0.1f
-    val width = (constraints.maxWidth / (right - left)).roundToInt()
+private fun Modifier.cardCrop(side: Float, top: Float): Modifier = layout { measurable, constraints ->
+    val width = (constraints.maxWidth / (1f - 2f * side)).roundToInt()
     val height = (width / CARD_ASPECT).roundToInt()
     val card = measurable.measure(Constraints.fixed(width, height))
-    layout(constraints.maxWidth, constraints.maxHeight) { card.place(-(width * left).roundToInt(), -(height * top).roundToInt()) }
+    layout(constraints.maxWidth, constraints.maxHeight) { card.place(-(width * side).roundToInt(), -(height * top).roundToInt()) }
 }
 
 /** A deck's colours at half strength over the panel, split evenly if it has two, for when there's no art to show. */
