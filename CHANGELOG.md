@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.11.14 (2026-11-06)
+
+Deck tiles show more of what matters in their art: phones now zoom in on the illustration, and desktop shows a little more of it.
+
+- **Deck tiles (phones):** the cover card is zoomed in on its illustration instead of showing the whole card, so the cost, name and rules text no longer appear on the tile.
+- **Deck tiles (desktop):** the cover card is zoomed out slightly, so more of the illustration shows.
+
 ## 26.11.13 (2026-11-05)
 
 The back button's rounded corners no longer show a blue tint.
