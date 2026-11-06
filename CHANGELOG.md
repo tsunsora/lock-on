@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.11.13 (2026-11-05)
+
+The back button's rounded corners no longer show a blue tint.
+
+- **Back button (desktop):** the logo's color no longer shows through at the button's corners inside a deck.
+
 ## 26.11.12 (2026-11-05)
 
 Desktop deck tiles now match the phone, with the card at the side, so far more decks fit on screen.
