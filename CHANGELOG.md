@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.11.15 (2026-11-06)
+
+A new logo, cleaner colors, and calmer touch feedback: nothing glows or sweeps across a card when you press it anymore.
+
+- **Logo and icon:** a bolder Lock On mark that stays clear at small sizes, on a violet tile. The app icon, phone icon and splash screen match.
+- **Pressing things:** every tile, card, row and icon button now answers with one flat, quick shade instead of a spreading ripple.
+- **Adding and removing cards:** a brief solid outline shows which card changed, teal when adding and red when removing, instead of a colored flash.
+- **Hover and inspecting (desktop):** cards rise with an outline and no colored shadow. An inspected card still tilts, but without the moving light, and Sync no longer has a light following the pointer.
+- **Phone buttons and holds:** main buttons lose their teal shadow, and holding the export preview shades it instead of growing a glow.
+- **Colors:** the day teal is a little deeper so white text on it is easier to read, the app uses one gold throughout, and twilight's selected switches are easier to read.
+- **Deck tiles without art (phones):** these now use the same calm flat color as desktop.
+
 ## 26.11.14 (2026-11-06)
 
 Deck tiles show more of what matters in their art: phones now zoom in on the illustration, and desktop shows a little more of it.
