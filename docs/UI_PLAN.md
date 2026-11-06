@@ -67,7 +67,7 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 - **new** In card details, the picked printing's light and check move across instead of switching.
 
 ### Sync
-- ✓ Pages, tiles dealing in, the pointer spotlight, the working rim, the transfer bar and the beacon.
+- ✓ Pages, tiles dealing in, the working rim, the transfer bar and the beacon.
 - **new** The *Done* badge settles in without overshoot and is instant with reduced motion (it bounced before, against V5).
 - **new** Device status lines, their trailing controls, the transfer bar and its tone fade across (`FadeSwap`, `RevealValue`). Devices open and close as they come and go (`RevealItems`).
 

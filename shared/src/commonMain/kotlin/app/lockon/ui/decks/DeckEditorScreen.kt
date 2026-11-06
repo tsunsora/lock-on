@@ -16,6 +16,7 @@ import app.lockon.ui.components.LocalTopBand
 import app.lockon.ui.components.Accent
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import app.lockon.ui.components.GlassIconButton
+import app.lockon.ui.components.PlainIconButton
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import app.lockon.rules.DeckAnalysis
@@ -888,7 +889,7 @@ private fun DeckList(
                 if (card != null) {
                     // One tap per copy (UX rule S1): move one into the deck, or change the side deck's count.
                     // On phones an arrow, so the card's name keeps its room; its label is still read out.
-                    if (LocalTopBand.current.height == 0.dp) IconButton(onClick = { onMoveToDeck(card) }) {
+                    if (LocalTopBand.current.height == 0.dp) PlainIconButton(onClick = { onMoveToDeck(card) }) {
                         Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move one ${card.name} to the deck", tint = Accent)
                     }
                     else GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true)

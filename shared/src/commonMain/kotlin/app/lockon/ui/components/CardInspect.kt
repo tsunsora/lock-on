@@ -87,7 +87,7 @@ fun CardInspectDialog(card: Card, printingId: String?, onDismiss: () -> Unit) {
                     Text(card.name, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.9f),
                         textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
                 }
-                IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                PlainIconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp), ink = Color.White) {
                     Icon(LineIcons.X, contentDescription = "Close", tint = Color.White)
                 }
             }
@@ -143,18 +143,9 @@ fun TiltingCard(card: Card, printingId: String?, modifier: Modifier = Modifier, 
             .clearAndSetSemantics {},
     ) {
         // The drawn placeholder face is partly see-through, so it gets a solid backing.
-        CardImage(card, Modifier.fillMaxSize().shadow(32.dp, CardShape, ambientColor = pool, spotColor = pool).background(surface, CardShape),
+        CardImage(card, Modifier.fillMaxSize().shadow(32.dp, CardShape).background(surface, CardShape),
             printingId, shadow = false)
-        // Light catches the card where the pointer is, brighter the further it turns, and its rim glows in its colour.
-        Box(
-            Modifier.matchParentSize().clip(CardShape).drawBehind {
-                val strength = hypot(x, y).coerceAtMost(1f)
-                drawRect(Brush.radialGradient(
-                    listOf(Color.White.copy(alpha = 0.06f + 0.24f * strength), Color.White.copy(alpha = 0f)),
-                    center = Offset((x + 1f) / 2f * size.width, (y + 1f) / 2f * size.height),
-                    radius = size.maxDimension * 0.65f,
-                ))
-            }.border(BorderStroke(2.dp, Brush.linearGradient(listOf(lighten(pool, 0.55f), pool.copy(alpha = 0.5f), lighten(pool, 0.3f)))), CardShape),
-        )
+        // One solid line in the card's colour; only the tilt follows the pointer.
+        Box(Modifier.matchParentSize().border(BorderStroke(2.dp, lighten(pool, 0.45f)), CardShape))
     }
 }

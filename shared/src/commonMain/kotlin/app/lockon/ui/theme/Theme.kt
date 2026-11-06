@@ -1,8 +1,10 @@
 package app.lockon.ui.theme
 
 import androidx.compose.ui.text.style.BaselineShift
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -12,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -20,6 +23,7 @@ import androidx.compose.ui.text.font.FontVariation
 import app.lockon.model.CardColor
 import app.lockon.resources.Res
 import app.lockon.resources.quicksand
+import app.lockon.ui.components.PressWash
 import org.jetbrains.compose.resources.Font
 
 /**
@@ -176,7 +180,15 @@ private fun lockOnTypography(): Typography {
 
 @Composable
 fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, shapes = MaterialShapes, typography = lockOnTypography(), content = content)
+    val colors = if (dark) DarkColors else LightColors
+    MaterialTheme(colorScheme = colors, shapes = MaterialShapes, typography = lockOnTypography()) {
+        // Every plain clickable answers with the flat wash (UX rule V5), and Material's own controls show no ripple.
+        CompositionLocalProvider(
+            LocalIndication provides PressWash(colors.onSurface, colors.primary),
+            LocalRippleConfiguration provides null,
+            content = content,
+        )
+    }
 }
 
 /** Accent for a card color, readable on both themes as a badge background with [onCardColor] text. */

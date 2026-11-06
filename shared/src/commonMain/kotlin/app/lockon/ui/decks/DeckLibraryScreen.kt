@@ -58,7 +58,7 @@ import app.lockon.ui.components.CardBack
 import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.CardFan
 import app.lockon.ui.components.ColorPips
-import androidx.compose.foundation.LocalIndication
+import app.lockon.ui.components.pressWash
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import app.lockon.ui.components.panelLines
 import app.lockon.ui.components.pressScale
@@ -744,10 +744,14 @@ private fun FolderChips(
         if (lit) PillChip(
             selected = true, onClick = onNewFolder, label = { Text("New folder") },
             leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) },
-        ) else AssistChip(
-            onClick = onNewFolder, label = { Text("New folder") },
-            leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) },
-        )
+        ) else {
+            val press = remember { MutableInteractionSource() }
+            AssistChip(
+                onClick = onNewFolder, label = { Text("New folder") },
+                leadingIcon = { Icon(LineIcons.Plus, contentDescription = null) },
+                modifier = Modifier.pressScale(press), interactionSource = press,
+            )
+        }
     }
 }
 
@@ -817,7 +821,7 @@ private fun DeckRow(
     // A deck on a phone: a strip of its main card's art, then its name, state and gauge.
     Row(
         modifier.fillMaxWidth().height(CompactDeckBoxHeight).clip(LockOnShapes.panel).background(glassColors().strong)
-            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
+            .clickable(interactionSource = press, indication = pressWash(LockOnShapes.panel, hover = false), onClick = onOpen),
     ) {
         Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(deckArtFill(colors, glassColors().strong))) {
             CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.18f, top = 0.05f), ContentScale.FillBounds) { Box(Modifier.fillMaxSize()) }
@@ -965,7 +969,7 @@ private fun DeckTile(
     val panel = app.lockon.ui.components.glassColors().strong
     Row(
         modifier.fillMaxWidth().height(CompactDeckBoxHeight).selectionEdge(LockOnShapes.tile, scheme.primary, hovered).clip(LockOnShapes.tile).background(panel)
-            .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
+            .clickable(interactionSource = press, indication = pressWash(LockOnShapes.tile, hover = false), onClick = onOpen),
     ) {
         // The deck's colours lie under the art, so they show while it loads and if it never does.
         Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(deckArtFill(colors, panel))) {

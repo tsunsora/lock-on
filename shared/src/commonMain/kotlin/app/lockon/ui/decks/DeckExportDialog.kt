@@ -36,7 +36,13 @@ import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.GameMenuItem
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import app.lockon.ui.components.GlassIconButton
+import app.lockon.ui.components.PlainIconButton
+import app.lockon.ui.components.pressScale
+import app.lockon.ui.components.pressWash
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.MenuChip
 import app.lockon.ui.components.PillSegmented
@@ -469,36 +475,27 @@ private const val HOLD_TO_VIEW_MS = 250L
 /**
  * Runs [onView] once a press on this has been held for [HOLD_TO_VIEW_MS] without lifting. A tap does
  * nothing, and a press that turns into a scroll is let go, so the phone preview still scrolls. While
- * held, a soft teal light grows under the finger, so the hold reads as doing something.
+ * held, it sinks a hair under the flat press wash, so the hold reads as doing something.
  */
 private fun Modifier.holdToView(onView: () -> Unit): Modifier = composed {
     val haptics = LocalHapticFeedback.current
     val view by rememberUpdatedState(onView)
-    val reduce = LocalReduceMotion.current
-    val accent = MaterialTheme.colorScheme.primary
-    val glow = remember { Animatable(0f) }
-    var at by remember { mutableStateOf(Offset.Zero) }
-    val scope = rememberCoroutineScope()
+    val press = remember { MutableInteractionSource() }
+    val wash = pressWash(hover = false)
     semantics { onLongClick("View full size") { view(); true } }
-        .drawWithContent {
-            drawContent()
-            val g = glow.value
-            if (g > 0f) {
-                val radius = 140.dp.toPx() * (0.4f + 0.6f * g)
-                drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.32f * g), accent.copy(alpha = 0f)), at, radius), radius, at)
-            }
-        }
-        .pointerInput(reduce) {
+        .pressScale(press)
+        .indication(press, wash)
+        .pointerInput(Unit) {
             awaitEachGesture {
-                at = awaitFirstDown(requireUnconsumed = false).position
-                if (!reduce) scope.launch { glow.animateTo(1f, tween(HOLD_TO_VIEW_MS.toInt(), easing = Motion.emphasizedDecelerate)) }
+                val held = PressInteraction.Press(awaitFirstDown(requireUnconsumed = false).position)
+                press.tryEmit(held)
                 // Lifting, or the press being taken by a scroll, ends it early; still down at the timeout opens.
                 val ended = withTimeoutOrNull(HOLD_TO_VIEW_MS) { waitForUpOrCancellation(); true }
                 if (ended == null) {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     view()
                 }
-                scope.launch { glow.animateTo(0f, tween(Motion.MEDIUM)) }
+                press.tryEmit(PressInteraction.Release(held))
             }
         }
 }
@@ -750,14 +747,14 @@ private fun ZoomFrame(
             controls.align(Alignment.TopEnd).padding(12.dp).glass(LockOnShapes.button, strong = true),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { zoomAt(zoom / 1.5f, center) }, enabled = zoom > 1f) {
+            PlainIconButton(onClick = { zoomAt(zoom / 1.5f, center) }, enabled = zoom > 1f) {
                 CenteredGlyph("−", LocalContentColor.current, 24.sp, Modifier.semantics { contentDescription = "Zoom out" })
             }
             Text("${(zoom * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers))
-            IconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM / fit) {
+            PlainIconButton(onClick = { zoomAt(zoom * 1.5f, center) }, enabled = zoom < MAX_ZOOM / fit) {
                 Icon(LineIcons.Plus, contentDescription = "Zoom in")
             }
-            IconButton(onClick = onClose) { Icon(LineIcons.X, contentDescription = "Close full size") }
+            PlainIconButton(onClick = onClose) { Icon(LineIcons.X, contentDescription = "Close full size") }
         } }
     }
 }

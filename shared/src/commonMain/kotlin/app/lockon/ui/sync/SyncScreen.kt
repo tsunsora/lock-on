@@ -156,11 +156,8 @@ import app.lockon.ui.components.VerticalScrollBar
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.glide
-import app.lockon.ui.components.Spotlight
 import app.lockon.ui.components.dealIn
-import app.lockon.ui.components.rememberSpotlight
-import app.lockon.ui.components.spotlightArea
-import app.lockon.ui.components.spotlit
+import app.lockon.ui.components.pressWash
 import app.lockon.ui.components.workingRim
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.components.pressScale
@@ -211,11 +208,10 @@ private val SideBySide = 840.dp
 
 /**
  * A page's scrolling column, centred and no wider than [maxWidth] so it reads the same everywhere.
- * Tiles marked with the [spotlight] catch a light that follows the pointer anywhere over the page.
  */
 @Composable
-private fun SyncPage(spotlight: Spotlight, maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize().spotlightArea(spotlight)) {
+private fun SyncPage(maxWidth: Dp = 620.dp, content: @Composable () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val scrollState = rememberScrollState()
         val clearance = LocalNavClearance.current
         Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
@@ -360,7 +356,6 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
         }
     }
 
-    val spotlight = rememberSpotlight()
     val devices: @Composable () -> Unit = {
         SectionHeader("Your devices", readout = "${paired.size}")
         Reveal(paired.isEmpty() && unpaired.isEmpty()) { SearchingCard() }
@@ -373,7 +368,6 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
                     is ClientSyncController -> autoStates[device.deviceId]?.let { it.label to (it == AutoSyncState.LIVE) }
                     is HostSyncController -> if (device.deviceId in liveClients) "Merging automatically" to true else null
                 },
-                spotlight = spotlight,
                 index = i + 1,
                 onTap = { choosing = device.deviceId },
                 onClear = { controller.clearTransfer(device.deviceId) },
@@ -388,7 +382,6 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
                 hint = "Not paired",
                 action = "Pair",
                 actionIcon = app.lockon.ui.components.Glyphs.Link,
-                spotlight = spotlight,
                 index = paired.size + unpaired.indexOf(device).coerceAtLeast(0) + 1,
                 onTap = { if (device.compatible) pair(device) },
                 onCancel = { (controller as? HostSyncController)?.cancelInvite(device.deviceId); pairingWith = null },
@@ -398,7 +391,7 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // One centred column on every window: this device, then the others.
-        SyncPage(spotlight, maxWidth = 760.dp) {
+        SyncPage(maxWidth = 760.dp) {
             ThisDevicePanel(deviceName, status, tall = false, onOtherWays = { showOther = true }, qrLabel = if (isHost) "QR code" else "Scan QR code")
             devices()
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -462,7 +455,6 @@ private fun PairedTile(
     device: PairedDevice,
     transfer: SyncTransfer?,
     live: Pair<String, Boolean>?,
-    spotlight: Spotlight,
     index: Int,
     onTap: () -> Unit,
     onClear: () -> Unit,
@@ -473,8 +465,8 @@ private fun PairedTile(
     val celebrate = if (isTwilight()) Gold else scheme.tertiary
     Column(
         Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).syncPanel(LockOnShapes.tile)
-            .spotlit(spotlight, LockOnShapes.tile).workingRim(busy, LockOnShapes.tile)
-            .clickable(interaction, indication = null, enabled = !busy, role = Role.Button, onClick = onTap)
+            .workingRim(busy, LockOnShapes.tile)
+            .clickable(interaction, indication = pressWash(LockOnShapes.tile), enabled = !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
             .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -666,7 +658,6 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
     // Decks deleted since they were chosen drop out of the selection.
     val selected = chosen.mapNotNull { id -> decks.firstOrNull { it.deckId == id } }
     val isHost = controller is HostSyncController
-    val spotlight = rememberSpotlight()
 
     val where: @Composable () -> Unit = {
         if (sharing == null) {
@@ -685,7 +676,6 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
                     hint = if (device.deviceId in pairedIds) "Paired" else "Not paired",
                     action = "Send",
                     actionIcon = LineIcons.Send,
-                    spotlight = spotlight,
                     index = i,
                     onTap = {
                         when {
@@ -704,7 +694,7 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        SyncPage(spotlight, maxWidth = 760.dp) {
+        SyncPage(maxWidth = 760.dp) {
             RevealValue(status.takeIf { it.isError || it.working }) { StatusStrip(it, Modifier.fillMaxWidth()) }
             val what: @Composable () -> Unit = {
                 WhatToSend(decks, selected, cards, onChoose = { choosing = true }, onChosen = onChosen)
@@ -813,14 +803,13 @@ private fun WhatToSend(
 /** One way to choose what to send, as a big glass tile. */
 @Composable
 private fun PickTile(
-    label: String, icon: ImageVector, spotlight: Spotlight, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit,
+    label: String, icon: ImageVector, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val ink = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Column(
         modifier.heightIn(min = 84.dp).pressScale(interaction).glass(LockOnShapes.tile)
-            .then(if (enabled) Modifier.spotlit(spotlight, LockOnShapes.tile) else Modifier)
-            .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(interaction, indication = pressWash(LockOnShapes.tile), enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(vertical = 14.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
@@ -915,7 +904,6 @@ private fun DeviceTile(
     hint: String?,
     action: String,
     actionIcon: androidx.compose.ui.graphics.vector.ImageVector,
-    spotlight: Spotlight,
     index: Int,
     onTap: () -> Unit,
     onCancel: () -> Unit,
@@ -926,8 +914,8 @@ private fun DeviceTile(
     val celebrate = if (isTwilight()) Gold else scheme.tertiary
     Column(
         Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).syncPanel(LockOnShapes.tile)
-            .spotlit(spotlight, LockOnShapes.tile).workingRim(busy, LockOnShapes.tile)
-            .clickable(interaction, indication = null, enabled = device.compatible && !busy, role = Role.Button, onClick = onTap)
+            .workingRim(busy, LockOnShapes.tile)
+            .clickable(interaction, indication = pressWash(LockOnShapes.tile), enabled = device.compatible && !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
             .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
