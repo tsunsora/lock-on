@@ -12,16 +12,16 @@
         android:pivotY="54">
         <path
             android:strokeColor="#FF000000"
-            android:strokeWidth="8"
+            android:strokeWidth="12"
             android:fillColor="#00000000"
-            android:pathData="M54,28a26,26 0 1,1 0,52a26,26 0 1,1 0,-52z" />
+            android:pathData="M54,29a25,25 0 1,1 0,50a25,25 0 1,1 0,-50z" />
         <path
             android:strokeColor="#FF000000"
-            android:strokeWidth="8"
+            android:strokeWidth="12"
             android:strokeLineCap="round"
-            android:pathData="M54,14L54,34M54,74L54,94M14,54L34,54M74,54L94,54" />
+            android:pathData="M54,18L54,29M54,79L54,90M18,54L29,54M79,54L90,54" />
         <path
             android:fillColor="#FF000000"
-            android:pathData="M54,46a8,8 0 1,1 0,16a8,8 0 1,1 0,-16z" />
+            android:pathData="M54,44a10,10 0 1,1 0,20a10,10 0 1,1 0,-20z" />
     </group>
 </vector>

@@ -29,7 +29,7 @@ import org.jetbrains.compose.resources.Font
  * a legal deck, a full gauge, the Lock On moment.
  */
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF0B8794),
+    primary = Color(0xFF087581),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFC6F1F3),
     onPrimaryContainer = Color(0xFF00373D),
@@ -68,7 +68,7 @@ private val DarkColors = darkColorScheme(
     onSecondary = Color(0xFF0B2A5C),
     secondaryContainer = Color(0xFF29467F),
     onSecondaryContainer = Color(0xFFDCE8FF),
-    tertiary = Color(0xFFFFCA70),
+    tertiary = Color(0xFFFFC34D),
     onTertiary = Color(0xFF402A00),
     tertiaryContainer = Color(0xFF5C4100),
     onTertiaryContainer = Color(0xFFFFE6B0),
@@ -95,7 +95,7 @@ object SuitColors {
     val armorBlue = Color(0xFF3F7FE6)
     val armorWhite = Color(0xFFF3F7FC)
     val chestRed = Color(0xFFE5484D)
-    /** Soft gold for celebration: a full gauge, a legal deck, the Lock On moment. */
+    /** The one gold, for celebration: a full gauge, a finished sync, the Lock On moment. Text on a day panel uses the darker tertiary. */
     val vFinYellow = Color(0xFFFFC34D)
     val cautionBlack = Color(0xFF1C2742)
     val teal = Color(0xFF2CC9D0)

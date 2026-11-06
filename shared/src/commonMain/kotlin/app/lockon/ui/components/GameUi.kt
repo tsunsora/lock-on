@@ -598,7 +598,7 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
         else androidx.compose.ui.graphics.lerp(gold, scheme.error, tone - 1f)
     val slate = if (isTwilight()) ChartSlateTwilight else ChartSlate
     val fillingBrush = SolidColor(if (hold) slate else accent)
-    val fullBrush = SolidColor(Color(0xFFFFB84D))
+    val fullBrush = SolidColor(Gold)
     val error = scheme.error
     val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
     @Composable
@@ -1405,7 +1405,7 @@ fun PillSwitch(
 /** The thumb of a single-choice control: white by day and a raised indigo at twilight, so solid teal is left for navigation and main actions. */
 @Composable
 @ReadOnlyComposable
-fun softThumb(): Color = if (isTwilight()) Color(0xFF5560B0) else Color.White
+fun softThumb(): Color = if (isTwilight()) Color(0xFF454F9A) else Color.White
 
 /** The chosen option's text on a [softThumb]. */
 @Composable

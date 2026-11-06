@@ -999,7 +999,7 @@ internal fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = M
     Crossfade(tone, modifier.fillMaxWidth(), animationSpec = motion(), label = "transfer-tone") { shownTone ->
     val fill = when (shownTone) {
         BarTone.WORKING -> Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
-        BarTone.DONE -> Brush.horizontalGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFFFA94D)))
+        BarTone.DONE -> SolidColor(Gold)
         BarTone.STOPPED -> SolidColor(scheme.outline)
         BarTone.FAILED -> SolidColor(scheme.error)
     }

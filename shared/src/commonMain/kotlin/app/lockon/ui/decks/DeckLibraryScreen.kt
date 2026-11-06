@@ -819,13 +819,7 @@ private fun DeckRow(
         modifier.fillMaxWidth().height(CompactDeckBoxHeight).clip(LockOnShapes.panel).background(glassColors().strong)
             .clickable(interactionSource = press, indication = LocalIndication.current, onClick = onOpen),
     ) {
-        val hues = colors.sortedBy { it.ordinal }.map { cardColor(it) }
-        val band = when (hues.size) {
-            0 -> Brush.linearGradient(listOf(scheme.surfaceVariant, scheme.outlineVariant))
-            1 -> Brush.linearGradient(listOf(lighten(hues[0], 0.35f), hues[0]))
-            else -> Brush.linearGradient(0f to hues[0], 0.48f to hues[0], 0.52f to hues[1], 1f to hues[1], start = Offset.Zero, end = Offset(200f, 240f))
-        }
-        Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(band)) {
+        Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(deckArtFill(colors, glassColors().strong))) {
             CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.18f, top = 0.05f), ContentScale.FillBounds) { Box(Modifier.fillMaxSize()) }
         }
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
