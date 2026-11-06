@@ -7,6 +7,6 @@
     </style>
     <!-- The boot screen's background, so the system splash hands over to it without a flash; values-night has the twilight one. -->
     <color name="background">#E6F2FA</color>
-    <color name="ic_launcher_background">#2A9EE0</color>
-    <color name="accent">#FFB347</color>
+    <color name="ic_launcher_background">#8A5EE1</color>
+    <color name="accent">#FFC34D</color>
 </resources>

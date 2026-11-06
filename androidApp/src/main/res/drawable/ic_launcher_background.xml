@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher icon's flat tile: teal to blue with a clear diagonal gradient, teal at the top right. Matches the
+<!-- The launcher icon's flat tile: violet with a soft diagonal gradient, lighter at the top right. Matches the
      desktop icon drawn by scripts/make_icons.py. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -15,8 +15,8 @@
                 android:startY="0"
                 android:endX="0"
                 android:endY="108"
-                android:startColor="#FF19C2CF"
-                android:endColor="#FF3B7CF0" />
+                android:startColor="#FF9A68E6"
+                android:endColor="#FF7A55DC" />
         </aapt:attr>
     </path>
 </vector>

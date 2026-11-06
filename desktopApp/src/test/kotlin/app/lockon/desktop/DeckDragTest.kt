@@ -98,7 +98,7 @@ class DeckDragTest {
             settle(70)
             shot("deck-drag-before")
             // From the Beta box to the Testing folder in the rail, at this size and density.
-            val from = Offset(500f, 440f)
+            val from = Offset(500f, 290f)
             val to = Offset(150f, 243f)
             val held = PointerButtons(isPrimaryPressed = true)
             scene.sendPointerEvent(PointerEventType.Move, from, type = PointerType.Mouse)

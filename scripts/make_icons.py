@@ -1,6 +1,6 @@
-"""Draws the Lock On app icon for desktop packaging as a flat tile: the Lock On mark (a targeting
-reticle with a center dot) in white, on a tile in the app's teal-to-blue with a clear diagonal
-gradient, teal at the top right. No glows or shading, to match the Android launcher icon.
+"""Draws the Lock On app icon for desktop packaging as a flat tile: the Lock On mark (a bold ring
+with four studs and a center dot) in white, on a violet tile with a soft diagonal gradient, lighter
+at the top right. No glows or shading, to match the Android launcher icon.
 
 Uses the same 108-unit geometry as LockOnMark in the shared UI and the Android launcher icon.
 Run from the repo root:  python scripts/make_icons.py
@@ -10,18 +10,18 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-# The tile fades from TILE_TOP to TILE_BOTTOM; #2A9EE0, close to their midpoint, is ic_launcher_background
+# The tile fades from TILE_TOP to TILE_BOTTOM; #8A5EE1, their midpoint, is ic_launcher_background
 # (the splash screen's solid colour).
-TILE_TOP = (25, 194, 207)  # #19C2CF
-TILE_BOTTOM = (59, 124, 240)  # #3B7CF0
+TILE_TOP = (154, 104, 230)  # #9A68E6
+TILE_BOTTOM = (122, 85, 220)  # #7A55DC
 MARK = (255, 255, 255, 255)
-ARMS = [((54, 14), (54, 34)), ((54, 74), (54, 94)), ((14, 54), (34, 54)), ((74, 54), (94, 54))]
+ARMS = [((54, 18), (54, 29)), ((54, 79), (54, 90)), ((18, 54), (29, 54)), ((79, 54), (90, 54))]
 
 
 def reticle(d: ImageDraw.ImageDraw, p, k, width, fill):
     w = round(width * k)
     cx, cy = p(54, 54)
-    r = 26 * k
+    r = 25 * k
     d.ellipse([cx - r - w / 2, cy - r - w / 2, cx + r + w / 2, cy + r + w / 2], outline=fill, width=w)
     for a, b in ARMS:
         d.line([p(*a), p(*b)], fill=fill, width=w)
@@ -51,9 +51,9 @@ def draw(size: int) -> Image.Image:
     def p(x, y):
         return (54 + (x - 54) * f) * u, (54 + (y - 54) * f) * u
 
-    reticle(d, p, k, 8, MARK)
+    reticle(d, p, k, 12, MARK)
     cx, cy = p(54, 54)
-    r = 8 * k
+    r = 10 * k
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=MARK)
     return img.resize((size, size), Image.LANCZOS)
 

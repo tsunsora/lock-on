@@ -70,7 +70,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
 - **V3. Colour roles.**
   - **Primary (teal)** means "you can act" or "selected": primary buttons, the selected tab, chip, segment and destination, **+**, and counts in the deck.
   - **Secondary (sky blue)** is for information. Charts are one slate ramp (`ChartSlate`), so a bar never reads as a card colour or an action.
-  - **Tertiary (soft gold)** is for celebration only: a full gauge, the *Locked on!* state, sparkles and the Lock On moment.
+  - **Tertiary (soft gold)** is for celebration only: a full gauge, a finished sync, the *Locked on!* state, sparkles and the Lock On moment. There is one gold, #FFC34D, for every fill and for text at twilight. Text on a day panel uses the darker #9A6200, because the gold can't carry text on white.
   - Errors keep Material's error role.
   - Card colours are for card identity: cost orbs, strip edges and hover glows.
   - Light mode is a pale, quiet sky. Dark mode is a deep navy dusk, never black. Cards lie directly on the sky, so it stays low in colour and well away from the card faces' brightness. A full deck that needs review holds its gauge in slate rather than gold.
@@ -86,10 +86,10 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal, and red past the limit.
   - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold when exactly full, and red when over. Nothing is drawn on the bar itself (K3).
   - **Level curve** (as in MTG Arena): a compact curve sits at the top of the deck list.
-  - **Deck tiles:** phones and wide windows share one layout: the cover card at the side, then the name and colors, the state and record, and the gauge. The card is zoomed in on its illustration, a little less on wide windows. Wide windows fit as many 320 dp tiles to a row as they can and add the age, and the record is first to give way if that line runs out of room. Without art, the card's space shows the deck's colors and a shield.
+  - **Deck tiles:** phones and wide windows share one layout: the cover card at the side, then the name and colors, the state and record, and the gauge. The card is zoomed in on its illustration, a little less on wide windows. Wide windows fit as many 320 dp tiles to a row as they can and add the age, and the record is first to give way if that line runs out of room. Without art, the card's space shows the deck's colors in a calm flat tint, split evenly if it has two, and on wide windows a shield.
   - **Hero banner:** the editor header is a frosted strip with the cover art fading in from the right.
 - **V9. Navigation floats and fits the theme** (as on Stella Sora's home screen, N5).
-  - **The brand** is the Lock On mark on a rounded logo tile beside the name. The tile follows the theme: teal to blue with a white reticle by day, bright cyan with a navy reticle at twilight. Wide screens carry no page title beside the nav; the lit item names the screen.
+  - **The brand** is the Lock On mark on a rounded logo tile beside the name. The tile follows the theme: violet with a white mark by day, pale lilac with a deep violet-navy mark at twilight. Violet is the logo's alone in the header, so it never reads as a teal button. Wide screens carry no page title beside the nav; the lit item names the screen.
   - **The pill** (N5): destinations float in a translucent capsule, and the selected one is a teal pill with its label.
   - **Window controls** (N5, desktop) are plain buttons with no capsule, at the pill's exact height (K1), with three 42 dp rounded buttons, drawn glyphs, and a label and tooltip on each (I5). As on Windows itself, the three are the same size: being icon-only ranks them below the labelled destinations, and close shows its weight by turning red on hover, not by size. They tint on hover and sink a hair when pressed.
 - **V5. Motion explains and gives feedback, quietly.** Every animation answers *what changed*, *where did I go* or *what can I touch*, and none of it competes with the cards. Short distances, small scales, no bounce, overshoot, tilt or sparkle. Timing lives in `Motion.kt`.
@@ -111,7 +111,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
 - **V7. Decoration is never the only signal.**
   - **The sky:** a gradient with faint colour glows and a faint diagonal beam of light. Nothing floats in it.
   - **Sparkles** mark headings, the selected destination and celebration.
-  - **The Lock On mark:** a bold targeting reticle with a center dot, all in one colour. The app icon is flat: the mark in white on a tile with a clear diagonal gradient from teal #19C2CF at the top right to blue #3B7CF0 at the bottom left, with no glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
+  - **The Lock On mark:** a bold ring with four short studs and a big center dot, all in one colour, thick enough to hold at 16 px. The app icon is flat: the mark in white on a tile with a soft diagonal gradient from violet #9A68E6 at the top right to #7A55DC at the bottom left, with no glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
   - **Yellow-and-black caution stripes** are reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
   - All of these are original shapes, not official logos or artwork.
 

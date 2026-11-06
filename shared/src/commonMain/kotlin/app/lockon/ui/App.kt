@@ -711,16 +711,13 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
 
 private val NamePlate = RoundedCornerShape(18.dp)
 
-/** The logo tile's gradient by day: teal to blue. */
-private val LogoTileDay = listOf(Color(0xFF19C2CF), Color(0xFF2F9FE8), Color(0xFF3B7CF0))
-/** At twilight: bright cyan to periwinkle, like the theme's primary buttons. */
-private val LogoTileTwilight = listOf(Color(0xFF6FE7EC), Color(0xFF7CC4FF), Color(0xFF8FB0FF))
+/** The logo tile's gradient by day: violet, a colour nothing else in the header uses. */
+private val LogoTileDay = listOf(Color(0xFF9A68E6), Color(0xFF7A55DC))
+/** At twilight: pale lilac. */
+private val LogoTileTwilight = listOf(Color(0xFFD2BEFF), Color(0xFFB8A2F8))
+/** The mark on the tile at twilight: deep violet-navy. By day it is white. */
+private val LogoInkTwilight = Color(0xFF231A52)
 
-/**
- * The logo tile: the Lock On mark on a rounded tile in teal-to-blue, with a white
- * reticle by day and bright cyan with a navy reticle at twilight, so it belongs to both themes. As
- * [turn] goes to 1 the reticle spins away and a back arrow spins in where it was.
- */
 /** The Lock On mark on its rounded tile, in the theme's colours. */
 @Composable
 internal fun BrandTile(size: Dp) {
@@ -730,9 +727,10 @@ internal fun BrandTile(size: Dp) {
         Modifier.size(size).shadow(8.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
             .clip(shape).background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay)),
         contentAlignment = Alignment.Center,
-    ) { LockOnMark(size = size * 0.6f, reticleColor = if (twilight) Color(0xFF10204A) else Color.White) }
+    ) { LockOnMark(size = size * 0.6f, reticleColor = if (twilight) LogoInkTwilight else Color.White) }
 }
 
+/** The logo tile in the header. As [turn] goes to 1 the mark spins away and a back arrow spins in where it was. */
 @Composable
 private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Boolean) {
     val twilight = isTwilight()
@@ -741,7 +739,7 @@ private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Bool
         if (desktop) app.lockon.ui.components.neutralFill(hovered, pressed) else glassColors().strong,
         motion(Motion.SHORT), label = "back-fill",
     )
-    val ink = androidx.compose.ui.graphics.lerp(if (twilight) Color(0xFF10204A) else Color.White, MaterialTheme.colorScheme.onSurface, turn)
+    val ink = androidx.compose.ui.graphics.lerp(if (twilight) LogoInkTwilight else Color.White, MaterialTheme.colorScheme.onSurface, turn)
     val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier.size(44.dp).shadow(4.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
