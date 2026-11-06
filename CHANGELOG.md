@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.11.12 (2026-11-05)
+
+Desktop deck tiles now match the phone, with the card at the side, so far more decks fit on screen.
+
+- **Deck tiles (desktop):** each deck shows its cover card at the side, zoomed in on the art, next to its name and colors, its state, record, win rate and age, and its gauge.
+
 ## 26.11.11 (2026-11-05)
 
 Desktop deck tiles give their art more room.
