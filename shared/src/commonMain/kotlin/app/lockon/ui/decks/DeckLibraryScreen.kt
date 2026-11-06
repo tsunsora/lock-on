@@ -156,6 +156,7 @@ import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.ProgressGauge
+import app.lockon.ui.components.ProgressLine
 import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.theme.LockOnShapes
@@ -946,8 +947,9 @@ fun NoDecks(onNew: () -> Unit, onPaste: () -> Unit, onFromDevice: () -> Unit) {
 }
 
 /**
- * A deck on wide windows, four or more to a row: one large crop of its cover card's illustration,
- * then its name, the main deck gauge, and its colours, state, record and age on one line.
+ * A deck on wide windows, four or more to a row: one large crop of its cover card's illustration
+ * with the main deck gauge as a line along its lower edge, then its name, and its colours, state,
+ * record and age on one line.
  */
 @Composable
 private fun DeckTile(
@@ -981,6 +983,8 @@ private fun DeckTile(
             }
             CardArtwork(art, null, Modifier.matchParentSize().cardIllustration(), ContentScale.FillBounds) {}
         }
+        val count = deck.snapshot.count(DeckSection.MAIN)
+        ProgressLine("Main deck", count, ruleset.mainDeckSize, Modifier.fillMaxWidth(), hold = deck.hasConflict)
         Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -1000,8 +1004,6 @@ private fun DeckTile(
                     }
                 }
             }
-            val count = deck.snapshot.count(DeckSection.MAIN)
-            ProgressGauge("Main deck", count, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true, thinBar = true)
             val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
             val over = count - ruleset.mainDeckSize
             DeckFacts(
@@ -1013,7 +1015,9 @@ private fun DeckTile(
                             when {
                                 review -> StateTag(false, review = true, label = "Review", icon = false)
                                 past > 0 -> StateTag(false, review = true, label = "$past over", icon = false)
-                                else -> StateTag(isLegal)
+                                isLegal -> StateTag(true)
+                                count < ruleset.mainDeckSize -> StateTag(false, label = "$count/${ruleset.mainDeckSize}")
+                                else -> StateTag(false)
                             }
                         }
                     }
@@ -1067,7 +1071,7 @@ private fun deckBannerFill(colors: Set<CardColor>, panel: Color): Brush {
     }
 }
 
-private val DeckBannerHeight = 120.dp
+private val DeckBannerHeight = 136.dp
 
 /**
  * Lays a whole card out larger than this space, so the space shows only its illustration: past the

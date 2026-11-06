@@ -538,6 +538,7 @@ class ScreenshotTest {
         seed("draft", "Wing Control", listOf(DeckEntry(blue, 4), DeckEntry(red, 4)) + List(9) { DeckEntry(cards[it + 2].cardNumber, 3) }.distinctBy { it.cardNumber }, record, day)
         seed("empty", "New deck", emptyList())
         seed("one", "One card so far", listOf(DeckEntry(blue, 1)))
+        seed("two", "Two cards so far", listOf(DeckEntry(blue, 2), DeckEntry(red, 2)))
         seed("review", "Store championship list, second revision", full, record, day)
         seed("review", "Store championship list, second revision", full.drop(1), record, day)
         seed("noart", "No art downloaded", listOf(DeckEntry(noArtBlue, 4), DeckEntry(noArtRed, 4)), ago = 5 * day)
