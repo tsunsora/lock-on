@@ -580,11 +580,33 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
 }
 
 /**
+ * A deck gauge as nothing but a thin line edge to edge, for a tile that shows its count elsewhere.
+ * Its colours and motion are [ProgressGauge]'s: teal while filling, gold when exactly full, red when over.
+ */
+@Composable
+fun ProgressLine(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, hold: Boolean = false) {
+    val scheme = MaterialTheme.colorScheme
+    val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "line")
+    val target = when {
+        count > limit -> scheme.error
+        hold -> if (isTwilight()) ChartSlateTwilight else ChartSlate
+        count == limit -> Color(0xFFFFB84D)
+        else -> Accent
+    }
+    val fill by animateColorAsState(target, motion(Motion.MEDIUM), label = "line-tone")
+    val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
+    Canvas(modifier.height(4.dp).semantics { contentDescription = "$label: $count of $limit" }) {
+        drawRect(track)
+        if (fraction > 0f) drawRect(fill, size = Size(size.width * fraction, size.height))
+    }
+}
+
+/**
  * A deck gauge (UX rule I1): label, count over limit, and a rounded bar. Teal while filling, gold
  * when exactly full, red when over. The colour and the number say it; nothing is drawn on the bar.
  */
 @Composable
-fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false, numberLast: Boolean = false, thinBar: Boolean = false) {
+fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false, numberLast: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
     // One value for the gauge's state, 0 filling, 1 exactly full, 2 over, so the teal warms to gold
@@ -610,7 +632,7 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     }
     @Composable
     fun Bar(barModifier: Modifier) {
-        Canvas(barModifier.height(if (thinBar || (compact && !inline)) 6.dp else 8.dp)) {
+        Canvas(barModifier.height(if (compact && !inline) 6.dp else 8.dp)) {
             val r = CornerRadius(size.height / 2)
             drawRoundRect(track, cornerRadius = r)
             if (fraction > 0f) {
