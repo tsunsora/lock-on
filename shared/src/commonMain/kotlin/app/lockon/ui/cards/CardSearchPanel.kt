@@ -116,7 +116,7 @@ import app.lockon.model.CardSort
 import app.lockon.model.CardType
 import app.lockon.model.ReleaseOrder
 import app.lockon.ui.components.CardTile
-import app.lockon.ui.components.CompactStepper
+import app.lockon.ui.components.PlateStepper
 import app.lockon.ui.components.CardRow
 import app.lockon.ui.components.EmptyState
 import app.lockon.ui.theme.TabularNumbers
@@ -541,7 +541,8 @@ fun CardSearchPanel(
                         if (controls != null) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 controls.tag(card)
-                                CompactStepper(controls.quantity(card), { controls.change(card, -1) }, { controls.change(card, 1) })
+                                // The deck list's own stepper, so a card's count reads the same in both lists.
+                                PlateStepper(controls.quantity(card), card.name, { controls.change(card, -1) }, { controls.change(card, 1) }, limit = controls.limit(card))
                             }
                         }
                     })

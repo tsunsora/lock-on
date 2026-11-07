@@ -580,6 +580,38 @@ class ScreenshotTest {
         shoot("council-desktop-matches-logged", 1980, 1290, taps = listOf(androidx.compose.ui.geometry.Offset(1372f, 593f))) { open(Screen.DeckEditor(deckId, startTab = 4)) }
     }
 
+    /**
+     * The quantity controls for a design council: the deck view and Add cards, on a phone (drawn with
+     * phone controls) in both themes, with the deck as strips and as card images, and on desktop.
+     */
+    @Test fun renderQuantityCouncil() {
+        val rest = androidx.compose.ui.geometry.Offset(5f, 5f)
+        shoot("tmp-qty-first", 600, 1260, hover = rest) { open(Screen.DeckEditor(deckId)) }
+        app.lockon.ui.components.previewPhoneControls = true
+        try {
+            for (dark in listOf(true, false)) {
+                val theme = if (dark) "dark" else "light"
+                shoot("qty-phone-deck-$theme", 600, 1260, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId)) }
+                shoot("qty-phone-add-$theme", 600, 1260, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+                runBlocking { container.settings.setDeckAsCards(true) }
+                shoot("qty-phone-deck-cards-$theme", 600, 1260, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId)) }
+                runBlocking { container.settings.setDeckAsCards(false) }
+                // Add cards as a list: Filters, the list toggle, then Show.
+                val asList = listOf(androidx.compose.ui.geometry.Offset(545f, 181f), androidx.compose.ui.geometry.Offset(530f, 720f), androidx.compose.ui.geometry.Offset(362f, 1188f))
+                shoot("qty-phone-add-list-$theme", 600, 1260, dark = dark, taps = asList, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+            }
+        } finally {
+            app.lockon.ui.components.previewPhoneControls = false
+        }
+        shoot("qty-desktop-dark", 1980, 1290, hover = rest) { open(Screen.DeckEditor(deckId)) }
+        shoot("qty-desktop-light", 1980, 1290, dark = false, hover = rest) { open(Screen.DeckEditor(deckId)) }
+        // The card list as a list, and the deck panel as card images.
+        val listToggle = androidx.compose.ui.geometry.Offset(1153f, 183f)
+        val deckCards = androidx.compose.ui.geometry.Offset(1907f, 321f)
+        shoot("qty-desktop-lists-dark", 1980, 1290, taps = listOf(listToggle, deckCards), hover = rest) { open(Screen.DeckEditor(deckId)) }
+        shoot("qty-desktop-lists-light", 1980, 1290, dark = false, taps = listOf(listToggle, deckCards), hover = rest) { open(Screen.DeckEditor(deckId)) }
+    }
+
     /** The Card database dialog with the official list installed, as on a computer and a phone, in both themes. */
     @Test fun renderCatalogDialog() {
         val cards = container.catalog.cards.value.values.toList()

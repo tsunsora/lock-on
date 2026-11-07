@@ -464,10 +464,16 @@ fun GlassIconButton(
 }
 
 /** The one height for buttons, fields and icon buttons that share a row. A pointer needs less than a thumb. */
-val ControlSize = if (app.lockon.platform.isMobile) 44.dp else 40.dp
+val ControlSize get() = if (app.lockon.platform.isMobile || previewPhoneControls) 44.dp else 40.dp
+
+/**
+ * For image tests on a computer: draws phone controls, so a phone-sized render shows what a phone shows.
+ * Set it before composing and clear it after; the app never sets it.
+ */
+var previewPhoneControls = false
 
 /** Desktop draws every control from one recipe (UX rule K3); phones keep the look they were reviewed in. */
-internal val desktopControls = !app.lockon.platform.isMobile
+internal val desktopControls get() = !app.lockon.platform.isMobile && !previewPhoneControls
 
 /** How far a control sinks when pressed on desktop. */
 internal const val PressScale = 0.97f
