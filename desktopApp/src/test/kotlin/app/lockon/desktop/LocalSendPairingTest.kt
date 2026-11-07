@@ -105,6 +105,25 @@ class LocalSendPairingTest {
         assertTrue(pairing.invites.value.isEmpty(), "the invitation is used up")
     }
 
+    @Test fun aDesktopThatForgotAPhoneCanInviteItBack() = runBlocking<Unit> {
+        suspend fun pairOnce(request: PairRequest) = coroutineScope {
+            val result = async { pairing.handle(request) }
+            answerNext(accept = true)
+            assertIs<PairingManager.Outcome.Accepted>(result.await()).response.authToken!!
+        }
+        val first = pairOnce(PairRequest(deviceId = "phone", deviceName = "Pixel", nonce = "a"))
+        devices.forget("phone")
+
+        // The phone still has this desktop saved, so all it can do is hear the invitation and answer it.
+        val invite = pairing.invite("phone", "Pixel")
+        assertEquals(invite.inviteId, pairing.awaitInvite("phone", 1_000)?.inviteId)
+        val second = pairOnce(PairRequest(deviceId = "phone", deviceName = "Pixel", nonce = "b", inviteId = invite.inviteId))
+
+        assertTrue(first != second, "pairing again hands out a new token")
+        assertEquals("phone", devices.byTokenHash(sha256Hex(second.toByteArray()))?.deviceId)
+        assertNull(devices.byTokenHash(sha256Hex(first.toByteArray())), "the forgotten token stays dead")
+    }
+
     @Test fun expiredOrForeignInvitationsAreRefused() = runBlocking<Unit> {
         val invite = pairing.invite("phone", "Pixel")
         assertIs<PairingManager.Outcome.Invalid>(
