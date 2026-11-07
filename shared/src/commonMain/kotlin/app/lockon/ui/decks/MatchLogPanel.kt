@@ -210,6 +210,10 @@ fun MatchLogPanel(
                         }
                         RecordRow("1st", stats.goingFirst, nameWidth = 36.dp)
                         RecordRow("2nd", stats.goingSecond, nameWidth = 36.dp)
+                        // Games logged without a turn order, so the rows add up to the record.
+                        val o = stats.overall; val a = stats.goingFirst; val b = stats.goingSecond
+                        val unsided = Record(o.wins - a.wins - b.wins, o.losses - a.losses - b.losses, o.draws - a.draws - b.draws)
+                        if (unsided.games > 0) RecordRow("—", unsided, nameWidth = 36.dp)
                     }
                 }
             }
