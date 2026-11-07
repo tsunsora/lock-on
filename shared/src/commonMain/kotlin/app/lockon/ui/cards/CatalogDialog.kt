@@ -16,6 +16,8 @@ import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.PillTextField
 import app.lockon.platform.formatMonthDay
+import app.lockon.platform.dayLabel
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.padding
 import app.lockon.ui.components.CountPill
 import app.lockon.ui.components.LocalArtworkStore
@@ -74,7 +76,7 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, onDismiss: () -> Unit) {
+fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, onDismiss: () -> Unit, showOtherSources: Boolean = false) {
     val info by container.catalog.info.collectAsState()
     var url by remember { mutableStateOf(info?.updateUrl.orEmpty()) }
     var busy by remember { mutableStateOf(false) }
@@ -119,30 +121,23 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                             busy = false
                         }
                     }
-                    // What's installed, with the one action that keeps it current beside its name.
+                    // When the official list was last checked, so the panel says whether it's current.
+                    var lastChecked by remember { mutableStateOf<Long?>(null) }
+                    LaunchedEffect(check) { lastChecked = container.catalog.lastUpdateCheck() }
+                    // What's installed, then the one action that keeps it current, always in the same place.
                     info?.let { current ->
                         Column(
                             Modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            // The action goes under the name when both don't fit on one line, as on a phone.
-                            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(10.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                                Text(if (official) "Official card list" else current.name, Modifier.weight(1f).widthIn(min = 160.dp), style = MaterialTheme.typography.titleMedium)
-                                Reveal(busy, sideways = true) { ReticleSpinner(size = 20.dp) }
-                                when (check) {
-                                    is CatalogUpdater.UpdateCheck.Available ->
-                                        GameButton("Download update", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, icon = LineIcons.Download, compact = true)
-                                    is CatalogUpdater.UpdateCheck.UpToDate ->
-                                        Text("Up to date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-                                    else -> if (official) GameButton("Check for updates", onClick = ::checkOfficial, enabled = !busy, icon = LineIcons.Sync, compact = true)
-                                }
-                            }
+                            Text(if (official) "Official card list" else current.name, style = MaterialTheme.typography.titleMedium)
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOfNotNull(
                                     "Version" to "${current.version}",
                                     "Cards" to "${current.cardCount}",
                                     "Source" to if (official) "gcg-api" else current.origin.label,
                                     current.installedAt?.let { "Installed" to formatMonthDay(it) },
+                                    lastChecked?.takeIf { official }?.let { "Checked" to if (it > 0) dayLabel(it) else "Never" },
                                     images?.takeIf { showArtwork && it.total > 0 }?.let {
                                         "Images offline" to if (it.complete) "${it.total}" else "${it.saved} of ${it.total}"
                                     },
@@ -160,41 +155,51 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                     style = muted,
                                 )
                             }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                val wide = Modifier.weight(1f)
+                                when (val result = check) {
+                                    is CatalogUpdater.UpdateCheck.Available ->
+                                        GameButton(if (result.newAltArts > 0) "Download update" else "Update to version ${result.version}", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, icon = LineIcons.Download, modifier = wide)
+                                    is CatalogUpdater.UpdateCheck.UpToDate ->
+                                        GameButton("Up to date", onClick = {}, enabled = false, icon = LineIcons.Check, modifier = wide)
+                                    else ->
+                                        if (official) GameButton("Check for updates", onClick = ::checkOfficial, enabled = !busy, icon = LineIcons.Sync, modifier = wide)
+                                        else GameButton("Get the official card list", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, icon = LineIcons.Download, modifier = wide)
+                                }
+                                Reveal(busy, sideways = true) { ReticleSpinner(size = 20.dp) }
+                            }
                         }
                     }
-                    // Not on the official list yet: getting it is the main thing to do here.
-                    if (!official && check !is CatalogUpdater.UpdateCheck.Available) {
-                        GameButton("Get the official card list", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, icon = LineIcons.Download, modifier = Modifier.fillMaxWidth())
-                    }
-                    // A link, a file or the sample: rarely needed, so folded away while the official list is in.
-                    var others by remember { mutableStateOf(!official) }
-                    Row(
-                        Modifier.fillMaxWidth().clip(LockOnShapes.button).clickable(onClickLabel = if (others) "Hide other sources" else "Show other sources") { others = !others }.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Other sources", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val turn by animateFloatAsState(if (others) 180f else 0f, motion(Motion.SHORT), label = "sources-chevron")
-                        Icon(LineIcons.Chevd, null, Modifier.size(18.dp).graphicsLayer { rotationZ = turn }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Reveal(others) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                PillTextField(url, { url = it.trim() }, "Link to a card list", Modifier.weight(1f))
-                                GameButton("Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, style = GameButtonStyle.SECONDARY, icon = LineIcons.Download, compact = true)
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                GameButton("Import file", icon = LineIcons.Folder, onClick = {
-                                    attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
-                                }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
-                                if (info?.origin != CatalogOrigin.BUNDLED) {
-                                    GameButton("Restore sample", onClick = {
-                                        busy = true
-                                        scope.launch {
-                                            container.restoreSampleCatalog()
-                                            busy = false
-                                            state.notify("Sample catalog restored.")
-                                        }
-                                    }, style = GameButtonStyle.SECONDARY, enabled = !busy, icon = LineIcons.Undo, compact = true)
+                    // A link, a file or the sample: rarely needed, so folded into a panel of their own.
+                    var others by remember { mutableStateOf(showOtherSources) }
+                    Column(Modifier.fillMaxWidth().glass(LockOnShapes.tile)) {
+                        Row(
+                            Modifier.fillMaxWidth().clip(LockOnShapes.tile).clickable(onClickLabel = if (others) "Hide other sources" else "Show other sources") { others = !others }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("Other sources", style = MaterialTheme.typography.labelLarge)
+                            val turn by animateFloatAsState(if (others) 180f else 0f, motion(Motion.SHORT), label = "sources-chevron")
+                            Icon(LineIcons.Chevd, null, Modifier.size(18.dp).graphicsLayer { rotationZ = turn }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Reveal(others) {
+                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                PillTextField(url, { url = it.trim() }, "Card list link", Modifier.fillMaxWidth())
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    GameButton("Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, style = GameButtonStyle.SECONDARY, icon = LineIcons.Download, compact = true)
+                                    GameButton("Import file", icon = LineIcons.Folder, onClick = {
+                                        attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
+                                    }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
+                                    if (info?.origin != CatalogOrigin.BUNDLED) {
+                                        GameButton("Restore sample", onClick = {
+                                            busy = true
+                                            scope.launch {
+                                                container.restoreSampleCatalog()
+                                                busy = false
+                                                state.notify("Sample catalog restored.")
+                                            }
+                                        }, style = GameButtonStyle.SECONDARY, enabled = !busy, icon = LineIcons.Undo, compact = true)
+                                    }
                                 }
                             }
                         }

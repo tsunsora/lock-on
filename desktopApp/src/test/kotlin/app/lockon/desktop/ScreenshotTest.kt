@@ -589,6 +589,18 @@ class ScreenshotTest {
                 CatalogOrigin.GCG_API, null,
             )
         }
+        fun render(file: String, size: Pair<Int, Int>, dark: Boolean, sources: Boolean = false) =
+            ImageComposeScene(size.first, size.second, Density(1.5f)) {
+                app.lockon.ui.theme.LockOnTheme(dark = dark) {
+                    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                        app.lockon.ui.cards.CatalogDialog(container, AppState(CoroutineScope(Dispatchers.Default)), files, onDismiss = {}, showOtherSources = sources)
+                    }
+                }
+            }.use { scene ->
+                var image = scene.render()
+                repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+                File(out, "$file.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
         for ((name, size) in listOf("desktop" to (1980 to 1290), "phone" to (600 to 1260))) for (dark in listOf(true, false)) {
             ImageComposeScene(size.first, size.second, Density(1.5f)) {
                 app.lockon.ui.theme.LockOnTheme(dark = dark) {
@@ -602,7 +614,13 @@ class ScreenshotTest {
                 File(out, "catalog-${if (dark) "" else "light-"}$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
             }
         }
+        // Other sources opened.
+        render("catalog-sources-desktop", 1980 to 1290, true, sources = true)
+        render("catalog-sources-phone", 600 to 1260, true, sources = true)
         runBlocking { container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText()) }
+        // On the built-in sample, where getting the official list is the thing to do.
+        render("catalog-sample-desktop", 1980 to 1290, true)
+        render("catalog-sample-phone", 600 to 1260, true)
     }
 
     /** The deck panel's other tabs on a computer, in both themes. */
