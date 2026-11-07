@@ -14,6 +14,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
@@ -142,7 +143,7 @@ fun MatchLogPanel(
     // A game that wasn't here a moment ago, logged or just edited, is scrolled to and lit for a moment,
     // so it's plain that the tap took.
     var fresh by remember { mutableStateOf<String?>(null) }
-    // The result button just tapped wears a check for a moment, where the eyes already are.
+    // The result button just tapped reads Logged for a moment, where the eyes already are.
     var logged by remember { mutableStateOf<MatchResult?>(null) }
     LaunchedEffect(logged) { if (logged != null) { delay(1500); logged = null } }
     val seen = remember { mutableSetOf<String>().apply { matches.forEach { add(it.id) } } }
@@ -178,13 +179,15 @@ fun MatchLogPanel(
                 PillTextField(notes, { notes = it }, "Note", Modifier.fillMaxWidth())
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Taller on a phone with room, for a sure one-handed tap.
+                val big = phone && !short
                 fun log(result: MatchResult) {
                     onLog(result, opponent.trim(), when (turn) { 1 -> true; 2 -> false; else -> null }, notes.trim())
                     opponent = ""; notes = ""; noting = false; turn = 0; logged = result
                 }
-                GameButton("Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f), icon = LineIcons.Check.takeIf { logged == MatchResult.WIN })
-                GameButton("Loss", onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f), icon = LineIcons.Check.takeIf { logged == MatchResult.LOSS }, tone = scheme.error, onTone = scheme.onError)
-                GameButton("Draw", onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f), icon = LineIcons.Check.takeIf { logged == MatchResult.DRAW }, tone = drawTone(), onTone = onDrawTone())
+                GameButton(if (logged == MatchResult.WIN) "Logged" else "Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f).then(if (big) Modifier.heightIn(min = 52.dp) else Modifier))
+                GameButton(if (logged == MatchResult.LOSS) "Logged" else "Loss", onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f).then(if (big) Modifier.heightIn(min = 52.dp) else Modifier), tone = scheme.error, onTone = scheme.onError)
+                GameButton(if (logged == MatchResult.DRAW) "Logged" else "Draw", onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f).then(if (big) Modifier.heightIn(min = 52.dp) else Modifier), tone = drawTone(), onTone = onDrawTone())
             }
         }
     }
