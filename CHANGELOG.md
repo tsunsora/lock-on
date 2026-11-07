@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.11.17 (2026-11-07)
+
+Syncing recovers on its own when one side forgot the other, and the Sync page has more room.
+
+- **Pairing again:** when a desktop has forgotten a phone that still remembers it, the phone now answers the desktop's invitation instead of leaving it waiting. Tapping Pair during a sync waits for that sync, or says why it can't, instead of doing nothing.
+- **Sync page on desktop:** this device, your devices and nearby devices each sit on a solid panel with more space between them.
+- **Sync page on phones:** the devices sit above a tray with this device, its pairing options and the tabs, all within thumb reach, and status lines stay on one line.
+- **Progress:** busy rows show a plain progress track instead of a light running round the edge, and finished sends get a gold tick.
+
 ## 26.11.16 (2026-11-07)
 
 A launch screen that matches the new logo, and a permanent signing key for the Android app.
