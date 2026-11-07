@@ -559,6 +559,20 @@ class ScreenshotTest {
         container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())
     }
 
+    /**
+     * The Matches page for a design council: desktop and phone, both themes, plus a small phone and a
+     * tall phone page. Designers may add shots of their own states (editing a game) after these.
+     */
+    @Test fun renderMatchesCouncil() {
+        val rest = androidx.compose.ui.geometry.Offset(5f, 5f)
+        shoot("council-desktop-matches", 1980, 1290) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("council-light-desktop-matches", 1980, 1290, dark = false) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("council-phone-matches", 600, 1260, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("council-light-phone-matches", 600, 1260, dark = false, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("council-phone-matches-small", 540, 960, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("council-light-phone-matches-full", 600, 2800, dark = false, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+    }
+
     /** The deck panel's other tabs on a computer, in both themes. */
     @Test fun renderDeckPanelTabs() {
         for ((name, tab) in listOf("analysis" to 2, "matches" to 4, "versions" to 5)) {
