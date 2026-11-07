@@ -503,7 +503,7 @@ fun neutralFill(hovered: Boolean = false, pressed: Boolean = false): Color = neu
  * narrower than its tabs, or share the width equally with [fill].
  */
 @Composable
-fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, fill: Boolean = false, soft: Boolean = false, icons: List<ImageVector>? = null, flush: Boolean = false) {
+fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, fill: Boolean = false, soft: Boolean = false, icons: List<ImageVector>? = null, flush: Boolean = false, itemHeight: Dp = ControlSize, bare: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     // Icons give way to the words when the row gets too narrow for both.
     val iconRoom = with(androidx.compose.ui.platform.LocalDensity.current) { 440.dp.toPx() }
@@ -522,7 +522,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     // starts at the selection.
     val slot by animateFloatAsState(selected.toFloat(), glide(), label = "tab-slide")
     val placed by remember(spots, selected) { derivedStateOf { spots.getOrNull(selected)?.value != null } }
-    Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).then(if (flush && desktopControls) Modifier else Modifier.padding(horizontal = 8.dp, vertical = 6.dp))) {
+    Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).then(if ((flush && desktopControls) || bare) Modifier else Modifier.padding(horizontal = 8.dp, vertical = 6.dp))) {
         Row(
             track.clip(LockOnShapes.button).background(trackFill).padding(horizontal = 4.dp).drawBehind {
                 if (spots.isEmpty()) return@drawBehind
@@ -553,7 +553,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 val text by animateColorAsState(if (isSelected) onAccent else scheme.onSurfaceVariant, motion(Motion.MEDIUM), label = "tab-text")
                 Box(
                     // The whole height of the track takes the tap; the thumb inside it is 8 dp shorter.
-                    (if (fill) Modifier.weight(1f) else Modifier).height(ControlSize)
+                    (if (fill) Modifier.weight(1f) else Modifier).height(itemHeight)
                         .onPlaced { spots.getOrNull(i)?.value = it.positionInParent().x to it.size.width.toFloat() }
                         .hoverable(interaction)
                         .selectable(isSelected, interaction, indication = null, role = Role.Tab) { onSelect(i) }
