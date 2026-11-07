@@ -580,6 +580,31 @@ class ScreenshotTest {
         shoot("council-desktop-matches-logged", 1980, 1290, taps = listOf(androidx.compose.ui.geometry.Offset(1372f, 593f))) { open(Screen.DeckEditor(deckId, startTab = 4)) }
     }
 
+    /** The Card database dialog with the official list installed, as on a computer and a phone, in both themes. */
+    @Test fun renderCatalogDialog() {
+        val cards = container.catalog.cards.value.values.toList()
+        runBlocking {
+            container.catalog.install(
+                CatalogFile(catalogId = "gcg-api", version = 31, name = "Official card list", source = app.lockon.catalog.GcgApi.ATTRIBUTION + " Dataset built 2026-11-02.", cards = cards, printings = emptyList()),
+                CatalogOrigin.GCG_API, null,
+            )
+        }
+        for ((name, size) in listOf("desktop" to (1980 to 1290), "phone" to (600 to 1260))) for (dark in listOf(true, false)) {
+            ImageComposeScene(size.first, size.second, Density(1.5f)) {
+                app.lockon.ui.theme.LockOnTheme(dark = dark) {
+                    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                        app.lockon.ui.cards.CatalogDialog(container, AppState(CoroutineScope(Dispatchers.Default)), files, onDismiss = {})
+                    }
+                }
+            }.use { scene ->
+                var image = scene.render()
+                repeat(10) { frame -> Thread.sleep(60); image = scene.render((frame + 1) * 100_000_000L) }
+                File(out, "catalog-${if (dark) "" else "light-"}$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+        }
+        runBlocking { container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText()) }
+    }
+
     /** The deck panel's other tabs on a computer, in both themes. */
     @Test fun renderDeckPanelTabs() {
         for ((name, tab) in listOf("analysis" to 2, "matches" to 4, "versions" to 5)) {
