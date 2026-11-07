@@ -65,6 +65,9 @@ import app.lockon.sync.toOutgoing
 /** How long to wait before asking again when a desktop offers an invitation already answered. */
 private const val INVITE_RECHECK_MS = 5_000L
 
+/** How long pairing waits for a running sync to finish before saying so. */
+private const val PAIR_WAIT_MS = 10_000L
+
 /** The phone connects to a paired desktop. It starts every pairing and sync; the desktop only answers. */
 class AndroidSyncController(
     context: Context,
@@ -154,7 +157,11 @@ class AndroidSyncController(
         watchInvites(invite.desktop)
     }
 
-    /** Keeps one held-open invite request per nearby, unpaired desktop while the app is visible. */
+    /**
+     * Keeps one held-open invite request per nearby desktop while the app is visible. That includes
+     * desktops this phone has saved: one that has forgotten this phone lists it as new and invites it,
+     * and only an invitation can tell the phone. A saved desktop stays pinned to its saved certificate.
+     */
     private fun watchInvites(desktop: NearbyDevice) {
         if (!desktop.isDesktop || !desktop.compatible) return
         synchronized(inviteWatchers) {
@@ -162,10 +169,9 @@ class AndroidSyncController(
             inviteWatchers[desktop.deviceId] = scope.launch {
                 var backoff = 2_000L
                 while (true) {
-                    if (container.devices.device(desktop.deviceId) != null) return@launch
                     try {
                         val answered = synchronized(inviteWatchers) { answeredInvites[desktop.deviceId] }
-                        val offer = pinnedHttpClient(desktop.fingerprint).use {
+                        val offer = clientFor(desktop).use {
                             awaitInvite(it, baseUrl(desktop.host, desktop.port), container.identity.deviceId, answered)
                         }
                         backoff = 2_000L
@@ -320,10 +326,10 @@ class AndroidSyncController(
     private suspend fun onDesktopFound(service: String, desktop: NearbyDevice) {
         _desktops.update { it + (service to desktop) }
         watchShares(desktop)
+        watchInvites(desktop)
         val paired = container.devices.device(desktop.deviceId)
         if (paired == null) {
             _nearby.update { it + (service to desktop) }
-            watchInvites(desktop)
             return
         }
         // A paired desktop that moved (new Wi-Fi, new DHCP lease) is followed automatically.
@@ -369,7 +375,11 @@ class AndroidSyncController(
 
     override fun pair(invite: PairingInvite) {
         scope.launch {
-            if (!busy.tryLock()) return@launch
+            // A sync may be finishing, so give it a moment rather than dropping the tap.
+            if (withTimeoutOrNull(PAIR_WAIT_MS) { busy.lock() } == null) {
+                _status.value = SyncStatus(message = "Another sync is still running. Try pairing again in a moment.", isError = true)
+                return@launch
+            }
             try {
                 _status.value = SyncStatus(working = true, message = "Connecting to ${invite.name.ifBlank { invite.host }}…")
                 var seen: String? = null
