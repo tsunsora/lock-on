@@ -115,6 +115,9 @@ import app.lockon.model.DeckEntry
 import app.lockon.model.DeckSection
 import app.lockon.model.Ruleset
 import app.lockon.model.DeckSnapshot
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import app.lockon.model.DeckVersion
 import app.lockon.model.MatchRecord
 import app.lockon.platform.formatTimestamp
@@ -212,6 +215,9 @@ import app.lockon.ui.components.fadeEnd
 
 private const val AUTOSAVE_DELAY_MS = 400L
 
+/** One editor save at a time, across decks, in the order they were asked for. */
+private val EditorSaves = Mutex()
+
 /** The card list's share of the wide editor's width, until the person drags the divider. */
 private const val DEFAULT_SPLIT = 0.615f
 private val SPLIT_HANDLE = 10.dp
@@ -248,16 +254,28 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     }
     val pending by rememberUpdatedState(draft?.takeIf { it != saved })
     val pendingBase by rememberUpdatedState(base)
+    // Saves run one at a time in the order they were asked for. Two launched together could otherwise
+    // land out of order, and the older copy, read back as the deck, would drop the newer change.
+    fun persist(snapshot: DeckSnapshot, from: String?) {
+        state.appScope.launch(start = CoroutineStart.UNDISPATCHED) { EditorSaves.withLock { container.decks.save(deckId, snapshot, from) } }
+    }
     LaunchedEffect(draft) {
         val toSave = draft ?: return@LaunchedEffect
         if (toSave == saved) return@LaunchedEffect
         delay(AUTOSAVE_DELAY_MS)
         val from = base
-        state.appScope.launch { container.decks.save(deckId, toSave, from) }
+        persist(toSave, from)
         saved = toSave
     }
+    // Saves without the autosave pause, for changes too important to sit in the draft.
+    fun saveNow(next: DeckSnapshot) {
+        draft = next
+        val from = base
+        persist(next, from)
+        saved = next
+    }
     DisposableEffect(deckId) {
-        onDispose { pending?.let { last -> state.appScope.launch { container.decks.save(deckId, last, pendingBase) } } }
+        onDispose { pending?.let { last -> persist(last, pendingBase) } }
     }
 
     // The editor fills in over its first frames: its frame, then the deck, then the card list. Each
@@ -502,14 +520,24 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         val matchLog: @Composable (Modifier) -> Unit = { modifier ->
             MatchLogPanel(
                 deck.matches, opponents, modifier,
+                // Games read the draft itself, not this composition's copy, and save at once rather
+                // than after the autosave pause: a phone is often locked or put away right after a tap.
                 onLog = { result, opponent, wentFirst, notes ->
                     val match = MatchRecord(Uuid.random().toString(), Clock.System.now().toEpochMilliseconds(), result, opponent, wentFirst, notes)
-                    draft = deck.copy(matches = deck.matches + match)
+                    draft?.let { saveNow(it.copy(matches = it.matches + match)) }
+                },
+                // An edited game gets a new id, so syncing reads it as the old game removed and a new one
+                // logged, and a device that still has the old copy can't win the merge with it.
+                onEdit = { before, after ->
+                    draft?.let { current ->
+                        val edited = after.copy(id = Uuid.random().toString(), playedAt = before.playedAt)
+                        if (current.matches.any { it.id == before.id }) saveNow(current.copy(matches = DeckRepository.mergeMatches(current.matches.filterNot { it.id == before.id } + edited)))
+                    }
                 },
                 onDelete = { match ->
-                    draft = deck.copy(matches = deck.matches - match)
+                    draft?.let { saveNow(it.copy(matches = it.matches.filterNot { m -> m.id == match.id })) }
                     state.notify("Removed a ${match.result.label.lowercase()}", "Undo") {
-                        draft = draft?.let { it.copy(matches = DeckRepository.mergeMatches(it.matches + match)) }
+                        draft?.let { saveNow(it.copy(matches = DeckRepository.mergeMatches(it.matches + match))) }
                     }
                 },
             )

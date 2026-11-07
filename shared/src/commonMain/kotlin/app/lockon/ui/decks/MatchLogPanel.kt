@@ -30,8 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import app.lockon.platform.dayLabel
 import app.lockon.ui.components.Accent
-import app.lockon.ui.components.GameMenu
-import app.lockon.ui.components.GameMenuItem
+import app.lockon.ui.components.GameDialog
 import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.SoftTile
@@ -118,6 +117,7 @@ fun MatchLogPanel(
     opponentSuggestions: List<String>,
     modifier: Modifier = Modifier,
     onLog: (result: MatchResult, opponent: String, wentFirst: Boolean?, notes: String) -> Unit,
+    onEdit: (before: MatchRecord, after: MatchRecord) -> Unit,
     onDelete: (MatchRecord) -> Unit,
 ) {
     val stats = remember(matches) { MatchStats.of(matches) }
@@ -127,6 +127,9 @@ fun MatchLogPanel(
     // 0 = not recorded, 1 = went first, 2 = went second.
     var turn by rememberSaveable { mutableStateOf(0) }
     val scheme = MaterialTheme.colorScheme
+    // The game being edited, by id, so an edit that syncs in meanwhile shows rather than a stale copy.
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editing = editingId?.let { id -> matches.firstOrNull { it.id == id } }
 
     val listState = rememberLazyListState()
     // On a phone everything sits on solid panels, and logging stays above the bar under the thumb.
@@ -207,12 +210,11 @@ fun MatchLogPanel(
             )
         }
         itemsIndexed(matches.asReversed(), key = { _, match -> match.id }) { index, match ->
-            var menu by remember { mutableStateOf(false) }
             val last = index == matches.lastIndex
             val rowShape = RoundedCornerShape(bottomStart = if (last) tile else 0.dp, bottomEnd = if (last) tile else 0.dp)
             Box(Modifier.animateItem().then(if (phone) Modifier.background(fill, rowShape).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = if (last) 16.dp else 4.dp) else Modifier)) {
                 Row(
-                    Modifier.fillMaxWidth().clip(LockOnShapes.button).clickable(onClickLabel = "Match options") { menu = true }.padding(vertical = 4.dp),
+                    Modifier.fillMaxWidth().clip(LockOnShapes.button).clickable(onClickLabel = "Edit this game") { editingId = match.id }.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     val (letter, tone, ink) = when (match.result) {
@@ -237,10 +239,6 @@ fun MatchLogPanel(
                     }
                     Text(dayLabel(match.playedAt), Modifier.widthIn(min = 58.dp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.End, maxLines = 1)
                 }
-                GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    GameMenuItem(formatTimestamp(match.playedAt), onClick = { menu = false })
-                    GameMenuItem("Remove this match", onClick = { menu = false; onDelete(match) }, icon = LineIcons.Trash, danger = true)
-                }
             }
         }
     }
@@ -251,6 +249,73 @@ fun MatchLogPanel(
     val aboveKeyboard = WindowInsets.ime.add(WindowInsets(bottom = 8.dp))
     if (phone) logPanel(Modifier.windowInsetsPadding(aboveBar.union(aboveKeyboard)).padding(start = 16.dp, end = 16.dp, top = 8.dp))
     }
+    editing?.let { match ->
+        EditMatchDialog(
+            match, opponentSuggestions,
+            onDismiss = { editingId = null },
+            onSave = { edited -> editingId = null; if (edited != match) onEdit(match, edited) },
+            onDelete = { editingId = null; onDelete(match) },
+        )
+    }
+}
+
+/** Every part of a logged game can change: its result, opponent, turn order and note. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EditMatchDialog(
+    match: MatchRecord,
+    opponentSuggestions: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (MatchRecord) -> Unit,
+    onDelete: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    var result by rememberSaveable(match.id) { mutableStateOf(match.result) }
+    var opponent by rememberSaveable(match.id) { mutableStateOf(match.opponent) }
+    var notes by rememberSaveable(match.id) { mutableStateOf(match.notes) }
+    var turn by rememberSaveable(match.id) { mutableStateOf(when (match.wentFirst) { true -> 1; false -> 2; null -> 0 }) }
+    fun edited() = match.copy(result = result, opponent = opponent.trim(), notes = notes.trim(), wentFirst = when (turn) { 1 -> true; 2 -> false; else -> null })
+    GameDialog(
+        onDismissRequest = onDismiss,
+        title = formatTimestamp(match.playedAt),
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MatchResult.entries.forEach { option ->
+                        val on = result == option
+                        val (tone, ink) = when (option) {
+                            MatchResult.WIN -> scheme.primary to scheme.onPrimary
+                            MatchResult.LOSS -> scheme.error to scheme.onError
+                            MatchResult.DRAW -> drawTone() to onDrawTone()
+                        }
+                        GameButton(
+                            option.label, onClick = { result = option }, modifier = Modifier.weight(1f),
+                            style = if (on) GameButtonStyle.PRIMARY else GameButtonStyle.SECONDARY,
+                            tone = if (on) tone else null, onTone = if (on) ink else null,
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillTextField(opponent, { opponent = it }, "Opponent", Modifier.weight(1f))
+                    TurnChoice(turn) { turn = it }
+                }
+                val picks = opponentSuggestions.filter { opponent.isNotBlank() && it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(4)
+                RevealValue(picks.takeIf { it.isNotEmpty() }) { names ->
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        names.forEach { PillChip(selected = false, onClick = { opponent = it }, label = { Text(it) }) }
+                    }
+                }
+                PillTextField(notes, { notes = it }, "Note", Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = { GameButton("Save", onClick = { onSave(edited()) }, compact = true) },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GameButton("Remove", onClick = onDelete, style = GameButtonStyle.GHOST, compact = true, tone = scheme.error)
+                GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true)
+            }
+        },
+    )
 }
 
 /** Draw's colour: the deep slate reads as disabled on twilight's navy, so there it takes the lighter one. */
