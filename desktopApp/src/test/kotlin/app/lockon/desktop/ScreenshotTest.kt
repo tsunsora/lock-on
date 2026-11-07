@@ -586,18 +586,27 @@ class ScreenshotTest {
      */
     @Test fun renderQuantityCouncil() {
         val rest = androidx.compose.ui.geometry.Offset(5f, 5f)
+        // Full, partial, single and missing copies side by side, so every state of the control shows.
+        val deckId = runBlocking {
+            container.decks.create(DeckSnapshot(name = "Blue Red Counts", entries = listOf(
+                DeckEntry("SMP-001", 4), DeckEntry("SMP-002", 2), DeckEntry("SMP-003", 1), DeckEntry("SMP-005", 3),
+                DeckEntry("SMP-008", 4), DeckEntry("SMP-009", 1), DeckEntry("SMP-010", 2),
+            )))
+        }
         shoot("tmp-qty-first", 600, 1260, hover = rest) { open(Screen.DeckEditor(deckId)) }
         app.lockon.ui.components.previewPhoneControls = true
         try {
             for (dark in listOf(true, false)) {
                 val theme = if (dark) "dark" else "light"
+                runBlocking { container.settings.setDeckAsCards(false) }
                 shoot("qty-phone-deck-$theme", 600, 1260, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId)) }
                 shoot("qty-phone-add-$theme", 600, 1260, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 1)) }
                 runBlocking { container.settings.setDeckAsCards(true) }
                 shoot("qty-phone-deck-cards-$theme", 600, 1260, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId)) }
                 runBlocking { container.settings.setDeckAsCards(false) }
                 // Add cards as a list: Filters, the list toggle, then Show.
-                val asList = listOf(androidx.compose.ui.geometry.Offset(545f, 181f), androidx.compose.ui.geometry.Offset(530f, 720f), androidx.compose.ui.geometry.Offset(362f, 1188f))
+                val asList = listOf(androidx.compose.ui.geometry.Offset(300f, 140f), androidx.compose.ui.geometry.Offset(545f, 181f), androidx.compose.ui.geometry.Offset(530f, 720f), androidx.compose.ui.geometry.Offset(362f, 1188f))
+                shoot("tmp-qty-filters-$theme", 600, 1260, dark = dark, taps = asList.take(2), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 1)) }
                 shoot("qty-phone-add-list-$theme", 600, 1260, dark = dark, taps = asList, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 1)) }
             }
         } finally {

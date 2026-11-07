@@ -483,7 +483,6 @@ fun DeckStrip(
     val hover = remember { HoverState() }
     val hovered = hover.hovered
     val base = if (isTwilight()) Color(0xFF414A88) else Color(0xFFF3F6FB)
-    val plateRim = scheme.outlineVariant.copy(alpha = 0.8f)
     Box(
         modifier.fillMaxWidth().height(if (compact) 48.dp else 54.dp)
             .flashOnChange(quantity, scheme.primary, scheme.error, StripShape)
@@ -515,14 +514,7 @@ fun DeckStrip(
                 }
             }
             // Controls sit on their own dark plate so busy artwork never hides them.
-            Row(
-                Modifier.clip(SmallPlate).background(base.copy(alpha = 0.9f))
-                    .drawSettled(if (hovered) 0f else 1f) { rest ->
-                        drawContent()
-                        if (rest > 0f) drawOutline(SmallPlate.createOutline(size, layoutDirection, this), plateRim, alpha = rest, style = Stroke(1.dp.toPx()))
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-            ) { controls() }
+            StepperTray(rim = !hovered, controls = controls)
         }
         // A lit edge on hover, over the controls so their plate does not cut it.
         Box(Modifier.fillMaxSize().then(if (isTwilight()) Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), StripShape) else Modifier).selectionEdge(StripShape, scheme.primary, hovered))
@@ -530,6 +522,24 @@ fun DeckStrip(
 }
 
 private val StripShape = RoundedCornerShape(16.dp)
+
+/**
+ * The deck list's tray for a row's controls: the strip's own colour with a thin rim, which eases away
+ * while [rim] is off (the strip is hovered and lit). Add cards' list uses it too, so both lists match.
+ */
+@Composable
+fun StepperTray(modifier: Modifier = Modifier, rim: Boolean = true, controls: @Composable () -> Unit) {
+    val base = if (isTwilight()) Color(0xFF414A88) else Color(0xFFF3F6FB)
+    val plateRim = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
+    Row(
+        modifier.clip(SmallPlate).background(base.copy(alpha = 0.9f))
+            .drawSettled(if (rim) 1f else 0f) { rest ->
+                drawContent()
+                if (rest > 0f) drawOutline(SmallPlate.createOutline(size, layoutDirection, this), plateRim, alpha = rest, style = Stroke(1.dp.toPx()))
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) { controls() }
+}
 
 /**
  * Everything about one card. Side by side (art and printings left) when there's room, stacked otherwise.
