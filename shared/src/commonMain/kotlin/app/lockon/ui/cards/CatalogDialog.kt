@@ -32,6 +32,8 @@ import app.lockon.ui.components.GameButtonStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
@@ -140,7 +142,9 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Text(if (official) "Official card list" else current.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // An even grid: two columns on a phone, one row across a wide dialog.
+                            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                val narrow = maxWidth < 420.dp
                                 // Whether the list is current comes first; the title already names the official source.
                                 val status = when {
                                     !official -> null
@@ -157,10 +161,20 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                     images?.takeIf { showArtwork && it.total > 0 }?.let {
                                         "Images offline" to if (it.complete) "${it.total}" else "${it.saved} of ${it.total}"
                                     },
-                                ).forEach { (label, value) ->
-                                    Column {
-                                        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text(value, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)
+                                ).let { facts ->
+                                    val columns = if (narrow) 2 else facts.size
+                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        facts.chunked(columns).forEach { row ->
+                                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                                row.forEach { (label, value) ->
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        Text(value, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)
+                                                    }
+                                                }
+                                                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -203,13 +217,17 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 // The link gets the full width so it stays readable; its button leads the row under it.
                                 PillTextField(url, { url = it.trim() }, "Card list link", Modifier.fillMaxWidth())
+                                // Equal widths: a column of full-width buttons on a phone, one row on a wide dialog.
+                                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                val stack = maxWidth < 420.dp
+                                val cell = if (stack) Modifier.fillMaxWidth() else Modifier
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    GameButton("Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, style = GameButtonStyle.SECONDARY, icon = LineIcons.Download, compact = true)
-                                    GameButton("Import file", icon = LineIcons.Folder, onClick = {
+                                    GameButton("Download", modifier = cell, onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, style = GameButtonStyle.SECONDARY, icon = LineIcons.Download, compact = true)
+                                    GameButton("Import file", modifier = cell, icon = LineIcons.Folder, onClick = {
                                         attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
                                     }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
                                     if (info?.origin != CatalogOrigin.BUNDLED) {
-                                        GameButton("Switch to sample", icon = LineIcons.Undo, onClick = {
+                                        GameButton("Switch to sample", modifier = cell, icon = LineIcons.Undo, onClick = {
                                             busy = true
                                             scope.launch {
                                                 container.restoreSampleCatalog()
@@ -218,6 +236,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                             }
                                         }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
                                     }
+                                }
                                 }
                             }
                         }
