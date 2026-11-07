@@ -127,7 +127,8 @@ cd lock-on
 | --- | --- |
 | `./gradlew :desktopApp:run` | Run the desktop app |
 | `./gradlew :androidApp:assembleDebug` | Debug APK in `androidApp/build/outputs/apk/debug/` |
-| `./gradlew :shared:jvmTest :desktopApp:test` | All tests. Desktop tests also render screenshots to `desktopApp/build/screenshots/` |
+| `./gradlew :shared:jvmTest :desktopApp:test` | The tests, without the slow image renders |
+| `./gradlew :desktopApp:previews` | Renders screenshots to `desktopApp/build/screenshots/` and animation frames. Slow, so pick some with `--tests '*ScreenshotTest.renderDeviceSync'` |
 | `python scripts/frames_to_gif.py` | GIF previews of the animations, after the desktop tests |
 | `./gradlew releaseArtifacts` | Windows MSI, release APK and update feed in `dist/` |
 

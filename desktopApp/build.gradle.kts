@@ -44,7 +44,21 @@ dependencies {
     testImplementation("io.coil-kt.coil3:coil-core:3.4.0")
 }
 
+// Tests that draw images to look at, and take most of the time. `previews` runs them on demand, and
+// `--tests` picks some, such as `:desktopApp:previews --tests '*ScreenshotTest.renderDeviceSync'`.
+val imageTests = listOf("**/*PreviewTest*", "**/*ScreenshotTest*")
+
+tasks.register<Test>("previews") {
+    group = "verification"
+    description = "Renders the screenshots and animation frames to desktopApp/build for review."
+    testClassesDirs = tasks.test.get().testClassesDirs
+    classpath = tasks.test.get().classpath
+    useJUnit()
+    include(imageTests)
+}
+
 tasks.test {
+    exclude(imageTests)
     // Tests run with assertions on, which also turns on coroutine debugging: every dispatch renames
     // the thread and every cancellation records a stack trace. The installed app runs without it,
     // so the scroll benchmark turns it off to time what people actually get.
