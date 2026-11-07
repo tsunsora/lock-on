@@ -68,10 +68,16 @@ class AnimationPreviewTest {
     }
 
     @Test fun bootScreen() {
-        for (dark in listOf(false, true)) {
-            val dir = File("build/animation-frames/boot-${if (dark) "dark" else "light"}").apply { deleteRecursively(); mkdirs() }
-            ImageComposeScene(1100, 700, Density(1.25f)) {
-                LockOnTheme(dark = dark) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock()) }
+        for (dark in listOf(false, true)) for (phone in listOf(false, true)) {
+            val name = "boot-${if (dark) "dark" else "light"}${if (phone) "-phone" else ""}"
+            val dir = File("build/animation-frames/$name").apply { deleteRecursively(); mkdirs() }
+            ImageComposeScene(if (phone) 412 else 1100, if (phone) 892 else 700, Density(if (phone) 1f else 1.25f)) {
+                LockOnTheme(dark = dark) {
+                    app.lockon.ui.BootScreen(
+                        app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock(),
+                        trailing = if (phone) null else ({ WindowControls(false, {}, {}, {}) }),
+                    )
+                }
             }.use { scene ->
                 // Every frame at 30 fps: the boot clock moves at most 40 ms a frame, so sparser frames would lag.
                 for (i in 0 until 90) {

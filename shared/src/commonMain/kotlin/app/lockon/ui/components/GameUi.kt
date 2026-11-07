@@ -216,15 +216,15 @@ private class SkyPaint(val width: Int, val height: Int, val image: ImageBitmap, 
  * which on a phone just starting up takes long enough to notice. Racing it only paints one twice.
  */
 @Volatile private var lastSky: Deferred<SkyPaint>? = null
-@Volatile private var lastSkyKey: Triple<Int, Int, Boolean>? = null
+@Volatile private var lastSkyKey: List<Any>? = null
 
 @OptIn(DelicateCoroutinesApi::class)
-private suspend fun paintedSky(width: Int, height: Int, twilight: Boolean): SkyPaint {
-    val key = Triple(width, height, twilight)
+private suspend fun paintedSky(width: Int, height: Int, twilight: Boolean, boot: Boolean): SkyPaint {
+    val key = listOf(width, height, twilight, boot)
     val shared = lastSky?.takeIf { lastSkyKey == key }
     if (shared != null) return shared.await()
     // Not tied to whichever screen asked first, since others may be waiting for it when that one goes.
-    val painting = GlobalScope.async(Dispatchers.Default) { SkyPaint(width, height, imageBitmapOf(paintSky(width, height, twilight), width, height), twilight) }
+    val painting = GlobalScope.async(Dispatchers.Default) { SkyPaint(width, height, imageBitmapOf(paintSky(width, height, twilight, boot), width, height), twilight) }
     lastSkyKey = key
     lastSky = painting
     return painting.await()
@@ -234,24 +234,24 @@ private suspend fun paintedSky(width: Int, height: Int, twilight: Boolean): SkyP
  * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light and
  * floating bokeh. It is static: nothing loops.
  * The smooth parts are painted per pixel by [paintSky] so they never band; [onPainted] hears when
- * the painted sky first draws.
+ * the painted sky first draws. With [boot] it is the launch screen's sky.
  */
 @Composable
-fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, content: @Composable BoxScope.() -> Unit) {
+fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, boot: Boolean = false, content: @Composable BoxScope.() -> Unit) {
     val twilight = isTwilight()
     var area by remember { mutableStateOf(IntSize.Zero) }
     // Painting takes a few dozen milliseconds, so it runs off the main thread. While a window is being
     // resized the last sky stretches to fit, and the sky repaints once the size settles.
-    val sky by produceState<SkyPaint?>(null, area, twilight) {
+    val sky by produceState<SkyPaint?>(null, area, twilight, boot) {
         if (area.width <= 0 || area.height <= 0) return@produceState
         if (value?.twilight == twilight) delay(80)
         val scale = minOf(1f, 4096f / maxOf(area.width, area.height))
         val pw = (area.width * scale).roundToInt().coerceAtLeast(1)
         val ph = (area.height * scale).roundToInt().coerceAtLeast(1)
-        value = paintedSky(pw, ph, twilight)
+        value = paintedSky(pw, ph, twilight, boot)
     }
     Box(
-        modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
+        modifier.background(if (boot) skyStops(twilight, true)[1] else MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
             val w = size.width
             val h = size.height
             val m = size.maxDimension
@@ -260,7 +260,7 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
                 drawImage(painted.image, dstSize = IntSize(ceil(w).toInt(), ceil(h).toInt()), filterQuality = FilterQuality.Low)
                 onPainted?.invoke()
             } else {
-                drawRect(Brush.verticalGradient(if (twilight) TwilightSky else DaySky))
+                drawRect(Brush.verticalGradient(skyStops(twilight, boot)))
             }
             // Bokeh at fixed places, so every frame and screenshot is the same. Twilight's bokeh are
             // glows, painted with the sky.

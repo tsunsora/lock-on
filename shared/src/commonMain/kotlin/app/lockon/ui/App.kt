@@ -711,11 +711,11 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
 private val NamePlate = RoundedCornerShape(18.dp)
 
 /** The logo tile's gradient by day: violet, a colour nothing else in the header uses. */
-private val LogoTileDay = listOf(Color(0xFF9A68E6), Color(0xFF7A55DC))
+internal val LogoTileDay = listOf(Color(0xFF9A68E6), Color(0xFF7A55DC))
 /** At twilight: pale lilac. */
-private val LogoTileTwilight = listOf(Color(0xFFD2BEFF), Color(0xFFB8A2F8))
+internal val LogoTileTwilight = listOf(Color(0xFFD2BEFF), Color(0xFFB8A2F8))
 /** The mark on the tile at twilight: deep violet-navy. By day it is white. */
-private val LogoInkTwilight = Color(0xFF231A52)
+internal val LogoInkTwilight = Color(0xFF231A52)
 
 /** The Lock On mark on its rounded tile, in the theme's colours. */
 @Composable

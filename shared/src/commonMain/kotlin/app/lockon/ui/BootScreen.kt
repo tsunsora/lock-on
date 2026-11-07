@@ -64,15 +64,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.lockon.ui.components.Accent
 import app.lockon.ui.components.Gold
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.components.SkyBackground
-import app.lockon.ui.components.glass
-import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.isTwilight
-import app.lockon.ui.theme.SuitColors
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.concurrent.Volatile
 import kotlin.math.PI
@@ -167,12 +163,12 @@ fun BootPictureTaker(clock: BootClock, onPictures: (BootPictures) -> Unit) {
 enum class BootLayers { ALL, SKY, FRONT }
 
 /** Where the targeting field sits on the boot screen and how it looks, for a [BootCover] that draws it itself. */
-class BootTargeting(val center: Offset, val reach: Float, val target: Float, val scan: Color, val ink: Color, val labelStyle: TextStyle) {
+class BootTargeting(val center: Offset, val reach: Float, val target: Float, val scan: Color, val ink: Color, val casing: Color, val lockInk: Color, val labelStyle: TextStyle) {
     /** Draws the field at [clock]; with [rings] false, without the parts that never move ([drawRings]), for a cover that keeps those in a picture. */
     fun draw(scope: DrawScope, clock: BootClock, labels: TextMeasurer, rings: Boolean = true) = with(scope) {
         translate(this@BootTargeting.center.x - size.width / 2, this@BootTargeting.center.y - size.height / 2) {
             if (rings) drawRadarRings(reach, scan)
-            drawTargeting(clock.stage, clock.loop, reach, target, scan, ink, labels, labelStyle)
+            drawTargeting(clock.stage, clock.loop, reach, target, scan, ink, casing, lockInk, labels, labelStyle)
         }
     }
 
@@ -182,19 +178,18 @@ class BootTargeting(val center: Offset, val reach: Float, val target: Float, val
     }
 
     /** Lays out the seeker's readouts ahead of time, so drawing on another thread later only reads them from [labels]' cache. */
-    fun warm(labels: TextMeasurer) = readouts(ink).toList().forEach { (word, color) -> labels.measure(word, labelStyle.copy(color = color)) }
+    fun warm(labels: TextMeasurer) = readouts(ink, lockInk).toList().forEach { (word, color) -> labels.measure(word, labelStyle.copy(color = color)) }
 
     /**
      * The field on a screen [width]×[height] pixels whose boot screen sits [by] from where it was: the
      * boot screen keeps its mark centred, so the field moves with it, and its reach follows the size.
      */
-    fun moved(by: Offset, width: Float, height: Float) = BootTargeting(center + by, bootReach(width, height), target, scan, ink, labelStyle)
+    fun moved(by: Offset, width: Float, height: Float) = BootTargeting(center + by, bootReach(width, height), target, scan, ink, casing, lockInk, labelStyle)
 }
 
 /**
  * The launch screen: a targeting system locking on to the Lock On mark. A seeker reticle hunts
- * across a radar field, catches the mark, closes its brackets on it and locks in V-fin yellow with
- * a pulse, and holds the lock until it fades out. It covers the app while the screens underneath fill in,
+ * across a radar field, catches the mark, closes its brackets on it and locks in gold with a pulse, and holds the lock until it fades out. It covers the app while the screens underneath fill in,
  * so the first look at decks and cards doesn't stutter. With reduced motion it holds the lock.
  * While [playing] is false a [BootCover] plays it, and this one holds still underneath.
  */
@@ -231,8 +226,9 @@ fun BootScreen(
     }
     val time = { frames.intValue; if (reduce) HOLD_AT else clock.stage }
     val sweep = { frames.intValue; if (reduce) HOLD_AT else clock.loop }
-    val scan = if (isTwilight()) SuitColors.teal else Accent
-    val ink = MaterialTheme.colorScheme.onSurface
+    val look = if (isTwilight()) BootLookTwilight else BootLookDay
+    val scan = look.scan
+    val ink = look.ink
     val labels = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
     val density = LocalDensity.current
@@ -250,26 +246,26 @@ fun BootScreen(
                         Modifier.size(176.dp).then(
                             if (onTargeting == null) Modifier else Modifier.onGloballyPositioned { c ->
                                 val center = c.positionInRoot() + Offset(c.size.width / 2f, c.size.height / 2f)
-                                with(density) { onTargeting(BootTargeting(center, reach.toPx(), 62.dp.toPx(), scan, ink, labelStyle)) }
+                                with(density) { onTargeting(BootTargeting(center, reach.toPx(), 62.dp.toPx(), scan, ink, look.casing, look.lockInk, labelStyle)) }
                             },
                         ),
                     ) {
                         if (layers == BootLayers.ALL) {
                             drawRadarRings(reach.toPx(), scan)
-                            drawTargeting(time(), sweep(), reach.toPx(), 62.dp.toPx(), scan, ink, labels, labelStyle)
+                            drawTargeting(time(), sweep(), reach.toPx(), 62.dp.toPx(), scan, ink, look.casing, look.lockInk, labels, labelStyle)
                         }
                     }
                     Box(
-                        Modifier.size(124.dp).shadow(16.dp, CircleShape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-                            .clip(CircleShape).glass(CircleShape, strong = true),
+                        Modifier.size(124.dp).shadow(8.dp, CircleShape, ambientColor = look.shade, spotColor = look.shade)
+                            .clip(CircleShape).background(Brush.linearGradient(look.tile)),
                         contentAlignment = Alignment.Center,
-                    ) { LockOnMark(size = 84.dp, reticleColor = MaterialTheme.colorScheme.onSurface) }
+                    ) { LockOnMark(size = 84.dp, reticleColor = look.mark) }
                 }
                 Spacer(Modifier.height(20.dp))
-                Text("Lock On", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text("Lock On", style = MaterialTheme.typography.headlineMedium, color = ink)
                 Spacer(Modifier.height(10.dp))
                 Row(
-                    Modifier.clip(CircleShape).glass(CircleShape).padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier.clip(CircleShape).background(look.panel).padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -278,19 +274,54 @@ fun BootScreen(
                         val now = s == step
                         Box(
                             Modifier.size(width = if (now) 18.dp else 8.dp, height = 8.dp).clip(CircleShape)
-                                .background(if (done || now) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                                .background(if (done || now) look.pip else look.panelText.copy(alpha = 0.5f)),
                         )
                     }
                     Spacer(Modifier.width(4.dp))
-                    Text(step.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(step.label, style = MaterialTheme.typography.labelLarge, color = look.panelText)
                 }
             }
         }
-        trailing?.let { Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { it() } }
+        // The window's controls sit on the violet here, so they take its ink.
+        trailing?.let {
+            MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(onSurface = ink, onSurfaceVariant = ink)) {
+                Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { it() }
+            }
+        }
     }
     // The front layer goes over a sky and targeting drawn elsewhere, so it has no sky of its own.
-    if (layers == BootLayers.FRONT) Box(screen, content = content) else SkyBackground(screen, onSkyPainted, content = content)
+    if (layers == BootLayers.FRONT) Box(screen, content = content) else SkyBackground(screen, onSkyPainted, boot = true, content = content)
 }
+
+/**
+ * The launch screen's colours: the logo as it looks in that theme's header, on a sky leaning violet.
+ * Gold is kept for the lock; on the pale day sky it needs a dark [casing] to show at all.
+ */
+private class BootLook(
+    val scan: Color,
+    val ink: Color,
+    val tile: List<Color>,
+    val mark: Color,
+    val shade: Color,
+    val panel: Color,
+    val panelText: Color,
+    val pip: Color,
+    val casing: Color,
+    val lockInk: Color,
+)
+
+private val BootLookDay = BootLook(
+    scan = Color(0xFF5A3CC8), ink = Color(0xFF2A1C6B),
+    tile = LogoTileDay, mark = Color.White, shade = Color(0xFF2A1675),
+    panel = Color.White, panelText = Color(0xFF2A1C6B), pip = Color(0xFF087581),
+    casing = Color(0xFF2A1C6B), lockInk = Color(0xFF2A1C6B),
+)
+private val BootLookTwilight = BootLook(
+    scan = Color(0xFFB8A2F8), ink = Color(0xFFF3EEFF),
+    tile = LogoTileTwilight, mark = LogoInkTwilight, shade = Color(0xFF0B0726),
+    panel = Color(0xFF343C72), panelText = Color.White, pip = Color(0xFF5EE0E6),
+    casing = Color(0xFF100C33), lockInk = Gold,
+)
 
 /**
  * One pass: hunt, close in, lock at [LOCK_AT] and hold from [HOLD_AT] until the boot screen goes, so it
@@ -312,7 +343,7 @@ private fun smooth(from: Float, to: Float, x: Float): Float {
 private fun bootReach(width: Float, height: Float) = minOf(width, height * 1.4f) * 0.34f
 
 /** The seeker's readouts, searching, tracking and locked, each in its colour. */
-private fun readouts(ink: Color) = Triple("SEARCHING" to ink.copy(alpha = 0.55f), "TRACKING" to ink.copy(alpha = 0.7f), "LOCKED" to SuitColors.chestRed)
+private fun readouts(ink: Color, lockInk: Color) = Triple("SEARCHING" to ink.copy(alpha = 0.85f), "TRACKING" to ink.copy(alpha = 0.95f), "LOCKED" to lockInk)
 
 /** Faint contacts on the radar, as (bearing in turns, range as a share of reach); the sweep lights each as it passes. */
 private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.63f to 1.05f, 0.79f to 1.42f, 0.93f to 0.7f)
@@ -321,11 +352,11 @@ private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.
 private fun DrawScope.drawRadarRings(reach: Float, scan: Color) {
     val c = center
     val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 8.dp.toPx()))
-    listOf(0.55f, 1.05f, 1.55f).forEach { drawCircle(scan.copy(alpha = 0.16f), reach * it, c, style = Stroke(1.dp.toPx(), pathEffect = dash)) }
+    listOf(0.55f, 1.05f, 1.55f).forEach { drawCircle(scan.copy(alpha = 0.3f), reach * it, c, style = Stroke(1.dp.toPx(), pathEffect = dash)) }
     repeat(12) { i ->
         val a = i / 12f * 2 * PI.toFloat()
         val d = Offset(cos(a), sin(a))
-        drawLine(scan.copy(alpha = 0.22f), c + d * (reach * 1.55f - 6.dp.toPx()), c + d * (reach * 1.55f + 6.dp.toPx()), 2.dp.toPx())
+        drawLine(scan.copy(alpha = 0.4f), c + d * (reach * 1.55f - 6.dp.toPx()), c + d * (reach * 1.55f + 6.dp.toPx()), 2.dp.toPx())
     }
 }
 
@@ -333,7 +364,7 @@ private fun DrawScope.drawRadarRings(reach: Float, scan: Color) {
  * Draws the whole targeting pass around the canvas centre (the mark), [reach] out, at pass time [t],
  * with the radar sweep at [loop] of its own loop. [target] is the mark's radius, where the brackets come to rest.
  */
-private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target: Float, scan: Color, ink: Color, labels: TextMeasurer, labelStyle: TextStyle) {
+private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target: Float, scan: Color, ink: Color, casing: Color, lockInk: Color, labels: TextMeasurer, labelStyle: TextStyle) {
     val c = center
     val line = 2.dp.toPx()
     // Over the rings: a sweeping wedge, and contacts that glow as it passes.
@@ -342,10 +373,10 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
     rotate(sweep, pivot = c) {
         val r = reach * 1.6f
         drawArc(
-            Brush.sweepGradient(0.88f to Color.Transparent, 1f to scan.copy(alpha = 0.14f), center = c),
+            Brush.sweepGradient(0.88f to Color.Transparent, 1f to scan.copy(alpha = 0.1f), center = c),
             startAngle = -43f, sweepAngle = 43f, useCenter = true, topLeft = c - Offset(r, r), size = Size(r * 2, r * 2),
         )
-        drawLine(scan.copy(alpha = 0.45f), c, c + Offset(r, 0f), line)
+        drawLine(scan.copy(alpha = 0.35f), c, c + Offset(r, 0f), line)
     }
     Contacts.forEach { (bearing, range) ->
         val since = (((sweep / 360f) - bearing) % 1f + 1f) % 1f
@@ -353,7 +384,7 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
         val a = bearing * 2 * PI.toFloat()
         val p = c + Offset(cos(a), sin(a)) * (reach * range)
         val s = 4.dp.toPx()
-        rotate(45f, pivot = p) { drawRect(scan.copy(alpha = 0.15f + 0.6f * glow), p - Offset(s, s), Size(s * 2, s * 2)) }
+        rotate(45f, pivot = p) { drawRect(scan.copy(alpha = 0.3f + 0.5f * glow), p - Offset(s, s), Size(s * 2, s * 2)) }
     }
 
     val seen = smooth(0f, 0.06f, t)
@@ -367,11 +398,14 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
     // The brackets squeeze a hair as they lock.
     val squeeze = if (sinceLock in 0f..0.12f) 1f - 0.12f * sin(PI.toFloat() * sinceLock / 0.12f) else 1f
     val half = (target * 1.25f + (1f - catch) * target * 0.9f) * squeeze
-    val color = if (locked) lerp(scan, Gold, smooth(0f, 0.08f, sinceLock)) else scan
+    // How far the seeker has turned gold, and with that how much of its dark casing shows.
+    val gilt = if (locked) smooth(0f, 0.08f, sinceLock) else 0f
+    val color = lerp(scan, Gold, gilt)
 
     // The ring round the mark fills as the seeker closes, the lock's progress.
     val ring = target + 7.dp.toPx()
-    drawCircle(ink.copy(alpha = 0.1f * seen), ring, c, style = Stroke(3.dp.toPx()))
+    drawCircle(ink.copy(alpha = 0.18f * seen), ring, c, style = Stroke(3.dp.toPx()))
+    if (gilt > 0f) drawCircle(casing.copy(alpha = gilt), ring, c, style = Stroke(6.dp.toPx()))
     drawArc(
         color.copy(alpha = seen), -90f, 360f * smooth(0.28f, LOCK_AT, t), useCenter = false,
         topLeft = c - Offset(ring, ring), size = Size(ring * 2, ring * 2), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round),
@@ -380,13 +414,14 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
     // A pulse rolls out from the mark the moment it locks.
     if (sinceLock in 0f..0.45f) {
         val k = sinceLock / 0.45f
+        drawCircle(casing.copy(alpha = 0.7f * (1f - k)), ring + k * reach * 1.1f, c, style = Stroke((7f - 3f * k).dp.toPx()))
         drawCircle(Gold.copy(alpha = 0.7f * (1f - k)), ring + k * reach * 1.1f, c, style = Stroke((4f - 3f * k).dp.toPx()))
     }
 
     // The seeker: four corner brackets, turned while it hunts and square once it holds.
     rotate((1f - catch) * 35f, pivot = at) {
         val arm = half * 0.42f
-        val shadow = SuitColors.cautionBlack.copy(alpha = 0.22f * seen)
+        val keyline = casing.copy(alpha = gilt * seen)
         listOf(Offset(-1f, -1f), Offset(1f, -1f), Offset(-1f, 1f), Offset(1f, 1f)).forEach { d ->
             val corner = at + Offset(d.x * half, d.y * half)
             val bracket = Path().apply {
@@ -394,7 +429,7 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
                 lineTo(corner.x, corner.y)
                 lineTo(corner.x, corner.y - d.y * arm)
             }
-            drawPath(bracket, shadow, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            if (gilt > 0f) drawPath(bracket, keyline, style = Stroke(7.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
             drawPath(bracket, color.copy(alpha = seen), style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
     }
@@ -406,7 +441,7 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
         }
         drawCircle(color.copy(alpha = 0.8f * cross), 3.dp.toPx(), at)
     }
-    // Red chevrons point in on the mark while the lock holds.
+    // Chevrons point in on the mark while the lock holds.
     if (locked) {
         val show = smooth(0f, 0.06f, sinceLock)
         val tip = ring + 10.dp.toPx() + 4.dp.toPx() * (1f - show)
@@ -419,12 +454,12 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
                     lineTo(c.x + s, c.y - tip - s * 1.3f)
                     close()
                 }
-                drawPath(chevron, SuitColors.chestRed.copy(alpha = show))
+                drawPath(chevron, lockInk.copy(alpha = show))
             }
         }
     }
     // A readout under the seeker's bottom-right bracket says what it is doing.
-    val (searching, tracking, lockedOn) = readouts(ink)
+    val (searching, tracking, lockedOn) = readouts(ink, lockInk)
     val (word, wordColor) = when {
         locked -> lockedOn
         catch > 0.35f -> tracking
@@ -432,7 +467,26 @@ private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target:
     }
     if (seen > 0f) {
         val laid = labels.measure(word, labelStyle.copy(color = wordColor))
-        val corner = at + Offset(half, half)
-        drawText(laid, topLeft = corner + Offset(-laid.size.width.toFloat(), 8.dp.toPx()), alpha = seen)
+        // Under the bottom-right bracket's corner as the seeker turns it, centred while that corner is the
+        // lowest point, so the bracket never crosses the word, and ending at the corner's right edge once square.
+        val turn = (1f - catch) * 35f * PI.toFloat() / 180f
+        val corner = at + Offset(cos(turn) - sin(turn), sin(turn) + cos(turn)) * half
+        val width = laid.size.width.toFloat()
+        val topLeft = corner + Offset(-width * (0.5f + 0.5f * catch), 8.dp.toPx())
+        // It comes back in full as the seeker settles, so the lock's word is never dimmed.
+        val clear = maxOf(readoutClear(topLeft - c, width, laid.size.height.toFloat()), smooth(0.85f, 1f, catch))
+        drawText(laid, topLeft = topLeft, alpha = seen * clear)
     }
+}
+
+/**
+ * How visible a readout may be with its corner at [at] from the mark's centre, going by its gap to the
+ * title and the progress pill below the mark, which lie over it: gone when it would touch them, full
+ * once clear.
+ */
+private fun DrawScope.readoutClear(at: Offset, width: Float, height: Float): Float {
+    val across = 112.dp.toPx()
+    val gapX = maxOf(at.x - across, -across - (at.x + width))
+    val gapY = maxOf(at.y - 196.dp.toPx(), 108.dp.toPx() - (at.y + height))
+    return smooth(0f, 10.dp.toPx(), maxOf(gapX, gapY))
 }
