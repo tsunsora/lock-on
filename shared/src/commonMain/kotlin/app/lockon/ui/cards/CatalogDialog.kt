@@ -23,6 +23,7 @@ import app.lockon.ui.components.CountPill
 import app.lockon.ui.components.LocalArtworkStore
 import app.lockon.ui.components.PillSwitch
 import app.lockon.ui.components.GameDialog
+import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 
@@ -104,7 +105,8 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
         onDismissRequest = onDismiss,
         title = if (preview == null) "Card database" else "Install this catalog?",
         text = {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column {
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 FadeSwap(preview, Modifier.fillMaxWidth(), contentKey = { it != null }) { pending ->
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (pending != null) {
@@ -123,6 +125,8 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     }
                     // When the official list was last checked, so the panel says whether it's current.
                     var lastChecked by remember { mutableStateOf<Long?>(null) }
+                    // An update the weekly check already found: one tap gets it.
+                    val knownUpdate by container.catalog.updateAvailable.collectAsState()
                     LaunchedEffect(check) { lastChecked = container.catalog.lastUpdateCheck() }
                     // What's installed, then the one action that keeps it current, always in the same place.
                     info?.let { current ->
@@ -130,14 +134,14 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                             Modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true).padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Text(if (official) "Official card list" else current.name, style = MaterialTheme.typography.titleMedium)
+                            Text(if (official) "Official card list" else current.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOfNotNull(
                                     "Version" to "${current.version}",
                                     "Cards" to "${current.cardCount}",
                                     "Source" to if (official) "gcg-api" else current.origin.label,
                                     current.installedAt?.let { "Installed" to formatMonthDay(it) },
-                                    lastChecked?.takeIf { official }?.let { "Checked" to if (it > 0) dayLabel(it) else "Never" },
+                                    lastChecked?.takeIf { official }?.let { "Last checked" to if (it > 0) dayLabel(it) else "Not yet" },
                                     images?.takeIf { showArtwork && it.total > 0 }?.let {
                                         "Images offline" to if (it.complete) "${it.total}" else "${it.saved} of ${it.total}"
                                     },
@@ -163,7 +167,8 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                     is CatalogUpdater.UpdateCheck.UpToDate ->
                                         GameButton("Up to date", onClick = {}, enabled = false, icon = LineIcons.Check, modifier = wide)
                                     else ->
-                                        if (official) GameButton("Check for updates", onClick = ::checkOfficial, enabled = !busy, icon = LineIcons.Sync, modifier = wide)
+                                        if (official && knownUpdate != null) GameButton("Download update", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, icon = LineIcons.Download, modifier = wide)
+                                        else if (official) GameButton("Check for updates", onClick = ::checkOfficial, enabled = !busy, icon = LineIcons.Sync, modifier = wide)
                                         else GameButton("Get the official card list", onClick = { attempt { container.catalogUpdater.latestCardDatabase() } }, enabled = !busy, icon = LineIcons.Download, modifier = wide)
                                 }
                                 Reveal(busy, sideways = true) { ReticleSpinner(size = 20.dp) }
@@ -172,7 +177,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     }
                     // A link, a file or the sample: rarely needed, so folded into a panel of their own.
                     var others by remember { mutableStateOf(showOtherSources) }
-                    Column(Modifier.fillMaxWidth().glass(LockOnShapes.tile)) {
+                    Column(Modifier.fillMaxWidth().glass(LockOnShapes.tile, strong = true)) {
                         Row(
                             Modifier.fillMaxWidth().clip(LockOnShapes.tile).clickable(onClickLabel = if (others) "Hide other sources" else "Show other sources") { others = !others }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -184,34 +189,41 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                         }
                         Reveal(others) {
                             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                PillTextField(url, { url = it.trim() }, "Card list link", Modifier.fillMaxWidth())
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    GameButton("Download", onClick = { attempt { container.catalogUpdater.fromUrl(url) } }, enabled = url.isNotBlank() && !busy, style = GameButtonStyle.SECONDARY, icon = LineIcons.Download, compact = true)
-                                    GameButton("Import file", icon = LineIcons.Folder, onClick = {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    PillTextField(url, { url = it.trim() }, "Card list link", Modifier.weight(1f))
+                                    GlassIconButton(LineIcons.Download, "Download from this link", { if (url.isNotBlank() && !busy) attempt { container.catalogUpdater.fromUrl(url) } })
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    GameButton("Import file", modifier = Modifier.weight(1f), onClick = {
                                         attempt { files.openText(listOf("application/json", "text/*"))?.let { container.catalogUpdater.fromText(it) } }
                                     }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
                                     if (info?.origin != CatalogOrigin.BUNDLED) {
-                                        GameButton("Restore sample", onClick = {
+                                        GameButton("Use sample", modifier = Modifier.weight(1f), onClick = {
                                             busy = true
                                             scope.launch {
                                                 container.restoreSampleCatalog()
                                                 busy = false
                                                 state.notify("Sample catalog restored.")
                                             }
-                                        }, style = GameButtonStyle.SECONDARY, enabled = !busy, icon = LineIcons.Undo, compact = true)
+                                        }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
                                     }
                                 }
                             }
                         }
                     }
-                    // The installed gcg-api source already carries the ODbL credit, so it shows once.
-                    val source = info?.source?.takeIf { it.isNotBlank() && info?.origin != CatalogOrigin.BUNDLED }
-                    listOfNotNull(source, GcgApi.ATTRIBUTION.takeUnless { official && source != null })
-                        .forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
                 }
                 }
                 }
                 RevealValue(problem) { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            }
+            // The credit stays in view under whatever scrolls. The installed gcg-api source already
+            // carries the ODbL credit, so it shows once.
+            if (preview == null) {
+                val official = info?.origin == CatalogOrigin.GCG_API
+                val source = info?.source?.takeIf { it.isNotBlank() && info?.origin != CatalogOrigin.BUNDLED }
+                listOfNotNull(source, GcgApi.ATTRIBUTION.takeUnless { official && source != null })
+                    .forEach { Text(it, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
             }
         },
         confirmButton = {
