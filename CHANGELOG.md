@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.11.16 (2026-11-07)
+
+A launch screen that matches the new logo, and a permanent signing key for the Android app.
+
+- **Launch screen:** the sky leans violet and the disc is now the real logo, in day and twilight, with gold kept for the moment it locks on. It fades into the app more gently, and Android's splash screen matches.
+- **Android:** updates are now signed with Lock On's own key. Updating works as before, with nothing to uninstall.
+
 ## 26.11.15 (2026-11-06)
 
 A new logo, cleaner colors, and calmer touch feedback: nothing glows or sweeps across a card when you press it anymore.
