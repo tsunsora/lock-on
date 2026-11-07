@@ -126,7 +126,7 @@ These came from a UI review on 2026-10-28, where a sparkle on full gauges, an ed
 - **K4. Icon-only actions have a body.** Back, Export, ⋮ and similar use `GlassIconButton`, a rounded square, never a bare glyph. Back sits 12–16 dp from the title beside it.
 - **K5. Let the layout explain.** No subtitle under a screen title (`ScreenHeader` has none), no description under a setting whose name and options already say it, and one heading per group, not a heading over a single label. Words appear for news (an update, a pending name), problems (I3) and trust (T2), not to narrate what is on screen.
 - **K6. Spacing on a 4 dp grid.** Gaps are 4, 8, 12, 16 or 24 dp, and similar gaps match across screens.
-- **K7. Check in pictures.** Every UI change is reviewed in `ScreenshotTest` renders, in both themes, on phone and desktop, before it ships.
+- **K7. Check in pictures.** Every UI change is reviewed in `ScreenshotTest` renders (`:desktopApp:previews --tests`, not part of `test`), in both themes, on phone and desktop, before it ships.
 
 ## 6. Reach and input
 
