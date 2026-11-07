@@ -432,7 +432,8 @@ private fun TileButton(symbol: String, description: String, primary: Boolean = f
         val top: Color
         val bottom: Color
         when {
-            !enabled -> { top = Color.Transparent; bottom = Color.Transparent }
+            // A faint tile keeps a spent − the same shape as its neighbours.
+            !enabled -> { top = scheme.onSurface.copy(alpha = 0.05f); bottom = top }
             primary -> { top = lighten(Accent, if (hovered) (if (desktopControls) 0.08f else 0.15f) else 0f); bottom = top }
             desktopControls -> { top = neutralWash(hovered, pressed); bottom = top }
             else -> { top = scheme.onSurface.copy(alpha = if (hovered) 0.22f else 0.12f); bottom = scheme.onSurface.copy(alpha = 0.06f) }

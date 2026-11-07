@@ -543,7 +543,8 @@ fun CardSearchPanel(
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 controls.tag(card)
                                 // The deck list's own stepper, so a card's count reads the same in both lists.
-                                StepperTray {
+                                // On a phone, held in from the edge and the scroll bar as the deck list's is.
+                                StepperTray(if (wide) Modifier else Modifier.padding(end = 10.dp)) {
                                     PlateStepper(controls.quantity(card), card.name, { controls.change(card, -1) }, { controls.change(card, 1) }, limit = controls.limit(card))
                                 }
                             }

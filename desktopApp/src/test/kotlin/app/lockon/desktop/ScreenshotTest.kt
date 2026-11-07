@@ -617,8 +617,8 @@ class ScreenshotTest {
         // The card list as a list, and the deck panel as card images.
         val listToggle = androidx.compose.ui.geometry.Offset(1153f, 183f)
         val deckCards = androidx.compose.ui.geometry.Offset(1907f, 321f)
-        shoot("qty-desktop-lists-dark", 1980, 1290, taps = listOf(listToggle, deckCards), hover = rest) { open(Screen.DeckEditor(deckId)) }
-        shoot("qty-desktop-lists-light", 1980, 1290, dark = false, taps = listOf(listToggle, deckCards), hover = rest) { open(Screen.DeckEditor(deckId)) }
+        shoot("qty-desktop-lists-dark", 1980, 1290, taps = listOf(androidx.compose.ui.geometry.Offset(1000f, 120f), listToggle, deckCards), hover = rest) { open(Screen.DeckEditor(deckId)) }
+        shoot("qty-desktop-lists-light", 1980, 1290, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(1000f, 120f), listToggle, deckCards), hover = rest) { open(Screen.DeckEditor(deckId)) }
     }
 
     /** The Card database dialog with the official list installed, as on a computer and a phone, in both themes. */
