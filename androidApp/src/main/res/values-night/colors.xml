@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The twilight boot screen's background, for the system splash and the window behind the app. -->
-    <color name="background">#151C36</color>
+    <!-- The twilight launch screen's sky, for the system splash and the window until the app takes over. -->
+    <color name="background">#1C1850</color>
 </resources>

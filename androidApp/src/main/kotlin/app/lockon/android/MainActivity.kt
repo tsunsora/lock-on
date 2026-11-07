@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -173,6 +174,8 @@ class MainActivity : ComponentActivity() {
                     c, state, s, files,
                     artworkDir = filesDir.resolve("artwork").absolutePath,
                     reduceMotion = reduceMotion,
+                    // From here the window behind the app is the app's colour, not the launch screen's.
+                    windowBackground = { window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(it.toArgb())) },
                 )
             }
         }

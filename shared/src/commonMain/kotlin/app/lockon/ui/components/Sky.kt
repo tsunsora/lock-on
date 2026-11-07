@@ -27,6 +27,10 @@ internal val SkyBokeh = listOf(
 internal val DaySky = listOf(Color(0xFFCFE2F0), Color(0xFFDCE8F2), Color(0xFFE6EDF4))
 internal val TwilightSky = listOf(Color(0xFF141A3C), Color(0xFF181E44), Color(0xFF1E214A))
 
+// The launch screen's sky: the app's own, leaning violet, so it fades into the app as a slight turn of hue.
+internal val DayBootSky = listOf(Color(0xFFC9B9F7), Color(0xFFD5C9F9), Color(0xFFE1D9FB))
+internal val TwilightBootSky = listOf(Color(0xFF181546), Color(0xFF1C1850), Color(0xFF221D5A))
+
 private val DayGlows = listOf(
     SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF7FE3E8), 0.16f),
     SkyGlow(0.04f, 0.96f, 0.45f, SuitColors.blush, 0.1f),
@@ -40,21 +44,22 @@ private val TwilightGlows = listOf(
 
 /**
  * The sky's gradient, glows and diagonal beam of light as opaque 0xAARRGGBB pixels, row by row.
- * The day's bokeh discs are crisp shapes and stay with the drawing code.
+ * The day's bokeh discs are crisp shapes and stay with the drawing code. With [boot] it paints the
+ * launch screen's sky, which has no glows or beam.
  */
-internal fun paintSky(width: Int, height: Int, twilight: Boolean): IntArray {
+internal fun paintSky(width: Int, height: Int, twilight: Boolean, boot: Boolean = false): IntArray {
     val w = width.toFloat()
     val h = height.toFloat()
     val m = max(w, h)
-    val stops = if (twilight) TwilightSky else DaySky
-    val glows = if (twilight) TwilightGlows else DayGlows
+    val stops = skyStops(twilight, boot)
+    val glows = if (boot) emptyList() else if (twilight) TwilightGlows else DayGlows
     val n = glows.size
     val gx = FloatArray(n) { glows[it].x * w }
     val gy = FloatArray(n) { glows[it].y * h }
     val gr = FloatArray(n) { glows[it].radius * m }
     val inv = FloatArray(n) { 1f / (gr[it] * gr[it]) }
     val dy2 = FloatArray(n)
-    val beamPeak = if (twilight) 0.015f else 0.08f
+    val beamPeak = if (boot) 0f else if (twilight) 0.015f else 0.08f
     val out = IntArray(width * height)
     for (y in 0 until height) {
         val py = y + 0.5f
@@ -96,6 +101,10 @@ internal fun paintSky(width: Int, height: Int, twilight: Boolean): IntArray {
     }
     return out
 }
+
+/** The top, middle and bottom of a sky. */
+internal fun skyStops(twilight: Boolean, boot: Boolean): List<Color> =
+    if (boot) (if (twilight) TwilightBootSky else DayBootSky) else if (twilight) TwilightSky else DaySky
 
 /** The quadratic through [a] at 0, [b] at ½ and [c] at 1. */
 private fun through(a: Float, b: Float, c: Float, t: Float): Float =
