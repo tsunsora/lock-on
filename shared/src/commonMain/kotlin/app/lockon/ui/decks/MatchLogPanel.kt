@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -135,10 +136,15 @@ fun MatchLogPanel(
     val listState = rememberLazyListState()
     // On a phone everything sits on solid panels, and logging stays above the bar under the thumb.
     val phone = LocalTopBand.current.height == 0.dp
+    // A short phone gets a slimmer record, so more games fit above the logger.
+    var short by remember { mutableStateOf(false) }
     val gap = if (phone) 12.dp else 0.dp
     // A game that wasn't here a moment ago, logged or just edited, is scrolled to and lit for a moment,
     // so it's plain that the tap took.
     var fresh by remember { mutableStateOf<String?>(null) }
+    // The result button just tapped wears a check for a moment, where the eyes already are.
+    var logged by remember { mutableStateOf<MatchResult?>(null) }
+    LaunchedEffect(logged) { if (logged != null) { delay(1500); logged = null } }
     val seen = remember { mutableSetOf<String>().apply { matches.forEach { add(it.id) } } }
     LaunchedEffect(matches) {
         val added = matches.lastOrNull { it.id !in seen }
@@ -174,16 +180,17 @@ fun MatchLogPanel(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 fun log(result: MatchResult) {
                     onLog(result, opponent.trim(), when (turn) { 1 -> true; 2 -> false; else -> null }, notes.trim())
-                    opponent = ""; notes = ""; noting = false; turn = 0
+                    opponent = ""; notes = ""; noting = false; turn = 0; logged = result
                 }
-                GameButton("Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f))
-                GameButton("Loss", onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f), tone = scheme.error, onTone = scheme.onError)
-                GameButton("Draw", onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f), tone = drawTone(), onTone = onDrawTone())
+                GameButton("Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f), icon = LineIcons.Check.takeIf { logged == MatchResult.WIN })
+                GameButton("Loss", onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f), icon = LineIcons.Check.takeIf { logged == MatchResult.LOSS }, tone = scheme.error, onTone = scheme.onError)
+                GameButton("Draw", onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f), icon = LineIcons.Check.takeIf { logged == MatchResult.DRAW }, tone = drawTone(), onTone = onDrawTone())
             }
         }
     }
     val fill = panelFill()
-    Column(modifier) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    Column(modifier.onSizeChanged { short = phone && with(density) { it.height.toDp() } < 600.dp }) {
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(
         Modifier.fillMaxSize(), listState,
@@ -193,7 +200,7 @@ fun MatchLogPanel(
         item(key = "record") {
             val record = @Composable {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    WinRing(stats.overall.winRate, if (phone) 68.dp else 84.dp)
+                    WinRing(stats.overall.winRate, if (short) 52.dp else if (phone) 68.dp else 84.dp)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (phone) 2.dp else 6.dp)) {
                         FadeSwap(if (stats.overall.games == 0) "0–0" else stats.overall.score) {
                             Text(it, style = (if (phone) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge).merge(TabularNumbers))
@@ -203,7 +210,7 @@ fun MatchLogPanel(
                     }
                 }
             }
-            if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true) { record() } else record()
+            if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true, padding = if (short) 10.dp else 16.dp) { record() } else record()
         }
         if (!phone) item(key = "log") { logPanel(Modifier) }
         // A phone's games read as one panel: the header rounds its top and the last game its bottom.
@@ -222,7 +229,7 @@ fun MatchLogPanel(
             val glow by animateFloatAsState(if (match.id == fresh) 1f else 0f, if (match.id == fresh) snap() else motion(Motion.LONG * 3), label = "fresh-game")
             Box(Modifier.animateItem().then(if (phone) Modifier.background(fill, rowShape).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = if (last) 16.dp else 4.dp) else Modifier)) {
                 Row(
-                    Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.primary.copy(alpha = 0.16f * glow))
+                    Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.primary.copy(alpha = 0.24f * glow))
                         .clickable(onClickLabel = "Edit this game") { editingId = match.id }.padding(vertical = 4.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -329,15 +336,12 @@ private fun EditMatchDialog(
                     }
                 }
                 PillTextField(notes, { notes = it }, "Note", Modifier.fillMaxWidth())
+                // Apart from Save, so a slip doesn't remove the game; removing still offers Undo.
+                GameButton("Remove game", onClick = onDelete, style = GameButtonStyle.GHOST, compact = true, tone = scheme.error, icon = LineIcons.Trash)
             }
         },
         confirmButton = { GameButton("Save", onClick = { onSave(edited()) }, compact = true) },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GameButton("Remove", onClick = onDelete, style = GameButtonStyle.GHOST, compact = true, tone = scheme.error)
-                GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true)
-            }
-        },
+        dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
     )
 }
 
@@ -356,14 +360,15 @@ private fun WinRing(rate: Int?, diameter: Dp) {
     val sweep by animateFloatAsState((rate ?: 0) / 100f * 360f, motion(Motion.LONG), label = "win-ring")
     Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(Modifier.matchParentSize()) {
-            val stroke = Stroke(9.dp.toPx(), cap = StrokeCap.Round)
-            val inset = 4.5.dp.toPx()
+            val thick = if (diameter < 60.dp) 7.dp else 9.dp
+            val stroke = Stroke(thick.toPx(), cap = StrokeCap.Round)
+            val inset = thick.toPx() / 2
             val box = Size(size.width - inset * 2, size.height - inset * 2)
             drawArc(track, 0f, 360f, false, Offset(inset, inset), box, style = stroke)
             if (sweep > 0f) drawArc(fill, -90f, sweep, false, Offset(inset, inset), box, style = stroke)
         }
         FadeSwap(rate?.let { "$it%" } ?: "—", contentAlignment = Alignment.Center) {
-            Text(it, style = MaterialTheme.typography.titleMedium.merge(TabularNumbers))
+            Text(it, style = (if (diameter < 60.dp) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleMedium).merge(TabularNumbers))
         }
     }
 }

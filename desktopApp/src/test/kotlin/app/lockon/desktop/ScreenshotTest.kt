@@ -572,7 +572,7 @@ class ScreenshotTest {
         shoot("council-phone-matches-small", 540, 960, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         shoot("council-light-phone-matches-full", 600, 2800, dark = false, hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         // Tapping a game opens it for editing.
-        shoot("council-phone-matches-edit", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(250f, 764f)), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("council-phone-matches-edit", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(250f, 705f)), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         shoot("council-light-desktop-matches-edit", 1980, 1290, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(1500f, 987f))) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         // Last, since these log a game.
         // Just after logging a win: the new game is lit at the top of the list.
