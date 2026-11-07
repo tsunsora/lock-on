@@ -269,6 +269,15 @@ class ScreenshotTest {
         client.sharing.incoming.value = null
     }
 
+    /** The desktop waiting on a phone it invited, spinner beside Cancel. */
+    @Test fun renderInviting() {
+        sync.invited.value = setOf("phone-2")
+        shoot("desktop-sync-inviting", 1980, 1290) { select(Tab.SYNC) }
+        shoot("light-desktop-sync-inviting", 1980, 1290, dark = false) { select(Tab.SYNC) }
+        shoot("phone-sync-inviting", 600, 1260) { select(Tab.SYNC) }
+        sync.invited.value = emptySet()
+    }
+
     /** Sync devices: a paired desktop and one nearby to pair, then the paired one just matched. */
     @Test fun renderDeviceSync() {
         shoot("phone-sync-devices", 600, 1260, controller = client) { select(Tab.SYNC) }
