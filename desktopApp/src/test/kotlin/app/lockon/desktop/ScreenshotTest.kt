@@ -574,6 +574,10 @@ class ScreenshotTest {
         // Tapping a game opens it for editing.
         shoot("council-phone-matches-edit", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(250f, 764f)), hover = rest) { open(Screen.DeckEditor(deckId, startTab = 4)) }
         shoot("council-light-desktop-matches-edit", 1980, 1290, dark = false, taps = listOf(androidx.compose.ui.geometry.Offset(1500f, 987f))) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        // Last, since these log a game.
+        // Just after logging a win: the new game is lit at the top of the list.
+        shoot("council-phone-matches-logged", 600, 1260, taps = listOf(androidx.compose.ui.geometry.Offset(123f, 1080f))) { open(Screen.DeckEditor(deckId, startTab = 4)) }
+        shoot("council-desktop-matches-logged", 1980, 1290, taps = listOf(androidx.compose.ui.geometry.Offset(1372f, 593f))) { open(Screen.DeckEditor(deckId, startTab = 4)) }
     }
 
     /** The deck panel's other tabs on a computer, in both themes. */

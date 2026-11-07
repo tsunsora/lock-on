@@ -3,8 +3,9 @@ import app.lockon.ui.components.RevealValue
 import app.lockon.ui.components.FadeSwap
 import app.lockon.ui.components.softThumbFill
 import app.lockon.ui.components.softThumbTone
-import androidx.compose.animation.core.animateFloatAsState
-import app.lockon.ui.components.motion
+import androidx.compose.animation.core.snap
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
@@ -135,12 +136,30 @@ fun MatchLogPanel(
     // On a phone everything sits on solid panels, and logging stays above the bar under the thumb.
     val phone = LocalTopBand.current.height == 0.dp
     val gap = if (phone) 12.dp else 0.dp
+    // A game that wasn't here a moment ago, logged or just edited, is scrolled to and lit for a moment,
+    // so it's plain that the tap took.
+    var fresh by remember { mutableStateOf<String?>(null) }
+    val seen = remember { mutableSetOf<String>().apply { matches.forEach { add(it.id) } } }
+    LaunchedEffect(matches) {
+        val added = matches.lastOrNull { it.id !in seen }
+        matches.forEach { seen.add(it.id) }
+        if (added != null) {
+            fresh = added.id
+            // The newest game sits just under the Games header, so it's in view whenever the header is.
+            val header = if (phone) 1 else 2
+            val shown = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == header }
+            if (shown == null || shown.offset < 0 || shown.offset + shown.size + 60 > listState.layoutInfo.viewportEndOffset) listState.animateScrollToItem(header)
+            delay(1500)
+            fresh = null
+        }
+    }
     val logPanel = @Composable { panelModifier: Modifier ->
         SoftTile(panelModifier.fillMaxWidth(), solid = phone, padding = if (phone) 12.dp else 16.dp) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillTextField(opponent, { opponent = it }, "Opponent", Modifier.weight(1f))
                 TurnChoice(turn) { turn = it }
-                GlassIconButton(LineIcons.Edit, "Add a note", { noting = !noting }, compact = true)
+                // Lit while a note is open or written, so a note waiting to be logged isn't missed.
+                PillChip(selected = noting || notes.isNotBlank(), onClick = { noting = !noting }, label = { Text("Note") }, tall = true)
             }
             // Earlier opponents to pick from instead of typing (UX rule C4).
             val picks = opponentSuggestions.filter { opponent.isNotBlank() && it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(6)
@@ -174,10 +193,10 @@ fun MatchLogPanel(
         item(key = "record") {
             val record = @Composable {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    WinRing(stats.overall.winRate)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    WinRing(stats.overall.winRate, if (phone) 68.dp else 84.dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (phone) 2.dp else 6.dp)) {
                         FadeSwap(if (stats.overall.games == 0) "0–0" else stats.overall.score) {
-                            Text(it, style = MaterialTheme.typography.headlineLarge.merge(TabularNumbers))
+                            Text(it, style = (if (phone) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge).merge(TabularNumbers))
                         }
                         RecordRow("1st", stats.goingFirst, nameWidth = 36.dp)
                         RecordRow("2nd", stats.goingSecond, nameWidth = 36.dp)
@@ -187,18 +206,6 @@ fun MatchLogPanel(
             if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true) { record() } else record()
         }
         if (!phone) item(key = "log") { logPanel(Modifier) }
-        if (stats.byOpponent.isNotEmpty()) {
-            item(key = "opponents") {
-                val opponents = @Composable {
-                    SectionHeader("By opponent")
-                    Column(verticalArrangement = Arrangement.spacedBy(if (phone) 12.dp else 20.dp)) {
-                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 150.dp) }
-                    }
-                }
-                if (phone) SoftTile(Modifier.animateItem().padding(bottom = gap).fillMaxWidth(), solid = true) { opponents() }
-                else Column(Modifier.animateItem(), verticalArrangement = Arrangement.spacedBy(20.dp)) { opponents() }
-            }
-        }
         // A phone's games read as one panel: the header rounds its top and the last game its bottom.
         val tile = LockOnShapes.tileRadius
         item(key = "games-header") {
@@ -212,9 +219,11 @@ fun MatchLogPanel(
         itemsIndexed(matches.asReversed(), key = { _, match -> match.id }) { index, match ->
             val last = index == matches.lastIndex
             val rowShape = RoundedCornerShape(bottomStart = if (last) tile else 0.dp, bottomEnd = if (last) tile else 0.dp)
+            val glow by animateFloatAsState(if (match.id == fresh) 1f else 0f, if (match.id == fresh) snap() else motion(Motion.LONG * 3), label = "fresh-game")
             Box(Modifier.animateItem().then(if (phone) Modifier.background(fill, rowShape).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = if (last) 16.dp else 4.dp) else Modifier)) {
                 Row(
-                    Modifier.fillMaxWidth().clip(LockOnShapes.button).clickable(onClickLabel = "Edit this game") { editingId = match.id }.padding(vertical = 4.dp),
+                    Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.primary.copy(alpha = 0.16f * glow))
+                        .clickable(onClickLabel = "Edit this game") { editingId = match.id }.padding(vertical = 4.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     val (letter, tone, ink) = when (match.result) {
@@ -238,7 +247,21 @@ fun MatchLogPanel(
                         )
                     }
                     Text(dayLabel(match.playedAt), Modifier.widthIn(min = 58.dp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.End, maxLines = 1)
+                    Icon(LineIcons.Chev, null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant.copy(alpha = 0.7f))
                 }
+            }
+        }
+        // Under the games, which matter more right after a game.
+        if (stats.byOpponent.isNotEmpty()) {
+            item(key = "opponents") {
+                val opponents = @Composable {
+                    SectionHeader("By opponent")
+                    Column(verticalArrangement = Arrangement.spacedBy(if (phone) 12.dp else 20.dp)) {
+                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 150.dp) }
+                    }
+                }
+                if (phone) SoftTile(Modifier.animateItem().padding(top = gap).fillMaxWidth(), solid = true) { opponents() }
+                else Column(Modifier.animateItem(), verticalArrangement = Arrangement.spacedBy(20.dp)) { opponents() }
             }
         }
     }
@@ -327,11 +350,11 @@ private fun onDrawTone(): Color = if (isTwilight()) Color(0xFF1B2147) else Color
 
 /** The win rate as a ring, with a dash before any games. */
 @Composable
-private fun WinRing(rate: Int?) {
+private fun WinRing(rate: Int?, diameter: Dp) {
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
     val fill = Accent
     val sweep by animateFloatAsState((rate ?: 0) / 100f * 360f, motion(Motion.LONG), label = "win-ring")
-    Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(Modifier.matchParentSize()) {
             val stroke = Stroke(9.dp.toPx(), cap = StrokeCap.Round)
             val inset = 4.5.dp.toPx()
