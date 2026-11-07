@@ -45,8 +45,6 @@ Both can turn off **Update automatically** under Settings, and then updates only
 
 The feed has to be readable without signing in. While this repo is private, the check fails quietly. Either make the repo public, or publish releases somewhere public (for example a separate releases-only repo) and point `lockon.updateFeed` at its `lock-on-update.json`. File names in the feed are resolved next to the feed, so the three files must sit together.
 
-Android only installs an update signed with the same key as the installed app, which is one more reason to set up the release key (below) before anyone installs a release.
-
 ## Version
 
 Change `lockon.version` (and bump `lockon.versionCode` for Android) in [gradle.properties](gradle.properties). Everything else reads from there: the Android version name and code, the installer version, the version shown in Settings, and the version each device reports during sync.
@@ -57,24 +55,37 @@ Use the two-digit year: MSI versions can't go past 255 in the first part, so `20
 
 ## Android signing
 
-Until a release key is set up, the release APK is signed with the **debug key**, and the build prints a warning. That's fine for testing. Don't publish an APK signed that way: Android only installs updates signed with the same key, so switching keys later forces everyone to uninstall first, which deletes their local decks.
+Releases from 26.11.16 on are signed with the release key. Releases up to 26.11.15 used the debug key, and Android only installs an update signed by the installed app's key or by a key it handed over to. So each published APK carries two signatures, written by `:androidApp:publishableApk`:
 
-Create a release key once, and keep it and its passwords backed up somewhere safe outside the repo:
+| Android version | Sees | Signature |
+| --- | --- | --- |
+| 9 and later | Release key, with a lineage file proving the debug key handed over to it | v3 |
+| 8 | Debug key | v2 |
+
+`./gradlew releaseArtifacts` stops with an error if any of these are missing. `assembleRelease` on its own still builds without them, signing with the debug key, for testing. Never publish that APK.
+
+**Keep `%USERPROFILE%\.lock-on-signing` backed up outside this PC.** It holds everything signing needs:
+
+| File | What it is |
+| --- | --- |
+| `lock-on-release.jks` | The release key. Without it, no update will ever install over a release again. |
+| `previous-debug.keystore` | The debug key the old releases used, kept as a copy because Android Studio can regenerate its own. |
+| `lock-on.lineage` | The proof that the debug key handed over to the release key. |
+| `keystore.properties` | The passwords and paths. Copy it to the repo root, where git ignores it. |
+
+Paths in `keystore.properties` are absolute, so correct them on a new PC. Instead of the file, the same values can come from `LOCKON_KEYSTORE_PATH`, `LOCKON_KEYSTORE_PASSWORD`, `LOCKON_KEY_ALIAS`, `LOCKON_KEY_PASSWORD`, `LOCKON_PREVIOUS_KEYSTORE_PATH`, `LOCKON_PREVIOUS_KEYSTORE_PASSWORD`, `LOCKON_PREVIOUS_KEY_ALIAS`, `LOCKON_PREVIOUS_KEY_PASSWORD` and `LOCKON_LINEAGE_PATH`.
+
+To check a built APK, ask what each Android version sees:
 
 ```bash
-keytool -genkeypair -v -keystore lock-on-release.jks -alias lock-on -keyalg RSA -keysize 4096 -validity 10000
+java -jar "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" verify --min-sdk-version 26 --max-sdk-version 27 --print-certs dist/LockOn-<version>-android.apk
 ```
 
-Then either create `keystore.properties` in the repo root (git ignores it):
-
-```properties
-storeFile=lock-on-release.jks
-storePassword=…
-keyAlias=lock-on
-keyPassword=…
+```bash
+java -jar "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" verify --min-sdk-version 28 --print-certs dist/LockOn-<version>-android.apk
 ```
 
-or set `LOCKON_KEYSTORE_PATH`, `LOCKON_KEYSTORE_PASSWORD`, `LOCKON_KEY_ALIAS` and `LOCKON_KEY_PASSWORD`.
+The first should show the debug certificate (`0eb44bbf…`) and the second the release certificate (`2beb9a3a…`).
 
 ## What is deliberately off
 
@@ -97,6 +108,6 @@ Automated tests cover rules, parsing, revisions, sync, the HTTP routes and the a
 - [ ] Block Lock On in Windows Firewall and check the phone's error message says what to do.
 - [ ] Move the desktop to another network so its address changes, then pair again by QR code. Sync should pick up where it left off.
 - [ ] Open Lock On twice on Windows. The second launch should say it's already open.
-- [ ] Install the new MSI over the old one, and check that decks are kept. Repeat with the APK.
+- [ ] Install the new MSI over the old one, and check that decks are kept. Repeat with the APK, starting from 26.11.15 for the first release signed with the release key.
 - [ ] Publish a test release with a higher version. On Windows, check that **Restart and update** reopens Lock On on the new version, in a folder other than the default too. On Android, check that **Install update** asks once and then reopens on the new version.
 - [ ] Desktop logs are in `%APPDATA%\LockOn\lock-on.log`.

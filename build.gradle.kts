@@ -18,12 +18,12 @@ tasks.register<Copy>("releaseArtifacts") {
     group = "distribution"
     description = "Builds the Windows MSI and the release APK and copies them to dist/."
     // packageMsi skips ProGuard, which needs keep rules for Netty, Ktor and Room that are not written yet.
-    dependsOn(":desktopApp:packageMsi", ":androidApp:assembleRelease")
+    dependsOn(":desktopApp:packageMsi", ":androidApp:publishableApk")
     from(project(":desktopApp").layout.buildDirectory.dir("compose/binaries/main/msi")) {
         include("*.msi")
         rename { "LockOn-$lockOnVersion-windows.msi" }
     }
-    from(project(":androidApp").layout.buildDirectory.dir("outputs/apk/release")) {
+    from(project(":androidApp").layout.buildDirectory.dir("outputs/apk/publish")) {
         include("*.apk")
         rename { "LockOn-$lockOnVersion-android.apk" }
     }
