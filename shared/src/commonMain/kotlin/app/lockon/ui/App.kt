@@ -142,6 +142,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.ui.layout.Layout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -294,6 +295,8 @@ fun LockOnApp(
         // Screens built under the boot screen so far. All of them at once took the first frame well over
         // a second, with the window up but frozen, so they build one a frame while the boot screen plays.
         val warmed = remember { mutableStateListOf<Any>() }
+        // Read in each screen's layer only, so switching it redraws without recomposing or relaying out.
+        val warmSettled = remember { mutableStateOf(false) }
         if (!state.booted) LaunchedEffect(Unit) {
             val started = TimeSource.Monotonic.markNow()
             withTimeoutOrNull(BootLimit) {
@@ -335,6 +338,10 @@ fun LockOnApp(
                     withTimeoutOrNull(BootLockGrace) { while (!bootReduce && !bootClock.locked) delay(16) }
                 }
             }
+            // A last frame or two with every screen as it looks once it has arrived: fully opaque, not
+            // sliding. A first open draws that too, after its fade, and paid for it the first time.
+            warmSettled.value = true
+            repeat(2) { withFrameNanos { } }
             state.booted = true
             bootCover?.lift()
         }
@@ -404,7 +411,7 @@ fun LockOnApp(
                     CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
                         // Tabs are built once and kept: switching only shows a screen that's already laid
                         // out, with its cards drawn. They fade through each other (UX rule V5).
-                        KeptScreens(Tab.entries, if (state.current == null) state.tab else null, state.booted, warmed) { tab ->
+                        KeptScreens(Tab.entries, if (state.current == null) state.tab else null, state.booted, warmed, warmSettled) { tab ->
                             Column(Modifier.fillMaxSize().windowInsetsPadding(statusBarInsets)) {
                                 when (tab) {
                                     Tab.DECKS -> DeckLibraryScreen(container, state, files)
@@ -434,7 +441,7 @@ fun LockOnApp(
                         // Decks drift in from the side and back out as you leave, so motion says where you
                         // went (UX rule V5). A deck opened for the first time builds as it arrives.
                         val decksShown = if (openDeck == null || keptDecks.any { it.deckId == openDeck.deckId }) keptDecks.toList() else keptDecks + openDeck
-                        KeptScreens(decksShown.map { it.deckId }, openDeck?.deckId, state.booted, warmed, slide = true) { id ->
+                        KeptScreens(decksShown.map { it.deckId }, openDeck?.deckId, state.booted, warmed, warmSettled, slide = true) { id ->
                             DeckEditorScreen(container, state, files, id, wide, decksShown.firstOrNull { it.deckId == id }?.startTab ?: 0)
                         }
                         val reduce = LocalReduceMotion.current
@@ -545,11 +552,12 @@ private const val KeptDeckLimit = 4
  * deck stutter. While not [booted], each screen in [warmed] lays out and draws under the opaque boot
  * screen, so its cards fill in and their images are decoded and on the GPU before anyone looks. They draw at
  * half opacity, and sliding screens part way through their slide, the way a crossfade draws them,
- * since the GPU sets that up slowly the first time; a fully transparent layer wouldn't draw at all. [slide] drifts screens in from the
+ * and for their last frames fully shown ([warmSettled]), since the GPU sets each of those up slowly
+ * the first time; a fully transparent layer wouldn't draw at all. [slide] drifts screens in from the
  * side as they show and back out as they go.
  */
 @Composable
-private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, warmed: List<Any>, slide: Boolean = false, content: @Composable (K) -> Unit) {
+private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, warmed: List<Any>, warmSettled: State<Boolean>, slide: Boolean = false, content: @Composable (K) -> Unit) {
     val reduce = LocalReduceMotion.current
     val (shows, laidOut) = keys.map { k ->
         key(k) {
@@ -575,8 +583,10 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
                 key(k) {
                     Box(Modifier.fillMaxSize().graphicsLayer {
                         val p = shows[i].value
-                        alpha = if (booted) p else 0.5f
-                        if (slide) translationX = (1f - (if (booted) p else 0.5f)) * size.width / 20f
+                        // Under the boot screen: half way through a show, then as it ends (see [warmSettled]).
+                        val q = if (booted) p else if (warmSettled.value) 1f else 0.5f
+                        alpha = q
+                        if (slide) translationX = (1f - q) * size.width / 20f
                     }) {
                         if (booted || k in warmed) CompositionLocalProvider(LocalScreenShown provides (k == shown)) { content(k) }
                     }
