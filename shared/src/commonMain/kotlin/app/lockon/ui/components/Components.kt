@@ -321,3 +321,25 @@ fun DeckGlance(stats: app.lockon.rules.DeckStats, modifier: Modifier = Modifier,
         }
     }
 }
+
+/**
+ * Like BoxWithConstraints, but its content only sees [key] of the width, and is built again only when
+ * that changes. BoxWithConstraints rebuilds its content at every new width, so dragging a pane's edge
+ * rebuilt everything inside it each frame although only, say, a column count depended on the width.
+ */
+@Composable
+fun <T> WidthKeyed(modifier: Modifier, key: (maxWidth: androidx.compose.ui.unit.Dp) -> T, content: @Composable (T) -> Unit) {
+    val latest = androidx.compose.runtime.rememberUpdatedState(content)
+    // One stable slot lambda per key: subcomposition reruns only when the lambda (so the key) changes,
+    // or when [content] itself changes, which [latest] makes it observe.
+    val slots = remember { HashMap<T, @Composable () -> Unit>() }
+    androidx.compose.ui.layout.SubcomposeLayout(modifier) { constraints ->
+        val k = key(constraints.maxWidth.toDp())
+        val slot = slots.getOrPut(k) { { latest.value(k) } }
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables = subcompose(Unit, slot).map { it.measure(loose) }
+        val width = maxOf(constraints.minWidth, placeables.maxOfOrNull { it.width } ?: 0)
+        val height = maxOf(constraints.minHeight, placeables.maxOfOrNull { it.height } ?: 0)
+        layout(width, height) { placeables.forEach { it.place(0, 0) } }
+    }
+}
