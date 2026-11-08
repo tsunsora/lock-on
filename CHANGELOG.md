@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.20 (2026-11-08)
+
+Decks from the popular Gundam deck sites paste straight in, and the desktop app no longer freezes every 30 seconds.
+
+- **Importing decks:** paste a deck from ExBurst, Limitless, DeckPlanet, Egman or whitebase.dev into New deck, as a deck link, a list or a JSON export, and it comes in as a deck.
+- **No more 30-second freeze:** the desktop app used to pause for a moment every 30 seconds while anything was moving, often right as you clicked. That pause is gone.
+- **Opening decks:** the first deck you open and your first visit to Cards no longer stutter in a big window, and reopening a deck stays smooth.
+
 ## 26.11.19 (2026-11-08)
 
 The desktop app no longer stalls every 15 seconds, and dragging the deck editor's divider is smoother.
