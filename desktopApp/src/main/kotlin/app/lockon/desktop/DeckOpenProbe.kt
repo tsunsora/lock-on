@@ -36,6 +36,8 @@ fun DeckOpenProbe(window: ComposeWindow, container: AppContainer, state: AppStat
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
         val render = renderThread()?.let { StackSampler(it).apply { start() } }
         val slow = mutableListOf<LongRange>()
+        // Each open's own frames over 30 ms, profiled separately, since different opens stall for different reasons.
+        val bigByOpen = mutableListOf<List<LongRange>>()
         var firstSlow = emptyList<LongRange>()
         val lines = mutableListOf<String>()
         // Every thread during the first open, since the window also draws on a render thread.
@@ -58,6 +60,7 @@ fun DeckOpenProbe(window: ComposeWindow, container: AppContainer, state: AppStat
                 val gaps = (listOf(start) + frames).zipWithNext { a, b -> (b - a) / 1_000_000.0 }
                 slow += (listOf(start) + frames).zipWithNext { a, b -> a..b }.filter { it.last - it.first > LATE_FRAME_NS }
                 if (n == 0) firstSlow = slow.toList()
+                bigByOpen += (listOf(start) + frames).zipWithNext { a, b -> a..b }.filter { it.last - it.first > 30_000_000L }
                 lines += "open %d (%s): %d frames, worst %.1f ms, %d over 8.3 ms (%.0f ms), %d over 16.7 ms, %.0f ms in those; slow frames (#: ms) %s".format(
                     n + 1, id.take(8), frames.size, gaps.maxOrNull() ?: 0.0, gaps.count { it > 8.3 }, gaps.filter { it > 8.3 }.sum(),
                     gaps.count { it > 16.7 }, gaps.filter { it > 16.7 }.sum(),
@@ -68,7 +71,12 @@ fun DeckOpenProbe(window: ComposeWindow, container: AppContainer, state: AppStat
             delay(1_500)
         }
         sampler.finish()
-        render?.finish()?.let { File(report.path + ".render.samples.txt").writeText(it.report(slow)) }
+        render?.finish()
+        render?.let { File(report.path + ".render.samples.txt").writeText(it.report(slow)) }
+        for ((n, big) in bigByOpen.withIndex()) if (big.isNotEmpty() && !PROBE_QUIET) {
+            File(report.path + ".open${n + 1}.samples.txt").writeText(sampler.report(big))
+            render?.let { File(report.path + ".open${n + 1}.render.samples.txt").writeText(it.report(big)) }
+        }
         File(report.path + ".threads.txt").writeText(
             everything.groupingBy { (name, st) -> name.replace(Regex("[0-9]+"), "#") + " :: " + st.take(4).joinToString(" < ") { "${it.className.substringAfterLast('.')}.${it.methodName}" } }
                 .eachCount().entries.sortedByDescending { it.value }.take(60).joinToString("\n") { "%5d  %s".format(it.value, it.key) },

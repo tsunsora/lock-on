@@ -68,6 +68,10 @@ tasks.test {
 compose.desktop {
     application {
         mainClass = "app.lockon.desktop.MainKt"
+        // Skia's drawing library calls System.gc() every 30 seconds while the window keeps drawing, to free
+        // native memory. A full collection froze the window for 50-90 ms each time; this makes it run
+        // alongside the app instead.
+        jvmArgs("-XX:+ExplicitGCInvokesConcurrent")
         // `./gradlew :desktopApp:run -Plockon.dataDir=...` runs a separate profile, e.g. for testing.
         providers.gradleProperty("lockon.dataDir").orNull?.let { jvmArgs("-Dlockon.dataDir=$it") }
         // `-Plockon.scrollProbe=<file>` times scrolling the card grid and closes the app (ScrollProbe.kt).
@@ -82,6 +86,8 @@ compose.desktop {
         }
         // `-Plockon.dividerProbe=<file>` times dragging the deck editor's divider and closes the app (DividerProbe.kt).
         providers.gradleProperty("lockon.probeSize").orNull?.let { jvmArgs("-Dlockon.probeSize=$it") }
+        // `-Plockon.jvmArgs="..."` passes extra JVM options to a run, e.g. GC logging or another collector.
+        providers.gradleProperty("lockon.jvmArgs").orNull?.let { jvmArgs(*it.split(" ").filter(String::isNotBlank).toTypedArray()) }
         providers.gradleProperty("lockon.probeQuiet").orNull?.let { jvmArgs("-Dlockon.probeQuiet=$it") }
         providers.gradleProperty("lockon.dividerProbe").orNull?.let { jvmArgs("-Dlockon.dividerProbe=$it") }
         // `-Plockon.bootProbe=<file>` times the boot screen's frames and closes the app (BootProbe.kt).
