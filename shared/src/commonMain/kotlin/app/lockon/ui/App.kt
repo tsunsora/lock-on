@@ -142,6 +142,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.ui.layout.Layout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.animation.ExitTransition
@@ -566,6 +567,9 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
             show
         }
     }
+    // Whether each screen takes part in layout changes only when a fade starts or ends; reading the
+    // fade's value here instead would measure every screen again on each frame of the fade.
+    val laidOut = shows.map { show -> remember(show) { derivedStateOf { show.value > 0f } } }
     Layout(
         content = {
             keys.forEachIndexed { i, k ->
@@ -582,7 +586,7 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
         },
         modifier = Modifier.fillMaxSize(),
     ) { measurables, constraints ->
-        val placeables = measurables.mapIndexed { i, m -> if (!booted || shows[i].value > 0f) m.measure(constraints) else null }
+        val placeables = measurables.mapIndexed { i, m -> if (!booted || laidOut[i].value) m.measure(constraints) else null }
         layout(constraints.maxWidth, constraints.maxHeight) { placeables.forEach { it?.place(0, 0) } }
     }
 }

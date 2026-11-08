@@ -33,6 +33,7 @@ import app.lockon.sync.IncomingShare
 import app.lockon.sync.OutgoingShare
 import app.lockon.sync.ShareInbox
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The desktop hosts sync: it runs the HTTPS server and shows the pairing QR code. */
 class DesktopSyncController(private val container: AppContainer, private val scope: CoroutineScope) : HostSyncController {
@@ -135,7 +136,8 @@ class DesktopSyncController(private val container: AppContainer, private val sco
                 pairing.rotateIfExpired()
                 outbox.expire()
                 requests.expire()
-                val fresh = lanAddresses()
+                // Listing network adapters takes 50-100 ms on Windows; on the UI thread it froze every screen.
+                val fresh = withContext(Dispatchers.IO) { lanAddresses() }
                 if (fresh.toSet() != addresses.toSet()) { addresses = fresh; publish() }
             }
         }
