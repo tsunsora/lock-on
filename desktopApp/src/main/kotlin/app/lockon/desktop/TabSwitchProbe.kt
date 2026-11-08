@@ -42,6 +42,7 @@ fun TabSwitchProbe(window: ComposeWindow, container: AppContainer, state: AppSta
             }
         }
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
+        val render = renderThread()?.let { StackSampler(it).apply { start() } }
         val slow = mutableListOf<LongRange>()
         val slowByStep = mutableMapOf<String, List<LongRange>>()
         val lines = mutableListOf<String>()
@@ -64,16 +65,18 @@ fun TabSwitchProbe(window: ComposeWindow, container: AppContainer, state: AppSta
                 recording.cancel()
                 val times = listOf(start) + frames
                 val gaps = times.zipWithNext { a, b -> (b - a) / 1_000_000.0 }
-                val stepSlow = times.zipWithNext { a, b -> a..b }.filter { it.last - it.first > 16_700_000L }
+                val stepSlow = times.zipWithNext { a, b -> a..b }.filter { it.last - it.first > LATE_FRAME_NS }
                 slow += stepSlow
-                slowByStep[name] = stepSlow
-                lines += "%-8s %3d frames, worst %5.1f ms, %2d over 16.7 ms, %4.0f ms in those".format(
-                    name, frames.size, gaps.maxOrNull() ?: 0.0, gaps.count { it > 16.7 }, gaps.filter { it > 16.7 }.sum(),
+                slowByStep.putIfAbsent(name, stepSlow)
+                lines += "%-8s %3d frames, worst %5.1f ms, %2d over 8.3 ms (%4.0f ms), %2d over 16.7 ms, %4.0f ms in those".format(
+                    name, frames.size, gaps.maxOrNull() ?: 0.0, gaps.count { it > 8.3 }, gaps.filter { it > 8.3 }.sum(),
+                    gaps.count { it > 16.7 }, gaps.filter { it > 16.7 }.sum(),
                 )
             }
             delay(600)
         }
         sampler.finish()
+        render?.finish()?.let { File(report.path + ".render.samples.txt").writeText(it.report(slow)) }
         File(report.path + ".samples.txt").writeText(sampler.report(slow))
         File(report.path + ".step.threads.txt").writeText(
             everything.groupingBy { (thread, st) -> thread.replace(Regex("[0-9]+"), "#") + " :: " + st.take(6).joinToString(" < ") { "${it.className.substringAfterLast('.')}.${it.methodName}" } }

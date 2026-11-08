@@ -34,6 +34,7 @@ fun DeckOpenProbe(window: ComposeWindow, container: AppContainer, state: AppStat
         // The same deck a few times, then others, so first-open costs and per-deck costs both show.
         val order = listOf(0, 0, 0, 1, 2, 1, 0, 3).map { ids[it % ids.size] }
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
+        val render = renderThread()?.let { StackSampler(it).apply { start() } }
         val slow = mutableListOf<LongRange>()
         var firstSlow = emptyList<LongRange>()
         val lines = mutableListOf<String>()
@@ -55,17 +56,19 @@ fun DeckOpenProbe(window: ComposeWindow, container: AppContainer, state: AppStat
                 delay(1_500)
                 recording.cancel()
                 val gaps = (listOf(start) + frames).zipWithNext { a, b -> (b - a) / 1_000_000.0 }
-                slow += (listOf(start) + frames).zipWithNext { a, b -> a..b }.filter { it.last - it.first > 16_700_000L }
+                slow += (listOf(start) + frames).zipWithNext { a, b -> a..b }.filter { it.last - it.first > LATE_FRAME_NS }
                 if (n == 0) firstSlow = slow.toList()
-                lines += "open %d (%s): %d frames, worst %.1f ms, %d over 16.7 ms, %.0f ms in those; slow frames (#: ms) %s".format(
-                    n + 1, id.take(8), frames.size, gaps.maxOrNull() ?: 0.0, gaps.count { it > 16.7 }, gaps.filter { it > 16.7 }.sum(),
-                    gaps.withIndex().filter { it.value > 16.7 }.joinToString { "%d: %.0f".format(it.index, it.value) },
+                lines += "open %d (%s): %d frames, worst %.1f ms, %d over 8.3 ms (%.0f ms), %d over 16.7 ms, %.0f ms in those; slow frames (#: ms) %s".format(
+                    n + 1, id.take(8), frames.size, gaps.maxOrNull() ?: 0.0, gaps.count { it > 8.3 }, gaps.filter { it > 8.3 }.sum(),
+                    gaps.count { it > 16.7 }, gaps.filter { it > 16.7 }.sum(),
+                    gaps.withIndex().filter { it.value > 8.3 }.joinToString { "%d: %.0f".format(it.index, it.value) },
                 )
             }
             state.goBack()
             delay(1_500)
         }
         sampler.finish()
+        render?.finish()?.let { File(report.path + ".render.samples.txt").writeText(it.report(slow)) }
         File(report.path + ".threads.txt").writeText(
             everything.groupingBy { (name, st) -> name.replace(Regex("[0-9]+"), "#") + " :: " + st.take(4).joinToString(" < ") { "${it.className.substringAfterLast('.')}.${it.methodName}" } }
                 .eachCount().entries.sortedByDescending { it.value }.take(60).joinToString("\n") { "%5d  %s".format(it.value, it.key) },

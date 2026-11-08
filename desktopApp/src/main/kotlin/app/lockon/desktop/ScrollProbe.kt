@@ -38,6 +38,7 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
         val frames = mutableListOf<Long>()
         // The window draws on this thread, so its stack during slow frames says what they spend time on.
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
+        val render = renderThread()?.let { StackSampler(it).apply { start() } }
         coroutineScope {
             val recording = launch { while (true) withFrameNanos { frames += System.nanoTime() } }
             // Two wheel notches a refresh at 60 Hz for ten seconds, a long steady scroll through the grid.
@@ -52,8 +53,9 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
             }
             recording.cancel()
         }
-        val slow = frames.zipWithNext { a, b -> a..b }.filter { it.last - it.first > 16_700_000L }
+        val slow = frames.zipWithNext { a, b -> a..b }.filter { it.last - it.first > LATE_FRAME_NS }
         File(report.path + ".samples.txt").writeText(sampler.finish().report(slow))
+        render?.let { File(report.path + ".render.samples.txt").writeText(it.finish().report(slow)) }
         val gaps = frames.zipWithNext { a, b -> (b - a) / 1_000_000.0 }.sorted()
         val budget = 1_000.0 / hz
         report.appendText(
@@ -67,6 +69,12 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
 }
 
 /** A plain sampling profiler: it sees native calls too, which Flight Recorder leaves out. */
+/** The thread Skia draws and presents the window on; slow frames with an idle UI thread are waiting on it. */
+internal fun renderThread(): Thread? = Thread.getAllStackTraces().keys.firstOrNull { it.name.startsWith("skiko-dispatcher-to-block-on") }
+
+/** Over this a frame is late at 180 Hz (1.5 refreshes); probes profile frames slower than this. */
+internal const val LATE_FRAME_NS = 8_300_000L
+
 internal class StackSampler(private val target: Thread) : Thread("stack-sampler") {
     private val samples = java.util.concurrent.ConcurrentLinkedQueue<Pair<Long, Array<StackTraceElement>>>()
     @Volatile private var running = true

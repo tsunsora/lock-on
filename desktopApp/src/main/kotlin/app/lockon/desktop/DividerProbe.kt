@@ -18,6 +18,7 @@ import java.awt.Toolkit
 import java.awt.event.InputEvent
 import java.awt.event.MouseEvent
 import java.io.File
+import javax.swing.SwingUtilities
 import kotlin.math.sin
 
 /**
@@ -45,32 +46,41 @@ fun DividerProbe(window: ComposeWindow, container: AppContainer, state: AppState
         val hz = window.graphicsConfiguration.device.displayMode.refreshRate.takeIf { it > 0 } ?: 60
         val frames = mutableListOf<Long>()
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
+        val render = renderThread()?.let { StackSampler(it).apply { start() } }
         coroutineScope {
             val recording = launch { while (true) withFrameNanos { frames += System.nanoTime() } }
             withContext(Dispatchers.IO) {
                 val queue = Toolkit.getDefaultToolkit().systemEventQueue
-                fun post(id: Int, x: Int, mods: Int) =
-                    queue.postEvent(MouseEvent(pane, id, System.currentTimeMillis(), mods, x, y, 1, false, MouseEvent.BUTTON1))
+                // Events go to the component Compose listens on, as real input would, not to the content pane.
+                val target = SwingUtilities.getDeepestComponentAt(pane, startX, y) ?: pane
+                fun post(id: Int, x: Int, mods: Int) {
+                    val at = SwingUtilities.convertPoint(pane, x, y, target)
+                    queue.postEvent(MouseEvent(target, id, System.currentTimeMillis(), mods, at.x, at.y, 1, false, MouseEvent.BUTTON1))
+                }
                 post(MouseEvent.MOUSE_PRESSED, startX, InputEvent.BUTTON1_DOWN_MASK)
                 // A pointer event every 4 ms, swinging 300 dp each way, faster than a hand drags.
+                var x = startX
                 repeat(1_250) { i ->
-                    post(MouseEvent.MOUSE_DRAGGED, startX + (300 * sin(i / 60.0)).toInt(), InputEvent.BUTTON1_DOWN_MASK)
+                    x = startX + (300 * sin(i / 60.0)).toInt()
+                    post(MouseEvent.MOUSE_DRAGGED, x, InputEvent.BUTTON1_DOWN_MASK)
                     Thread.sleep(4)
                 }
-                post(MouseEvent.MOUSE_RELEASED, startX, 0)
+                // Let go away from the start, so a drag that worked leaves a different split saved.
+                post(MouseEvent.MOUSE_RELEASED, x, 0)
             }
             recording.cancel()
         }
         // A drag that missed the divider (say, in a window too narrow for the split layout) leaves the split as it was.
         delay(500)
         val after = container.database.metaDao().get("ui.deckEditor.split")?.toFloatOrNull()
-        val slow = frames.zipWithNext { a, b -> a..b }.filter { it.last - it.first > 16_700_000L }
+        val slow = frames.zipWithNext { a, b -> a..b }.filter { it.last - it.first > LATE_FRAME_NS }
         File(report.path + ".samples.txt").writeText(sampler.finish().report(slow))
+        render?.let { File(report.path + ".render.samples.txt").writeText(it.finish().report(slow)) }
         val gaps = frames.zipWithNext { a, b -> (b - a) / 1_000_000.0 }.sorted()
         val budget = 1_000.0 / hz
         report.appendText(
             "${window.renderApi}, $hz Hz, ${window.width}×${window.height}, divider drag (split %.3f → %s): %d frames in %.1f s, mean %.1f ms, median %.1f ms, p90 %.1f ms, p99 %.1f ms, worst %.1f ms, %d over 1.5× budget (%.1f ms), %d over 16.7 ms\n".format(
-                split, after?.let { "%.3f".format(it) } ?: "unchanged", frames.size, (frames.last() - frames.first()) / 1e9, gaps.average(), gaps[gaps.size / 2], gaps[gaps.size * 9 / 10],
+                split, after?.takeIf { it != split }?.let { "%.3f".format(it) } ?: "UNCHANGED: the drag missed the divider", frames.size, (frames.last() - frames.first()) / 1e9, gaps.average(), gaps[gaps.size / 2], gaps[gaps.size * 9 / 10],
                 gaps[gaps.size * 99 / 100], gaps.last(), gaps.count { it > budget * 1.5 }, budget, gaps.count { it > 1_000.0 / 60 },
             ),
         )
