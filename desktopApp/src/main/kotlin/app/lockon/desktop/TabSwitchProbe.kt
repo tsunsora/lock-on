@@ -35,6 +35,8 @@ fun TabSwitchProbe(window: ComposeWindow, container: AppContainer, state: AppSta
             add("cards 2" to { state.select(Tab.CARDS) })
             add("decks 2" to { state.select(Tab.DECKS) })
             for ((label, deck) in listOfNotNull(byAge.firstOrNull()?.let { "recent" to it }, byAge.lastOrNull()?.let { "oldest" to it })) {
+                // `-Plockon.tabProbe.reach=true`: the pointer rests on the deck's tile first, as it does before a click.
+                if (System.getProperty("lockon.tabProbe.reach") == "true") add("$label reach" to { state.deckInReach = deck.deckId })
                 add("$label 1" to { state.open(Screen.DeckEditor(deck.deckId)) })
                 add("back" to { state.goBack() })
                 add("$label 2" to { state.open(Screen.DeckEditor(deck.deckId)) })

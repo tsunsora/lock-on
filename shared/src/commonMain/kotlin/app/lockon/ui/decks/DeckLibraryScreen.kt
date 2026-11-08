@@ -1,4 +1,5 @@
 package app.lockon.ui.decks
+import androidx.compose.ui.input.pointer.PointerEventPass
 import app.lockon.ui.components.Reveal
 import app.lockon.ui.components.RevealValue
 import app.lockon.ui.components.FadeSwap
@@ -415,7 +416,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     val held by remember(deck.deckId) { derivedStateOf { drag.deck?.deckId == deck.deckId } }
                                     DeckRow(
                                         // The held deck stays in place, faded, while its plate follows the pointer.
-                                        Modifier.animateItem().deckDragSource(deck, drag).settleAlpha(if (held) 0.45f else 1f),
+                                        Modifier.animateItem().deckDragSource(deck, drag).settleAlpha(if (held) 0.45f else 1f)
+                                            .then(if (deck.hasConflict) Modifier else Modifier.inReachOf(deck.deckId, state)),
                                         deck, legal, colors, ruleset, cover, compact = !wide,
                                         showFolder = folderFilter == FolderFilter.All,
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
@@ -1099,4 +1101,17 @@ fun TextPromptDialog(
         confirmButton = { GameButton(confirm, onClick = { onConfirm(text) }, compact = true) },
         dismissButton = { GameButton("Cancel", onClick = onDismiss, style = GameButtonStyle.GHOST, compact = true) },
     )
+}
+
+/** Tells [AppState.deckInReach] while the pointer is over this deck's tile or pressing it. */
+private fun Modifier.inReachOf(deckId: String, state: AppState): Modifier = pointerInput(deckId) {
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            when (event.type) {
+                PointerEventType.Enter, PointerEventType.Press -> state.deckInReach = deckId
+                PointerEventType.Exit -> if (state.deckInReach == deckId) state.deckInReach = null
+            }
+        }
+    }
 }

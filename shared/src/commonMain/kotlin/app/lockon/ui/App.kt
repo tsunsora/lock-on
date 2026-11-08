@@ -285,6 +285,14 @@ fun LockOnApp(
         val keptDecks = remember { mutableStateListOf<Screen.DeckEditor>() }
         val recentDecks = remember { mutableListOf<String>() }
         val openDeck = state.current as? Screen.DeckEditor
+        // A deck whose tile the pointer has rested on for a moment, or pressed: its editor builds and lays
+        // out unseen, so opening it only has to draw it. One at a time, never counted among the kept ones.
+        var reachedDeck by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(state.deckInReach) {
+            val id = state.deckInReach ?: return@LaunchedEffect
+            delay(ReachDwell)
+            reachedDeck = id
+        }
         LaunchedEffect(openDeck) {
             val open = openDeck ?: return@LaunchedEffect
             recentDecks.remove(open.deckId)
@@ -441,7 +449,8 @@ fun LockOnApp(
                         // Decks drift in from the side and back out as you leave, so motion says where you
                         // went (UX rule V5). A deck opened for the first time builds as it arrives.
                         val decksShown = if (openDeck == null || keptDecks.any { it.deckId == openDeck.deckId }) keptDecks.toList() else keptDecks + openDeck
-                        KeptScreens(decksShown.map { it.deckId }, openDeck?.deckId, state.booted, warmed, warmSettled, slide = true) { id ->
+                        val reached = reachedDeck?.takeIf { state.booted && decksShown.none { d -> d.deckId == it } }
+                        KeptScreens(decksShown.map { it.deckId } + listOfNotNull(reached), openDeck?.deckId, state.booted, warmed, warmSettled, slide = true, laidOutUnseen = reached) { id ->
                             DeckEditorScreen(container, state, files, id, wide, decksShown.firstOrNull { it.deckId == id }?.startTab ?: 0)
                         }
                         val reduce = LocalReduceMotion.current
@@ -541,6 +550,8 @@ private val BootLockGrace = 0.6.seconds
 /** And never longer than this, whatever is still loading or however far its seeker has got. */
 private val BootLimit = 8.seconds
 private val BootQuietTime = 250.milliseconds
+/** How long the pointer rests on a deck's tile before its editor starts building ([AppState.deckInReach]). */
+private val ReachDwell = 120.milliseconds
 
 /** How many deck editors stay built; opening a deck beyond these drops the one opened longest ago. */
 private const val KeptDeckLimit = 4
@@ -557,7 +568,7 @@ private const val KeptDeckLimit = 4
  * side as they show and back out as they go.
  */
 @Composable
-private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, warmed: List<Any>, warmSettled: State<Boolean>, slide: Boolean = false, content: @Composable (K) -> Unit) {
+private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, warmed: List<Any>, warmSettled: State<Boolean>, slide: Boolean = false, laidOutUnseen: K? = null, content: @Composable (K) -> Unit) {
     val reduce = LocalReduceMotion.current
     val (shows, laidOut) = keys.map { k ->
         key(k) {
@@ -595,7 +606,11 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
         },
         modifier = Modifier.fillMaxSize(),
     ) { measurables, constraints ->
-        val placeables = measurables.mapIndexed { i, m -> if (!booted || laidOut[i].value) m.measure(constraints) else null }
+        // [laidOutUnseen] is measured, which builds its lists' rows, but not placed, so it never draws.
+        val placeables = measurables.mapIndexed { i, m ->
+            val seen = !booted || laidOut[i].value
+            if (seen || keys[i] == laidOutUnseen) m.measure(constraints).takeIf { seen } else null
+        }
         layout(constraints.maxWidth, constraints.maxHeight) { placeables.forEach { it?.place(0, 0) } }
     }
 }

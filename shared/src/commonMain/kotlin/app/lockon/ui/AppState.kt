@@ -42,6 +42,12 @@ class AppState(val appScope: CoroutineScope) {
     var searchFocusRequests by mutableIntStateOf(0)
         private set
 
+    /**
+     * The deck whose tile the pointer rests on or presses, so its editor can start building before the
+     * click lands. Only one at a time; the last one stays built until another takes its place.
+     */
+    var deckInReach by mutableStateOf<String?>(null)
+
     val current: Screen? get() = stack.lastOrNull()
     val canGoBack: Boolean get() = stack.isNotEmpty()
 
