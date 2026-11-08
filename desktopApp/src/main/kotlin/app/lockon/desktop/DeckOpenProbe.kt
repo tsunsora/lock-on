@@ -42,7 +42,7 @@ fun DeckOpenProbe(window: ComposeWindow, container: AppContainer, state: AppStat
         val everything = java.util.concurrent.ConcurrentLinkedQueue<Pair<String, Array<StackTraceElement>>>()
         for ((n, id) in order.withIndex()) {
             val frames = mutableListOf<Long>()
-            if (n == 0) kotlin.concurrent.thread(isDaemon = true) {
+            if (!PROBE_QUIET && n == 0) kotlin.concurrent.thread(isDaemon = true) {
                 val until = System.nanoTime() + 600_000_000L
                 while (System.nanoTime() < until) {
                     Thread.getAllStackTraces().forEach { (t, st) -> if (t.state == Thread.State.RUNNABLE && st.isNotEmpty()) everything += t.name to st }

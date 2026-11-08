@@ -50,7 +50,7 @@ fun TabSwitchProbe(window: ComposeWindow, container: AppContainer, state: AppSta
         val everything = java.util.concurrent.ConcurrentLinkedQueue<Pair<String, Array<StackTraceElement>>>()
         for ((name, act) in steps) {
             val frames = mutableListOf<Long>()
-            if (name == (System.getProperty("lockon.tabProbe.step") ?: "cards 1")) kotlin.concurrent.thread(isDaemon = true) {
+            if (!PROBE_QUIET && name == (System.getProperty("lockon.tabProbe.step") ?: "cards 1")) kotlin.concurrent.thread(isDaemon = true) {
                 val until = System.nanoTime() + 700_000_000L
                 while (System.nanoTime() < until) {
                     Thread.getAllStackTraces().forEach { (t, st) -> if (t.state == Thread.State.RUNNABLE && st.isNotEmpty()) everything += t.name to st }

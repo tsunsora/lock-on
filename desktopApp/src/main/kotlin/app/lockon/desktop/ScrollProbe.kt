@@ -75,6 +75,8 @@ internal fun renderThread(): Thread? = Thread.getAllStackTraces().keys.firstOrNu
 /** Over this a frame is late at 180 Hz (1.5 refreshes); probes profile frames slower than this. */
 internal const val LATE_FRAME_NS = 8_300_000L
 
+internal val PROBE_QUIET = System.getProperty("lockon.probeQuiet") == "true"
+
 internal class StackSampler(private val target: Thread) : Thread("stack-sampler") {
     private val samples = java.util.concurrent.ConcurrentLinkedQueue<Pair<Long, Array<StackTraceElement>>>()
     @Volatile private var running = true
@@ -82,6 +84,8 @@ internal class StackSampler(private val target: Thread) : Thread("stack-sampler"
     init { isDaemon = true }
 
     override fun run() {
+        // `-Plockon.probeQuiet=true` times without sampling, since sampling stops threads and slows the frames it watches.
+        if (PROBE_QUIET) return
         while (running) {
             samples += System.nanoTime() to target.stackTrace
             sleep(1)
