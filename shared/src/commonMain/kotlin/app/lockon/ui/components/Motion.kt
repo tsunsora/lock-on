@@ -79,6 +79,7 @@ import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.unit.Constraints
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -285,7 +286,8 @@ private class PressScaleNode(private var interaction: MutableInteractionSource) 
     }
 
     private fun watch() {
-        watching = coroutineScope.launch {
+        // Undispatched, so a tile scrolling in subscribes now rather than posting one more event to the window's queue.
+        watching = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var presses = 0
             interaction.interactions.collect { event ->
                 when (event) {

@@ -185,6 +185,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.BoxWithConstraints
 import app.lockon.ui.components.clearOfNav
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -584,16 +585,19 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // The pointer keeps the resize arrows over the whole editor until it lets go.
             var resizing by remember { mutableStateOf(false) }
             // Where the pointer has taken the divider, which may be past where the areas stop it.
-            val pointerX = remember { mutableFloatStateOf(0f) }
+            // Plain values, not state: the drag writes them several times a frame and nothing should observe that.
+            val pointerX = remember { FloatArray(1) }
+            val pointerMoved = remember { Channel<Unit>(Channel.CONFLATED) }
             fun saveSplit(value: Float?) = state.appScope.launch { container.settings.setEditorSplit(value) }
             fun followPointer() {
                 val usablePx = with(density) { usable.toPx() }
-                if (usablePx > 0f) split.floatValue = clampSplit(pointerX.floatValue / usablePx)
+                if (usablePx > 0f) split.floatValue = clampSplit(pointerX[0] / usablePx)
             }
-            // The split follows the pointer once a frame. On desktop each pointer event lays the window
-            // out again, so moving the split on every event laid out the whole editor several times a frame.
+            // The split follows the pointer at most once a frame, and only when it moved. On desktop each
+            // pointer event lays the window out again, so moving the split on every event laid out the
+            // whole editor several times a frame.
             LaunchedEffect(resizing, usable, density) {
-                if (resizing) while (true) withFrameNanos { followPointer() }
+                if (resizing) for (moved in pointerMoved) withFrameNanos { followPointer() }
             }
             Row(Modifier.fillMaxSize().pointerHoverIcon(if (resizing) resizeHorizontalPointer else PointerIcon.Default, overrideDescendants = resizing)) {
                 Panel(
@@ -604,8 +608,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     },
                 ) { if (stage >= 2) search(Modifier.fillMaxSize()) }
                 SplitHandle(
-                    onDragStart = { resizing = true; pointerX.floatValue = with(density) { (usable * clampSplit(split.floatValue)).toPx() } },
-                    onDrag = { dx -> pointerX.floatValue += dx },
+                    onDragStart = { resizing = true; pointerX[0] = with(density) { (usable * clampSplit(split.floatValue)).toPx() } },
+                    onDrag = { dx -> pointerX[0] += dx; pointerMoved.trySend(Unit) },
                     onDragEnd = { resizing = false; followPointer(); saveSplit(split.floatValue) },
                     onReset = { split.floatValue = DEFAULT_SPLIT; saveSplit(null) },
                 )

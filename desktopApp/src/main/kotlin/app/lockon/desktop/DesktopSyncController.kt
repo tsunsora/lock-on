@@ -107,7 +107,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
 
     fun start() {
         scope.launch(Dispatchers.IO) {
-            addresses = lanAddresses()
+            addresses = runCatching { lanAddresses() }.getOrDefault(emptyList())
             try {
                 val (started, chosenPort) = startSyncServer(tls, SyncProtocol.DEFAULT_PORT) {
                     lockOnSync(
@@ -139,7 +139,8 @@ class DesktopSyncController(private val container: AppContainer, private val sco
                 outbox.expire()
                 requests.expire()
                 // Listing network adapters takes 50-100 ms on Windows; on the UI thread it froze every screen.
-                val fresh = withContext(Dispatchers.IO) { lanAddresses() }
+                // A failed listing keeps the last addresses and tries again next time.
+                val fresh = withContext(Dispatchers.IO) { runCatching { lanAddresses() }.getOrNull() } ?: continue
                 if (fresh.toSet() != addresses.toSet()) { addresses = fresh; publish() }
             }
         }
