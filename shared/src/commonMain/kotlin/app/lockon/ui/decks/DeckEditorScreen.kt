@@ -1,6 +1,5 @@
 package app.lockon.ui.decks
 import app.lockon.ui.components.Reveal
-import app.lockon.ui.components.WidthKeyed
 import app.lockon.ui.components.FadeSwap
 import app.lockon.ui.components.fadeOnChange
 import androidx.compose.animation.animateColorAsState
@@ -495,7 +494,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             )
         }
         val search: @Composable (Modifier) -> Unit = { modifier ->
-            WidthKeyed(modifier, { it < 760.dp }) { narrow ->
+            BoxWithConstraints(modifier) {
                 @Composable
                 fun AddTo(tabs: Modifier) {
                     PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = if (wide) listOf(Glyphs.Rows, Glyphs.SideCard) else null, flush = true)
@@ -508,7 +507,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     focusRequests = focusSeen[0], deckColors = deckColors, maxColors = ruleset.maxColors.takeIf { autoDeckColors }, wide = wide,
                     controls = controls, scrollToTop = cardsToTop, jumpToTop = opened,
                     leading = { AddTo(Modifier.width(IntrinsicSize.Max)) },
-                    leadingAbove = wide && narrow,
+                    leadingAbove = wide && maxWidth < 760.dp,
                 )
             }
         }
@@ -589,9 +588,6 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // Plain values, not state: the drag writes them several times a frame and nothing should observe that.
             val pointerX = remember { FloatArray(1) }
             val pointerMoved = remember { Channel<Unit>(Channel.CONFLATED) }
-            // pointerDirty[0]: moved since the last frame; [1]: the frame loop below is running. While it runs,
-            // pointer events only set [0], so a drag wakes the loop once instead of on every event.
-            val pointerDirty = remember { BooleanArray(2) }
             fun saveSplit(value: Float?) = state.appScope.launch { container.settings.setEditorSplit(value) }
             fun followPointer() {
                 val usablePx = with(density) { usable.toPx() }
@@ -601,14 +597,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // pointer event lays the window out again, so moving the split on every event laid out the
             // whole editor several times a frame.
             LaunchedEffect(resizing, usable, density) {
-                if (resizing) for (moved in pointerMoved) {
-                    pointerDirty[1] = true
-                    do {
-                        pointerDirty[0] = false
-                        withFrameNanos { followPointer() }
-                    } while (pointerDirty[0])
-                    pointerDirty[1] = false
-                }
+                if (resizing) for (moved in pointerMoved) withFrameNanos { followPointer() }
             }
             Row(Modifier.fillMaxSize().pointerHoverIcon(if (resizing) resizeHorizontalPointer else PointerIcon.Default, overrideDescendants = resizing)) {
                 Panel(
@@ -620,7 +609,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 ) { if (stage >= 2) search(Modifier.fillMaxSize()) }
                 SplitHandle(
                     onDragStart = { resizing = true; pointerX[0] = with(density) { (usable * clampSplit(split.floatValue)).toPx() } },
-                    onDrag = { dx -> pointerX[0] += dx; pointerDirty[0] = true; if (!pointerDirty[1]) pointerMoved.trySend(Unit) },
+                    onDrag = { dx -> pointerX[0] += dx; pointerMoved.trySend(Unit) },
                     onDragEnd = { resizing = false; followPointer(); saveSplit(split.floatValue) },
                     onReset = { split.floatValue = DEFAULT_SPLIT; saveSplit(null) },
                 )
@@ -821,9 +810,10 @@ private fun DeckList(
     val side = remember(deck, cards) {
         deck.entries.filter { it.section == DeckSection.SIDE }.sortedWith(compareBy({ cards[it.cardNumber]?.level ?: 99 }, { it.cardNumber }))
     }
+    BoxWithConstraints(modifier) {
     // The end padding clears the scroll bar's lane so section counts don't sit under it.
     // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
-    WidthKeyed(modifier, { maxWidth -> ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2) }) { columns ->
+    val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = if (compact) 6.dp else 0.dp, bottom = 6.dp + LocalNavClearance.current),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
