@@ -50,7 +50,8 @@ class DesktopSyncController(private val container: AppContainer, private val sco
     /** Changes moved per phone since its last notice, with the job that posts it once the sync goes quiet. */
     private val pendingChanges = mutableMapOf<String, Pair<Int, Int>>()
     private val noticeJobs = mutableMapOf<String, Job>()
-    private var addresses = lanAddresses()
+    // Filled in off the UI thread as sync starts: listing network adapters is slow on Windows.
+    @Volatile private var addresses = emptyList<String>()
     private var port = SyncProtocol.DEFAULT_PORT
     private var server: EmbeddedServer<*, *>? = null
 
@@ -106,6 +107,7 @@ class DesktopSyncController(private val container: AppContainer, private val sco
 
     fun start() {
         scope.launch(Dispatchers.IO) {
+            addresses = lanAddresses()
             try {
                 val (started, chosenPort) = startSyncServer(tls, SyncProtocol.DEFAULT_PORT) {
                     lockOnSync(

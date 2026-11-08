@@ -551,7 +551,7 @@ private const val KeptDeckLimit = 4
 @Composable
 private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, warmed: List<Any>, slide: Boolean = false, content: @Composable (K) -> Unit) {
     val reduce = LocalReduceMotion.current
-    val shows = keys.map { k ->
+    val (shows, laidOut) = keys.map { k ->
         key(k) {
             val show = remember { Animatable(0f) }
             LaunchedEffect(k == shown, reduce) {
@@ -564,12 +564,11 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
                     },
                 )
             }
-            show
+            // Whether the screen takes part in layout changes only when a fade starts or ends; reading the
+            // fade's value in measure instead would measure every screen again on each frame of the fade.
+            show to remember { derivedStateOf { show.value > 0f } }
         }
-    }
-    // Whether each screen takes part in layout changes only when a fade starts or ends; reading the
-    // fade's value here instead would measure every screen again on each frame of the fade.
-    val laidOut = shows.map { show -> remember(show) { derivedStateOf { show.value > 0f } } }
+    }.unzip()
     Layout(
         content = {
             keys.forEachIndexed { i, k ->

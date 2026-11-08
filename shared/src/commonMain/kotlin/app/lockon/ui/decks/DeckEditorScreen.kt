@@ -586,6 +586,15 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // Where the pointer has taken the divider, which may be past where the areas stop it.
             val pointerX = remember { mutableFloatStateOf(0f) }
             fun saveSplit(value: Float?) = state.appScope.launch { container.settings.setEditorSplit(value) }
+            fun followPointer() {
+                val usablePx = with(density) { usable.toPx() }
+                if (usablePx > 0f) split.floatValue = clampSplit(pointerX.floatValue / usablePx)
+            }
+            // The split follows the pointer once a frame. On desktop each pointer event lays the window
+            // out again, so moving the split on every event laid out the whole editor several times a frame.
+            LaunchedEffect(resizing, usable, density) {
+                if (resizing) while (true) withFrameNanos { followPointer() }
+            }
             Row(Modifier.fillMaxSize().pointerHoverIcon(if (resizing) resizeHorizontalPointer else PointerIcon.Default, overrideDescendants = resizing)) {
                 Panel(
                     Modifier.fillMaxHeight().layout { measurable, constraints ->
@@ -596,12 +605,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 ) { if (stage >= 2) search(Modifier.fillMaxSize()) }
                 SplitHandle(
                     onDragStart = { resizing = true; pointerX.floatValue = with(density) { (usable * clampSplit(split.floatValue)).toPx() } },
-                    onDrag = { dx ->
-                        pointerX.floatValue += dx
-                        val usablePx = with(density) { usable.toPx() }
-                        if (usablePx > 0f) split.floatValue = clampSplit(pointerX.floatValue / usablePx)
-                    },
-                    onDragEnd = { resizing = false; saveSplit(split.floatValue) },
+                    onDrag = { dx -> pointerX.floatValue += dx },
+                    onDragEnd = { resizing = false; followPointer(); saveSplit(split.floatValue) },
                     onReset = { split.floatValue = DEFAULT_SPLIT; saveSplit(null) },
                 )
                 // The deck panel takes dropped cards, and its rim lights up while one is held over it.
