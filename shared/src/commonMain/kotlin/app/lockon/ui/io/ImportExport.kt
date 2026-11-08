@@ -53,6 +53,7 @@ import app.lockon.ui.components.PillSegmented
 import app.lockon.ui.theme.TabularNumbers
 import androidx.compose.material3.Icon
 import app.lockon.io.BackupFormat
+import app.lockon.io.DeckCodes
 import app.lockon.io.DeckListFormat
 import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
@@ -87,11 +88,13 @@ fun NewDeckDialog(
     val scope = state.appScope
     val input = text.removePrefix("\uFEFF").trim()
     // A backup carries its own names and folders, so the deck options apply to deck lists only.
-    val isBackup = pasting && input.startsWith("{")
+    // Deck sites export JSON too, so only JSON that is no deck code is taken for a backup.
+    val backupText = remember(input) { input.startsWith("{") && DeckCodes.toDeckList(input) == null }
+    val isBackup = pasting && backupText
     val catalog by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
-    val parsed = remember(input, catalog, printings) {
-        if (input.isEmpty() || input.startsWith("{")) null else DeckListFormat.parse(input, catalog, printings = printings)
+    val parsed = remember(input, isBackup, catalog, printings) {
+        if (input.isEmpty() || isBackup) null else DeckListFormat.parse(input, catalog, printings = printings)
     }
 
     fun create() {
