@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.19 (2026-11-08)
+
+The desktop app no longer stalls every 15 seconds, and dragging the deck editor's divider is smoother.
+
+- **Fewer stalls:** checking the PC's network for phone sync used to freeze the window briefly every 15 seconds, whatever you were doing. It now happens in the background.
+- **Divider:** dragging the line between the card list and the deck lays the editor out once a frame instead of on every mouse movement, so big windows keep up with the pointer.
+- **Scrolling:** cards coming into view set up a little less work.
+
 ## 26.11.18 (2026-11-07)
 
 Logged games can be edited, the Card database is easier to read, and adding cards uses the deck's own + and −.
