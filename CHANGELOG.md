@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.11.18 (2026-11-07)
+
+Logged games can be edited, the Card database is easier to read, and adding cards uses the deck's own + and −.
+
+- **Editing games:** tap a logged game to change its result, opponent, turn order or note. Games save the moment they're logged, and a quick second tap can't undo the first.
+- **Matches page:** a just-logged or edited game scrolls into view and lights up, and the tapped result reads Logged for a moment. Games come before By opponent, games with no turn order get their own row, and the phone's record takes less room.
+- **Card database:** the installed list's facts sit on an even grid with its status first, an update the weekly check found is one tap, and other sources open in a panel of their own. The licence credit stays in view.
+- **Adding cards:** the + and − under each card in Add cards now match the deck view, on phones and desktop: a teal count with copy pips, and the buttons at the card's edges. The list view uses the deck list's buttons too.
+
 ## 26.11.17 (2026-11-07)
 
 Syncing recovers on its own when one side forgot the other, and the Sync page has more room.
