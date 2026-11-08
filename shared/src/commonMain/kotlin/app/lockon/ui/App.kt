@@ -544,8 +544,8 @@ private const val KeptDeckLimit = 4
  * frame; showing it again needs no new composition, which is what made a first look at Cards or a
  * deck stutter. While not [booted], each screen in [warmed] lays out and draws under the opaque boot
  * screen, so its cards fill in and their images are decoded and on the GPU before anyone looks. They draw at
- * just under full opacity, the way a crossfade draws them, since the GPU sets that up slowly the
- * first time; a fully transparent layer wouldn't draw at all. [slide] drifts screens in from the
+ * half opacity, and sliding screens part way through their slide, the way a crossfade draws them,
+ * since the GPU sets that up slowly the first time; a fully transparent layer wouldn't draw at all. [slide] drifts screens in from the
  * side as they show and back out as they go.
  */
 @Composable
@@ -575,8 +575,8 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
                 key(k) {
                     Box(Modifier.fillMaxSize().graphicsLayer {
                         val p = shows[i].value
-                        alpha = if (booted) p else 0.99f
-                        if (slide && booted) translationX = (1f - p) * size.width / 20f
+                        alpha = if (booted) p else 0.5f
+                        if (slide) translationX = (1f - (if (booted) p else 0.5f)) * size.width / 20f
                     }) {
                         if (booted || k in warmed) CompositionLocalProvider(LocalScreenShown provides (k == shown)) { content(k) }
                     }
