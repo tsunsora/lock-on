@@ -61,13 +61,16 @@ fun DividerProbe(window: ComposeWindow, container: AppContainer, state: AppState
             }
             recording.cancel()
         }
+        // A drag that missed the divider (say, in a window too narrow for the split layout) leaves the split as it was.
+        delay(500)
+        val after = container.database.metaDao().get("ui.deckEditor.split")?.toFloatOrNull()
         val slow = frames.zipWithNext { a, b -> a..b }.filter { it.last - it.first > 16_700_000L }
         File(report.path + ".samples.txt").writeText(sampler.finish().report(slow))
         val gaps = frames.zipWithNext { a, b -> (b - a) / 1_000_000.0 }.sorted()
         val budget = 1_000.0 / hz
         report.appendText(
-            "${window.renderApi}, $hz Hz, ${window.width}×${window.height}, divider drag: %d frames in %.1f s, mean %.1f ms, median %.1f ms, p90 %.1f ms, p99 %.1f ms, worst %.1f ms, %d over 1.5× budget (%.1f ms), %d over 16.7 ms\n".format(
-                frames.size, (frames.last() - frames.first()) / 1e9, gaps.average(), gaps[gaps.size / 2], gaps[gaps.size * 9 / 10],
+            "${window.renderApi}, $hz Hz, ${window.width}×${window.height}, divider drag (split %.3f → %s): %d frames in %.1f s, mean %.1f ms, median %.1f ms, p90 %.1f ms, p99 %.1f ms, worst %.1f ms, %d over 1.5× budget (%.1f ms), %d over 16.7 ms\n".format(
+                split, after?.let { "%.3f".format(it) } ?: "unchanged", frames.size, (frames.last() - frames.first()) / 1e9, gaps.average(), gaps[gaps.size / 2], gaps[gaps.size * 9 / 10],
                 gaps[gaps.size * 99 / 100], gaps.last(), gaps.count { it > budget * 1.5 }, budget, gaps.count { it > 1_000.0 / 60 },
             ),
         )

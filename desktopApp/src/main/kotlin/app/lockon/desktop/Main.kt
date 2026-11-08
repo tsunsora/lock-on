@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -82,7 +84,11 @@ fun main() {
         container.settings.motion.value != app.lockon.data.MotionChoice.REDUCED
     ) DesktopBootCover(container.settings).also { state.bootCover = it } else null
 
-    val saved = WindowMemory.load()
+    // `-Plockon.probeSize=<w>x<h>` (dp) opens the window at that size, so probes can time a wide window.
+    val saved = WindowMemory.load().let { saved ->
+        System.getProperty("lockon.probeSize")?.split("x")?.mapNotNull { it.toFloatOrNull() }?.takeIf { it.size == 2 }
+            ?.let { (w, h) -> saved.copy(placement = WindowPlacement.Floating, size = DpSize(w.dp, h.dp)) } ?: saved
+    }
     application {
         val windowState = rememberWindowState(
             placement = saved.placement,

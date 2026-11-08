@@ -81,6 +81,7 @@ compose.desktop {
             providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
         }
         // `-Plockon.dividerProbe=<file>` times dragging the deck editor's divider and closes the app (DividerProbe.kt).
+        providers.gradleProperty("lockon.probeSize").orNull?.let { jvmArgs("-Dlockon.probeSize=$it") }
         providers.gradleProperty("lockon.dividerProbe").orNull?.let { jvmArgs("-Dlockon.dividerProbe=$it") }
         // `-Plockon.bootProbe=<file>` times the boot screen's frames and closes the app (BootProbe.kt).
         // `-Plockon.bootProbe.shots=true` also takes pictures of the screen at a few moments, and
