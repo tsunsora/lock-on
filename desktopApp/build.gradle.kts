@@ -68,6 +68,10 @@ tasks.test {
 compose.desktop {
     application {
         mainClass = "app.lockon.desktop.MainKt"
+        // Skia's drawing library calls System.gc() every 30 seconds while the window keeps drawing, to free
+        // native memory. A full collection froze the window for 50-90 ms each time; this makes it run
+        // alongside the app instead.
+        jvmArgs("-XX:+ExplicitGCInvokesConcurrent")
         // `./gradlew :desktopApp:run -Plockon.dataDir=...` runs a separate profile, e.g. for testing.
         providers.gradleProperty("lockon.dataDir").orNull?.let { jvmArgs("-Dlockon.dataDir=$it") }
         // `-Plockon.scrollProbe=<file>` times scrolling the card grid and closes the app (ScrollProbe.kt).
