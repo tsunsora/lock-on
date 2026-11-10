@@ -73,10 +73,7 @@ class AnimationPreviewTest {
             val dir = File("build/animation-frames/$name").apply { deleteRecursively(); mkdirs() }
             ImageComposeScene(if (phone) 412 else 1100, if (phone) 892 else 700, Density(if (phone) 1f else 1.25f)) {
                 LockOnTheme(dark = dark) {
-                    app.lockon.ui.BootScreen(
-                        app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock(),
-                        trailing = if (phone) null else ({ WindowControls(false, {}, {}, {}) }),
-                    )
+                    app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock())
                 }
             }.use { scene ->
                 // Every frame at 30 fps: the boot clock moves at most 40 ms a frame, so sparser frames would lag.

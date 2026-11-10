@@ -83,6 +83,9 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
 
     @Volatile private var windowSky = false
 
+    /** How far down the window the app starts, in window units: below the title bar, which the cover leaves showing. */
+    @Volatile var topInset = 0
+
     /** The app's window, which it covers as soon as that shows. */
     fun attach(window: Window) { target = window }
 
@@ -117,11 +120,11 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
             if (pane.size != size) { size = pane.size; steadySince = System.nanoTime() }
         }
         val started = System.nanoTime()
-        var art = Art.paint(this, Layout.sized(pane) ?: return)
+        var art = Art.paint(this, Layout.sized(pane, topInset) ?: return)
         val painted = System.nanoTime()
         while (!lifted && !pane.isShowing) Thread.sleep(2)
         if (lifted) return
-        var layout = Layout.of(pane) ?: return
+        var layout = Layout.of(pane, topInset) ?: return
         log.info("Boot cover: painted in %d ms, then waited %d ms for the window to show".format(
             (painted - started) / 1_000_000, (System.nanoTime() - painted) / 1_000_000))
         var repainting: Future<Art>? = null
@@ -159,7 +162,7 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
                 // Follow the app's window as it opens maximised, moves or changes size.
                 val app = target ?: return
                 if (!app.isShowing || (app as? Frame)?.extendedState?.and(Frame.ICONIFIED) != 0) return
-                val nowLayout = Layout.of(pane) ?: return
+                val nowLayout = Layout.of(pane, topInset) ?: return
                 if (nowLayout.bounds != layout.bounds) cover.bounds = nowLayout.bounds
                 if (surface.width != nowLayout.bounds.width || surface.height != nowLayout.bounds.height) {
                     surface.setBounds(0, 0, nowLayout.bounds.width, nowLayout.bounds.height)
@@ -271,18 +274,21 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
 /** Where the app's window content is on screen, in window units and in pixels, and its density. */
 private data class Layout(val bounds: Rectangle, val pixels: Pair<Int, Int>, val density: Density) {
     companion object {
-        fun of(pane: java.awt.Component): Layout? = runCatching {
+        /** The part of [pane] below its top [inset], where the app is. */
+        fun of(pane: java.awt.Component, inset: Int = 0): Layout? = runCatching {
             val at = pane.locationOnScreen
             val scale = pane.graphicsConfiguration.defaultTransform.scaleX.toFloat()
-            val bounds = Rectangle(at.x, at.y, pane.width, pane.height)
-            Layout(bounds, (pane.width * scale).roundToInt() to (pane.height * scale).roundToInt(), Density(scale))
+            val height = pane.height - inset
+            val bounds = Rectangle(at.x, at.y + inset, pane.width, height)
+            Layout(bounds, (pane.width * scale).roundToInt() to (height * scale).roundToInt(), Density(scale))
         }.getOrNull()?.takeIf { it.bounds.width > 0 && it.bounds.height > 0 }
 
         /** As [of], for a window that isn't on screen yet: only its size is known. */
-        fun sized(pane: java.awt.Component): Layout? {
+        fun sized(pane: java.awt.Component, inset: Int = 0): Layout? {
             val scale = pane.graphicsConfiguration?.defaultTransform?.scaleX?.toFloat() ?: return null
-            return Layout(Rectangle(0, 0, pane.width, pane.height), (pane.width * scale).roundToInt() to (pane.height * scale).roundToInt(), Density(scale))
-                .takeIf { pane.width > 0 && pane.height > 0 }
+            val height = pane.height - inset
+            return Layout(Rectangle(0, 0, pane.width, height), (pane.width * scale).roundToInt() to (height * scale).roundToInt(), Density(scale))
+                .takeIf { pane.width > 0 && height > 0 }
         }
     }
 }

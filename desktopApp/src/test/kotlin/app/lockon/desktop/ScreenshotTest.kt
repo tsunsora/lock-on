@@ -154,12 +154,6 @@ class ScreenshotTest {
         override suspend fun openText(mimeTypes: List<String>): String? = null
     }
 
-    /** The desktop title bar as the app draws it, with no window to move. */
-    private val chrome = app.lockon.ui.WindowChrome(
-        dragArea = { this },
-        controls = { WindowControls(maximized = false, onMinimize = {}, onToggleMaximize = {}, onClose = {}) },
-    )
-
     /** Desktop-sized shots (phones are 600 px wide) include the title bar, as the Windows app shows it. */
     private fun shoot(
         name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync,
@@ -168,8 +162,14 @@ class ScreenshotTest {
     ) {
         // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup).apply { bootClock.skipToLock() }
-        val titleBar = if (width > 600) chrome else null
-        ImageComposeScene(width, height, Density(1.5f)) { LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, chrome = titleBar) }.use { scene ->
+        ImageComposeScene(width, height, Density(1.5f)) {
+            androidx.compose.foundation.layout.Column {
+                if (width > 600) app.lockon.ui.theme.LockOnTheme(dark) {
+                    TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
+                }
+                LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark)
+            }
+        }.use { scene ->
             var image = scene.render()
             // Let Room flows settle and the boot screen's 2.5 s minimum pass, and advance the frame clock
             // so animations reach their end state.
@@ -1110,26 +1110,25 @@ class ScreenshotTest {
         container.catalog.restoreBundled(File("../shared/src/commonMain/composeResources/files/catalog/sample-catalog.json").readText())
     }
 
-    /** The window controls on their own, at rest and with the pointer resting on Close, in both themes. */
-    @Test fun renderWindowControls() {
+    /** The title bar on its own, at rest and with the pointer resting on Close, in both themes. */
+    @Test fun renderTitleBar() {
         for (dark in listOf(false, true)) {
-            ImageComposeScene(600, 200, Density(1.5f)) {
+            ImageComposeScene(600, 120, Density(1.5f)) {
                 app.lockon.ui.theme.LockOnTheme(dark = dark) {
                     app.lockon.ui.components.SkyBackground(androidx.compose.ui.Modifier.fillMaxSize()) {
-                        WindowControls(maximized = dark, onMinimize = {}, onToggleMaximize = {}, onClose = {},
-                            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(18.dp))
+                        TitleBar(maximized = dark, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
                     }
                 }
             }.use { scene ->
                 var time = 0L
                 fun frames(n: Int) = repeat(n) { Thread.sleep(40); time += 50_000_000L; scene.render(time) }
                 frames(10)
-                // Close is the last 40 dp button, 4 dp inside the capsule, 18 dp from the corner: 1.5 px per dp.
-                val close = androidx.compose.ui.geometry.Offset(600f - (18 + 4 + 20) * 1.5f, (18 + 4 + 16) * 1.5f)
+                // Close is the last 46 dp button, as tall as the 32 dp bar: 1.5 px per dp.
+                val close = androidx.compose.ui.geometry.Offset(600f - 23 * 1.5f, 16 * 1.5f)
                 scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, close)
                 scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, close + androidx.compose.ui.geometry.Offset(1f, 1f))
                 frames(20)
-                File(out, "${if (dark) "" else "light-"}desktop-window-controls.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+                File(out, "${if (dark) "" else "light-"}desktop-title-bar.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
             }
         }
     }

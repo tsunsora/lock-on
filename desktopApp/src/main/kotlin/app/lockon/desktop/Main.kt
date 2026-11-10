@@ -2,6 +2,9 @@ package app.lockon.desktop
 
 import androidx.compose.foundation.LocalContextMenuRepresentation
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.LocalTextContextMenu
 import androidx.compose.runtime.Composable
@@ -13,6 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowPlacement
@@ -116,17 +121,20 @@ fun main() {
                 snapshotFlow { state.booted }.first { it }
                 BootLog.mark("booted")
             }
-            // On Windows the app draws its own title bar in the sky's top band (UX rule N5). Elsewhere, or
+            // On Windows the app draws its own title bar, a strip above the app (UX rule N5). Elsewhere, or
             // if Windows refuses, the system's title bar stays and so do its controls.
             var ownTitleBar by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 while (!window.isDisplayable) delay(16)
                 ownTitleBar = WindowsFrame.install(window)
+                // The boot cover covers only the app, below the title bar.
+                if (ownTitleBar) bootCover?.topInset = TitleBarHeight.value.toInt()
                 // The window opens floating even when told to open maximised (its state still claims
                 // maximised, then gives in), so it is maximised once it shows.
                 if (saved.placement == WindowPlacement.Maximized) window.extendedState = Frame.MAXIMIZED_BOTH
             }
-            val chrome = if (ownTitleBar) rememberWindowChrome(window, windowState, exit) else null
+            // The theme's background, heard from the app once it shows; until then the boot screen's theme.
+            var appBackground by remember { mutableStateOf<Color?>(null) }
             // Until the boot cover is up, the window shows only the boot screen's first frame, which the
             // cover's matches. The cover takes its pictures on this thread, where they must wait for
             // nothing else to be composing, so the app starts building only once the cover plays over it.
@@ -138,17 +146,29 @@ fun main() {
             val textContextMenu = remember { AppTextContextMenu(window) }
             CompositionLocalProvider(LocalContextMenuRepresentation provides AppContextMenu, LocalTextContextMenu provides textContextMenu) {
                 Box(Modifier.fillMaxSize()) {
-                    if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
-                        container, state, sync, DesktopFileBridge(window),
-                        artworkDir = File(AppDirs.data, "artwork").absolutePath, chrome = chrome,
-                        // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
-                        // theme's sky colour rather than white.
-                        windowBackground = { color ->
-                            val awt = java.awt.Color(color.toArgb(), true)
-                            // Every layer, down to the one Direct3D draws on, so a resize uncovers this colour too.
-                            components(window).forEach { it.background = awt }
-                        },
-                    )
+                    Column(Modifier.fillMaxSize()) {
+                        // A strip of its own above the app, as other Windows apps have, rather than
+                        // buttons floating among the app's own (UX rule N5).
+                        if (ownTitleBar) {
+                            app.lockon.ui.theme.LockOnTheme(appBackground?.let { it.luminance() < 0.5f } ?: bootDark(container)) {
+                                TitleBar(window, windowState, appBackground ?: MaterialTheme.colorScheme.background, exit)
+                            }
+                        }
+                        Box(Modifier.fillMaxWidth().weight(1f)) {
+                            if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
+                                container, state, sync, DesktopFileBridge(window),
+                                artworkDir = File(AppDirs.data, "artwork").absolutePath,
+                                // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
+                                // theme's sky colour rather than white.
+                                windowBackground = { color ->
+                                    appBackground = color
+                                    val awt = java.awt.Color(color.toArgb(), true)
+                                    // Every layer, down to the one Direct3D draws on, so a resize uncovers this colour too.
+                                    components(window).forEach { it.background = awt }
+                                },
+                            )
+                        }
+                    }
                     if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
                 }
             }
@@ -168,6 +188,14 @@ fun main() {
     exitProcess(0)
 }
 
+/** Whether the theme Settings chose is dark, as the app's first frames show it. */
+@Composable
+private fun bootDark(container: AppContainer): Boolean = when (container.settings.theme.value) {
+    app.lockon.data.ThemeChoice.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+    app.lockon.data.ThemeChoice.LIGHT -> false
+    app.lockon.data.ThemeChoice.DARK -> true
+}
+
 /**
  * The boot screen standing at its first frame, in the theme and size Settings chose, as the window
  * shows it while the boot cover gets ready. It doesn't move: the cover starts moving it.
@@ -175,11 +203,7 @@ fun main() {
 @Composable
 private fun BootFirstFrame(container: AppContainer, clock: app.lockon.ui.BootClock, onSkyPainted: () -> Unit) {
     val settings = container.settings
-    val dark = when (settings.theme.value) {
-        app.lockon.data.ThemeChoice.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
-        app.lockon.data.ThemeChoice.LIGHT -> false
-        app.lockon.data.ThemeChoice.DARK -> true
-    }
+    val dark = bootDark(container)
     val base = androidx.compose.ui.platform.LocalDensity.current
     val density = androidx.compose.ui.unit.Density(base.density * settings.size.value.scale, base.fontScale)
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) {

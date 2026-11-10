@@ -154,11 +154,6 @@ class UnslopScreenshotTest {
         override suspend fun openText(mimeTypes: List<String>): String? = null
     }
 
-    private val chrome = app.lockon.ui.WindowChrome(
-        dragArea = { this },
-        controls = { WindowControls(maximized = false, onMinimize = {}, onToggleMaximize = {}, onClose = {}) },
-    )
-
     private fun save(name: String, image: org.jetbrains.skia.Image) =
         File(out, "$name.png").writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
 
@@ -168,8 +163,13 @@ class UnslopScreenshotTest {
         app.lockon.ui.components.previewPhoneControls = phone
         try {
             ImageComposeScene(if (phone) 600 else 1980, if (phone) 1260 else 1290, Density(1.5f)) {
-                LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark,
-                    reduceMotion = true, chrome = if (phone) null else chrome)
+                // A computer window shows the title bar above the app, as Windows does.
+                androidx.compose.foundation.layout.Column {
+                    if (!phone) app.lockon.ui.theme.LockOnTheme(dark) {
+                        TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
+                    }
+                    LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, reduceMotion = true)
+                }
             }.use { scene ->
                 var time = 0L
                 var image = scene.render(time)
@@ -247,7 +247,10 @@ class UnslopScreenshotTest {
             app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock())
         }
         alone("desktop-launch-dark", phone = false, dark = true) {
-            app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock(), trailing = { WindowControls(false, {}, {}, {}) })
+            androidx.compose.foundation.layout.Column {
+                TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
+                app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock())
+            }
         }
 
         // Last, since it swaps the catalog: the card database dialog with the official list installed.

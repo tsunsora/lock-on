@@ -1,11 +1,9 @@
 package app.lockon.desktop
-import app.lockon.ui.components.PillNavHeight
-import app.lockon.ui.components.LocalChromeHeight
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.TooltipPlacement
@@ -31,21 +29,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isPrimaryPressed
@@ -59,10 +54,8 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
-import app.lockon.ui.WindowChrome
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.arrive
-import app.lockon.ui.components.collectIsPressedHeld
 import app.lockon.ui.components.rememberArrival
 import app.lockon.ui.components.PillShape
 import app.lockon.ui.components.glassColors
@@ -167,19 +160,113 @@ internal object WindowsFrame {
     }
 }
 
+/** The title bar's height: Windows 11's own, so the strip reads as the system's. */
+internal val TitleBarHeight = 32.dp
+
 /**
- * The title bar for the shared UI: the top band moves the window and a double-click maximises it,
- * and the controls capsule sits beside the navigation pill.
+ * The window's title bar, a strip of its own above the app, as other Windows apps have (UX rule N5).
+ * The app's mark and name sit at the start and minimise, maximise or restore, and close at the end,
+ * each as wide as Windows' own. The rest of the strip moves the window, and a double-click there
+ * maximises it. Drawn on the theme's [background] with a hairline under it, so it follows the theme
+ * without blending into the screens below.
  */
 @Composable
-internal fun rememberWindowChrome(window: Window, state: WindowState, onClose: () -> Unit): WindowChrome {
-    val close by rememberUpdatedState(onClose)
-    return remember(window, state) {
-        val toggle = { state.placement = if (state.placement == WindowPlacement.Maximized) WindowPlacement.Floating else WindowPlacement.Maximized }
-        WindowChrome(
-            dragArea = { height -> windowDrag(window, height, toggle) },
-            controls = { WindowControls(state.placement == WindowPlacement.Maximized, { state.isMinimized = true }, toggle, { close() }) },
+internal fun TitleBar(window: Window, state: WindowState, background: Color, onClose: () -> Unit) {
+    val toggle = remember(state) { { state.placement = if (state.placement == WindowPlacement.Maximized) WindowPlacement.Floating else WindowPlacement.Maximized } }
+    TitleBar(
+        maximized = state.placement == WindowPlacement.Maximized, background = background,
+        onMinimize = { state.isMinimized = true }, onToggleMaximize = toggle, onClose = onClose,
+        modifier = Modifier.windowDrag(window, TitleBarHeight, toggle),
+    )
+}
+
+/** The title bar's drawing, apart from the window it moves, so screenshot tests can show it too. */
+@Composable
+internal fun TitleBar(
+    maximized: Boolean,
+    background: Color,
+    onMinimize: () -> Unit,
+    onToggleMaximize: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    Row(
+        Modifier.fillMaxWidth().height(TitleBarHeight).background(background)
+            .drawBehind { drawLine(onSurface.copy(alpha = 0.10f), Offset(0f, size.height - 0.5f), Offset(size.width, size.height - 0.5f), 1f) }
+            .then(modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(painterResource("lock-on-window.png"), contentDescription = null, modifier = Modifier.padding(start = 12.dp).size(16.dp))
+        Text(
+            "Lock On", style = MaterialTheme.typography.labelMedium, color = onSurface.copy(alpha = 0.78f), maxLines = 1,
+            modifier = Modifier.padding(start = 8.dp).weight(1f),
         )
+        CaptionButton("Minimize", onMinimize) { ink, unit ->
+            drawLine(ink, Offset(center.x - 5 * unit, center.y), Offset(center.x + 5 * unit, center.y), unit)
+        }
+        CaptionButton(if (maximized) "Restore" else "Maximize", onToggleMaximize) { ink, unit ->
+            val stroke = Stroke(unit)
+            if (maximized) {
+                // Two overlapping windows: the front one whole, the back one peeking out above and right.
+                drawRect(ink, Offset(center.x - 5 * unit, center.y - 3 * unit), Size(8 * unit, 8 * unit), style = stroke)
+                drawPath(Path().apply {
+                    moveTo(center.x - 3 * unit, center.y - 3 * unit)
+                    lineTo(center.x - 3 * unit, center.y - 5 * unit)
+                    lineTo(center.x + 5 * unit, center.y - 5 * unit)
+                    lineTo(center.x + 5 * unit, center.y + 3 * unit)
+                    lineTo(center.x + 3 * unit, center.y + 3 * unit)
+                }, ink, style = stroke)
+            } else {
+                drawRect(ink, Offset(center.x - 5 * unit, center.y - 5 * unit), Size(10 * unit, 10 * unit), style = stroke)
+            }
+        }
+        CaptionButton("Close", onClose, danger = true) { ink, unit ->
+            val r = 5 * unit
+            drawLine(ink, Offset(center.x - r, center.y - r), Offset(center.x + r, center.y + r), unit)
+            drawLine(ink, Offset(center.x - r, center.y + r), Offset(center.x + r, center.y - r), unit)
+        }
+    }
+}
+
+/** Windows' close red, which its own title bars turn on hover. */
+private val CloseRed = Color(0xFFC42B1C)
+
+/**
+ * One title bar button, Windows' size and shape: a flat 46 × 32 block that tints on hover and darker
+ * when pressed. Close turns red, so it is never pressed by mistake for its neighbour. Labelled for
+ * screen readers and with a tooltip (UX rule I5); [glyph] draws in 1 dp [unit]s.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CaptionButton(label: String, onClick: () -> Unit, danger: Boolean = false, glyph: DrawScope.(ink: Color, unit: Float) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val fill by animateColorAsState(
+        when {
+            danger && pressed -> CloseRed.copy(alpha = 0.82f)
+            danger && hovered -> CloseRed
+            pressed -> scheme.onSurface.copy(alpha = 0.14f)
+            hovered -> scheme.onSurface.copy(alpha = 0.08f)
+            else -> Color.Transparent
+        },
+        motion(Motion.SHORT), label = "caption-fill",
+    )
+    val ink by animateColorAsState(if (danger && (hovered || pressed)) Color.White else scheme.onSurface.copy(alpha = 0.86f), motion(Motion.SHORT), label = "caption-ink")
+    TooltipArea(
+        tooltip = { ControlTooltip(label) },
+        delayMillis = 500,
+        tooltipPlacement = TooltipPlacement.CursorPoint(offset = DpOffset(0.dp, 18.dp)),
+    ) {
+        Canvas(
+            Modifier.width(46.dp).fillMaxHeight()
+                .background(fill)
+                .hoverable(interaction)
+                .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
+                .semantics { contentDescription = label },
+        ) { glyph(ink, density) }
     }
 }
 
@@ -221,7 +308,7 @@ private fun Modifier.windowDrag(window: Window, height: Dp, onToggleMaximize: ()
 
 /**
  * The window's top resize edge. Without a caption Windows has no frame above the client area, so a
- * thin strip over the sky takes its place, with its corners resizing diagonally. Hidden when maximised.
+ * thin strip along the title bar's top takes its place, with its corners resizing diagonally. Hidden when maximised.
  */
 @Composable
 internal fun BoxScope.TopResizeEdge(window: Window) {
@@ -242,94 +329,6 @@ internal fun BoxScope.TopResizeEdge(window: Window) {
         Edge(WindowsFrame.HT_TOP_LEFT, Cursor.NW_RESIZE_CURSOR, Modifier.width(14.dp))
         Edge(WindowsFrame.HT_TOP, Cursor.N_RESIZE_CURSOR, Modifier.weight(1f))
         Edge(WindowsFrame.HT_TOP_RIGHT, Cursor.NE_RESIZE_CURSOR, Modifier.width(14.dp))
-    }
-}
-
-/**
- * Minimise, maximise or restore, and close, bare on the sky beside the navigation pill (UX rules N5, V9). Each is labelled for screen readers and has a tooltip (I5). Close turns red on
- * hover, as Windows' does, so it is never pressed by mistake for its neighbour.
- */
-@Composable
-internal fun WindowControls(
-    maximized: Boolean,
-    onMinimize: () -> Unit,
-    onToggleMaximize: () -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val compact = LocalChromeHeight.current < PillNavHeight
-    Row(
-        modifier
-            // The pill's height and inset, and buttons the size of its unselected items, so the
-            // controls sit in one row with it. Round, icon-only buttons rank them below the labelled destinations.
-            .height(LocalChromeHeight.current)
-            .padding(horizontal = if (compact) 4.dp else 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        ControlButton("Minimize", onMinimize, compact = compact) { ink, unit ->
-            drawLine(ink, Offset(center.x - 5 * unit, center.y), Offset(center.x + 5 * unit, center.y), 1.4f * unit, StrokeCap.Round)
-        }
-        // The two glyphs fade across as the window changes, read while drawing so nothing recomposes for it.
-        val restoring = animateFloatAsState(if (maximized) 1f else 0f, motion(Motion.MEDIUM), label = "control-maximize")
-        ControlButton(if (maximized) "Restore" else "Maximize", onToggleMaximize, compact = compact) { ink, unit ->
-            val stroke = Stroke(1.4f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            val t = restoring.value
-            if (t > 0f) {
-                // Two overlapping windows: the front one whole, the back one peeking out above and right.
-                drawRoundRect(ink.copy(alpha = ink.alpha * t), Offset(center.x - 4.5f * unit, center.y - 2.5f * unit), Size(7 * unit, 7 * unit), CornerRadius(1.5f * unit), stroke)
-                drawPath(Path().apply {
-                    moveTo(center.x - 2 * unit, center.y - 2.5f * unit)
-                    lineTo(center.x - 2 * unit, center.y - 5 * unit)
-                    lineTo(center.x + 5 * unit, center.y - 5 * unit)
-                    lineTo(center.x + 5 * unit, center.y + 2 * unit)
-                    lineTo(center.x + 2.5f * unit, center.y + 2 * unit)
-                }, ink.copy(alpha = ink.alpha * t), style = stroke)
-            }
-            if (t < 1f) drawRoundRect(ink.copy(alpha = ink.alpha * (1f - t)), Offset(center.x - 4.5f * unit, center.y - 4.5f * unit), Size(9 * unit, 9 * unit), CornerRadius(2 * unit), stroke)
-        }
-        ControlButton("Close", onClose, danger = true, compact = compact) { ink, unit ->
-            val r = 4.5f * unit
-            drawLine(ink, Offset(center.x - r, center.y - r), Offset(center.x + r, center.y + r), 1.4f * unit, StrokeCap.Round)
-            drawLine(ink, Offset(center.x - r, center.y + r), Offset(center.x + r, center.y - r), 1.4f * unit, StrokeCap.Round)
-        }
-    }
-}
-
-/** One window control: a pill that tints on hover and sinks a hair when pressed, drawing [glyph] in 1 dp [unit]s. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun ControlButton(label: String, onClick: () -> Unit, danger: Boolean = false, compact: Boolean = false, glyph: DrawScope.(ink: Color, unit: Float) -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val interaction = remember { MutableInteractionSource() }
-    val hovered by interaction.collectIsHoveredAsState()
-    val pressed by interaction.collectIsPressedHeld()
-    val lit = hovered || pressed
-    val fill by animateColorAsState(
-        when {
-            danger && lit -> scheme.error.copy(alpha = if (pressed) 0.82f else 1f)
-            pressed -> scheme.onSurface.copy(alpha = 0.16f)
-            hovered -> scheme.onSurface.copy(alpha = 0.08f)
-            else -> Color.Transparent
-        },
-        motion(Motion.SHORT), label = "control-fill",
-    )
-    val ink by animateColorAsState(if (danger && lit) scheme.onError else scheme.onSurface.copy(alpha = 0.78f), motion(Motion.SHORT), label = "control-ink")
-    val squish by animateFloatAsState(if (pressed) 0.94f else 1f, motion(Motion.SHORT), label = "control-press")
-    TooltipArea(
-        tooltip = { ControlTooltip(label) },
-        delayMillis = 500,
-        tooltipPlacement = TooltipPlacement.CursorPoint(offset = DpOffset(0.dp, 18.dp)),
-    ) {
-        Canvas(
-            Modifier.size(if (compact) 36.dp else 42.dp)
-                .graphicsLayer { scaleX = squish; scaleY = squish }
-                .clip(PillShape)
-                .background(fill)
-                .hoverable(interaction)
-                .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
-                .semantics { contentDescription = label },
-        ) { glyph(ink, density * 1.1f) }
     }
 }
 
