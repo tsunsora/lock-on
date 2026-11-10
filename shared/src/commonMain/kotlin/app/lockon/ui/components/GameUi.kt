@@ -677,7 +677,7 @@ fun Modifier.hoverState(state: HoverState): Modifier = pointerInput(state) {
 
 /**
  * Hover lift for cards and tiles on desktop: rises a little and wears the selection outline, with no
- * shadow. Press sinks it a hair. Phones never hover, so they only get the press. A modifier node
+ * shadow and no change of size. Press sinks it a hair. Phones never hover, so they only get the press. A modifier node
  * rather than `composed`, so a grid of cards scrolling into view builds no extra state per card.
  */
 fun Modifier.hoverLift(
@@ -766,7 +766,7 @@ internal class HoverLiftNode(
             placeable.placeWithLayer(0, 0) {
                 // Read here, in the layer, so hovering redraws the card without recomposing or relaying it out.
                 val t = hover.value
-                val s = (1f + 0.01f * t) * press.value
+                val s = press.value
                 scaleX = s; scaleY = s
                 translationY = -lift.toPx() * t
             }
@@ -1333,8 +1333,8 @@ fun PillSwitch(
 ) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
-    // The knob is moved by the hand, so it settles with a touch of give.
-    val position by animateFloatAsState(if (checked) 1f else 0f, glide(bounce = 0.25f), label = "switch")
+    // The knob glides across and stops there: no overshoot, like everything else (UX rule V5).
+    val position by animateFloatAsState(if (checked) 1f else 0f, glide(), label = "switch")
     val interaction = interactionSource ?: remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val focused by interaction.collectIsFocusedAsState()

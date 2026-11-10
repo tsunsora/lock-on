@@ -81,7 +81,8 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 - **new** The download, spinner and *Installed* states fade across.
 
 ### Kept as they are
-- The beacon's slow turn and the switch knob's slight settle are already in UX_MAP and in `glide()`'s documentation. They stay.
+- The beacon's slow turn stays: it shows this device can be found, so it is a live state, and it holds still off screen (P1).
+- The switch knob's slight settle went on 2026-11-10: it was the one overshoot left, against V5. `glide()` is critically damped and takes no bounce.
 - The drag ghosts' small tilt stays. It reads as a picked-up card, not decoration.
 
 ## 3. Performance rules

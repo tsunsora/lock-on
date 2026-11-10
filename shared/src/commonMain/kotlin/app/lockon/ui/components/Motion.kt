@@ -170,15 +170,14 @@ fun <T> motion(durationMillis: Int = Motion.MEDIUM, delayMillis: Int = 0): Finit
 /**
  * For things that move to where the pointer sent them (a sliding pill, a switch's knob): a spring,
  * after Apple's motion guidance. It has no fixed length, so a second click mid-way redirects it
- * with the speed it already had instead of starting over. Critically damped by default; [bounce]
- * adds a slight settle for things the hand moves directly.
+ * with the speed it already had instead of starting over. Critically damped, so it never overshoots.
  */
 @Composable
-fun <T> glide(bounce: Float = 0f): FiniteAnimationSpec<T> = glideSpec(LocalReduceMotion.current, bounce)
+fun <T> glide(): FiniteAnimationSpec<T> = glideSpec(LocalReduceMotion.current)
 
 /** A [glide] for use outside composition, given whether motion is reduced. */
-fun <T> glideSpec(reduce: Boolean, bounce: Float = 0f): FiniteAnimationSpec<T> =
-    if (reduce) snap() else spring(dampingRatio = 1f - bounce, stiffness = 420f)
+fun <T> glideSpec(reduce: Boolean): FiniteAnimationSpec<T> =
+    if (reduce) snap() else spring(dampingRatio = 1f, stiffness = 420f)
 
 /**
  * Pages that sit side by side, like an editor's tabs: the new page slides in from the side of the

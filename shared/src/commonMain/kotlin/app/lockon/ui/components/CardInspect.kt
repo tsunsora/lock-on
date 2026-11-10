@@ -103,8 +103,9 @@ fun TiltingCard(card: Card, printingId: String?, modifier: Modifier = Modifier, 
     val reduce = LocalReduceMotion.current
     var aim by remember { mutableStateOf(Offset.Zero) }
     val target = if (reduce) Offset.Zero else tilt ?: aim
-    // A soft spring, so the card follows the hand with a little weight instead of snapping to it.
-    val follow = if (tilt != null) snap() else spring<Float>(dampingRatio = 0.8f, stiffness = 180f)
+    // A soft spring, so the card follows the hand with a little weight instead of snapping to it. It is
+    // critically damped: the card comes to rest without rocking past where it is held.
+    val follow = if (tilt != null) snap() else spring<Float>(dampingRatio = 1f, stiffness = 180f)
     val x by animateFloatAsState(target.x, follow, label = "tilt-x")
     val y by animateFloatAsState(target.y, follow, label = "tilt-y")
     val pool = cardColor(card.colors.firstOrNull())
