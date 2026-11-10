@@ -121,3 +121,73 @@ internal class PostedTasks : java.awt.EventQueue() {
         )
     }
 }
+
+/** The memory this process holds, to compare collectors: what Windows counts against it now and at its peak, and the Java heap inside that. */
+internal fun memorySummary(): String {
+    val heap = ManagementFactory.getMemoryMXBean().heapMemoryUsage
+    val held = runCatching {
+        val counters = ProcessMemory()
+        val psapi = com.sun.jna.Native.load("psapi", ProcessMemoryApi::class.java)
+        check(psapi.GetProcessMemoryInfo(com.sun.jna.platform.win32.Kernel32.INSTANCE.GetCurrentProcess(), counters, counters.size()))
+        "working set %d MB (peak %d MB), ".format(counters.WorkingSetSize.toLong() shr 20, counters.PeakWorkingSetSize.toLong() shr 20)
+    }.getOrDefault("")
+    return "memory: ${held}heap %d MB used of %d MB".format(heap.used shr 20, heap.committed shr 20)
+}
+
+private interface ProcessMemoryApi : com.sun.jna.Library {
+    fun GetProcessMemoryInfo(process: com.sun.jna.platform.win32.WinNT.HANDLE, counters: ProcessMemory, size: Int): Boolean
+}
+
+/** Windows' PROCESS_MEMORY_COUNTERS. */
+@com.sun.jna.Structure.FieldOrder(
+    "cb", "PageFaultCount", "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage", "QuotaPagedPoolUsage",
+    "QuotaPeakNonPagedPoolUsage", "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage",
+)
+internal class ProcessMemory : com.sun.jna.Structure() {
+    @JvmField var cb = 0
+    @JvmField var PageFaultCount = 0
+    @JvmField var PeakWorkingSetSize = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+    @JvmField var WorkingSetSize = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+    @JvmField var QuotaPeakPagedPoolUsage = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+    @JvmField var QuotaPagedPoolUsage = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+    @JvmField var QuotaPeakNonPagedPoolUsage = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+    @JvmField var QuotaNonPagedPoolUsage = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+    @JvmField var PagefileUsage = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+    @JvmField var PeakPagefileUsage = com.sun.jna.platform.win32.BaseTSD.SIZE_T()
+}
+
+/**
+ * The collector's pauses as they happen, to see which slow frames hold one. A pause stops every
+ * thread, the window's among them, so one of 5 ms costs a frame at 180 Hz whatever else is going on.
+ * Collectors that work alongside the app also report their whole cycles, which stop nothing and are left out.
+ */
+internal class GcPauses {
+    private val pauses = java.util.concurrent.ConcurrentLinkedQueue<LongRange>()
+    // What the collector calls a moment (milliseconds since the JVM started) in this probe's clock.
+    private val startedAt = System.nanoTime() - ManagementFactory.getRuntimeMXBean().uptime * 1_000_000L
+
+    init {
+        for (bean in ManagementFactory.getGarbageCollectorMXBeans()) {
+            if ("Cycles" in bean.name) continue
+            (bean as? javax.management.NotificationEmitter)?.addNotificationListener({ notification, _ ->
+                if (notification.type == com.sun.management.GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION) {
+                    val info = com.sun.management.GarbageCollectionNotificationInfo.from(notification.userData as javax.management.openmbean.CompositeData).gcInfo
+                    val from = startedAt + info.startTime * 1_000_000L
+                    pauses += from..(from + info.duration * 1_000_000L)
+                }
+            }, null, null)
+        }
+    }
+
+    /** How many pauses fell in these [stretches] of frame times, how long they were, and how many of the gaps over 7 ms held one. */
+    fun summary(vararg stretches: List<Long>): String {
+        val gaps = stretches.flatMap { times -> times.zipWithNext { a, b -> a..b } }
+        if (gaps.isEmpty()) return "no frames"
+        val within = pauses.filter { pause -> stretches.any { it.isNotEmpty() && pause.last >= it.first() && pause.first <= it.last() } }
+        val slow = gaps.filter { it.last - it.first > 7_000_000L }
+        // The collector's clock is in whole milliseconds, so a pause counts if it is within one of the gap.
+        val held = slow.count { gap -> within.any { it.first <= gap.last + 1_000_000L && it.last >= gap.first - 1_000_000L } }
+        val lengths = within.map { (it.last - it.first) / 1_000_000 }
+        return "%d pauses (%d ms in all, longest %d ms); %d of %d frames over 7 ms held one".format(within.size, lengths.sum(), lengths.maxOrNull() ?: 0, held, slow.size)
+    }
+}

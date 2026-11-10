@@ -43,6 +43,7 @@ fun ScrollProbe(window: ComposeWindow, container: AppContainer, state: AppState,
         val frames = mutableListOf<Long>()
         val back = mutableListOf<Long>()
         val gc = gcTotals()
+        val pauses = GcPauses()
         val drawn = DrawnFrames(window)
         // The window draws on this thread, so its stack during slow frames says what they spend time on.
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
@@ -84,10 +85,11 @@ fun ScrollProbe(window: ComposeWindow, container: AppContainer, state: AppState,
         // Every frame's time, to line up with other records of the same run, such as a collector's log.
         File(report.path + ".frames.txt").writeText((frames + back).joinToString("\n"))
         report.appendText(
-            "${window.renderApi}, ${window.refreshHz()} Hz, ${window.width}×${window.height}: ${frameSummary(frames)}; collections: ${gcSince(gc)}\n" +
+            "${window.renderApi}, ${window.refreshHz()} Hz, ${window.width}×${window.height}: ${frameSummary(frames)}; collections: ${gcSince(gc)}; ${memorySummary()}\n" +
                 "  first 1.5 s: ${frameSummary(start)}; ${drawn.workSummary(start.first(), start.last())}\n" +
                 "  after that: ${frameSummary(steady)}; ${drawn.workSummary(steady.first(), steady.last())}\n" +
-                "  back up: ${frameSummary(back)}; ${drawn.workSummary(back.first(), back.last())}\n",
+                "  back up: ${frameSummary(back)}; ${drawn.workSummary(back.first(), back.last())}\n" +
+                "  collector, after the first 1.5 s and back up: ${pauses.summary(steady, back)}\n",
         )
         exit()
     }
@@ -131,9 +133,12 @@ internal class StackSampler(private val target: Thread) : Thread("stack-sampler"
             if (at < 0) null else stack.drop(at).filter { it.className.startsWith("app.lockon") || it.className.startsWith("androidx") || it.className.startsWith("coil") }
                 .take(6).joinToString(" < ", transform = ::name)
         }.groupingBy { it }.eachCount()
-        val leaf = kept.groupingBy { stack -> stack.firstOrNull { it.className.startsWith("app.lockon") }?.let { "${name(it)}:${it.lineNumber}" } ?: "(outside the app)" }.eachCount()
+        val leaf = kept.groupingBy { stack -> stack.firstOrNull { it.className.startsWith("app.lockon") && !it.className.startsWith("app.lockon.desktop.DrawnFrames") }?.let { "${name(it)}:${it.lineNumber}" } ?: "(outside the app)" }.eachCount()
+        // Every app function on the stack, so a frame spent in Compose's own code still says whose screen it was building.
+        val screens = kept.flatMap { stack -> stack.filter { it.className.startsWith("app.lockon.ui") }.map { "${it.className.substringAfterLast('.')}.${it.methodName.substringBefore('$').substringBefore('-')}" }.distinct() }
+            .groupingBy { it }.eachCount()
         fun table(counts: Map<String, Int>, n: Int) = counts.entries.sortedByDescending { it.value }.take(n)
             .joinToString("\n") { "%5.1f%%  %s".format(100.0 * it.value / kept.size.coerceAtLeast(1), it.key) }
-        return "${slow.size} slow frames, ${kept.size} samples\n\nInclusive:\n${table(inclusive, 160)}\n\nInnermost app frame:\n${table(leaf, 40)}\n\nStarting coroutines and posting events:\n${table(callers, 30)}\n\nTop of stack:\n${table(top, 60)}\n"
+        return "${slow.size} slow frames, ${kept.size} samples\n\nInclusive:\n${table(inclusive, 160)}\n\nInnermost app frame:\n${table(leaf, 40)}\n\nApp functions on the stack:\n${table(screens, 50)}\n\nStarting coroutines and posting events:\n${table(callers, 30)}\n\nTop of stack:\n${table(top, 60)}\n"
     }
 }

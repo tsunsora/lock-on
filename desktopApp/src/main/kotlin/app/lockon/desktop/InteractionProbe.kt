@@ -86,7 +86,9 @@ fun InteractionProbe(window: ComposeWindow, container: AppContainer, state: AppS
             }
             // The longest frame gap in the 300 ms after each thing done: what the hand feels as its answer.
             val answers = marks.map { at -> gaps.filter { it.last > at && it.first < at + 300_000_000L }.maxOfOrNull { (it.last - it.first) / 1e6 } ?: 0.0 }.sorted()
-            val answered = if (answers.isEmpty()) "" else "; slowest frame after each of %d actions: median %.1f, worst %.1f ms".format(answers.size, answers[answers.size / 2], answers.last())
+            val answered = if (answers.isEmpty()) "" else "; slowest frame after each of %d actions: median %.1f, worst %.1f ms".format(answers.size, answers[answers.size / 2], answers.last()) +
+                // A handful of actions are worth listing one by one, in the order done.
+                (if (marks.size > 12) "" else " (" + marks.map { at -> gaps.filter { it.last > at && it.first < at + 300_000_000L }.maxOfOrNull { (it.last - it.first) / 1e6 } ?: 0.0 }.joinToString(" ") { "%.0f".format(it) } + ")")
             // A deck saves itself 400 ms after a change, and every screen that lists decks hears of it.
             val saves = marks.map { at -> gaps.filter { it.last > at + 350_000_000L && it.first < at + 900_000_000L }.maxOfOrNull { (it.last - it.first) / 1e6 } ?: 0.0 }.sorted()
             val saved = if (name != "edit" || saves.isEmpty()) "" else ", and as each saved: median %.1f, worst %.1f ms".format(saves[saves.size / 2], saves.last())
