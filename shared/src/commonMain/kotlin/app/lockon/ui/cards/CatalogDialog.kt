@@ -232,7 +232,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                             scope.launch {
                                                 container.restoreSampleCatalog()
                                                 busy = false
-                                                state.notify("Sample catalog restored.")
+                                                state.notify("Sample catalog restored")
                                             }
                                         }, style = GameButtonStyle.SECONDARY, enabled = !busy, compact = true)
                                     }
@@ -264,7 +264,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     scope.launch {
                         container.catalogUpdater.install(pending)
                         busy = false
-                        state.notify("Installed ${pending.checked.file.name} (${pending.checked.file.cards.size} cards).")
+                        state.notify("Installed ${pending.checked.file.name} (${pending.checked.file.cards.size} cards)")
                         onDismiss()
                     }
                 }, enabled = !busy, compact = true)

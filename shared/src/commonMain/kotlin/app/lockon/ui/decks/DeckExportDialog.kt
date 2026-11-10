@@ -298,15 +298,15 @@ private fun DeckExport(
             if (tab == 0) {
                 GameButton(if (phone && copied) "Copied" else "Copy", onClick = {
                     clipboard.setText(AnnotatedString(text))
-                    if (phone) copied = true else toast("Deck list copied.")
+                    if (phone) copied = true else toast("Deck list copied")
                 }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) LineIcons.Check else null)
                 GameButton("Save file", onClick = {
-                    state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
+                    state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved") }
                 }, Modifier.weight(1f))
             } else if (tab == 2) {
                 GameButton(if (phone && copied) "Copied" else "Copy text", onClick = {
                     clipboard.setText(AnnotatedString(qrText))
-                    if (phone) copied = true else toast("Deck list copied.")
+                    if (phone) copied = true else toast("Deck list copied")
                 }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY, icon = if (phone && copied) LineIcons.Check else null)
                 GameButton(if (saving) "Saving…" else "Save QR", onClick = {
                     val code = qr ?: return@GameButton
@@ -315,7 +315,7 @@ private fun DeckExport(
                         try {
                             val png = withContext(Dispatchers.Default) { encodePng(qrBitmap(code)) }
                             saving = false
-                            if (files.saveBytes("$baseName QR.png", "image/png", png)) toast("QR code saved.")
+                            if (files.saveBytes("$baseName QR.png", "image/png", png)) toast("QR code saved")
                         } finally { saving = false }
                     }
                 }, Modifier.weight(1f), enabled = !saving && qr != null)
@@ -329,8 +329,8 @@ private fun DeckExport(
                             val bitmap = layer.toImageBitmap()
                             val png = withContext(Dispatchers.Default) { encodePng(bitmap) }
                             saving = false
-                            if (files.saveToDownloads("$baseName.png", "image/png", png)) toast("Deck image saved to Downloads.")
-                            else if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved.")
+                            if (files.saveToDownloads("$baseName.png", "image/png", png)) toast("Deck image saved to Downloads")
+                            else if (files.saveBytes("$baseName.png", "image/png", png)) toast("Deck image saved")
                         } finally { saving = false }
                     }
                 }, Modifier.weight(1f), enabled = !saving, icon = LineIcons.Save)
@@ -436,11 +436,11 @@ private fun DeckExport(
                                 FadeSwap(tab == 0, Modifier.fillMaxWidth()) { listing ->
                                     if (listing) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                         GameButton("Save file", onClick = {
-                                            state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved.") }
+                                            state.appScope.launch { if (files.saveText("$baseName.txt", "text/plain", text)) toast("Deck list saved") }
                                         }, Modifier.fillMaxWidth(), icon = LineIcons.Save)
                                         GameButton("Copy", onClick = {
                                             clipboard.setText(AnnotatedString(text))
-                                            toast("Deck list copied.")
+                                            toast("Deck list copied")
                                         }, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY, icon = LineIcons.Copy)
                                     } else Box(Modifier.fillMaxWidth().height(44.dp)) { buttons(false) }
                                 }

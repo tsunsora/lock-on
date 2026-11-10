@@ -146,7 +146,7 @@ fun DeckTextEditor(
                     parsed?.let { onApply(it.snapshot) }
                     toastScope.launch {
                         toasts.currentSnackbarData?.dismiss()
-                        toasts.showSnackbar("Deck updated from the list.")
+                        toasts.showSnackbar("Deck updated from the list")
                     }
                 }, Modifier.weight(1f), enabled = parsed != null)
             }

@@ -55,6 +55,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **C2. Undo instead of "Are you sure?"** Reversible actions such as deleting a deck or clearing a section happen immediately and offer **Undo** in a snackbar. A confirmation dialog is only for actions undo can't reverse, such as forgetting a paired device or overwriting from a backup.
 - **C3. One bulk action instead of many single ones.** When something applies to many items, offer it once, such as *Clear section* or *Sync now*. (Aniimo reviewers asked for a claim-all.)
 - **C4. Pick from options, don't type.** Wherever a value comes from a known list, such as a card name, a color, a tag already in use or a ruleset, offer it as a choice. Typing is the fallback.
+- **C5. Plain words.** No exclamation marks, no greeting headlines (the welcome tour opens on *Lock On* and what it is), no words that sell. Titles, labels, buttons and one-line notices end without a period (*Deck list copied*, *Deleted Blue Red Aggro*); sentences in body text, and status and error lines from sync, rules and the card database, keep theirs. A question in a dialog's title is not asked again underneath: the line under *Delete Blue Red Aggro?* says what happens next.
 
 ## 5. Look and feel (after Nintendo's recent menus, built on Material 3)
 
@@ -74,7 +75,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
 - **V3. Colour roles.**
   - **Primary (teal)** means "you can act" or "selected": primary buttons, the selected tab, chip, segment and destination, **+**, and counts in the deck.
   - **Secondary (sky blue)** is for information. Charts are one slate ramp (`ChartSlate`), so a bar never reads as a card colour or an action.
-  - **Tertiary (soft gold)** is for celebration only: a full gauge, a finished sync, the *Locked on!* state, sparkles and the Lock On moment. There is one gold, #FFC34D, for every fill and for text at twilight. Text on a day panel uses the darker #9A6200, because the gold can't carry text on white.
+  - **Tertiary (soft gold)** is for celebration only: a full gauge, a finished sync and the Lock On moment. There is one gold, #FFC34D, for every fill and for text at twilight. Text on a day panel uses the darker #9A6200, because the gold can't carry text on white.
   - Errors keep Material's error role.
   - Card colours are for card identity: cost orbs and strip edges.
   - Light mode is a pale, quiet sky. Dark mode is a deep navy dusk, never black. Cards lie directly on the sky, so it stays low in colour and well away from the card faces' brightness. A full deck that needs review holds its gauge in slate rather than gold.

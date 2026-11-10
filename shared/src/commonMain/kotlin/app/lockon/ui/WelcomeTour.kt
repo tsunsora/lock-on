@@ -151,7 +151,7 @@ fun WelcomeTour(container: AppContainer, state: AppState, trailing: (@Composable
                     when (TourStop.entries[page]) {
                         TourStop.WELCOME -> {
                             Picture { BrandTile(96.dp) }
-                            Words("Welcome to Lock On", "A deck builder for the Gundam Card Game.")
+                            Words("Lock On", "A deck builder for the Gundam Card Game.")
                         }
                         TourStop.CARD_DATABASE -> {
                             Picture { Fan(showcase.drop(3)) }

@@ -423,7 +423,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                         onOpen = { state.open(if (deck.hasConflict) Screen.Conflict(deck.deckId) else Screen.DeckEditor(deck.deckId)) },
                                         onRename = { dialog = LibraryDialog.Rename(deck) },
                                         onMove = { dialog = LibraryDialog.Move(deck) },
-                                        onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated.") } },
+                                        onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated") } },
                                         onExport = { dialog = LibraryDialog.Export(deck) },
                                         onDelete = { dialog = LibraryDialog.Delete(deck) },
                                     )
@@ -514,7 +514,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         is LibraryDialog.Delete -> GameDialog(
             onDismissRequest = { dialog = null },
             title = "Delete ${d.deck.snapshot.name}?",
-            text = { Text("Are you sure you want to delete this deck?") },
+            text = { Text("You can undo this right after.") },
             confirmButton = {
                 GameButton("Delete", compact = true, onClick = {
                     dialog = null

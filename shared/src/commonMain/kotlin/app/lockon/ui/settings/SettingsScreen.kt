@@ -173,7 +173,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                     }
                     MoreMenuChoice(moreHidden) { item, shown ->
                         scope.launch {
-                            if (!settings.setMoreShown(item, shown)) state.notify("The More menu keeps at least one section.")
+                            if (!settings.setMoreShown(item, shown)) state.notify("The More menu keeps at least one section")
                         }
                     }
                 }
@@ -194,7 +194,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                     GameButton("Save", style = GameButtonStyle.SECONDARY, compact = true, onClick = {
                         state.appScope.launch {
                             val backup = BackupFormat.encode(container.decks.exportBackup())
-                            if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved.")
+                            if (files.saveText("lock-on-backup.json", "application/json", backup)) state.notify("Backup saved")
                         }
                     })
                 }

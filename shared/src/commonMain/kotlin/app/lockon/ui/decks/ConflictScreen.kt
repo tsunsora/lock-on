@@ -98,7 +98,7 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
                 onKeep = {
                     state.appScope.launch {
                         container.decks.resolve(deckId, version.snapshot)
-                        state.notify(if (version.snapshot.deleted) "Deck deleted." else "Version kept.")
+                        state.notify(if (version.snapshot.deleted) "Deck deleted" else "Version kept")
                         if (version.snapshot.deleted) state.goBack()
                     }
                 },

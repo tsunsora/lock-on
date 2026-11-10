@@ -106,14 +106,14 @@ fun NewDeckDialog(
                 }
                 isBackup -> {
                     val result = runCatching { container.decks.importBackup(BackupFormat.decode(input)) }
-                    result.onSuccess { count -> state.notify("Imported $count decks."); onDismiss() }
+                    result.onSuccess { count -> state.notify("Imported $count decks"); onDismiss() }
                     result.onFailure { problems = listOf(it.message ?: "Could not read the backup.") }
                 }
                 parsed == null || parsed.snapshot.entries.isEmpty() ->
                     problems = parsed?.problems.orEmpty().ifEmpty { listOf("No cards found. Use lines like \"4 SMP-001\".") }
                 else -> {
                     val id = container.decks.create(parsed.snapshot.copy(name = name.trim().ifEmpty { parsed.snapshot.name }, folder = target))
-                    if (parsed.problems.isNotEmpty()) state.notify("Deck made with ${parsed.problems.size} skipped or unknown lines.")
+                    if (parsed.problems.isNotEmpty()) state.notify("Deck made with ${parsed.problems.size} skipped or unknown lines")
                     onDismiss()
                     state.open(Screen.DeckEditor(id))
                 }
