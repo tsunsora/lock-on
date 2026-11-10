@@ -25,7 +25,7 @@ import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.motion
 import app.lockon.ui.theme.onCardColor
 import app.lockon.ui.theme.LockOnShapes
-import androidx.compose.foundation.lazy.rememberLazyListState
+import app.lockon.ui.components.rememberPrefetchingListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
@@ -85,7 +85,7 @@ fun VersionsPanel(
     onRestore: (DeckVersion) -> Unit,
 ) {
     var open by remember { mutableStateOf<String?>(null) }
-    val listState = rememberLazyListState()
+    val listState = rememberPrefetchingListState()
     // On a phone the versions read as one solid panel, and keeping one stays above the bar under the thumb.
     val phone = LocalTopBand.current.height == 0.dp
     val fill = panelFill()

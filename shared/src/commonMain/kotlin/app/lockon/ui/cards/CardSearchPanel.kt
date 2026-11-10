@@ -81,8 +81,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.rememberLazyListState
+import app.lockon.ui.components.rememberPrefetchingGridState
+import app.lockon.ui.components.rememberPrefetchingListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -214,8 +214,8 @@ fun CardSearchPanel(
     }
     // A screen of tiles is a large first composition, over 80 ms and several times that before the JIT
     // has warmed up, so the list starts with a few and adds more each frame until the screen is full.
-    val gridState = rememberLazyGridState()
-    val listState = rememberLazyListState()
+    val gridState = rememberPrefetchingGridState()
+    val listState = rememberPrefetchingListState()
     LaunchedEffect(scrollToTop) {
         if (scrollToTop > 0) { if (grid) gridState.animateScrollToItem(0) else listState.animateScrollToItem(0) }
     }

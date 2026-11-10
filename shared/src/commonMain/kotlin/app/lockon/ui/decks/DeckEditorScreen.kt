@@ -204,7 +204,7 @@ import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.lazy.rememberLazyListState
+import app.lockon.ui.components.rememberPrefetchingListState
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -804,7 +804,7 @@ private fun DeckList(
         byType.filter { it.second.isNotEmpty() }
     }
     val gap = if (compact) 8.dp else 6.dp
-    val listState = rememberLazyListState()
+    val listState = rememberPrefetchingListState()
     LaunchedEffect(scrollToTop) { if (scrollToTop > 0) listState.animateScrollToItem(0) }
     LaunchedEffect(jumpToTop) { if (jumpToTop > 0) listState.requestScrollToItem(0) }
     val side = remember(deck, cards) {

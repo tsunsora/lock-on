@@ -50,7 +50,7 @@ import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.revealOut
 import app.lockon.ui.components.revealIn
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.lazy.rememberLazyListState
+import app.lockon.ui.components.rememberPrefetchingListState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import app.lockon.ui.components.PillChip
@@ -134,7 +134,7 @@ fun MatchLogPanel(
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     val editing = editingId?.let { id -> matches.firstOrNull { it.id == id } }
 
-    val listState = rememberLazyListState()
+    val listState = rememberPrefetchingListState()
     // On a phone everything sits on solid panels, and logging stays above the bar under the thumb.
     val phone = LocalTopBand.current.height == 0.dp
     // A short phone gets a slimmer record, so more games fit above the logger.

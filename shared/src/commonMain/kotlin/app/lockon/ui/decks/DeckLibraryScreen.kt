@@ -20,7 +20,7 @@ import app.lockon.ui.components.softThumb
 import app.lockon.ui.components.glassColors
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.lockon.ui.components.LineIcons
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import app.lockon.ui.components.rememberPrefetchingGridState
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.hoverable
@@ -384,7 +384,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                     modifier = Modifier.padding(16.dp),
                                 )
                             }
-                            val gridState = rememberLazyGridState()
+                            val gridState = rememberPrefetchingGridState()
                             // A new deck (made, imported or duplicated) lands at the top, but the grid holds on to
                             // the deck it showed first and would leave the new one above the view. It scrolls up to it.
                             // Decks only revealed by a cleared search or another folder were there all along, so it

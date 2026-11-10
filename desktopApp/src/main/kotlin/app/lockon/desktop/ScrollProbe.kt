@@ -37,6 +37,7 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
         val frames = mutableListOf<Long>()
         val back = mutableListOf<Long>()
         val gc = gcTotals()
+        val drawn = DrawnFrames(window)
         // The window draws on this thread, so its stack during slow frames says what they spend time on.
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
         val render = renderThread()?.let { StackSampler(it).apply { start() } }
@@ -58,12 +59,26 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
         scroll(frames, 300, 2)
         delay(500)
         scroll(back, 150, -2)
-        val slow = (frames.zipWithNext { a, b -> a..b } + back.zipWithNext { a, b -> a..b }).filter { it.last - it.first > LATE_FRAME_NS }
-        File(report.path + ".samples.txt").writeText(sampler.finish().report(slow))
-        render?.let { File(report.path + ".render.samples.txt").writeText(it.finish().report(slow)) }
+        // The first scroll after launch runs code for the first time, which loads and compiles as it goes,
+        // so its first moments are slow for their own reasons and are reported and profiled apart.
+        val settled = frames.first() + 1_500_000_000L
+        val (start, steady) = frames.partition { it < settled }
+        fun slow(times: List<Long>) = times.zipWithNext { a, b -> a..b }.filter { it.last - it.first > LATE_FRAME_NS }
+        sampler.finish()
+        render?.finish()
+        File(report.path + ".samples.txt").writeText(sampler.report(slow(steady) + slow(back)))
+        File(report.path + ".start.samples.txt").writeText(sampler.report(slow(start)))
+        render?.let {
+            File(report.path + ".render.samples.txt").writeText(it.report(slow(steady) + slow(back)))
+            File(report.path + ".start.render.samples.txt").writeText(it.report(slow(start)))
+        }
+        // Every frame's time, to line up with other records of the same run, such as a collector's log.
+        File(report.path + ".frames.txt").writeText((frames + back).joinToString("\n"))
         report.appendText(
             "${window.renderApi}, ${window.refreshHz()} Hz, ${window.width}×${window.height}: ${frameSummary(frames)}; collections: ${gcSince(gc)}\n" +
-                "  back up: ${frameSummary(back)}\n",
+                "  first 1.5 s: ${frameSummary(start)}; ${drawn.workSummary(start.first(), start.last())}\n" +
+                "  after that: ${frameSummary(steady)}; ${drawn.workSummary(steady.first(), steady.last())}\n" +
+                "  back up: ${frameSummary(back)}; ${drawn.workSummary(back.first(), back.last())}\n",
         )
         exit()
     }
