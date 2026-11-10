@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.21 (2026-11-10)
+
+The desktop app rests when nothing is moving, and cards scroll more smoothly.
+
+- **At rest:** a spinner on the Sync page kept the whole window redrawing all the time, on every screen, even with nothing moving. The window now draws only when something changes, so Lock On asks far less of the PC while it sits open.
+- **Scrolling cards:** each row of cards is made ready just before it scrolls into view instead of as it appears, so scrolling Cards, a deck's card list and the deck library drops far fewer frames.
+- **Saving decks:** a deck saves itself a moment after every change. That save no longer rebuilds every open screen, so adding cards one after another stays smooth.
+
 ## 26.11.20 (2026-11-08)
 
 Decks from the popular Gundam deck sites paste straight in, and the desktop app no longer freezes every 30 seconds.
