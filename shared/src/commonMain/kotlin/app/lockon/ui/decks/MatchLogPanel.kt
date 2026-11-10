@@ -406,7 +406,7 @@ private fun TurnChoice(turn: Int, onChange: (Int) -> Unit) {
         listOf("1st" to 1, "2nd" to 2).forEach { (label, value) ->
             val on = turn == value
             Box(
-                Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(softThumbFill(on))
+                Modifier.fillMaxHeight().clip(LockOnShapes.inset).background(softThumbFill(on))
                     .selectable(on, role = Role.RadioButton) { onChange(if (on) 0 else value) }.padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) { Text(label, style = MaterialTheme.typography.labelLarge, color = softThumbTone(on)) }

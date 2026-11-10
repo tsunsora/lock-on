@@ -19,7 +19,6 @@ import app.lockon.platform.formatMonthDay
 import app.lockon.platform.dayLabel
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.padding
-import app.lockon.ui.components.CountPill
 import app.lockon.ui.components.LocalArtworkStore
 import app.lockon.ui.components.PillSwitch
 import app.lockon.ui.components.GameDialog

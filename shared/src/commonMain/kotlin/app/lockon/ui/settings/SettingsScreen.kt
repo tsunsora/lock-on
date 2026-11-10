@@ -356,7 +356,7 @@ private fun MoreMenuChoice(hidden: Set<EditorMoreItem>, onChange: (EditorMoreIte
                     row.forEach { item ->
                         val shown = item !in hidden
                         Box(
-                            Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(11.dp)).background(softThumbFill(shown))
+                            Modifier.weight(1f).height(36.dp).clip(LockOnShapes.inset).background(softThumbFill(shown))
                                 .toggleable(shown, role = Role.Checkbox, interactionSource = null, indication = null) { onChange(item, it) },
                             contentAlignment = Alignment.Center,
                         ) {

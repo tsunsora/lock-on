@@ -1,7 +1,6 @@
 package app.lockon.ui.decks
 import androidx.compose.foundation.layout.ColumnScope
 import app.lockon.ui.components.LocalTopBand
-import app.lockon.ui.components.LineIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,8 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.graphics.vector.ImageVector
-import app.lockon.ui.components.Glyphs
 import app.lockon.ui.components.SoftTile
 import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.isTwilight
@@ -83,9 +79,9 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
             }
         } }
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile(LineIcons.Burst, "Burst", stats.burstCount, Modifier.weight(1f).fillMaxHeight())
-            StatTile(LineIcons.Wall, "Blockers", stats.blockerCount, Modifier.weight(1f).fillMaxHeight())
-            StatTile(Glyphs.Link, "Links", stats.linkPairs.size, Modifier.weight(1f).fillMaxHeight(),
+            StatTile("Burst", stats.burstCount, Modifier.weight(1f).fillMaxHeight())
+            StatTile("Blockers", stats.blockerCount, Modifier.weight(1f).fillMaxHeight())
+            StatTile("Links", stats.linkPairs.size, Modifier.weight(1f).fillMaxHeight(),
                 onClick = if (stats.linkPairs.isEmpty()) null else ({ showLinks = !showLinks }))
         }
         // Which Unit each Pilot links to, under the count that opens it.
@@ -119,7 +115,7 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
             FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 types.forEachIndexed { i, (type, _) ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(shades[i]))
+                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(4.dp)).background(shades[i]))
                         Text("${type.label}s", style = MaterialTheme.typography.labelMedium)
                     }
                 }
@@ -140,14 +136,11 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
 private fun AnalysisTile(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
     SoftTile(modifier, solid = LocalTopBand.current.height == 0.dp, content = content)
 
-/** An icon and label over a big number. */
+/** A label over a big number, and nothing else: an icon beside each label only filled the tile. */
 @Composable
-private fun StatTile(icon: ImageVector, label: String, value: Int, modifier: Modifier, onClick: (() -> Unit)? = null) {
+private fun StatTile(label: String, value: Int, modifier: Modifier, onClick: (() -> Unit)? = null) {
     AnalysisTile(modifier.clip(LockOnShapes.tile).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, contentDescription = null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-        }
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         app.lockon.ui.components.RollingNumber(value, MaterialTheme.typography.headlineSmall.merge(TabularNumbers))
     }
 }

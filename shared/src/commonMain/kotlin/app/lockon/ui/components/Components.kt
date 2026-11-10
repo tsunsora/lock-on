@@ -174,15 +174,15 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actio
     }
 }
 
-/** A large glass panel over the sky; see [GlassPanel]. */
+/** A large solid panel over the sky; see [GlassPanel]. */
 @Composable
-fun Panel(modifier: Modifier = Modifier, title: String? = null, readout: String? = null, content: @Composable () -> Unit) {
-    GlassPanel(modifier, title = title, readout = readout, content = content)
+fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    GlassPanel(modifier, content = content)
 }
 
 /**
- * Section header (UX rule V2): the label in friendly bold type, a soft rule fading out,
- * and the count in a tinted pill when the section has one.
+ * Section header (UX rule V2): the label, and beside it the count in the quieter ink when the
+ * section has one. No rule, pill or mark.
  */
 @Composable
 fun SectionHeader(label: String, modifier: Modifier = Modifier, readout: String? = null, trailing: @Composable () -> Unit = {}) {

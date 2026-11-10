@@ -148,7 +148,7 @@ private fun pressShortcut(window: Window, keyCode: Int, extraKeys: Int) {
 @Composable
 internal fun MenuPanel(items: List<ContextMenuItem>, onClose: () -> Unit) {
     val g = glassColors()
-    val shape = LockOnShapes.panel
+    val shape = LockOnShapes.tile
     Column(
         Modifier
             .arrive(rememberArrival(Motion.SHORT), from = 0.97f)
@@ -159,7 +159,7 @@ internal fun MenuPanel(items: List<ContextMenuItem>, onClose: () -> Unit) {
             .border(BorderStroke(app.lockon.ui.components.HairlineWidth, g.line), shape)
             .width(IntrinsicSize.Max)
             .widthIn(min = 200.dp)
-            .padding(6.dp),
+            .padding(4.dp),
     ) {
         items.forEach { item ->
             when (item) {

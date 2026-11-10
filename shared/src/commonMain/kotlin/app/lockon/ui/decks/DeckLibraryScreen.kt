@@ -871,7 +871,7 @@ private fun FolderTabs(total: Int, folders: List<Pair<String, Int>>, unfiled: In
         tabs.forEach { (label, count, filter) ->
             val on = selected == filter
             Row(
-                Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(softThumbFill(on))
+                Modifier.fillMaxHeight().clip(LockOnShapes.inset).background(softThumbFill(on))
                     .selectable(on, role = Role.Tab) { onSelect(filter) }.padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {

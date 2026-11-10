@@ -52,7 +52,7 @@ object Glyphs {
 fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modifier, label: String? = null, icon: Boolean = true) {
     val scheme = MaterialTheme.colorScheme
     val ink = if (review) scheme.error else scheme.onSurface
-    val shape = RoundedCornerShape(9.dp)
+    val shape = RoundedCornerShape(8.dp)
     Row(
         modifier.clip(shape).background(if (review) scheme.error.copy(alpha = 0.1f) else scheme.onSurface.copy(alpha = 0.06f)).border(1.dp, if (review) scheme.error else scheme.onSurface.copy(alpha = 0.16f), shape).padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),

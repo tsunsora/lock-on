@@ -262,7 +262,7 @@ private fun TwoDevices(card: Card?) {
     @Composable
     fun Screen(modifier: Modifier, shape: RoundedCornerShape, cardWidth: androidx.compose.ui.unit.Dp) {
         Box(modifier.clip(shape).background(body).padding(6.dp), contentAlignment = Alignment.Center) {
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(5.dp)).background(glassColors().strong), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)).background(glassColors().strong), contentAlignment = Alignment.Center) {
                 if (card != null) CardImage(card, Modifier.width(cardWidth), shadow = false) else CardBack(Modifier.width(cardWidth))
             }
         }

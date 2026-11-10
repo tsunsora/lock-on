@@ -117,6 +117,9 @@ object LockOnShapes {
     /** Corner radius of [tile], for parts of one that round only some corners. */
     val tileRadius = 16.dp
     val thumb = RoundedCornerShape(8.dp)
+    /** The corners of a thumb or button 4 dp inside a [button]-shaped track, so the two curves run parallel. */
+    val insetRadius get() = buttonRadius - 4.dp
+    val inset get() = RoundedCornerShape(insetRadius)
     /** Corner radius of [button], for controls that draw their own fill. Desktop's controls are shorter, so a little tighter. */
     val buttonRadius = if (app.lockon.platform.isMobile) 14.dp else 12.dp
     /** Buttons, chips, tabs, search fields, icon buttons and stamps. */

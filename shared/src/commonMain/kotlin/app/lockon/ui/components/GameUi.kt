@@ -285,47 +285,13 @@ fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false): 
 fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel): Modifier =
     border(BorderStroke(HairlineWidth, glassColors().line), shape)
 
-/** A large glass panel with an optional title row (UX rule V1). */
+/** A large solid panel (UX rule V1). */
 @Composable
-fun GlassPanel(
-    modifier: Modifier = Modifier,
-    title: String? = null,
-    readout: String? = null,
-    accent: Color = Accent,
-    content: @Composable () -> Unit,
-) {
-    Column(modifier.glass()) {
-        if (title != null) PanelTitle(title, readout, accent)
-        content()
-    }
+fun GlassPanel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(modifier.glass()) { content() }
 }
 
-/** A panel's title row: the title and the count in a tinted pill. */
-@Composable
-fun PanelTitle(title: String, readout: String? = null, accent: Color = Accent, trailing: @Composable () -> Unit = {}) {
-    val scheme = MaterialTheme.colorScheme
-    Row(
-        Modifier.fillMaxWidth().height(44.dp).padding(start = 16.dp, end = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = scheme.onSurface, modifier = Modifier.weight(1f))
-        trailing()
-        if (readout != null) CountPill(readout, accent)
-    }
-}
-
-/** A number in a soft tinted pill, for panel and section counts. */
-@Composable
-fun CountPill(text: String, color: Color = Accent) {
-    val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)
-    val modifier = Modifier.clip(LockOnShapes.button).background(color.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 4.dp)
-    // A plain count rolls when it changes, like every other count (UX rule V5: numbers).
-    val number = text.toIntOrNull()
-    if (number != null) RollingNumber(number, style, color, modifier)
-    else Text(text, style = style, color = color, modifier = modifier)
-}
-
-/** A pill shape, for tabs, stamps and gauges. */
+/** The shape of tabs, stamps and menu rows: a button's rounded rectangle, named for the pill it once was. */
 val PillShape: Shape = LockOnShapes.button
 
 enum class GameButtonStyle { PRIMARY, SECONDARY, GHOST }
@@ -436,7 +402,7 @@ fun GlassIconButton(
     )
     val ring by animateColorAsState(if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.6f) else g.line, motion(Motion.SHORT), label = "icon-ring")
     val glyph by animateColorAsState(if (hovered && !desktopControls) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
-    val small = if (desktopControls) SmallControlShape else RoundedCornerShape(11.dp)
+    val small = if (desktopControls) SmallControlShape else RoundedCornerShape(10.dp)
     Box(
         modifier
             .size(if (compact) 32.dp else ControlSize)
@@ -507,7 +473,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     val accent = if (soft) softThumb() else Accent
     val onAccent = if (soft) softThumbInk() else OnAccent
     val thumbShape = if (desktopControls) InsetControlShape else LockOnShapes.button
-    val thumbRadius = if (desktopControls) 8.dp else 11.dp
+    val thumbRadius = if (desktopControls) 8.dp else 10.dp
     val trackFill = if (desktopControls) neutralWash() else scheme.onSurface.copy(alpha = 0.09f)
     val track = if (fill) Modifier.fillMaxWidth() else Modifier.horizontalScroll(rememberScrollState())
     // Where each tab sits in the row, so one teal pill can slide between them (the tabs differ in width).
@@ -1217,8 +1183,8 @@ fun GameDialog(
 }
 
 /**
- * A drop-down menu on a solid card: Material's placement and open animation, with the rounded
- * panel shape, the panel's hairline and a soft shadow. Fill it with [GameMenuItem]s.
+ * A drop-down menu on a solid card: Material's placement and open animation, with a tile's
+ * corners, the panel's hairline and a soft shadow. Its rows sit 4 dp in, so their corners run parallel to it. Fill it with [GameMenuItem]s.
  */
 @Composable
 fun GameMenu(
@@ -1232,9 +1198,9 @@ fun GameMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        modifier = modifier.widthIn(min = 180.dp).padding(horizontal = 6.dp),
+        modifier = modifier.widthIn(min = 180.dp).padding(horizontal = 4.dp),
         offset = offset,
-        shape = LockOnShapes.panel,
+        shape = LockOnShapes.tile,
         // Opaque, or the shadow beneath shows through the glass as a grey box.
         containerColor = g.strong.compositeOver(MaterialTheme.colorScheme.background),
         tonalElevation = 0.dp,
@@ -1301,12 +1267,12 @@ fun GameMenuItem(
 fun GameMenuDivider() {
     Box(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).height(1.dp)
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            .background(glassColors().line),
     )
 }
 
 /**
- * Where [GameToast]s show: Material's queue and timing, drawn as the app's glass pills instead of
+ * Where [GameToast]s show: Material's queue and timing, drawn as the app's own cards instead of
  * Material's dark bars.
  */
 @Composable
@@ -1315,15 +1281,15 @@ fun GameToastHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
 }
 
 /**
- * A short notice on an opaque glass pill: the message, and the action as a ghost
- * button. It wraps its text, so a short notice makes a short pill.
+ * A short notice on a solid rounded card: the message, and the action as a ghost
+ * button. It wraps its text, so a short notice makes a short card.
  */
 @Composable
 fun GameToast(data: SnackbarData) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
-    // A pill on one line; a wrapped notice keeps the round ends without ballooning into an oval.
-    val shape = RoundedCornerShape(24.dp)
+    // A tile's corners. The action sits 4 dp inside, so its 12 dp corners run parallel to them.
+    val shape = LockOnShapes.tile
     val action = data.visuals.actionLabel
     Row(
         Modifier
@@ -1339,7 +1305,7 @@ fun GameToast(data: SnackbarData) {
             // Opaque, so the screen under it doesn't muddy the text.
             .background(g.strong.compositeOver(scheme.background))
             .border(BorderStroke(HairlineWidth, g.line), shape)
-            .padding(start = 22.dp, end =if (action != null) 6.dp else 22.dp),
+            .padding(start = 20.dp, end = if (action != null) 4.dp else 20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -1428,7 +1394,7 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
             Canvas(Modifier.matchParentSize()) {
                 val gap = 4.dp.toPx()
                 val w = (size.width - gap * (options.size - 1)) / options.size
-                drawRoundRect(accent, Offset(slot * (w + gap), 0f), Size(w, size.height), CornerRadius(11.dp.toPx()))
+                drawRoundRect(accent, Offset(slot * (w + gap), 0f), Size(w, size.height), CornerRadius(LockOnShapes.insetRadius.toPx()))
             }
         }
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
