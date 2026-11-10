@@ -4,11 +4,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.awt.ComposeWindow
+import app.lockon.AppContainer
 import app.lockon.ui.AppState
+import app.lockon.ui.Screen
 import app.lockon.ui.Tab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Toolkit
@@ -24,10 +27,13 @@ import javax.swing.SwingUtilities
  * mouse never moves, writes the report and closes the app.
  */
 @Composable
-fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -> Unit) {
+fun ScrollProbe(window: ComposeWindow, container: AppContainer, state: AppState, report: File, exit: () -> Unit) {
     LaunchedEffect(Unit) {
         delay(3_000)
-        state.select(Tab.CARDS)
+        // `-Plockon.scrollProbe.in=deck` scrolls the card list of the fullest deck's editor instead of Cards.
+        val deck = if (System.getProperty("lockon.scrollProbe.in") != "deck") null
+            else container.decks.liveDecks.first().filterNot { it.snapshot.deleted }.maxByOrNull { it.snapshot.entries.sumOf { e -> e.quantity } }
+        if (deck == null) state.select(Tab.CARDS) else { state.select(Tab.DECKS); state.open(Screen.DeckEditor(deck.deckId)) }
         // Let the first screen of artwork arrive and the tab's animations finish.
         delay(4_000)
         val target = SwingUtilities.getDeepestComponentAt(window.contentPane, window.contentPane.width / 3, window.contentPane.height * 2 / 3)
@@ -41,6 +47,8 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
         // The window draws on this thread, so its stack during slow frames says what they spend time on.
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
         val render = renderThread()?.let { StackSampler(it).apply { start() } }
+        // Who posts tasks to the window's queue while it scrolls; taking each poster's stack slows the run, so not when timing.
+        val posted = if (PROBE_QUIET) null else PostedTasks().start()
         // Wheel notches go through the event queue from their own thread, the way real wheel input arrives.
         suspend fun scroll(into: MutableList<Long>, times: Int, notches: Int) = coroutineScope {
             val recording = launch { while (true) withFrameNanos { into += System.nanoTime() } }
@@ -72,6 +80,7 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
             File(report.path + ".render.samples.txt").writeText(it.report(slow(steady) + slow(back)))
             File(report.path + ".start.render.samples.txt").writeText(it.report(slow(start)))
         }
+        posted?.let { File(report.path + ".posted.txt").writeText(it.report(frames.size + back.size)) }
         // Every frame's time, to line up with other records of the same run, such as a collector's log.
         File(report.path + ".frames.txt").writeText((frames + back).joinToString("\n"))
         report.appendText(

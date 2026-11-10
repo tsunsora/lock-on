@@ -17,12 +17,15 @@ internal fun ComposeWindow.refreshHz(): Int = graphicsConfiguration.device.displ
  * so about half of them count), clearly over it (7 ms), over a refresh and a half (8.3 ms) and over a
  * 60 Hz frame (16.7 ms), and the time lost in gaps over 5.6 ms beyond that budget.
  */
-internal fun frameSummary(times: List<Long>): String {
-    val gaps = times.zipWithNext { a, b -> (b - a) / 1_000_000.0 }.sorted()
+internal fun frameSummary(times: List<Long>): String = gapSummary(times.zipWithNext { a, b -> a..b })
+
+/** [frameSummary] for gaps picked out of a run, such as those that don't overlap the probe's own work. */
+internal fun gapSummary(between: List<LongRange>): String {
+    val gaps = between.map { (it.last - it.first) / 1_000_000.0 }.sorted()
     if (gaps.isEmpty()) return "no frames"
     fun at(share: Double) = gaps[((gaps.size - 1) * share).toInt()]
     return "%d frames in %.1f s, mean %.2f, p50 %.1f, p95 %.1f, p99 %.1f, max %.1f ms, %d over 5.6, %d over 7.0, %d over 8.3, %d over 16.7, %.0f ms late".format(
-        times.size, (times.last() - times.first()) / 1e9, gaps.average(), at(0.5), at(0.95), at(0.99), gaps.last(),
+        gaps.size + 1, gaps.sum() / 1e3, gaps.average(), at(0.5), at(0.95), at(0.99), gaps.last(),
         gaps.count { it > 5.6 }, gaps.count { it > 7.0 }, gaps.count { it > 8.3 }, gaps.count { it > 16.7 }, gaps.filter { it > 5.6 }.sumOf { it - 5.6 },
     )
 }
@@ -74,4 +77,47 @@ internal fun gcSince(before: Map<String, Pair<Long, Long>>): String =
 internal fun components(root: Component): Sequence<Component> = sequence {
     yield(root)
     if (root is Container) root.components.forEach { yieldAll(components(it)) }
+}
+
+/**
+ * Counts the tasks posted to the window's event queue and who posted them. Every coroutine Compose
+ * starts, resumes or cancels on desktop is one, and on Java 21 each costs a walk of the whole call
+ * stack (about 13 µs from inside a composition), so a screen that posts hundreds while it builds
+ * pays for them in frames. Started with [start], it stays in place for the rest of the run.
+ */
+internal class PostedTasks : java.awt.EventQueue() {
+    private val posters = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
+    private val count = java.util.concurrent.atomic.AtomicInteger()
+    @Volatile private var counting = false
+
+    fun start() = apply { java.awt.Toolkit.getDefaultToolkit().systemEventQueue.push(this); counting = true }
+
+    override fun postEvent(event: java.awt.AWTEvent) {
+        if (counting && event is java.awt.event.InvocationEvent && java.awt.EventQueue.isDispatchThread()) {
+            count.incrementAndGet()
+            // The nearest callers that say whose work it is, skipping the coroutine machinery between.
+            val who = Thread.currentThread().stackTrace.asSequence()
+                .map { "${it.className.substringAfterLast('.')}.${it.methodName}" }
+                .filterNot { name -> Machinery.any { name.startsWith(it) } }
+                .take(4).joinToString(" < ")
+            posters.computeIfAbsent(who) { java.util.concurrent.atomic.AtomicInteger() }.incrementAndGet()
+        }
+        super.postEvent(event)
+    }
+
+    fun report(frames: Int): String {
+        counting = false
+        val total = count.get()
+        return "$total tasks posted from the window's thread, %.1f a frame over $frames frames\n".format(total / frames.coerceAtLeast(1).toDouble()) +
+            posters.entries.sortedByDescending { it.value.get() }.take(40).joinToString("\n") { "%6d  %s".format(it.value.get(), it.key) } + "\n"
+    }
+
+    private companion object {
+        val Machinery = listOf(
+            "Thread.", "PostedTasks.", "EventQueue.", "SwingUtilities.", "SwingDispatcher.", "Dispatched", "CancellableContinuation", "Cancellable",
+            "BuildersKt", "CoroutineStart.", "AbstractCoroutine.", "BaseContinuationImpl.", "FlushCoroutineDispatcher", "JobSupport", "ChildContinuation.",
+            "StandaloneCoroutine.", "JobKt", "CoroutineScopeKt.", "ContinuationImpl.", "SafeContinuation.", "Timer.", "AWTEvent.", "InvocationEvent.",
+            "Actuals_skikoKt.", "DelayKt.", "EventLoop", "Undispatched", "ScopeCoroutine.", "ContinuationKt.", "IntrinsicsKt",
+        )
+    }
 }

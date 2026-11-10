@@ -74,8 +74,11 @@ compose.desktop {
         jvmArgs("-XX:+ExplicitGCInvokesConcurrent")
         // `./gradlew :desktopApp:run -Plockon.dataDir=...` runs a separate profile, e.g. for testing.
         providers.gradleProperty("lockon.dataDir").orNull?.let { jvmArgs("-Dlockon.dataDir=$it") }
-        // `-Plockon.scrollProbe=<file>` times scrolling the card grid and closes the app (ScrollProbe.kt).
-        providers.gradleProperty("lockon.scrollProbe").orNull?.let { jvmArgs("-Dlockon.scrollProbe=$it") }
+        // `-Plockon.scrollProbe=<file>` times scrolling the card grid and closes the app (ScrollProbe.kt);
+        // `-Plockon.scrollProbe.in=deck` scrolls a deck editor's card list, whose cards carry the deck's controls.
+        listOf("lockon.scrollProbe", "lockon.scrollProbe.in").forEach { key ->
+            providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
+        }
         // `-Plockon.deckOpenProbe=<file>` times opening decks from the library and closes the app (DeckOpenProbe.kt).
         providers.gradleProperty("lockon.deckOpenProbe").orNull?.let { jvmArgs("-Dlockon.deckOpenProbe=$it") }
         providers.gradleProperty("lockon.deckOpenProbe.wait").orNull?.let { jvmArgs("-Dlockon.deckOpenProbe.wait=$it") }
@@ -99,6 +102,11 @@ compose.desktop {
         // `-Plockon.idleProbe=<file>` counts the frames drawn and collections run while the app sits on each
         // tab untouched, and closes the app (IdleProbe.kt); `-Plockon.idleProbe.seconds` sets how long.
         listOf("lockon.idleProbe", "lockon.idleProbe.seconds").forEach { key ->
+            providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
+        }
+        // `-Plockon.actProbe=<file>` times typing a search, adding a card, card details, a pointer sweep and a
+        // window resize, and closes the app (InteractionProbe.kt); `-Plockon.actProbe.only=type,edit` picks some.
+        listOf("lockon.actProbe", "lockon.actProbe.only").forEach { key ->
             providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
         }
         nativeDistributions {

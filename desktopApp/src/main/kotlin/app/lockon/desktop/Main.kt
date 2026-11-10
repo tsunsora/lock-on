@@ -152,12 +152,13 @@ fun main() {
                     if (ownTitleBar && windowState.placement != WindowPlacement.Maximized) TopResizeEdge(window)
                 }
             }
-            System.getProperty("lockon.scrollProbe")?.let { ScrollProbe(window, state, File(it), exit) }
+            System.getProperty("lockon.scrollProbe")?.let { ScrollProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.tabProbe")?.let { TabSwitchProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.dividerProbe")?.let { DividerProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.bootProbe")?.let { BootProbe(window, state, bootCover, File(it), exit) }
             System.getProperty("lockon.idleProbe")?.let { IdleProbe(window, state, File(it), exit) }
+            System.getProperty("lockon.actProbe")?.let { InteractionProbe(window, container, state, File(it), exit) }
             if (training) ClassArchiveTraining(state, exit)
         }
     }
