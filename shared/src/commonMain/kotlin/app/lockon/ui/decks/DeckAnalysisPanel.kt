@@ -54,7 +54,6 @@ import app.lockon.rules.DeckAnalysis
 import app.lockon.rules.DeckLegality
 import app.lockon.rules.Severity
 import app.lockon.ui.components.MiniCurve
-import app.lockon.ui.components.DeckGlance
 import app.lockon.ui.components.glass
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.components.SectionHeader

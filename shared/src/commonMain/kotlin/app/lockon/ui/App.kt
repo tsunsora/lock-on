@@ -153,7 +153,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import app.lockon.ui.components.TricolorStripe
 import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
 import app.lockon.ui.decks.DeckLibraryScreen

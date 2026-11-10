@@ -116,7 +116,6 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
 - **V6. Dark and light are equals.** Both themes use the same colour roles. Contrast is at least 4.5:1 for text and 3:1 for controls and tags, including text on glass over the sky.
 - **V7. Decoration is never the only signal.**
   - **The sky:** one quiet gradient from top to bottom, within one colour: pale grey-blue by day, deep navy at twilight. Nothing glows or floats in it. (Its teal, blush, violet and gold glows and the diagonal beam were turned down on 2026-11-05 so cards stand out, and removed on 2026-11-10: colour washes behind content compete with the cards, which are the one bright thing on a screen.)
-  - **Sparkles** mark headings, the selected destination and celebration.
   - **The Lock On mark:** a bold ring with four short studs and a big center dot, all in one colour, thick enough to hold at 16 px. The app icon is flat: the mark in white on a tile with a soft diagonal gradient from violet #9A68E6 at the top right to #7A55DC at the bottom left, with no glows or shading. It appears in the player card's badge, on face-down shields and as the launcher icon.
   - **Yellow-and-black caution stripes** are reserved for states that need attention: a deck conflict and a failed sync. Each also has words that explain it (I4).
   - All of these are original shapes, not official logos or artwork.

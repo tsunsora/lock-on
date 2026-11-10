@@ -60,7 +60,6 @@ import app.lockon.ui.components.CardFan
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.pressWash
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import app.lockon.ui.components.panelLines
 import app.lockon.ui.components.pressScale
 import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.cardColor

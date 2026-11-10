@@ -15,7 +15,7 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 | Rulesets | `composeResources/files/rulesets/rulesets.json` | Deck size, colours, copy limits and bans. |
 | Card artwork | downloaded per device into the artwork folder (WebP, 600×838) | Decoded at the size shown and kept in Coil's memory cache by size (`SizedArtworkKeyer`). Never synced. |
 | Icons | `LineIcons` in `ui/components/LineIcons.kt` | One outline set drawn in code on a 24-unit grid with a 1.9-unit round stroke. Nothing else supplies an icon: the Material icons library is no longer a dependency. |
-| Drawn decoration | `Sky.kt`, `SuitDecor.kt`, `Motion.kt`, `CardVisuals.kt` | The sky is painted once off the main thread into a bitmap. The reticle, Lock On mark, caution and tricolour stripes, cost orbs and card placeholders are Canvas drawings. |
+| Drawn decoration | `Sky.kt`, `SuitDecor.kt`, `Motion.kt`, `CardVisuals.kt` | The sky is painted once off the main thread into a bitmap. The reticle, Lock On mark, caution stripes, cost orbs and card placeholders are Canvas drawings. Decoration no screen uses is deleted rather than kept: the lit-column bar chart, the tricolour stripe, the armour panel lines and the sky's bokeh went on 2026-11-10. |
 
 **Plan for assets**
 - Keep new decoration drawn in code, following V7. Add a file only when a shape can't be drawn, and give it a source script under `scripts/` like the icons.

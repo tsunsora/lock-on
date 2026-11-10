@@ -96,15 +96,11 @@ private val DarkColors = darkColorScheme(
 
 /** Fixed colours for decoration that reads the same in both themes. */
 object SuitColors {
-    val armorBlue = Color(0xFF3F7FE6)
     val armorWhite = Color(0xFFF3F7FC)
     val chestRed = Color(0xFFE5484D)
     /** The one gold, for celebration: a full gauge, a finished sync, the Lock On moment. Text on a day panel uses the darker tertiary. */
     val vFinYellow = Color(0xFFFFC34D)
     val cautionBlack = Color(0xFF1C2742)
-    val teal = Color(0xFF2CC9D0)
-    val sky = Color(0xFF8ED3F5)
-    val blush = Color(0xFFF7B8D2)
 }
 
 /**

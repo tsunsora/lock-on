@@ -94,44 +94,6 @@ fun CardRow(
 }
 
 
-/** Simple vertical bar chart for level and cost curves. */
-@Composable
-fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, color: Color = if (isTwilight()) app.lockon.ui.theme.ChartSlateTwilight else app.lockon.ui.theme.ChartSlate) {
-    Column(modifier) {
-        SectionHeader(title)
-        Spacer(Modifier.height(8.dp))
-        if (bars.isEmpty()) {
-            Text("No main-deck cards yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            return@Column
-        }
-        val max = bars.maxOf { it.second }.coerceAtLeast(1)
-        var shown by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) { shown = true }
-        Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-            bars.forEachIndexed { index, (label, count) ->
-                val target = if (shown) (count.toFloat() / max).coerceAtLeast(0.02f) else 0.02f
-                val grow by animateFloatAsState(target, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "bar")
-                Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                    if (count > 0) RollingNumber(count, MaterialTheme.typography.labelLarge.merge(TabularNumbers), color)
-                    else Text("", style = MaterialTheme.typography.labelLarge)
-                    // Bars are lit columns: a bright cap over a fading body, cut like armour.
-                    Box(
-                        Modifier.fillMaxWidth().fillMaxHeight(fraction = grow * 0.8f)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                            .background(
-                                if (count > 0) Brush.verticalGradient(listOf(color, color.copy(alpha = 0.35f)))
-                                else Brush.verticalGradient(listOf(MaterialTheme.colorScheme.outlineVariant, MaterialTheme.colorScheme.outlineVariant)),
-                            )
-                            .drawBehind { if (count > 0) drawRect(Color.White.copy(alpha = 0.7f), size = Size(size.width, 2.dp.toPx())) },
-                    )
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                    Text("$label", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun QrCodeView(matrix: QrMatrix, modifier: Modifier = Modifier) {
     Surface(color = Color.White, shape = LockOnShapes.panel, modifier = modifier) {
@@ -212,24 +174,6 @@ fun ColorPips(colors: Collection<app.lockon.model.CardColor>, modifier: Modifier
     }
 }
 
-/** The Lock On targeting reticle, drawn rather than shipped as an image. */
-@Composable
-fun Reticle(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.primary) {
-    Canvas(modifier.size(28.dp)) {
-        val stroke = size.minDimension * 0.09f
-        val r = size.minDimension * 0.3f
-        drawCircle(color, radius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
-        drawCircle(color, radius = stroke)
-        val c = center
-        val near = r * 0.55f
-        val far = size.minDimension / 2
-        listOf(Offset(1f, 0f), Offset(-1f, 0f), Offset(0f, 1f), Offset(0f, -1f)).forEach { d ->
-            drawLine(color, c + d * (r - near / 2), c + d * far, strokeWidth = stroke)
-        }
-    }
-}
-
-
 /**
  * A card in the test hand or shield row: the whole card, or its back when face down. The footer
  * sits underneath for any extra controls.
@@ -269,51 +213,6 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
                             .background(if (isTwilight()) app.lockon.ui.theme.ChartSlateTwilight else app.lockon.ui.theme.ChartSlate),
                     )
                     Text("$prefix$level${if (index == bars.lastIndex) suffixLast else ""}", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-}
-
-/**
- * A deck at a glance: a title row, the level curve across the full width, and the counts by type,
- * Burst and Blockers as one row of even tiles. Zero counts are dimmed so the cards that are there
- * stand out. Used by the editor's stats strip.
- */
-@Composable
-fun DeckGlance(stats: app.lockon.rules.DeckStats, modifier: Modifier = Modifier, curveHeight: androidx.compose.ui.unit.Dp = 88.dp) {
-    val scheme = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Level curve", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface, modifier = Modifier.weight(1f))
-            Text("${stats.mainCount} cards", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant)
-        }
-        if (stats.levelCurve.isNotEmpty()) MiniCurve(stats.levelCurve, Modifier.fillMaxWidth(), height = curveHeight, caption = false)
-        Box(Modifier.fillMaxWidth().height(1.dp).background(scheme.outlineVariant.copy(alpha = 0.6f)))
-        val counts = listOf(
-            "Units" to (stats.typeCounts[app.lockon.model.CardType.UNIT] ?: 0),
-            "Pilots" to (stats.typeCounts[app.lockon.model.CardType.PILOT] ?: 0),
-            "Commands" to (stats.typeCounts[app.lockon.model.CardType.COMMAND] ?: 0),
-            "Bases" to (stats.typeCounts[app.lockon.model.CardType.BASE] ?: 0),
-            "Burst" to stats.burstCount,
-            "Blockers" to stats.blockerCount,
-        )
-        // Each tile takes its label's width and the gaps are shared, so "Commands" fits on a phone.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            counts.forEachIndexed { i, (label, n) ->
-                val dim = n == 0
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val tone by androidx.compose.animation.animateColorAsState(
-                        when {
-                            dim -> scheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            i >= 4 -> scheme.primary
-                            else -> scheme.onSurface
-                        },
-                        motion(Motion.MEDIUM), label = "glance-count",
-                    )
-                    RollingNumber(n, MaterialTheme.typography.titleMedium.merge(TabularNumbers), tone)
-                    Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false,
-                        color = scheme.onSurfaceVariant.copy(alpha = if (dim) 0.6f else 1f))
                 }
             }
         }

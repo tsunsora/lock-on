@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.SuitColors
 
-// Gundam-inspired decoration (UX rule V7). These are original shapes, not official marks, and they
-// never carry meaning on their own.
+// The Lock On mark and the caution stripes (UX rule V7). These are original shapes, not official
+// marks, and they never carry meaning on their own.
 
 /**
  * The Lock On mark: a bold ring with four short studs growing out of it and a big center dot, all
@@ -44,15 +44,6 @@ fun LockOnMark(modifier: Modifier = Modifier, size: Dp = 32.dp, reticleColor: Co
     }
 }
 
-/** Thin blue, white, red and yellow band, like a mobile suit's colour blocking. Sits at nav bar edges. */
-@Composable
-fun TricolorStripe(modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().height(3.dp)) {
-        listOf(SuitColors.armorBlue to 5f, SuitColors.armorWhite to 3f, SuitColors.chestRed to 2f, SuitColors.vFinYellow to 1f)
-            .forEach { (color, weight) -> Box(Modifier.weight(weight).fillMaxHeight().background(color)) }
-    }
-}
-
 /** Yellow and black hazard stripes. Reserved for states that need attention (UX rule V7). */
 @Composable
 fun CautionStripes(modifier: Modifier = Modifier) {
@@ -67,28 +58,5 @@ fun CautionStripes(modifier: Modifier = Modifier) {
             drawPath(path, SuitColors.vFinYellow)
             x += band * 2
         }
-    }
-}
-
-/**
- * Armour panel lines: a seam across the top-right and a short vent mark at the bottom-right,
- * drawn faintly over a plate. Purely decorative, so it is drawn rather than laid out.
- */
-fun Modifier.panelLines(color: Color, vents: Boolean = true): Modifier = drawWithContent {
-    drawContent()
-    val line = 1.dp.toPx()
-    val inset = 14.dp.toPx()
-    val seamY = 4.dp.toPx()
-    val start = size.width * 0.72f
-    // Seam along the plate's top margin that steps down once, like a plate edge. It stays in the
-    // margin so it never crosses content.
-    drawLine(color, Offset(start, seamY), Offset(size.width - inset - 4.dp.toPx(), seamY), line)
-    drawLine(color, Offset(size.width - inset - 4.dp.toPx(), seamY), Offset(size.width - inset, seamY + 4.dp.toPx()), line)
-    if (!vents) return@drawWithContent
-    // Three short vent slashes near the bottom-right corner, for plates with an empty corner there.
-    val vy = size.height - 10.dp.toPx()
-    repeat(3) { i ->
-        val vx = size.width - inset - 26.dp.toPx() + i * 6.dp.toPx()
-        drawLine(color, Offset(vx, vy), Offset(vx + 4.dp.toPx(), vy - 6.dp.toPx()), line * 1.5f)
     }
 }
