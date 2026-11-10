@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.11.23 (2026-11-10)
+
+On Windows, Lock On has a title bar of its own, like other Windows apps.
+
+- **Title bar:** minimize, maximize and close moved out of the app into a strip of their own above it, with Lock On's mark and name. The buttons are the size of Windows' own, and close turns red when you point at it. Drag the strip to move the window, or double-click it to maximize. It follows the light or dark theme.
+- **Starting up:** the startup animation plays under the title bar instead of covering it.
+
 ## 26.11.22 (2026-11-10)
 
 A visual tidy-up: a quieter sky, lighter type, even spacing and one set of icons, so the cards carry the color.
