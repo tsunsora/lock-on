@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.11.22 (2026-11-10)
+
+A visual tidy-up: a quieter sky, lighter type, even spacing and one set of icons, so the cards carry the color.
+
+- **Sky and panels:** the sky is one quiet gradient with no glows or beam of light. Panels have one thin edge instead of a rim that fades from bright to dim, and shadows are neutral instead of blue. A card's details no longer glow in the card's color, and a transfer's progress bar and the welcome tour's picture band are flat.
+- **Type:** headings, labels, buttons and numbers are a little lighter, so size and color set them apart rather than boldness. The launch screen's readouts are plain words instead of spaced capitals.
+- **Spacing and corners:** gaps between things sit on one even grid, deck tiles have even padding, and a rounded shape inside another follows the outer one's curve. Menus and notices share one corner size.
+- **Icons:** every icon is an outline from the same set; the few filled arrows are redrawn to match. Analysis tiles show a label and a number, with no icon.
+- **Wording:** one-line notices end without a period, the welcome tour opens on Lock On's name, and the line under Delete says you can undo it right after.
+- **Motion:** switches and a card held up to inspect settle without bouncing, and a hovered card lifts without growing.
+
 ## 26.11.21 (2026-11-10)
 
 The desktop app rests when nothing is moving, and cards scroll more smoothly.
