@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.24 (2026-11-10)
+
+On the computer, the bar across the top of the app is slimmer, now that the window's buttons have a title bar of their own.
+
+- **Top bar:** it is about a quarter shorter. The Decks, Cards, Sync and Settings pill is the height of the buttons below it, and its edges line up with the panels underneath.
+- **Lock On's name:** on Windows it now shows once, in the title bar, instead of again just under it. Inside a deck the top-left corner holds the back button, with a little more room before the deck's name.
+- **Narrow windows:** a deck's name and state, when they stack on two lines, no longer crowd the top of the window.
+
 ## 26.11.23 (2026-11-10)
 
 On Windows, Lock On has a title bar of its own, like other Windows apps.
