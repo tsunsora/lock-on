@@ -96,6 +96,11 @@ compose.desktop {
         listOf("lockon.bootProbe", "lockon.bootProbe.shots", "lockon.bootProbe.resize").forEach { key ->
             providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
         }
+        // `-Plockon.idleProbe=<file>` counts the frames drawn and collections run while the app sits on each
+        // tab untouched, and closes the app (IdleProbe.kt); `-Plockon.idleProbe.seconds` sets how long.
+        listOf("lockon.idleProbe", "lockon.idleProbe.seconds").forEach { key ->
+            providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Lock On"

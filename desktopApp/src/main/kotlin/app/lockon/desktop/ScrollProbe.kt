@@ -17,11 +17,11 @@ import java.io.File
 import javax.swing.SwingUtilities
 
 /**
- * Times scrolling in the real window, where the GPU draws and the grid can prefetch between
- * frames, which the off-screen benchmark can't show. Run with `-Plockon.scrollProbe=<report file>`
- * (best with `-Plockon.dataDir` pointing at a copy of real data): it opens Cards, scrolls the grid
- * with wheel events sent straight to the window, so the real mouse never moves, writes the report
- * and closes the app.
+ * Times scrolling in the real window, where the GPU draws and the window's thread is free between
+ * frames while it does, which the off-screen benchmark can't show. Run with
+ * `-Plockon.scrollProbe=<report file>` (best with `-Plockon.dataDir` pointing at a copy of real
+ * data): it opens Cards, scrolls the grid with wheel events sent straight to the window, so the real
+ * mouse never moves, writes the report and closes the app.
  */
 @Composable
 fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -> Unit) {
@@ -34,35 +34,36 @@ fun ScrollProbe(window: ComposeWindow, state: AppState, report: File, exit: () -
             ?: window.contentPane
         val x = target.width / 2
         val y = target.height / 2
-        val hz = window.graphicsConfiguration.device.displayMode.refreshRate.takeIf { it > 0 } ?: 60
         val frames = mutableListOf<Long>()
+        val back = mutableListOf<Long>()
+        val gc = gcTotals()
         // The window draws on this thread, so its stack during slow frames says what they spend time on.
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
         val render = renderThread()?.let { StackSampler(it).apply { start() } }
-        coroutineScope {
-            val recording = launch { while (true) withFrameNanos { frames += System.nanoTime() } }
-            // Two wheel notches a refresh at 60 Hz for ten seconds, a long steady scroll through the grid.
-            // They go through the event queue from their own thread, the way real wheel input arrives.
+        // Wheel notches go through the event queue from their own thread, the way real wheel input arrives.
+        suspend fun scroll(into: MutableList<Long>, times: Int, notches: Int) = coroutineScope {
+            val recording = launch { while (true) withFrameNanos { into += System.nanoTime() } }
             withContext(Dispatchers.IO) {
                 val queue = Toolkit.getDefaultToolkit().systemEventQueue
-                repeat(300) {
+                repeat(times) {
                     queue.postEvent(MouseWheelEvent(target, MouseWheelEvent.MOUSE_WHEEL, System.currentTimeMillis(), 0,
-                        x, y, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 1, 2))
+                        x, y, 0, false, MouseWheelEvent.WHEEL_UNIT_SCROLL, 1, notches))
                     Thread.sleep(33)
                 }
             }
             recording.cancel()
         }
-        val slow = frames.zipWithNext { a, b -> a..b }.filter { it.last - it.first > LATE_FRAME_NS }
+        // Two wheel notches a refresh at 60 Hz for ten seconds, a long steady scroll through the grid,
+        // then half as long back up, past cards that were on screen a moment ago.
+        scroll(frames, 300, 2)
+        delay(500)
+        scroll(back, 150, -2)
+        val slow = (frames.zipWithNext { a, b -> a..b } + back.zipWithNext { a, b -> a..b }).filter { it.last - it.first > LATE_FRAME_NS }
         File(report.path + ".samples.txt").writeText(sampler.finish().report(slow))
         render?.let { File(report.path + ".render.samples.txt").writeText(it.finish().report(slow)) }
-        val gaps = frames.zipWithNext { a, b -> (b - a) / 1_000_000.0 }.sorted()
-        val budget = 1_000.0 / hz
         report.appendText(
-            "${window.renderApi}, ${hz} Hz, ${window.width}×${window.height}: %d frames in %.1f s, mean %.1f ms, median %.1f ms, p90 %.1f ms, p99 %.1f ms, worst %.1f ms, %d over 1.5× budget (%.1f ms), %d over 16.7 ms\n".format(
-                frames.size, (frames.last() - frames.first()) / 1e9, gaps.average(), gaps[gaps.size / 2], gaps[gaps.size * 9 / 10],
-                gaps[gaps.size * 99 / 100], gaps.last(), gaps.count { it > budget * 1.5 }, budget, gaps.count { it > 1_000.0 / 60 },
-            ),
+            "${window.renderApi}, ${window.refreshHz()} Hz, ${window.width}×${window.height}: ${frameSummary(frames)}; collections: ${gcSince(gc)}\n" +
+                "  back up: ${frameSummary(back)}\n",
         )
         exit()
     }

@@ -36,8 +36,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jetbrains.skiko.SkiaLayer
-import java.awt.Component
-import java.awt.Container
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -159,6 +157,7 @@ fun main() {
             System.getProperty("lockon.tabProbe")?.let { TabSwitchProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.dividerProbe")?.let { DividerProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.bootProbe")?.let { BootProbe(window, state, bootCover, File(it), exit) }
+            System.getProperty("lockon.idleProbe")?.let { IdleProbe(window, state, File(it), exit) }
             if (training) ClassArchiveTraining(state, exit)
         }
     }
@@ -185,12 +184,6 @@ private fun BootFirstFrame(container: AppContainer, clock: app.lockon.ui.BootClo
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) {
         app.lockon.ui.theme.LockOnTheme(dark) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.DECKS, clock, playing = false, onSkyPainted = onSkyPainted) }
     }
-}
-
-/** [root] and everything inside it, parents before children. */
-private fun components(root: Component): Sequence<Component> = sequence {
-    yield(root)
-    if (root is Container) root.components.forEach { yieldAll(components(it)) }
 }
 
 private class DesktopFileBridge(private val owner: Frame) : FileBridge {
