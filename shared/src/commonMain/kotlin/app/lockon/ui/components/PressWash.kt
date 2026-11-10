@@ -24,7 +24,6 @@ import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.node.invalidateDraw
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 
 /** How strong the wash is while pressed, and on desktop while hovered. */
@@ -63,8 +62,7 @@ private class PressWashNode(
     private var focused = false
 
     override fun onAttach() {
-        // Undispatched, so a tile scrolling in subscribes now rather than posting one more event to the window's queue.
-        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        launchInPlace {
             var presses = 0
             var hovers = 0
             source.interactions.collect { event ->

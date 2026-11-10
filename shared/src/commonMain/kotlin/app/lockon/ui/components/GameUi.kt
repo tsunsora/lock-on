@@ -792,8 +792,7 @@ internal class HoverLiftNode(
     // Presses come from the interaction source, so a long touch counts too. Until a pointer has
     // reached the tile a keyboard press doesn't sink it; the press wash still shows it.
     private fun watch() {
-        // Undispatched, so a tile scrolling in subscribes now rather than posting one more event to the window's queue.
-        watching = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        watching = launchInPlace {
             var presses = 0
             interaction.interactions.collect { event ->
                 when (event) {

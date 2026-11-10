@@ -3,6 +3,7 @@ package app.lockon.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,12 +35,18 @@ import coil3.EventListener
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import okio.Path.Companion.toPath
+import kotlin.time.ComparableTimeMark
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 /**
  * Finds the artwork for a card: the chosen printing's image, else the standard printing's, else any.
@@ -89,8 +96,9 @@ fun CardArtwork(
     var covered by remember(url) { mutableStateOf(false) }
     // Until the image loads, a timer waits to show the placeholder. Only a placeholder that showed
     // needs a second timer to drop it after the crossfade; most images arrive first and need neither.
-    if (!loaded) LaunchedEffect(url) { delay(PLACEHOLDER_DELAY_MS); slow = true }
-    else if (slow && !covered) LaunchedEffect(url) { delay(CROSSFADE_MS + 50L); covered = true }
+    val timers = LocalArtworkTimers.current
+    if (!loaded) After(timers, url, PLACEHOLDER_DELAY_MS) { slow = true }
+    else if (slow && !covered) After(timers, url, CROSSFADE_MS + 50L) { covered = true }
     Box(modifier) {
         if (url == null || failed || (slow && !covered)) fallback()
         if (url != null && !failed) {
@@ -109,6 +117,63 @@ fun CardArtwork(
         }
     }
 }
+
+/** Runs [then] in [millis], unless this leaves the screen or [key] changes first. */
+@Composable
+private fun After(timers: ArtworkTimers?, key: Any?, millis: Long, then: () -> Unit) {
+    if (timers == null) LaunchedEffect(key) { delay(millis); then() }
+    else DisposableEffect(key, timers) {
+        val wait = timers.after(millis, then)
+        onDispose { wait.cancel() }
+    }
+}
+
+/**
+ * One timer for every card waiting on its image. Each card used to start a coroutine and a timer of
+ * its own and cancel them when its image arrived, a moment later. On desktop each of those is a task
+ * posted to the window's event queue, three a card, in the frame a row of cards scrolls in. Here a
+ * card only adds itself to a list; one coroutine sleeps until the earliest is due. Used from the UI
+ * thread only.
+ */
+class ArtworkTimers(private val scope: CoroutineScope) {
+    class Wait internal constructor(internal val due: ComparableTimeMark, internal val then: () -> Unit) {
+        internal var cancelled = false
+        fun cancel() { cancelled = true }
+    }
+
+    // Soonest first. Cancelled ones stay until their turn comes, which costs nothing.
+    private val waits = ArrayDeque<Wait>()
+    private var ticking: Job? = null
+
+    fun after(millis: Long, then: () -> Unit): Wait {
+        val wait = Wait(TimeSource.Monotonic.markNow() + millis.milliseconds, then)
+        // Nearly always the latest, so this is nearly always an append.
+        var at = waits.size
+        while (at > 0 && waits[at - 1].due > wait.due) at--
+        waits.add(at, wait)
+        // The sleeper is waiting for what was the soonest; a new soonest starts it again.
+        if (at == 0) {
+            ticking?.cancel()
+            ticking = scope.launch { tick() }
+        }
+        return wait
+    }
+
+    private suspend fun tick() {
+        while (true) {
+            val next = waits.firstOrNull() ?: break
+            if (next.cancelled) { waits.removeFirst(); continue }
+            val left = -next.due.elapsedNow()
+            if (left.isPositive()) { delay(left); continue }
+            waits.removeFirst()
+            next.then()
+        }
+        ticking = null
+    }
+}
+
+/** The app's [ArtworkTimers]; null outside the app, as in previews, where each card keeps a timer of its own. */
+val LocalArtworkTimers = staticCompositionLocalOf<ArtworkTimers?> { null }
 
 /** Counts artwork images loading right now, so the boot screen can stay up until the screens under it have theirs. */
 object ArtworkLoads : EventListener() {

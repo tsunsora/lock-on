@@ -81,6 +81,8 @@ import androidx.compose.ui.node.LayoutModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.unit.Constraints
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -270,6 +272,16 @@ fun ReticleSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp, color: Color
 }
 
 /**
+ * Starts work for a modifier node without posting anything to the window's event queue, when it
+ * starts or when the node goes. On desktop a node's coroutines run through that queue, so a collector
+ * that every tile carries cost each tile an event as it scrolled in, and another as it scrolled away
+ * just to hear it was cancelled. For work that belongs on the UI thread and is only ever woken there,
+ * as by interactions and frames: it carries on wherever it is woken.
+ */
+internal fun Modifier.Node.launchInPlace(block: suspend CoroutineScope.() -> Unit): Job =
+    coroutineScope.launch(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED, block)
+
+/**
  * Presses sink a hair, so taps on tiles and cards register. A modifier node rather than composed
  * state, since every card tile carries two of these and a screen opens with dozens of tiles.
  */
@@ -300,8 +312,7 @@ private class PressScaleNode(private var interaction: MutableInteractionSource) 
     }
 
     private fun watch() {
-        // Undispatched, so a tile scrolling in subscribes now rather than posting one more event to the window's queue.
-        watching = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        watching = launchInPlace {
             var presses = 0
             interaction.interactions.collect { event ->
                 when (event) {

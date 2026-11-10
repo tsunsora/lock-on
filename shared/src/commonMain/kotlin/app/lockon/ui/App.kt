@@ -126,6 +126,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import app.lockon.ui.components.ArtworkSource
+import app.lockon.ui.components.ArtworkTimers
+import app.lockon.ui.components.LocalArtworkTimers
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.Motion
@@ -612,7 +615,9 @@ fun ArtworkProvider(container: AppContainer, artworkDir: String, content: @Compo
     val showArtwork by container.catalog.showArtwork.collectAsState()
     val artwork = remember(printings, showArtwork) { ArtworkSource(showArtwork, printings) }
     LaunchedEffect(store, printings, showArtwork) { if (showArtwork) store.downloadAll(printings.values.flatten()) }
-    CompositionLocalProvider(LocalArtwork provides artwork, LocalArtworkStore provides store, content = content)
+    val scope = rememberCoroutineScope()
+    val timers = remember { ArtworkTimers(scope) }
+    CompositionLocalProvider(LocalArtwork provides artwork, LocalArtworkStore provides store, LocalArtworkTimers provides timers, content = content)
 }
 
 /**
