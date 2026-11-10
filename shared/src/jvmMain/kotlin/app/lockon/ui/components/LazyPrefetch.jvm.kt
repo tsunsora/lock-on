@@ -109,23 +109,33 @@ private class BetweenFramesScheduler(private val scope: CoroutineScope) : Prefet
         // a fast scroll cancels rows faster than they are built, and they would pile up here.
         var spent = false
         val each = waiting.iterator()
-        while (each.hasNext()) {
-            val request = each.next()
-            val began = System.nanoTime()
-            val force = !spent && stalled >= StallLimit
-            offer = if (force) Long.MAX_VALUE else if (spent) 0L else null
-            val more = with(request) { execute() }
-            offer = null
-            if (!more) {
-                each.remove()
-                if (!spent) stalled = 0
-            } else if (!spent) {
-                spent = true
-                // Turned down a fair slice without starting; a short or late slice says nothing about it.
-                if (force || System.nanoTime() - began >= Progress) stalled = 0 else if (sliceEnd - began >= FairSlice) stalled++
+        try {
+            while (each.hasNext()) {
+                val request = each.next()
+                val began = System.nanoTime()
+                val force = !spent && stalled >= StallLimit
+                offer = if (force) Long.MAX_VALUE else if (spent) 0L else null
+                val more = try {
+                    with(request) { execute() }
+                } catch (failure: Throwable) {
+                    // Whatever failed building this item will fail again when it scrolls in, and be reported there.
+                    each.remove()
+                    throw failure
+                } finally {
+                    offer = null
+                }
+                if (!more) {
+                    each.remove()
+                    if (!spent) stalled = 0
+                } else if (!spent) {
+                    spent = true
+                    // Turned down a fair slice without starting; a short or late slice says nothing about it.
+                    if (force || System.nanoTime() - began >= Progress) stalled = 0 else if (sliceEnd - began >= FairSlice) stalled++
+                }
             }
+        } finally {
+            if (waiting.isNotEmpty()) awaitFrame()
         }
-        if (waiting.isNotEmpty()) awaitFrame()
     }
 
     override fun availableTimeNanos(): Long = offer ?: (sliceEnd - System.nanoTime()).coerceAtLeast(0)
