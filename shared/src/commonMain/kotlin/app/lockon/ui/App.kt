@@ -127,6 +127,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import app.lockon.ui.components.ArtworkSource
 import app.lockon.ui.components.ArtworkTimers
+import app.lockon.ui.components.collectWhileShown
 import app.lockon.ui.components.LocalArtworkTimers
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -423,7 +424,7 @@ fun LockOnApp(
                                         ScreenHeader("Sync")
                                         // The shared, already decoded list: this tab stays composed, and the
                                         // unshared flow decoded every deck on the UI thread after each save.
-                                        val all by container.decks.liveDecks.collectAsState(initial = emptyList())
+                                        val all by container.decks.liveDecks.collectWhileShown(emptyList())
                                         val decks = remember(all) { all.filterNot { it.snapshot.deleted } }
                                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                                             Box(Modifier.widthIn(max = 1240.dp)) { SyncScreen(

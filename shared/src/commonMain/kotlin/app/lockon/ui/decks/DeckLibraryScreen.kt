@@ -115,6 +115,8 @@ import app.lockon.AppContainer
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.model.DeckSummary
+import app.lockon.ui.components.collectWhileShown
+import app.lockon.ui.components.LocalScreenShown
 import app.lockon.platform.FileBridge
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -207,7 +209,8 @@ private sealed interface FolderFilter {
 
 @Composable
 fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridge) {
-    val decks by container.decks.liveDecks.collectAsState(initial = null)
+    // While a deck is open this screen is kept out of sight, and takes up the deck's saves when it shows again.
+    val decks by container.decks.liveDecks.collectWhileShown<List<DeckSummary>?>(null)
     val keptFolders by container.decks.keptFolders.collectAsState(initial = emptyList())
     val cards by container.catalog.cards.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
@@ -390,12 +393,18 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                             // Decks only revealed by a cleared search or another folder were there all along, so it
                             // tracks the whole library, not what is shown.
                             val seen = remember { mutableSetOf<String>() }
+                            // A deck made while this screen was out of sight (its editor opens over it) arrives as
+                            // the screen comes back, still faded out, so the grid is simply there, as it used to be.
+                            val away = remember { booleanArrayOf(false) }
+                            if (!LocalScreenShown.current) away[0] = true
                             LaunchedEffect(list) {
                                 val hadSome = seen.isNotEmpty()
                                 val added = list.map { it.deckId }.filter { it !in seen }
                                 seen += added
                                 val fresh = shown.indexOfFirst { it.deckId in added }
-                                if (hadSome && fresh >= 0) gridState.animateScrollToItem(fresh)
+                                val wasAway = away[0]
+                                away[0] = false
+                                if (hadSome && fresh >= 0) { if (wasAway) gridState.scrollToItem(fresh) else gridState.animateScrollToItem(fresh) }
                             }
                             Box(Modifier.weight(1f).fillMaxWidth()) {
                             LazyVerticalGrid(

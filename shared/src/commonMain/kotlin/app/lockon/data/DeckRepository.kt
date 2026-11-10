@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.runningReduce
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -66,6 +67,12 @@ class DeckRepository(
         // A save writes both tables, so the combine emits the same list twice; the copy is dropped here,
         // off the main thread, instead of in every screen collecting it.
         decks.distinctUntilChanged()
+            // Every read builds each deck anew. A deck that didn't change keeps the object it was, so a
+            // screen can tell at a glance which decks a save left alone and not draw them again.
+            .runningReduce { before, now ->
+                val known = before.associateBy { it.deckId }
+                now.map { deck -> known[deck.deckId]?.takeIf { it == deck } ?: deck }
+            }
             .shareIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.WhileSubscribed(5_000), replay = 1)
 
     /** One deck from [liveDecks]; it emits only when that deck changes. */

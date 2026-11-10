@@ -197,6 +197,8 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.withFrameNanos
 import app.lockon.platform.resizeHorizontalPointer
@@ -232,14 +234,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     // before the screen starts sliding in, instead of halfway through it.
     val cached = remember(deckId) { container.decks.cachedDeck(deckId) }
     var loaded by remember(deckId) { mutableStateOf(cached != null) }
-    val summary by produceState(cached, deckId) { container.decks.liveDeck(deckId).collect { value = it; loaded = true } }
+    // The deck as saved. Each save changes it, so nothing here reads it whole while composing: only
+    // the parts that seldom change, or the editor would build itself again after every save.
+    val summary = produceState(cached, deckId) { container.decks.liveDeck(deckId).collect { value = it; loaded = true } }
+    val missing by remember(deckId) { derivedStateOf { summary.value == null } }
+    val hasConflict by remember(deckId) { derivedStateOf { summary.value?.hasConflict == true } }
     val cards by container.catalog.cards.collectAsState()
     val printings by container.catalog.printings.collectAsState()
     val ruleset by container.catalog.ruleset.collectAsState()
     val autoDeckColors by container.settings.autoDeckColors.collectAsState()
     val barOrder by container.settings.editorBar.collectAsState()
     val moreHidden by container.settings.moreHidden.collectAsState()
-    val allDecks by container.decks.liveDecks.collectAsState(initial = emptyList())
     val devices by container.devices.pairedDevices.collectAsState(initial = emptyList())
     var history by remember(deckId) { mutableStateOf<List<DeckVersion>>(emptyList()) }
 
@@ -249,12 +254,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     var saved by remember(deckId) { mutableStateOf(cached?.snapshot) }
     // The revision the draft builds on, so an edit that syncs in meanwhile becomes a conflict, not lost.
     var base by remember(deckId) { mutableStateOf(cached?.headRevisionId) }
-    LaunchedEffect(summary) {
-        val incoming = summary ?: return@LaunchedEffect
-        if (draft == null || draft == saved) { draft = incoming.snapshot; saved = incoming.snapshot; base = incoming.headRevisionId }
+    LaunchedEffect(deckId) {
+        snapshotFlow { summary.value }.collect { incoming ->
+            if (incoming != null && (draft == null || draft == saved)) { draft = incoming.snapshot; saved = incoming.snapshot; base = incoming.headRevisionId }
+        }
     }
-    val pending by rememberUpdatedState(draft?.takeIf { it != saved })
-    val pendingBase by rememberUpdatedState(base)
     // Saves run one at a time in the order they were asked for. Two launched together could otherwise
     // land out of order, and the older copy, read back as the deck, would drop the newer change.
     fun persist(snapshot: DeckSnapshot, from: String?) {
@@ -276,7 +280,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         saved = next
     }
     DisposableEffect(deckId) {
-        onDispose { pending?.let { last -> persist(last, pendingBase) } }
+        onDispose { draft?.takeIf { it != saved }?.let { last -> persist(last, base) } }
     }
 
     // The editor fills in over its first frames: its frame, then the deck, then the card list. Each
@@ -289,7 +293,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     val deck = draft
     // Still loading: show nothing rather than a moment of "Deck not found".
     if (!loaded && deck == null) return
-    if (summary == null && deck == null) {
+    if (missing && deck == null) {
         EmptyState("Deck not found", "It may have been deleted on another device.") {
             GameButton("Back", onClick = state::goBack, style = GameButtonStyle.GHOST, compact = true)
         }
@@ -418,10 +422,10 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 ProgressGauge("Main deck", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1f),
-                    compact = true, hold = summary?.hasConflict == true, inline = true, numberLast = true)
+                    compact = true, hold = hasConflict, inline = true, numberLast = true)
             }
         }
-        AnimatedVisibility(summary?.hasConflict == true, enter = revealIn(), exit = revealOut()) {
+        AnimatedVisibility(hasConflict, enter = revealIn(), exit = revealOut()) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -513,12 +517,14 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
         val analysis: @Composable (Modifier) -> Unit = { modifier -> DeckAnalysisPanel(deck, cards, legality, modifier) }
         val test: @Composable (Modifier) -> Unit = { modifier -> SampleHandPanel(deck, cards, modifier) }
-        // Opponents named on any deck, most played first.
-        val opponents = remember(allDecks) {
-            allDecks.flatMap { d -> d.snapshot.matches.map { it.opponent.trim() } }.filter { it.isNotEmpty() }
-                .groupBy { it.lowercase() }.values.sortedByDescending { it.size }.map { it.last() }
-        }
         val matchLog: @Composable (Modifier) -> Unit = { modifier ->
+            // Opponents named on any deck, most played first. Read here, where the log shows, and not by
+            // the editor itself: every deck's save would otherwise build every open editor again.
+            val allDecks by container.decks.liveDecks.collectAsState(initial = emptyList())
+            val opponents = remember(allDecks) {
+                allDecks.flatMap { d -> d.snapshot.matches.map { it.opponent.trim() } }.filter { it.isNotEmpty() }
+                    .groupBy { it.lowercase() }.values.sortedByDescending { it.size }.map { it.last() }
+            }
             MatchLogPanel(
                 deck.matches, opponents, modifier,
                 // Games read the draft itself, not this composition's copy, and save at once rather
@@ -545,7 +551,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         }
         val versions: @Composable (Modifier) -> Unit = { modifier ->
             // Loaded only while the panel shows: reading the history decodes every version.
-            LaunchedEffect(summary) { history = container.decks.history(deckId) }
+            LaunchedEffect(summary.value) { history = container.decks.history(deckId) }
             VersionsPanel(
                 history, deck, cards, { deviceLabel(it, container.identity.deviceId, devices) },
                 fromPhone = { id -> if (id == container.identity.deviceId) isMobile else devices.firstOrNull { it.deviceId == id }?.role != app.lockon.sync.DeviceRole.HOST },
@@ -630,7 +636,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             ProgressGauge("Main deck", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1f).padding(end = 8.dp),
-                                compact = true, hold = summary?.hasConflict == true, inline = true)
+                                compact = true, hold = hasConflict, inline = true)
                             GlassIconButton(LineIcons.Export, "Export", { exporting = true }, compact = true)
                             Box {
                                 GlassIconButton(LineIcons.More, "More", { deckMenu = true }, compact = true)

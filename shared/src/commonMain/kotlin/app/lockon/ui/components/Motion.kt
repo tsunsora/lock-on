@@ -57,6 +57,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +92,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.SuitColors
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import androidx.compose.foundation.interaction.InteractionSource
 import kotlin.time.TimeSource
@@ -123,6 +127,26 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
  * it is drawn or not, so the whole window kept redrawing on every other screen.
  */
 val LocalScreenShown = compositionLocalOf { true }
+
+/**
+ * Collects [this] as `collectAsState` does, except that a screen kept out of sight ([LocalScreenShown])
+ * holds the value it has and takes the newest when it shows again. A hidden screen that follows its
+ * data builds itself again on every change, inside a frame of whatever is on screen: the deck library
+ * and Sync did after every save in a deck editor. The first value always arrives, so a screen built
+ * ahead of time, under the boot screen, has its content.
+ */
+@Composable
+fun <T> Flow<T>.collectWhileShown(initial: T): State<T> {
+    val shown = rememberUpdatedState(LocalScreenShown.current)
+    val state = remember(this) { mutableStateOf(initial) }
+    LaunchedEffect(this) {
+        var arrived = false
+        combine(snapshotFlow { shown.value }) { value, isShown -> value to isShown }.collect { (value, isShown) ->
+            if (isShown || !arrived) { state.value = value; arrived = true }
+        }
+    }
+    return state
+}
 
 /**
  * A number that runs from [from] to [to] over and over, for spinners and sweeps to read while they
