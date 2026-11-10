@@ -710,7 +710,7 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
                 .border(1.dp, ring, NamePlate)
-                .padding(start = 62.dp, end = 22.dp, top = 12.dp, bottom = 12.dp),
+                .padding(start = 62.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
         ) {
             // Both names are laid out at once, so the plate keeps one width and nothing beside it moves.
             Text(

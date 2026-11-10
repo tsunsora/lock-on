@@ -262,7 +262,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
 /** A comfortable reading width: wider and a row's name drifts too far from its control. */
 private val CONTENT_WIDTH = 760.dp
 /** How wide a choice of a few options is when it sits beside its name. */
-private val SEGMENTED_WIDTH = 290.dp
+private val SEGMENTED_WIDTH = 288.dp
 
 /** Whether rows have room for every control beside the setting's name, rather than under it. */
 internal val LocalRoomyRows = compositionLocalOf { false }

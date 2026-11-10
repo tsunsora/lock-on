@@ -274,7 +274,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         if (wide) ScreenHeader("Decks")
         else Row(
             Modifier.fillMaxWidth().clearOfNav().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("Decks", style = MaterialTheme.typography.headlineMedium, maxLines = 1, color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.width(2.dp))
@@ -342,8 +342,8 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                     // by New folder and the open folder's actions; while a deck is held the folders spread out
                     // as chips again, so it can be dropped on one.
                     if (!wide && !list.isNullOrEmpty()) Row(
-                        Modifier.fillMaxWidth().padding(bottom = 6.dp).fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        Modifier.fillMaxWidth().padding(bottom = 8.dp).fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         FadeSwap(drag.deck == null, contentAlignment = Alignment.CenterStart) { resting ->
@@ -623,7 +623,7 @@ private fun FolderItem(
             .hoverable(interaction)
             .selectable(selected, interaction, indication = null, role = Role.Tab, onClick = onClick)
             .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(icon, contentDescription = null, Modifier.size(18.dp), tint = ink)
         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -835,8 +835,8 @@ private fun DeckRow(
         Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(deckArtFill(colors, glassColors().strong))) {
             CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.18f, top = 0.05f), ContentScale.FillBounds) { Box(Modifier.fillMaxSize()) }
         }
-        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(deck.snapshot.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface)
                 ColorPips(colors)
                 Box {
@@ -855,7 +855,7 @@ private fun DeckRow(
                 }
             }
             val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
-            Row(Modifier.padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FadeSwap(legal to deck.hasConflict) { (isLegal, review) -> StateTag(isLegal, review = review) }
                 Spacer(Modifier.weight(1f))
                 if (record.winRate != null) {
@@ -863,7 +863,7 @@ private fun DeckRow(
                     Text("${record.winRate}%", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
                 }
             }
-            ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 10.dp), compact = true, hold = deck.hasConflict, inline = true)
+            ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true)
         }
     }
 }
@@ -880,7 +880,7 @@ private fun FolderTabs(total: Int, folders: List<Pair<String, Int>>, unfiled: In
             Row(
                 Modifier.fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(softThumbFill(on))
                     .selectable(on, role = Role.Tab) { onSelect(filter) }.padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(label, style = MaterialTheme.typography.labelLarge, color = softThumbTone(on), maxLines = 1)
                 Text("$count", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
@@ -910,18 +910,18 @@ private fun BoxScope.DeckActionsButton(actions: List<DeckAction>) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)).clickable(interactionSource = null, indication = null) { open = false })
     }
     Column(
-        Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 14.dp + LocalNavClearance.current),
-        horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp),
+        Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + LocalNavClearance.current),
+        horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         AnimatedVisibility(open, enter = revealIn(), exit = revealOut()) {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 4.dp)) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 4.dp)) {
                 actions.forEach { action ->
                     val fill = if (action.primary) scheme.primary else glassColors().strong
                     val ink = if (action.primary) scheme.onPrimary else scheme.onSurface
                     Row(
                         Modifier.height(48.dp).shadow(3.dp, LockOnShapes.button).clip(LockOnShapes.button).background(fill)
                             .clickable(role = Role.Button) { open = false; action.onClick() }.padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Icon(action.icon, contentDescription = null, Modifier.size(20.dp), tint = ink)
                         Text(action.label, style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1)
@@ -987,8 +987,8 @@ private fun DeckTile(
             }
             CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.16f, top = 0.035f), ContentScale.FillBounds) {}
         }
-        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = scheme.onSurface, modifier = Modifier.weight(1f))
                 ColorPips(colors)
@@ -1041,7 +1041,7 @@ private fun DeckFacts(modifier: Modifier, lead: @Composable () -> Unit, age: Str
             Box { lead() }
             Text(age, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
             if (record != null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(record.first, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface, maxLines = 1, softWrap = false)
                     Text(record.second, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
                 }
@@ -1089,7 +1089,7 @@ private fun deckArtFill(colors: Set<CardColor>, panel: Color): Brush {
     }
 }
 
-private val CompactDeckBoxHeight = 106.dp
+private val CompactDeckBoxHeight = 108.dp
 
 @Composable
 fun TextPromptDialog(

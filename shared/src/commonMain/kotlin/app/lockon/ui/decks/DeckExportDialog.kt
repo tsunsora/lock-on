@@ -433,7 +433,7 @@ private fun DeckExport(
                             Column(Modifier.width(controlsWidth).fillMaxHeight().padding(end = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Reveal(tab != 2) { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SectionHeader("Order")
-                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         orderChips()
                                     }
                                 } }
@@ -456,7 +456,7 @@ private fun DeckExport(
                 } else {
                     // The sky behind the sheet, as on the editor's Export page, so the preview's glass reads.
                     SkyBackground(Modifier.fillMaxSize()) {
-                        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             header()
                             phone(Modifier.weight(1f).padding(end = 8.dp))
                         }
@@ -512,7 +512,7 @@ private fun DeckListPreview(deck: DeckSnapshot, cards: Map<String, Card>, order:
     var row = 0
     fun next() = minOf(row++, 14)
     SelectionContainer(modifier) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 16.dp)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp)) {
             for (section in DeckSection.entries) {
                 val entries = deck.entries.filter { it.section == section }
                 if (entries.isEmpty()) continue
@@ -536,7 +536,7 @@ private fun DeckListPreview(deck: DeckSnapshot, cards: Map<String, Card>, order:
 @Composable
 private fun DeckListRow(entry: DeckEntry, card: Card?, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
-    Row(modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "${entry.quantity}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.primary, textAlign = TextAlign.Center,
             modifier = Modifier.widthIn(min = 32.dp).clip(LockOnShapes.button).background(scheme.primary.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 2.dp),

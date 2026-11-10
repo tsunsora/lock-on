@@ -263,17 +263,17 @@ fun BootScreen(
                 }
                 Spacer(Modifier.height(20.dp))
                 Text("Lock On", style = MaterialTheme.typography.headlineMedium, color = ink)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(
                     Modifier.clip(CircleShape).background(look.panel).padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     BootStep.entries.forEach { s ->
                         val done = s.ordinal < step.ordinal
                         val now = s == step
                         Box(
-                            Modifier.size(width = if (now) 18.dp else 8.dp, height = 8.dp).clip(CircleShape)
+                            Modifier.size(width = if (now) 16.dp else 8.dp, height = 8.dp).clip(CircleShape)
                                 .background(if (done || now) look.pip else look.panelText.copy(alpha = 0.5f)),
                         )
                     }

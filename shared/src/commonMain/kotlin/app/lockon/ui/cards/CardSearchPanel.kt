@@ -301,7 +301,7 @@ fun CardSearchPanel(
     Column(modifier) {
         // A narrow pane has no room for the view switch beside the search, so it rides above with [leading].
         if (wide && leadingAbove) Row(
-            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 10.dp),
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -312,9 +312,9 @@ fun CardSearchPanel(
         // controls, then colours as orbs and types as chips (UX rules N4, S5). On phones the view
         // controls move into Filters, and colours and types fold into a menu chip each.
         Row(
-            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = if (!wide) 4.dp else if (leadingAbove) 6.dp else 10.dp),
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = if (!wide) 4.dp else if (leadingAbove) 8.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (wide && !leadingAbove) leading?.invoke(this)
             PillSearchField(
@@ -343,18 +343,18 @@ fun CardSearchPanel(
         }
         val deckColorsChip = deckColors != null && deckColors.isNotEmpty()
         if (wide) FlowRow(
-            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             CardColor.entries.forEach { color ->
                 Box(Modifier.align(Alignment.CenterVertically)) {
                     ColorOrbToggle(color.label, cardColor(color), onCardColor(color), color in query.colors || (colorLimit != null && color in colorLimit),
-                        outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
+                        target = 36.dp, outlined = color == CardColor.WHITE, dimmed = query.colors.isNotEmpty() || colorLimit != null) {
                         pressColor(color)
                     }
                 }
             }
-            Box(Modifier.align(Alignment.CenterVertically).padding(horizontal = 6.dp).size(width = 1.dp, height = 24.dp).background(MaterialTheme.colorScheme.outlineVariant))
+            Box(Modifier.align(Alignment.CenterVertically).padding(horizontal = 8.dp).size(width = 1.dp, height = 24.dp).background(MaterialTheme.colorScheme.outlineVariant))
             types.forEach { type ->
                 PillChip(
                     selected = type in query.types,
@@ -386,7 +386,7 @@ fun CardSearchPanel(
                 )
             }
         } else Row(
-            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 32.dp),
+            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 7.dp, end = 32.dp), // the dots sit 5 dp inside their targets, so 7 starts them on the search field's edge
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -435,7 +435,7 @@ fun CardSearchPanel(
                 }
                 Row(
                     Modifier.fillMaxWidth().dealt(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LineLabel("Set")
@@ -516,7 +516,7 @@ fun CardSearchPanel(
                 state = gridState,
                 columns = GridCells.Adaptive(if (wide) 136.dp else 104.dp),
                 // The wider end padding keeps the last column clear of the scroll bar's lane.
-                contentPadding = PaddingValues(start = 12.dp, end = if (wide) 24.dp else 12.dp, top = if (wide) 10.dp else 4.dp, bottom = 20.dp + LocalNavClearance.current),
+                contentPadding = PaddingValues(start = 12.dp, end = if (wide) 24.dp else 12.dp, top = if (wide) 12.dp else 4.dp, bottom = 20.dp + LocalNavClearance.current),
                 horizontalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
                 verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
             ) {
@@ -536,7 +536,7 @@ fun CardSearchPanel(
                     )
                 }
             }
-            else LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(end = if (wide) 14.dp else 0.dp, bottom = LocalNavClearance.current)) {
+            else LazyColumn(Modifier.fillMaxWidth(), listState, contentPadding = PaddingValues(end = if (wide) 16.dp else 0.dp, bottom = LocalNavClearance.current)) {
                 items(listed, key = { it.cardNumber }) { card ->
                     CardRow(card, Modifier.animateItem(placementSpec = null, fadeOutSpec = null).cardDragSource(card, controls?.drag), onClick = { onCardClick(card) }, trailing = {
                         if (controls != null) {
@@ -544,7 +544,7 @@ fun CardSearchPanel(
                                 controls.tag(card)
                                 // The deck list's own stepper, so a card's count reads the same in both lists.
                                 // On a phone, held in from the edge and the scroll bar as the deck list's is.
-                                StepperTray(if (wide) Modifier else Modifier.padding(end = 10.dp)) {
+                                StepperTray(if (wide) Modifier else Modifier.padding(end = 12.dp)) {
                                     PlateStepper(controls.quantity(card), card.name, { controls.change(card, -1) }, { controls.change(card, 1) }, limit = controls.limit(card))
                                 }
                             }
@@ -565,7 +565,7 @@ fun CardSearchPanel(
             androidx.compose.animation.AnimatedVisibility(
                 visible = scrolledAway,
                 modifier = Modifier.align(Alignment.BottomEnd)
-                    .padding(end = if (wide) 30.dp else 16.dp, bottom = 16.dp + LocalNavClearance.current),
+                    .padding(end = if (wide) 32.dp else 16.dp, bottom = 16.dp + LocalNavClearance.current),
                 enter = if (reduce) fadeIn(tween(90)) else fadeIn(tween(Motion.SHORT)) + scaleIn(glide(), initialScale = 0.7f),
                 exit = if (reduce) fadeOut(tween(90)) else fadeOut(tween(Motion.SHORT)) + scaleOut(tween(Motion.SHORT), targetScale = 0.7f),
             ) {
@@ -582,7 +582,7 @@ private enum class ResultsView { EMPTY, GRID, LIST }
 /** The name at the start of a filter line, a fixed width on phones so the lines' chips start together. */
 @Composable
 private fun LineLabel(label: String, modifier: Modifier = Modifier) {
-    Text(label, style = MaterialTheme.typography.labelLarge, modifier = modifier.width(46.dp))
+    Text(label, style = MaterialTheme.typography.labelLarge, modifier = modifier.width(48.dp))
 }
 
 /**
@@ -629,7 +629,7 @@ private fun FilterSheet(
                 ) {
                     Column(
                         Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) { content() }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), content = actions)
                 }

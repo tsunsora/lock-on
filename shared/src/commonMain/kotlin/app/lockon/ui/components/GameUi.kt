@@ -316,7 +316,7 @@ fun GlassPanel(
 fun PanelTitle(title: String, readout: String? = null, accent: Color = Accent, trailing: @Composable () -> Unit = {}) {
     val scheme = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().height(42.dp).padding(start = 16.dp, end = 10.dp),
+        Modifier.fillMaxWidth().height(44.dp).padding(start = 16.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium, color = scheme.onSurface, modifier = Modifier.weight(1f))
@@ -329,7 +329,7 @@ fun PanelTitle(title: String, readout: String? = null, accent: Color = Accent, t
 @Composable
 fun CountPill(text: String, color: Color = Accent) {
     val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)
-    val modifier = Modifier.clip(LockOnShapes.button).background(color.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 3.dp)
+    val modifier = Modifier.clip(LockOnShapes.button).background(color.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 4.dp)
     // A plain count rolls when it changes, like every other count (UX rule V5: numbers).
     val number = text.toIntOrNull()
     if (number != null) RollingNumber(number, style, color, modifier)
@@ -391,7 +391,7 @@ fun GameButton(
     val rim = Color.Transparent
     Box(
         modifier
-            .heightIn(min = if (large) 54.dp else if (desktopControls) ControlSize else if (compact) 38.dp else 44.dp)
+            .heightIn(min = if (large) 56.dp else if (desktopControls) ControlSize else if (compact) 40.dp else 44.dp)
             .graphicsLayer {
                 scaleX = squish; scaleY = squish
             }
@@ -401,7 +401,7 @@ fun GameButton(
             .border(BorderStroke(1.dp, outline ?: rim), shape)
             .hoverable(interaction, enabled)
             .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = if (large) 26.dp else if (compact) 14.dp else 20.dp),
+            .padding(horizontal = if (large) 24.dp else if (compact) 16.dp else 20.dp),
         contentAlignment = Alignment.Center,
     ) {
         // A label that changes (Copy to Copied, Hide to Show) fades across, so the change is seen.
@@ -529,7 +529,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
     // starts at the selection.
     val slot by animateFloatAsState(selected.toFloat(), glide(), label = "tab-slide")
     val placed by remember(spots, selected) { derivedStateOf { spots.getOrNull(selected)?.value != null } }
-    Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).then(if ((flush && desktopControls) || bare) Modifier else Modifier.padding(horizontal = 8.dp, vertical = 6.dp))) {
+    Box(modifier.fillMaxWidth().then(if (icons != null && fill) Modifier.onSizeChanged { showIcons = it.width >= iconRoom } else Modifier).then(if ((flush && desktopControls) || bare) Modifier else Modifier.padding(horizontal = 8.dp, vertical = 8.dp))) {
         Row(
             track.clip(LockOnShapes.button).background(trackFill).padding(horizontal = 4.dp).drawBehind {
                 if (spots.isEmpty()) return@drawBehind
@@ -568,7 +568,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                         .padding(horizontal = if (icons != null && fill) 4.dp else 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         val glyph = icons?.getOrNull(i)
                         if (glyph != null && showIcons) Icon(glyph, contentDescription = null, Modifier.size(15.dp), tint = text)
                         Text(label, maxLines = 1, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, color = text)
@@ -633,13 +633,13 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
         }
     }
     if (inline) Row(
-        modifier.widthIn(min = 110.dp).semantics(mergeDescendants = true) { contentDescription = "$label: $count of $limit" },
+        modifier.widthIn(min = 112.dp).semantics(mergeDescendants = true) { contentDescription = "$label: $count of $limit" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (!numberLast) { Row(verticalAlignment = Alignment.Bottom) { Number() }; Spacer(Modifier.width(10.dp)) }
+        if (!numberLast) { Row(verticalAlignment = Alignment.Bottom) { Number() }; Spacer(Modifier.width(8.dp)) }
         Bar(Modifier.weight(1f))
-        if (numberLast) { Spacer(Modifier.width(10.dp)); Row(verticalAlignment = Alignment.Bottom) { Number() } }
-    } else Column(modifier.widthIn(min = 110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (numberLast) { Spacer(Modifier.width(8.dp)); Row(verticalAlignment = Alignment.Bottom) { Number() } }
+    } else Column(modifier.widthIn(min = 112.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(bottom = 2.dp))
@@ -651,7 +651,7 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
 
 /** A round cost mark, flat in the card's colour like [ColorDot]; [outlined] keeps a white card's mark visible on a light row. */
 @Composable
-fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modifier, size: Dp = 30.dp, outlined: Boolean = false, text: String? = null) {
+fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modifier, size: Dp = 32.dp, outlined: Boolean = false, text: String? = null) {
     val line = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
     Box(modifier.size(size).clip(CircleShape).background(color).then(if (outlined) Modifier.border(1.dp, line, CircleShape) else Modifier)) {
         CenteredGlyph(text ?: value?.toString() ?: "–", onColor, (size.value * 0.46f).sp)
@@ -1120,12 +1120,12 @@ private fun PillField(
             Row(
                 Modifier.fillMaxSize().clip(shape).background(if (desktopControls) neutralFill() else g.strong)
                     .border(BorderStroke(rimWidth.dp, rimColor), shape)
-                    .padding(start = if (icon != null) 14.dp else 18.dp, end = 4.dp),
+                    .padding(start = if (icon != null) 12.dp else 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (icon != null) {
                     Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
                 }
                 Box(Modifier.weight(1f)) {
                     if (value.isEmpty()) Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant, maxLines = 1)
@@ -1293,9 +1293,9 @@ fun GameMenuItem(
             .background(fill)
             .hoverable(interaction)
             .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (leading != null) leading()
         else if (icon != null) Icon(icon, contentDescription = null, tint = tone, modifier = Modifier.size(18.dp))
@@ -1311,7 +1311,7 @@ fun GameMenuItem(
 @Composable
 fun GameMenuDivider() {
     Box(
-        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp).height(1.dp)
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).height(1.dp)
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     )
 }
@@ -1437,12 +1437,12 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
     Box(modifier.height(44.dp).clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(4.dp)) {
         if (selected in options.indices) {
             Canvas(Modifier.matchParentSize()) {
-                val gap = 3.dp.toPx()
+                val gap = 4.dp.toPx()
                 val w = (size.width - gap * (options.size - 1)) / options.size
                 drawRoundRect(accent, Offset(slot * (w + gap), 0f), Size(w, size.height), CornerRadius(11.dp.toPx()))
             }
         }
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             options.forEachIndexed { i, label ->
                 val isSelected = i == selected
                 val text by animateColorAsState(if (isSelected) onAccent else scheme.onSurfaceVariant, motion(Motion.MEDIUM), label = "segment-text")
@@ -1451,7 +1451,7 @@ fun PillSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
                         .selectable(isSelected, interactionSource = null, indication = null, role = Role.RadioButton) { onSelect(i) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         icons?.getOrNull(i)?.let { Icon(it, contentDescription = null, Modifier.size(16.dp), tint = text) }
                         Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = text)
                     }
@@ -1648,7 +1648,7 @@ fun PillNavBar(
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
             .background(if (twilight) Color(0xFF343C72) else Color.White)
-            .border(BorderStroke(0.8.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
+            .border(BorderStroke(1.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
             .height(PillNavHeight)
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .drawBehind {
@@ -1662,7 +1662,7 @@ fun PillNavBar(
             val isSelected = i == selected
             // The selected item takes more of the bar, so its label has room (AnymeX's 2.4 : 1).
             val share by animateFloatAsState(if (labels || !isSelected) 1f else 2.4f, if (reduce) snap() else PillSpring, label = "pill-share")
-            val pad by androidx.compose.animation.core.animateDpAsState(if (labels) 16.dp else if (isSelected) 18.dp else 12.dp, glide(), label = "pill-pad")
+            val pad by androidx.compose.animation.core.animateDpAsState(if (labels) 16.dp else if (isSelected) 20.dp else 12.dp, glide(), label = "pill-pad")
             val itemFill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
             // Once the shared pill slides, items draw no fill of their own; before then the chosen one lights itself.
             val fill = if (!labels) itemFill else if (isSelected && !placed) accent else Color.Transparent

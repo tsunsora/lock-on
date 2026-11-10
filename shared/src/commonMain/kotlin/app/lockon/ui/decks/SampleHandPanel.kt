@@ -97,7 +97,7 @@ private val PAGE_TOP = 8.dp
 private val PAGE_BOTTOM = 8.dp
 private val FAN_STEP_DROP = 6.dp
 private val STATS_HEIGHT = 24.dp
-private val HEADER_HEIGHT = 30.dp
+private val HEADER_HEIGHT = 32.dp
 /** Shields are face down most of the time, so on a wide panel they stay small and the hand gets the height. */
 private val MAX_SHIELD = 64.dp
 private val GAP = 8.dp
@@ -174,7 +174,7 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     val shields = @Composable {
         SectionHeader("Shields", readout = "${SampleHand.SHIELDS}") {
             app.lockon.ui.components.Reveal(revealShields, sideways = true) {
-                Badge("Burst $bursts", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Modifier.padding(start = 6.dp))
+                Badge("Burst $bursts", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Modifier.padding(start = 8.dp))
             }
             // Revealing keeps the hand, since that is when the shields are set.
             GameButton(if (revealShields) "Hide" else "Reveal", onClick = { game = game.keep(); revealShields = !revealShields }, style = GameButtonStyle.GHOST, compact = true)
@@ -260,7 +260,7 @@ private fun HandStats(game: SampleHand) {
     val left = game.library.size - if (game.shieldsPlaced) 0 else SampleHand.SHIELDS
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         listOf(LineIcons.Decks to "$left left", LineIcons.Flag to "Turn ${game.drawsTaken + 1}").forEach { (icon, text) ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(icon, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
                 Text(text, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)
             }

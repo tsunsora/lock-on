@@ -70,7 +70,7 @@ fun CardRow(
     trailing: @Composable () -> Unit = {},
 ) {
     Row(
-        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CardThumb(card)
@@ -108,7 +108,7 @@ fun BarChart(title: String, bars: List<Pair<Int, Int>>, modifier: Modifier = Mod
         val max = bars.maxOf { it.second }.coerceAtLeast(1)
         var shown by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { shown = true }
-        Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
             bars.forEachIndexed { index, (label, count) ->
                 val target = if (shown) (count.toFloat() / max).coerceAtLeast(0.02f) else 0.02f
                 val grow by animateFloatAsState(target, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "bar")
@@ -154,7 +154,7 @@ fun Badge(text: String, background: Color, foreground: Color, modifier: Modifier
         color = foreground,
         maxLines = 1,
         softWrap = false,
-        modifier = modifier.clip(PillShape).background(background).padding(horizontal = 10.dp, vertical = 3.dp),
+        modifier = modifier.clip(PillShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp),
     )
 }
 
@@ -258,7 +258,7 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
     LaunchedEffect(Unit) { shown = true }
     Column(modifier.fillMaxWidth()) {
         if (caption) Text("Level curve", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
             bars.forEachIndexed { index, (level, count) ->
                 val grow by animateFloatAsState(if (shown) count.toFloat() / max else 0f, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "curve")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {

@@ -383,17 +383,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 // Wide windows go back from the player card in the corner instead.
                 if (!wide) {
                     GlassIconButton(LineIcons.Back, "Back to decks", state::goBack)
-                    Spacer(Modifier.width(14.dp))
+                    Spacer(Modifier.width(16.dp))
                 }
                 @Composable
                 fun NameAndState(content: @Composable () -> Unit) =
-                    if (oneLine) Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+                    if (oneLine) Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) { content() }
                     else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { content() }
                 NameAndState {
                     // The name itself opens Rename; wide windows add a quiet pencil beside it as the hint.
                     Row(
                         Modifier.clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Rename deck") { renaming = true }
-                            .padding(end = if (wide && roomy) 6.dp else 0.dp),
+                            .padding(end = if (wide && roomy) 8.dp else 0.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -578,7 +578,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // Two areas, so most of the window is cards and the deck being built (UX rule N4): the card
             // list, and one deck panel whose tabs hold the analysis, test hand, matches and versions.
             Box(Modifier.fillMaxSize()) {
-            BoxWithConstraints(Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp)) {
+            BoxWithConstraints(Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 12.dp)) {
             // The gap between the two areas is a handle: dragging it trades width between them.
             val density = LocalDensity.current
             val usable = (maxWidth - SPLIT_HANDLE).coerceAtLeast(0.dp)
@@ -632,8 +632,8 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                     .border(BorderStroke(2.dp, dropRim), LockOnShapes.panel)) {
                     Column {
                         Row(
-                            Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, top = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             ProgressGauge("Main deck", deck.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.weight(1f).padding(end = 8.dp),
                                 compact = true, hold = hasConflict, inline = true)
@@ -721,7 +721,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 val sideStepper: @Composable () -> Unit = {
                     PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(if (narrow) 2.dp else if (sideBySide) 0.dp else 6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(if (narrow) 2.dp else if (sideBySide) 0.dp else 8.dp)) {
                     if (narrow) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             DetailActionCell(section.label, Modifier.weight(1f), deckStepper)
@@ -809,7 +809,7 @@ private fun DeckList(
         } + ("Unknown cards" to main.filter { cards[it.cardNumber] == null })
         byType.filter { it.second.isNotEmpty() }
     }
-    val gap = if (compact) 8.dp else 6.dp
+    val gap = 8.dp
     val listState = rememberPrefetchingListState()
     LaunchedEffect(scrollToTop) { if (scrollToTop > 0) listState.animateScrollToItem(0) }
     LaunchedEffect(jumpToTop) { if (jumpToTop > 0) listState.requestScrollToItem(0) }
@@ -821,14 +821,14 @@ private fun DeckList(
     // Phones keep three across down to about 390 dp, like the card list, instead of two large cards.
     val columns = ((maxWidth - 28.dp + gap) / ((if (compact) 104.dp else 112.dp) + gap)).toInt().coerceAtLeast(2)
     Box(Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = if (compact) 6.dp else 0.dp, bottom = 6.dp + LocalNavClearance.current),
-        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(start = 8.dp, end = 20.dp, top = if (compact) 8.dp else 0.dp, bottom = 8.dp + LocalNavClearance.current),
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (deck.entries.isEmpty()) {
             item(key = "empty-deck", contentType = "empty") {
                 Column(
                     Modifier.animateItem().fillMaxWidth().padding(horizontal = 24.dp, vertical = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     LockIndicator(locked = false, size = 72.dp)
                     Text("No cards yet", style = MaterialTheme.typography.titleLarge)
@@ -856,7 +856,7 @@ private fun DeckList(
         }
         for ((label, entries) in groups) {
             item(key = "header-$label", contentType = "header") {
-                SectionHeader(label, Modifier.animateItem().padding(start = 6.dp, end = 6.dp, top = if (!compact && label == groups.first().first) 0.dp else 6.dp, bottom = 2.dp),
+                SectionHeader(label, Modifier.animateItem().padding(start = 8.dp, end = 8.dp, top = if (!compact && label == groups.first().first) 0.dp else 8.dp, bottom = 4.dp),
                     readout = "${entries.sumOf { it.quantity }}") {
                     if (compact && label == groups.first().first) ViewToggle(
                         cardView, onCardView, small = true,
@@ -908,7 +908,7 @@ private fun DeckList(
         item(key = "side-header", contentType = "side-header") {
             Column(Modifier.animateItem()) {
             SectionHeader(
-                "Side deck", Modifier.padding(start = 6.dp, end = 6.dp, top = 24.dp),
+                "Side deck", Modifier.padding(start = 8.dp, end = 8.dp, top = 24.dp),
                 readout = "${side.sumOf { it.quantity }}",
             )
             Text(
@@ -919,7 +919,7 @@ private fun DeckList(
                 else "Not counted toward the deck or its legality.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
             }
         }
@@ -952,7 +952,7 @@ private fun DeckList(
                     OutlinedTextField(
                         value = deck.notes, onValueChange = onNotes,
                         label = { Text("Notes") },
-                        modifier = Modifier.fillMaxWidth().padding(6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
                         minLines = 3,
                     )
                 }
@@ -979,7 +979,7 @@ private fun DeckProblemLine(errors: List<LegalityMessage>, onOpenAnalysis: () ->
     val color = MaterialTheme.colorScheme.error
     Row(
         modifier.graphicsLayer { alpha = shown }.clip(LockOnShapes.button)
-            .clickable(enabled = hasProblem, onClickLabel = "Open analysis", onClick = onOpenAnalysis).padding(vertical = 3.dp),
+            .clickable(enabled = hasProblem, onClickLabel = "Open analysis", onClick = onOpenAnalysis).padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(text, Modifier.weight(1f, fill = false), color, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1099,7 +1099,7 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
             .pointerInput(Unit) { detectTapGestures(onDoubleTap = { reset() }) },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.width(4.dp).height(54.dp).clip(RoundedCornerShape(2.dp)).background(grip))
+        Box(Modifier.width(4.dp).height(56.dp).clip(RoundedCornerShape(2.dp)).background(grip))
     }
 }
 
@@ -1254,9 +1254,9 @@ private fun MoreTile(item: EditorMoreItem, selected: Boolean, modifier: Modifier
         modifier.heightIn(min = 72.dp).clip(LockOnShapes.tile).background(fill)
             .hoverable(interaction)
             .selectable(selected, interaction, indication = null, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 10.dp),
+            .padding(horizontal = 4.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
     ) {
         // The glyphs come in two sizes, so a fixed box keeps every label on the same line.
         Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {

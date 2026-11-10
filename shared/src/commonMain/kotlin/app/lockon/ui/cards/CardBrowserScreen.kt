@@ -65,7 +65,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
         val focusSeen = remember { intArrayOf(state.searchFocusRequests) }
         if (state.current == null && state.tab == Tab.CARDS) focusSeen[0] = state.searchFocusRequests
         val focusRequests = focusSeen[0]
-        Row(Modifier.fillMaxSize().padding(start = if (wide) 10.dp else 0.dp, top = if (wide) 8.dp else 0.dp)) {
+        Row(Modifier.fillMaxSize().padding(start = if (wide) 12.dp else 0.dp, top = if (wide) 8.dp else 0.dp)) {
             val search: @Composable (Modifier) -> Unit = { m ->
                 CardSearchPanel(
                     cards.values, onCardClick = { selectedNumber = it.cardNumber; detailsOpen = true },
@@ -73,7 +73,7 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
                 )
             }
             if (wide) {
-                search(Modifier.weight(1f).fillMaxHeight().padding(end = 6.dp))
+                search(Modifier.weight(1f).fillMaxHeight().padding(end = 8.dp))
             } else {
                 search(Modifier.weight(1f).fillMaxSize())
             }

@@ -93,10 +93,10 @@ fun VersionsPanel(
     Column(modifier) {
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = if (phone) 8.dp else 16.dp, bottom = if (phone) 8.dp else 16.dp + LocalNavClearance.current),
-        verticalArrangement = Arrangement.spacedBy(if (phone) 0.dp else 6.dp)) {
+        verticalArrangement = Arrangement.spacedBy(if (phone) 0.dp else 8.dp)) {
         if (!phone) item(key = "now") {
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(LockOnShapes.tile).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                     .padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -116,7 +116,7 @@ fun VersionsPanel(
             val opening by androidx.compose.animation.core.animateFloatAsState(if (isOpen) 1f else 0f, motion(), label = "version-chevron")
             Column(
                 Modifier.animateItem().fillMaxWidth()
-                    .then(if (phone) Modifier.background(fill, RoundedCornerShape(top, top, end, end)).padding(top = if (index == 0) 6.dp else 0.dp, bottom = if (index == versions.size - 2) 6.dp else 0.dp) else Modifier)
+                    .then(if (phone) Modifier.background(fill, RoundedCornerShape(top, top, end, end)).padding(top = if (index == 0) 8.dp else 0.dp, bottom = if (index == versions.size - 2) 8.dp else 0.dp) else Modifier)
                     .clip(LockOnShapes.tile)
                     .background(openFill)
                     .then(if (isOpen) Modifier.border(if (phone) 1.dp else app.lockon.ui.components.SelectionEdgeWidth, if (phone) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary, LockOnShapes.tile) else Modifier)
@@ -125,7 +125,7 @@ fun VersionsPanel(
                 Row(
                     Modifier.fillMaxWidth().clickable(onClickLabel = if (isOpen) "Close" else "Compare with the deck now") { open = if (isOpen) null else version.revisionId }
                         .padding(horizontal = 12.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(if (fromPhone(version.originDeviceId)) Glyphs.Phone else Glyphs.Monitor, deviceLabel(version.originDeviceId), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     val note = when {
@@ -139,7 +139,7 @@ fun VersionsPanel(
                         if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                     Text("${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Box(Modifier.width(62.dp)) { if (older != null) Changes(older, version.snapshot) else Text("+${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary) }
+                    Box(Modifier.width(64.dp)) { if (older != null) Changes(older, version.snapshot) else Text("+${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary) }
                     Icon(LineIcons.Chev, contentDescription = null, Modifier.size(20.dp).rotate(90f * opening), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 app.lockon.ui.components.Reveal(isOpen) { Compared(version, current, cards) { open = null; onRestore(version) } }
@@ -164,7 +164,7 @@ private fun Changes(before: DeckSnapshot, after: DeckSnapshot) {
     val changes = remember(before, after) { DeckDiff.cards(before, after) }
     val added = changes.sumOf { (it.after - it.before).coerceAtLeast(0) }
     val removed = changes.sumOf { (it.before - it.after).coerceAtLeast(0) }
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (added > 0) Text("+$added", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary)
         if (removed > 0) Text("−$removed", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.error)
     }
@@ -174,14 +174,14 @@ private fun Changes(before: DeckSnapshot, after: DeckSnapshot) {
 @Composable
 private fun Compared(version: DeckVersion, current: DeckSnapshot, cards: Map<String, Card>, onRestore: () -> Unit) {
     val changes = remember(version, current) { DeckDiff.cards(current, version.snapshot) }
-    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (changes.isEmpty()) Text("Same cards as now.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         changes.forEach { change ->
             val card = cards[change.cardNumber]
             val by = change.after - change.before
             Row(
-                Modifier.fillMaxWidth().clip(LockOnShapes.button).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), LockOnShapes.button).padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                Modifier.fillMaxWidth().clip(LockOnShapes.button).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), LockOnShapes.button).padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 CostOrb(card?.cost, cardColor(card?.colors?.firstOrNull()), onCardColor(card?.colors?.firstOrNull()), size = 24.dp)
                 Text(card?.name ?: change.cardNumber, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)

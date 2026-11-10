@@ -335,7 +335,7 @@ private fun SyncSection(title: String, count: Int, first: Boolean, dealKey: Stri
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
                 // The count rolls as devices come and go, like every other count.
-                app.lockon.ui.components.RollingNumber(count, MaterialTheme.typography.titleMedium.merge(TabularNumbers), scheme.onSurfaceVariant, Modifier.padding(start = 10.dp))
+                app.lockon.ui.components.RollingNumber(count, MaterialTheme.typography.titleMedium.merge(TabularNumbers), scheme.onSurfaceVariant, Modifier.padding(start = 8.dp))
             }
             content()
         }
@@ -362,7 +362,7 @@ private fun ThisDevice(deviceName: String, status: SyncStatus, onOtherWays: () -
     // A non-breaking hyphen, so "Wi-Fi" never splits over two lines.
     val caption = "On Wi‑Fi"
     val wifi: @Composable () -> Unit = {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(LineIcons.Wifi, contentDescription = null, Modifier.size(if (grouped) 16.dp else 15.dp), tint = scheme.onSurfaceVariant)
             Text(caption, style = statusStyle(), color = scheme.onSurfaceVariant, maxLines = 1)
         }
@@ -374,21 +374,21 @@ private fun ThisDevice(deviceName: String, status: SyncStatus, onOtherWays: () -
         GameButton("Address", onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Text.takeIf { withIcon }, compact = true, modifier = thumbSized().then(modifier))
     }
     Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (grouped) 16.dp else 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (grouped) 16.dp else 12.dp)) {
             app.lockon.ui.BrandTile(if (grouped) 56.dp else 48.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (grouped) 4.dp else 2.dp)) {
                 Text(deviceName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 wifi()
             }
-            if (grouped) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (grouped) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 qr(Modifier, true)
                 address(Modifier, false)
             }
         }
         // Only what needs attention: a ready device says so by being here.
-        RevealValue(status.takeIf { it.message != null && (it.isError || it.working) }) { StatusStrip(it, Modifier.fillMaxWidth().padding(top = 14.dp)) }
+        RevealValue(status.takeIf { it.message != null && (it.isError || it.working) }) { StatusStrip(it, Modifier.fillMaxWidth().padding(top = 16.dp)) }
         if (!grouped) {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val iconRoom = maxWidth >= TwoButtonsWithIcons
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -551,12 +551,12 @@ private fun PairedTile(
         Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).deviceRow()
             .clickable(interaction, indication = pressWash(deviceShape()), enabled = !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
-            .padding(horizontal = if (grouped) 14.dp else 16.dp, vertical = if (grouped) 12.dp else 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.heightIn(min = if (grouped) 48.dp else 52.dp), verticalAlignment = Alignment.CenterVertically) {
             DeviceGlyph(device.role == DeviceRole.HOST)
-            Spacer(Modifier.width(if (grouped) 16.dp else 14.dp))
+            Spacer(Modifier.width(if (grouped) 16.dp else 12.dp))
             Column(Modifier.weight(1f).padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // Fades across as a transfer changes state; its rising count stays in the one line.
@@ -570,7 +570,7 @@ private fun PairedTile(
                     // One line: how it's connected or what went wrong, and when it last synced.
                     val problem = device.lastError
                     val line = listOfNotNull(problem ?: live?.first ?: "Paired", device.lastSyncAt?.let { app.lockon.platform.ageLabel(it) } ?: "not synced yet").joinToString(" · ")
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (problem != null) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = scheme.error)
                         else if (live != null) Box(Modifier.size(8.dp).clip(CircleShape).background(if (live.second) scheme.secondary else scheme.outline))
                         Text(line, style = statusStyle(), color = if (problem != null) scheme.error else scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -633,7 +633,7 @@ private fun SyncChoiceDialog(
         onDismissRequest = onDismiss,
         title = "Sync with ${device.name}",
         text = {
-            Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ModeOption(
                     "Make $here match ${device.name}",
                     "Everything here is replaced by what's on ${device.name}.",
@@ -645,7 +645,7 @@ private fun SyncChoiceDialog(
                     Icons.Default.KeyboardArrowUp,
                 ) { confirming = SyncMode.GIVE }
                 Text("Or keep both", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp))
+                    modifier = Modifier.padding(top = 8.dp))
                 ModeOption(
                     "Merge both ways",
                     "Every deck from both ends up on both. Settings and the card list stay as they are, and a deck edited on both shows as a conflict.",
@@ -673,7 +673,7 @@ private fun SyncChoiceDialog(
             onDismissRequest = { confirming = null },
             title = "Replace everything on $target?",
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("$target will match $source: its decks, folders, match logs, settings, ruleset and card list are replaced.")
                     Text("Decks that are only on $target are removed. Earlier versions of replaced decks stay in their history.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -703,7 +703,7 @@ private fun ModeOption(title: String, detail: String, icon: ImageVector, primary
         Modifier.fillMaxWidth().pressScale(interaction).glass(LockOnShapes.tile)
             .then(if (primary) Modifier.clip(LockOnShapes.tile).background(scheme.primary.copy(alpha = 0.08f)) else Modifier)
             .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -813,7 +813,7 @@ private fun StatusStrip(status: SyncStatus, modifier: Modifier = Modifier) {
         modifier.height(IntrinsicSize.Min).clip(LockOnShapes.tile).background(tone.copy(alpha = 0.1f))
             .padding(end = 12.dp, start = if (status.isError) 0.dp else 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when {
             status.isError -> CautionStripes(Modifier.width(8.dp).fillMaxHeight())
@@ -870,7 +870,7 @@ private fun WhatToSend(
         Text("No decks to send yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     if (grouped) {
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val centred = Modifier.align(Alignment.CenterVertically)
             selected.forEach { Box(centred) { chip(it) } }
             if (decks.isNotEmpty()) choose(centred, true) else Box(centred) { noDecks() }
@@ -886,7 +886,7 @@ private fun WhatToSend(
         }
         return
     }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (selected.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { selected.forEach { chip(it) } }
         if (decks.isEmpty()) noDecks()
         else BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -911,7 +911,7 @@ private fun ChosenDeck(deck: DeckSummary, cards: Map<String, app.lockon.model.Ca
     val touch = app.lockon.platform.isMobile || app.lockon.ui.components.LocalTopBand.current.height == 0.dp
     Row(
         Modifier.height(if (touch) 48.dp else ControlSize).clip(LockOnShapes.button)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)).padding(start = 10.dp),
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)).padding(start = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         app.lockon.ui.components.ColorPips(colors, size = 18.dp)
@@ -933,9 +933,9 @@ private fun PickTile(
     Column(
         modifier.heightIn(min = 84.dp).pressScale(interaction).glass(LockOnShapes.tile)
             .clickable(interaction, indication = pressWash(LockOnShapes.tile), enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(vertical = 14.dp, horizontal = 8.dp),
+            .padding(vertical = 12.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
     ) {
         Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.size(24.dp))
         Text(label, style = MaterialTheme.typography.labelLarge, color = if (enabled) MaterialTheme.colorScheme.onSurface else ink)
@@ -959,7 +959,7 @@ private fun SelectionCard(selected: List<DeckSummary>, onEdit: () -> Unit) {
                 GameButton("Edit", onClick = onEdit, style = GameButtonStyle.SECONDARY, compact = true)
             }
             groups.forEach { (folder, inGroup) ->
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // A selection with no folders at all needs no "No folder" heading.
                     if (folder != null || groups.size > 1) {
                         Text(
@@ -967,17 +967,17 @@ private fun SelectionCard(selected: List<DeckSummary>, onEdit: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         inGroup.take(8).forEach { deck ->
                             Text(
                                 deck.snapshot.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.widthIn(max = 220.dp).clip(LockOnShapes.button)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 5.dp),
+                                    .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 12.dp, vertical = 4.dp),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                             )
                         }
                         if (inGroup.size > 8) Text("+${inGroup.size - 8} more", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 5.dp))
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
                     }
                 }
             }
@@ -993,7 +993,7 @@ private fun SearchingCard() {
             Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)), contentAlignment = Alignment.Center) {
                 ReticleSpinner(size = 22.dp, color = MaterialTheme.colorScheme.outline)
             }
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Looking for devices…", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1039,12 +1039,12 @@ private fun DeviceTile(
         Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).deviceRow()
             .clickable(interaction, indication = pressWash(deviceShape()), enabled = device.compatible && !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
-            .padding(horizontal = if (grouped) 14.dp else 16.dp, vertical = if (grouped) 12.dp else 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.heightIn(min = if (grouped) 48.dp else 52.dp), verticalAlignment = Alignment.CenterVertically) {
             DeviceGlyph(device.isDesktop)
-            Spacer(Modifier.width(if (grouped) 16.dp else 14.dp))
+            Spacer(Modifier.width(if (grouped) 16.dp else 12.dp))
             Column(Modifier.weight(1f).padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 FadeSwap(send, contentKey = { listOf(device.compatible, inviting, it?.state) }) { shownSend ->
@@ -1093,7 +1093,7 @@ private object WaitingForAnswer
 /** A transfer's line under the device name, with a gold tick once it has finished well. */
 @Composable
 private fun DoneLine(text: String, done: Boolean, color: Color) {
-    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (done) Icon(LineIcons.Check, contentDescription = null, Modifier.padding(top = if (LocalGrouped.current) 2.dp else 0.dp).size(16.dp), tint = if (isTwilight()) Gold else MaterialTheme.colorScheme.tertiary)
         Text(text, style = statusStyle().merge(TabularNumbers), color = color)
     }
@@ -1277,7 +1277,7 @@ private fun OtherWaysDialog(controller: SyncController, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = "Connect by QR code or address",
         text = {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (controller) {
                     is HostSyncController -> HostAddress(controller)
                     is ClientSyncController -> ClientAddress(controller, onDismiss)
@@ -1302,11 +1302,11 @@ private fun HostAddress(controller: HostSyncController) {
             Text("In Lock On on your phone, open Sync, tap + and scan this code.", style = MaterialTheme.typography.bodyMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 current.qr?.let { QrCodeView(it, Modifier.size(200.dp)) }
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.widthIn(max = 320.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.widthIn(max = 320.dp)) {
                     Text("Or enter it by hand:", style = MaterialTheme.typography.labelLarge)
                     if (current.addresses.size > 1) {
                         Text("Address", style = MaterialTheme.typography.labelMedium)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             current.addresses.forEach { a ->
                                 PillChip(selected = a == current.addresses.first(), onClick = { controller.selectAddress(a) }, label = { Text(a) })
                             }
@@ -1377,7 +1377,7 @@ fun SyncPrompts(controller: SyncController) {
                             Text(if (p.invited) "${p.deviceName} accepted" else "${p.deviceName} wants to pair", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
                             CheckNumber(p.verificationCode)
                             Text("Same number on ${p.deviceName}?", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 GameButton("Cancel", onClick = { controller.answerPairing(p.requestId, false) }, Modifier.weight(1f), style = GameButtonStyle.SECONDARY)
                                 GameButton("Pair", onClick = { controller.answerPairing(p.requestId, true) }, Modifier.weight(1f), icon = LineIcons.Check)
                             }
@@ -1404,7 +1404,7 @@ fun SyncPrompts(controller: SyncController) {
                     onDismissRequest = { controller.answerRequest(false) },
                     title = "Make this phone match ${r.hostName}?",
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("${r.hostName} wants to replace everything here with what's on it: decks, folders, match logs, settings, ruleset and card list.")
                             Text("Decks that are only on this phone are removed. Earlier versions of replaced decks stay in their history.",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1419,7 +1419,7 @@ fun SyncPrompts(controller: SyncController) {
                     onDismissRequest = {},
                     title = "Confirm on your computer",
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("Pair on the computer only if it shows this same number:")
                             CheckNumber(v)
                         }
@@ -1481,7 +1481,7 @@ private fun IncomingShareDialog(sharing: DeckSharing, fromDesktop: Boolean) {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())
                     .clip(LockOnShapes.tile).background(scheme.onSurface.copy(alpha = 0.05f)).padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 s.decks.forEachIndexed { i, deck ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

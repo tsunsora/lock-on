@@ -485,7 +485,7 @@ fun DeckStrip(
     val hovered = hover.hovered
     val base = if (isTwilight()) Color(0xFF414A88) else Color(0xFFF3F6FB)
     Box(
-        modifier.fillMaxWidth().height(if (compact) 48.dp else 54.dp)
+        modifier.fillMaxWidth().height(if (compact) 48.dp else 56.dp)
             .flashOnChange(quantity, scheme.primary, scheme.error, StripShape)
             .clip(StripShape)
             .background(base)
@@ -602,7 +602,7 @@ fun CardDetailContent(
                         }
                     }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (onChoosePrinting != null && !sideBySide) SectionHeader("Printing in this deck", readout = "${printings.size}")
                     if (!roomy) {
                         // Phones: a sideways strip of tiles big enough to tell the art apart, rather than
@@ -651,7 +651,7 @@ fun CardDetailContent(
         }
         val tags: @Composable () -> Unit = {
             if (card.traits.isNotEmpty() || card.zones.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     card.traits.forEach { Chip("($it)") }
                     card.zones.forEach { Chip(it, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) }
                 }
@@ -665,7 +665,7 @@ fun CardDetailContent(
             if (card.displayText.isNotBlank()) {
                 Surface(color = if (isTwilight()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
                     Text(effectText(card.displayText), style = if (roomy) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(if (roomy) 12.dp else 10.dp).fillMaxWidth())
+                        modifier = Modifier.padding(12.dp).fillMaxWidth())
                 }
             }
             if (card.correctedText != null) {
@@ -680,7 +680,7 @@ fun CardDetailContent(
             }
         }
         val info: @Composable (Modifier) -> Unit = { m ->
-            Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(m, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // The type joins the id line, as on a phone.
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ColorPips(card.colors)
@@ -697,11 +697,11 @@ fun CardDetailContent(
                 }
                 // Traits, zones and the link share one line, wrapping only if they must.
                 if (card.traits.isNotEmpty() || card.zones.isNotEmpty() || card.link != null) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         card.traits.forEach { Box(Modifier.align(Alignment.CenterVertically)) { Chip("($it)") } }
                         card.zones.forEach { Box(Modifier.align(Alignment.CenterVertically)) { Chip(it, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) } }
                         card.link?.let {
-                            Row(Modifier.align(Alignment.CenterVertically), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(Modifier.align(Alignment.CenterVertically), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("Link", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(it, style = MaterialTheme.typography.titleSmall)
                             }
@@ -718,7 +718,7 @@ fun CardDetailContent(
                 Column(Modifier.width(imageWidth).verticalScroll(rememberScrollState())) {
                     image(Modifier.fillMaxWidth(), false)
                 }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     info(Modifier.fillMaxWidth())
                     if (!printingsInPanel) printingStrip()
                 }
@@ -728,12 +728,12 @@ fun CardDetailContent(
             // controls fit on screen without scrolling. A tap still opens it full size.
             // The type joins the id line, traits read as a line of text rather than a chip each, and the
             // text runs a size smaller, so the card text and printings start higher up.
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     image(Modifier.width(thumbWidth), true)
                     Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (showName) Text(card.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ColorPips(card.colors)
                             Text(listOf(card.type.label, card.cardNumber).filter { it.isNotBlank() }.joinToString("  "), style = MaterialTheme.typography.labelLarge)
                         }
@@ -749,9 +749,9 @@ fun CardDetailContent(
                     }
                 }
                 if (card.displayText.isNotBlank()) Surface(color = if (isTwilight()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.small) {
-                    Text(effectText(card.displayText), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(10.dp).fillMaxWidth())
+                    Text(effectText(card.displayText), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(12.dp).fillMaxWidth())
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (card.traits.isNotEmpty()) LabelledLine("Traits", card.traits.joinToString(", "))
                     if (card.zones.isNotEmpty()) LabelledLine("Zones", card.zones.joinToString(", "))
                     card.link?.let { LabelledLine("Link", it) }
@@ -773,9 +773,9 @@ fun CardDetailContent(
                 // stays a readable size there; phones' dialogs keep the big card.
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     image(Modifier.weight(1.25f), true)
-                    Column(Modifier.weight(1f).padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (showName) Text(card.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ColorPips(card.colors)
                             Text(
                                 listOf(card.type.label, card.cardNumber).filter { it.isNotBlank() }.joinToString("  "),
@@ -792,7 +792,7 @@ fun CardDetailContent(
                     }
                 }
                 body()
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (card.traits.isNotEmpty()) LabelledLine("Traits", card.traits.joinToString(", "))
                     if (card.zones.isNotEmpty()) LabelledLine("Zones", card.zones.joinToString(", "))
                     card.link?.let { LabelledLine("Link", it) }
@@ -915,9 +915,9 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
             }, onClick = onClick)
             .pointerHoverIcon(PointerIcon.Hand)
             .semantics { selected = isShown }
-            .padding(6.dp),
+            .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box {
             CardImage(card, Modifier.fillMaxWidth(), printingId = printing.printingId, shadow = false)
@@ -950,7 +950,7 @@ private fun Chip(
 ) {
     Text(text, style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium, color = foreground,
         modifier = Modifier.clip(MaterialTheme.shapes.small).background(background)
-            .padding(horizontal = if (compact) 8.dp else 10.dp, vertical = if (compact) 3.dp else 5.dp))
+            .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 4.dp))
 }
 
 /** Effect text with 【timing】 and <keyword> markers picked out, as on the printed card. */

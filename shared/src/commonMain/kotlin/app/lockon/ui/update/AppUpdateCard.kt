@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppUpdateCard(updater: AppUpdater?, scope: CoroutineScope) {
     GlassCard {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionHeader("Lock On")
             AppUpdateSection(updater, scope)
         }
@@ -52,7 +52,7 @@ fun AppUpdateCard(updater: AppUpdater?, scope: CoroutineScope) {
 /** What [AppUpdateCard] holds under its heading, for a screen that draws its own group around it. */
 @Composable
 fun AppUpdateSection(updater: AppUpdater?, scope: CoroutineScope) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Lock On ${BuildInfo.VERSION}", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             val state = updater?.takeIf { it.enabled }?.state?.collectAsState()?.value

@@ -140,9 +140,9 @@ fun DeckDragGhost(drag: DeckDrag, cover: (DeckSummary) -> DeckCover?, modifier: 
                 }
                 .widthIn(max = 260.dp)
                 .clip(LockOnShapes.button).background(scheme.surfaceContainerHigh).glassFrame(LockOnShapes.button)
-                .padding(start = 8.dp, top = 6.dp, bottom = 6.dp, end = 16.dp),
+                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (art != null) CardImage(art.card, Modifier.width(30.dp), art.printingId) else CardBack(Modifier.width(30.dp))
             Text(deck.snapshot.name, style = MaterialTheme.typography.labelLarge, color = scheme.onSurface,

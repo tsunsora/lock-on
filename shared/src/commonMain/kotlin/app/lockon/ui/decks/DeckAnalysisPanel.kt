@@ -84,7 +84,7 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
                 )
             }
         } }
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatTile(LineIcons.Burst, "Burst", stats.burstCount, Modifier.weight(1f).fillMaxHeight())
             StatTile(LineIcons.Wall, "Blockers", stats.blockerCount, Modifier.weight(1f).fillMaxHeight())
             StatTile(Glyphs.Link, "Links", stats.linkPairs.size, Modifier.weight(1f).fillMaxHeight(),
@@ -118,9 +118,9 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
             val under = if (isTwilight()) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest
             val shades = types.indices.map { i -> slate.copy(alpha = ramp.getOrElse(i) { 0.18f }).compositeOver(under) }
             SplitBar(types.mapIndexed { i, (_, count) -> Segment("$count", count, shades[i], if (i == 0) (if (isTwilight()) Color(0xFF1B2147) else Color.White) else MaterialTheme.colorScheme.onSurface) })
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 types.forEachIndexed { i, (type, _) ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(shades[i]))
                         Text("${type.label}s", style = MaterialTheme.typography.labelMedium)
                     }
@@ -146,7 +146,7 @@ private fun AnalysisTile(modifier: Modifier = Modifier, content: @Composable Col
 @Composable
 private fun StatTile(icon: ImageVector, label: String, value: Int, modifier: Modifier, onClick: (() -> Unit)? = null) {
     AnalysisTile(modifier.clip(LockOnShapes.tile).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(icon, contentDescription = null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
@@ -159,7 +159,7 @@ private class Segment(val text: String, val size: Int, val color: Color, val ink
 /** One bar split by share, with each part's number on it. */
 @Composable
 private fun SplitBar(segments: List<Segment>) {
-    Row(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(7.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    Row(Modifier.fillMaxWidth().height(24.dp).clip(RoundedCornerShape(8.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         segments.forEach { segment ->
             // A new share moves the bar's split rather than redrawing it.
             val share by androidx.compose.animation.core.animateFloatAsState(segment.size.toFloat(), app.lockon.ui.components.motion(app.lockon.ui.components.Motion.LONG), label = "split")

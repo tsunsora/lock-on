@@ -110,9 +110,9 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
         title = if (preview == null) "Card database" else "Install this catalog?",
         text = {
             Column {
-            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 FadeSwap(preview, Modifier.fillMaxWidth(), contentKey = { it != null }) { pending ->
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (pending != null) {
                     PreviewSummary(pending)
                 } else {
@@ -163,7 +163,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                     },
                                 ).let { facts ->
                                     val columns = if (narrow) 2 else facts.size
-                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                         facts.chunked(columns).forEach { row ->
                                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                                 row.forEach { (label, value) ->
@@ -185,7 +185,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                                     style = muted,
                                 )
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 val wide = Modifier.weight(1f)
                                 when (val result = check) {
                                     is CatalogUpdater.UpdateCheck.Available ->
@@ -206,7 +206,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                     Column(Modifier.fillMaxWidth().then(innerPanel)) {
                         Row(
                             Modifier.fillMaxWidth().clip(LockOnShapes.tile).clickable(onClickLabel = if (others) "Hide other sources" else "Show other sources") { others = !others }
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text("Other sources", style = MaterialTheme.typography.labelLarge)
@@ -214,7 +214,7 @@ fun CatalogDialog(container: AppContainer, state: AppState, files: FileBridge, o
                             Icon(LineIcons.Chevd, null, Modifier.size(18.dp).graphicsLayer { rotationZ = turn }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Reveal(others) {
-                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 // The link gets the full width so it stays readable; its button leads the row under it.
                                 PillTextField(url, { url = it.trim() }, "Card list link", Modifier.fillMaxWidth())
                                 // Equal widths: a column of full-width buttons on a phone, one row on a wide dialog.

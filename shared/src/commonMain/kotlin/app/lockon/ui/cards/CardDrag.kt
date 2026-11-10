@@ -102,7 +102,7 @@ fun CardDragGhost(drag: CardDrag, modifier: Modifier = Modifier) {
     val card = last
     if (card == null || (drag.card == null && appear == 0f)) return
     var origin by remember { mutableStateOf(Offset.Zero) }
-    val width = 110.dp
+    val width = 112.dp
     val half = with(LocalDensity.current) { Offset(width.toPx() / 2, width.toPx() * 0.7f) }
     Box(modifier.onGloballyPositioned { origin = it.positionInRoot() }) {
         CardImage(

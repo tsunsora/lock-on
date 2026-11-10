@@ -123,7 +123,7 @@ fun DeckTextEditor(
     Box(modifier) {
         Column(
             Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + LocalNavClearance.current),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(Modifier.weight(1f).fillMaxWidth().clip(LockOnShapes.tile).background(scheme.surfaceContainerLow)) {
                 BasicTextField(
@@ -137,7 +137,7 @@ fun DeckTextEditor(
                     Text(
                         if (problems.size == 1) problems.first() else "${problems.first()} (+${problems.size - 1} more)",
                         style = MaterialTheme.typography.bodySmall, color = scheme.error, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth().background(scheme.errorContainer.copy(alpha = 0.4f)).padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.fillMaxWidth().background(scheme.errorContainer.copy(alpha = 0.4f)).padding(horizontal = 12.dp, vertical = 8.dp),
                     )
                 }
             }

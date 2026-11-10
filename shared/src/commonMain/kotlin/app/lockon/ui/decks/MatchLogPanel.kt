@@ -171,7 +171,7 @@ fun MatchLogPanel(
             // Earlier opponents to pick from instead of typing (UX rule C4).
             val picks = opponentSuggestions.filter { opponent.isNotBlank() && it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(6)
             RevealValue(picks.takeIf { it.isNotEmpty() }) { names ->
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     names.forEach { PillChip(selected = false, onClick = { opponent = it }, label = { Text(it) }) }
                 }
             }
@@ -204,7 +204,7 @@ fun MatchLogPanel(
             val record = @Composable {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     WinRing(stats.overall.winRate, if (short) 52.dp else if (phone) 68.dp else 84.dp)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (phone) 2.dp else 6.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (phone) 2.dp else 8.dp)) {
                         FadeSwap(if (stats.overall.games == 0) "0–0" else stats.overall.score) {
                             Text(it, style = (if (phone) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge).merge(TabularNumbers))
                         }
@@ -217,7 +217,7 @@ fun MatchLogPanel(
                     }
                 }
             }
-            if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true, padding = if (short) 10.dp else 16.dp) { record() } else record()
+            if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true, padding = if (short) 12.dp else 16.dp) { record() } else record()
         }
         if (!phone) item(key = "log") { logPanel(Modifier) }
         // A phone's games read as one panel: the header rounds its top and the last game its bottom.
@@ -226,7 +226,7 @@ fun MatchLogPanel(
             val shape = RoundedCornerShape(topStart = tile, topEnd = tile, bottomStart = if (matches.isEmpty()) tile else 0.dp, bottomEnd = if (matches.isEmpty()) tile else 0.dp)
             SectionHeader(
                 "Games",
-                Modifier.animateItem().then(if (phone) Modifier.background(fill, shape).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (matches.isEmpty()) 16.dp else 6.dp) else Modifier),
+                Modifier.animateItem().then(if (phone) Modifier.background(fill, shape).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (matches.isEmpty()) 16.dp else 8.dp) else Modifier),
                 readout = "${matches.size}",
             )
         }
@@ -245,7 +245,7 @@ fun MatchLogPanel(
                         MatchResult.LOSS -> Triple("L", scheme.error, scheme.onError)
                         MatchResult.DRAW -> Triple("D", drawTone(), onDrawTone())
                     }
-                    Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(tone), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(tone), contentAlignment = Alignment.Center) {
                         Text(letter, style = MaterialTheme.typography.labelLarge, color = ink)
                     }
                     Column(Modifier.weight(1f)) {
@@ -257,10 +257,10 @@ fun MatchLogPanel(
                         // One width for both, so the badges make a tidy column.
                         Text(
                             if (first) "1st" else "2nd", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center,
-                            modifier = Modifier.width(40.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, scheme.onSurface.copy(alpha = 0.24f), RoundedCornerShape(8.dp)).padding(vertical = 3.dp),
+                            modifier = Modifier.width(40.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, scheme.onSurface.copy(alpha = 0.24f), RoundedCornerShape(8.dp)).padding(vertical = 4.dp),
                         )
                     }
-                    Text(dayLabel(match.playedAt), Modifier.widthIn(min = 58.dp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.End, maxLines = 1)
+                    Text(dayLabel(match.playedAt), Modifier.widthIn(min = 56.dp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.End, maxLines = 1)
                     Icon(LineIcons.Chev, null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant.copy(alpha = 0.7f))
                 }
             }
@@ -271,7 +271,7 @@ fun MatchLogPanel(
                 val opponents = @Composable {
                     SectionHeader("By opponent")
                     Column(verticalArrangement = Arrangement.spacedBy(if (phone) 12.dp else 20.dp)) {
-                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 150.dp) }
+                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 152.dp) }
                     }
                 }
                 if (phone) SoftTile(Modifier.animateItem().padding(top = gap).fillMaxWidth(), solid = true) { opponents() }
@@ -338,7 +338,7 @@ private fun EditMatchDialog(
                 }
                 val picks = opponentSuggestions.filter { opponent.isNotBlank() && it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(4)
                 RevealValue(picks.takeIf { it.isNotEmpty() }) { names ->
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         names.forEach { PillChip(selected = false, onClick = { opponent = it }, label = { Text(it) }) }
                     }
                 }
@@ -367,7 +367,7 @@ private fun WinRing(rate: Int?, diameter: Dp) {
     val sweep by animateFloatAsState((rate ?: 0) / 100f * 360f, motion(Motion.LONG), label = "win-ring")
     Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(Modifier.matchParentSize()) {
-            val thick = if (diameter < 60.dp) 7.dp else 9.dp
+            val thick = if (diameter < 60.dp) 6.dp else 8.dp
             val stroke = Stroke(thick.toPx(), cap = StrokeCap.Round)
             val inset = thick.toPx() / 2
             val box = Size(size.width - inset * 2, size.height - inset * 2)
@@ -384,7 +384,7 @@ private fun WinRing(rate: Int?, diameter: Dp) {
 @Composable
 private fun RecordRow(name: String, record: Record, nameWidth: Dp) {
     val scheme = MaterialTheme.colorScheme
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(name, Modifier.width(nameWidth), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Row(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             // Logging a game moves the split instead of redrawing it.

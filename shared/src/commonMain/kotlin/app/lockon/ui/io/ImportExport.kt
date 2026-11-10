@@ -130,7 +130,7 @@ fun NewDeckDialog(
         title = "New deck",
         text = {
             // Scrolls so the buttons stay in reach when the keyboard leaves too little room for it all.
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (!isBackup) {
                     val focus = remember { FocusRequester() }
                     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -154,10 +154,10 @@ fun NewDeckDialog(
                     listOf("Empty", "Paste a list"), if (pasting) 1 else 0, { pasting = it == 1; problems = emptyList() },
                     Modifier.fillMaxWidth(), icons = listOf(LineIcons.Plus, LineIcons.Paste),
                 )
-                Reveal(pasting) { Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Reveal(pasting) { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
                         text, { text = it; problems = emptyList() },
-                        modifier = Modifier.fillMaxWidth().height(190.dp),
+                        modifier = Modifier.fillMaxWidth().height(192.dp),
                         placeholder = { Text("4 SMP-001\n4 SMP-002", fontFamily = FontFamily.Monospace) },
                         textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                     )

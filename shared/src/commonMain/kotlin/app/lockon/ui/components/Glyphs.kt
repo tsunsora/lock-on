@@ -57,8 +57,8 @@ fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modif
     val ink = if (review) scheme.error else scheme.onSurface
     val shape = RoundedCornerShape(9.dp)
     Row(
-        modifier.clip(shape).background(if (review) scheme.error.copy(alpha = 0.1f) else scheme.onSurface.copy(alpha = 0.06f)).border(1.dp, if (review) scheme.error else scheme.onSurface.copy(alpha = 0.16f), shape).padding(horizontal = 8.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
+        modifier.clip(shape).background(if (review) scheme.error.copy(alpha = 0.1f) else scheme.onSurface.copy(alpha = 0.06f)).border(1.dp, if (review) scheme.error else scheme.onSurface.copy(alpha = 0.16f), shape).padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (icon && review) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = ink)
         else if (icon && legal && !review) Icon(LineIcons.Check, contentDescription = null, Modifier.size(14.dp), tint = ink)

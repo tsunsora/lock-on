@@ -211,12 +211,12 @@ private fun StepDots(current: Int, count: Int, onSelect: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { i ->
             // The pill slides along as the tour moves, rather than jumping from dot to dot.
-            val width by animateDpAsState(if (i == current) 22.dp else 8.dp, glide(), label = "step-width")
+            val width by animateDpAsState(if (i == current) 24.dp else 8.dp, glide(), label = "step-width")
             val fill by animateColorAsState(
                 if (i == current) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f), motion(), label = "step-fill",
             )
             Box(
-                Modifier.clip(CircleShape).clickable(onClickLabel = "Go to step ${i + 1}") { onSelect(i) }.padding(horizontal = 3.dp, vertical = 12.dp),
+                Modifier.clip(CircleShape).clickable(onClickLabel = "Go to step ${i + 1}") { onSelect(i) }.padding(horizontal = 4.dp, vertical = 12.dp),
             ) { Box(Modifier.size(width = width, height = 8.dp).clip(CircleShape).background(fill)) }
         }
     }
@@ -235,7 +235,7 @@ private fun Picture(content: @Composable () -> Unit) {
 @Composable
 private fun Words(title: String, line: String) {
     Text(title, Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(8.dp))
     Text(
         line, Modifier.padding(horizontal = 32.dp).widthIn(max = 460.dp), style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
@@ -250,7 +250,7 @@ private fun Fan(cards: List<Card>) {
 /** Three cards laid out like the card list, with the selection outline on the middle one. */
 @Composable
 private fun CardRow(cards: List<Card>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(3) { i ->
             val card = cards.getOrNull(i)
             val place = Modifier.width(96.dp).then(if (i == 1) Modifier.selectionEdge(CardShape, MaterialTheme.colorScheme.primary) else Modifier)
@@ -271,12 +271,12 @@ private fun TwoDevices(card: Card?) {
             }
         }
     }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Screen(Modifier.size(width = 168.dp, height = 112.dp), RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 4.dp, bottomEnd = 4.dp), 58.dp)
             Box(Modifier.size(width = 196.dp, height = 8.dp).clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)).background(body))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             repeat(3) { Box(Modifier.size(8.dp).clip(CircleShape).background(Accent)) }
         }
         Screen(Modifier.size(width = 72.dp, height = 132.dp), RoundedCornerShape(14.dp), 44.dp)
@@ -298,9 +298,9 @@ private fun ThemeTiles() {
 
 @Composable
 private fun CardDatabase(download: Download, official: Boolean, cardCount: Int, onDownload: () -> Unit) {
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(16.dp))
     app.lockon.ui.components.FadeSwap(download, contentAlignment = Alignment.Center, contentKey = { it::class to official }) { download ->
-    Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         when {
             download is Download.Done || (official && download == Download.Idle) -> {
                 Icon(LineIcons.Check, contentDescription = null, tint = Accent)
@@ -317,7 +317,7 @@ private fun CardDatabase(download: Download, official: Boolean, cardCount: Int, 
     app.lockon.ui.components.RevealValue(download as? Download.Failed) {
         Text(it.message, Modifier.padding(start = 32.dp, end = 32.dp, top = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
     }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(12.dp))
     Text(
         GcgApi.ATTRIBUTION, Modifier.padding(horizontal = 32.dp), style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.outline, textAlign = TextAlign.Center,
@@ -329,7 +329,7 @@ private fun CardDatabase(download: Download, official: Boolean, cardCount: Int, 
 private fun ThemeChoices(container: AppContainer) {
     val scope = rememberCoroutineScope()
     val theme by container.settings.theme.collectAsState()
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(16.dp))
     PillSegmented(
         ThemeChoice.entries.map { it.label }, ThemeChoice.entries.indexOf(theme),
         { i -> scope.launch { container.settings.setTheme(ThemeChoice.entries[i]) } },

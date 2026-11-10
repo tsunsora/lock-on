@@ -81,7 +81,7 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().clearOfNav().padding(horizontal = if (wide) 0.dp else 12.dp, vertical = if (wide) 0.dp else 8.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Wide windows go back from the button in the corner.
             if (!wide) GlassIconButton(LineIcons.Back, "Back", state::goBack)
@@ -141,7 +141,7 @@ fun VersionCard(
 ) {
     val snapshot = version.snapshot
     val scheme = MaterialTheme.colorScheme
-    Column(modifier.glass(LockOnShapes.panel, strong = true).padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier.glass(LockOnShapes.panel, strong = true).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             DeviceGlyph(fromComputer)
             Column(Modifier.weight(1f)) {
@@ -152,7 +152,7 @@ fun VersionCard(
         if (snapshot.deleted) {
             Text("Deleted the deck", style = MaterialTheme.typography.titleMedium, color = scheme.error)
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ProgressGauge("Main deck", snapshot.count(DeckSection.MAIN), 50, Modifier.weight(1f), compact = true, hold = true, inline = true)
                 val colors = remember(snapshot, cards) { snapshot.entries.filter { it.section == DeckSection.MAIN }.flatMap { cards[it.cardNumber]?.colors.orEmpty() }.toSet() }
                 ColorPips(colors, size = 18.dp)
@@ -174,8 +174,8 @@ fun VersionCard(
                     val card = cards[number]
                     val by = mine - theirs
                     Row(
-                        Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.04f)).padding(horizontal = 10.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.04f)).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         CostOrb(card?.cost, cardColor(card?.colors?.firstOrNull()), onCardColor(card?.colors?.firstOrNull()), size = 24.dp)
                         Text(card?.name ?: number, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -188,6 +188,6 @@ fun VersionCard(
                 }
             }
         }
-        GameButton(if (snapshot.deleted) "Delete the deck" else "Keep this version", onClick = onKeep, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), icon = LineIcons.Check)
+        GameButton(if (snapshot.deleted) "Delete the deck" else "Keep this version", onClick = onKeep, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), icon = LineIcons.Check)
     }
 }
