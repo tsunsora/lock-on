@@ -181,11 +181,11 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-// The sky-glass layer (UX rules V1, V8, V9): a bright sky backdrop, frosted glass panels, pill
-// buttons, chips and tabs, round orbs and medallions, and the hover and add-card feedback that makes
-// building feel lively. Every animation respects reduced motion.
+// The shared toolkit (UX rules V1, V8, V9): a quiet sky backdrop, solid panels, rounded buttons,
+// chips and tabs, flat colour dots, and the hover and add-card feedback that answers each change.
+// Every animation respects reduced motion.
 
-/** True on the twilight (dark) theme; glass and glows are tuned per theme. */
+/** True on the twilight (dark) theme; panels and their edges are tuned per theme. */
 @Composable
 @ReadOnlyComposable
 fun isTwilight(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -197,16 +197,24 @@ val OnAccent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorS
 /** Soft gold for celebration only: a full gauge, a legal deck, the Lock On moment. */
 val Gold = SuitColors.vFinYellow
 
-/** Frosted glass for the current theme: its fill, a stronger fill for small controls, and the rim. */
-data class GlassColors(val fill: Color, val strong: Color, val rim: Color, val rimLow: Color, val shade: Color)
+/**
+ * A panel's colours for the current theme (named for the glass they once were): its fill, a stronger
+ * fill for small controls, the one hairline round it, and the colour of the shadow under things that float.
+ * The hairline is the theme's ink at a tenth, the same all the way round: an edge, not a highlight.
+ * The shadow is ink too, so nothing casts a coloured one.
+ */
+data class GlassColors(val fill: Color, val strong: Color, val line: Color, val shade: Color)
 
 @Composable
 @ReadOnlyComposable
 fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color(0xFF232A58).copy(alpha = 0.92f), Color(0xFF343C72), Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.06f), Color(0xFF060B1E))
+    GlassColors(Color(0xFF232A58).copy(alpha = 0.92f), Color(0xFF343C72), Color.White.copy(alpha = 0.1f), Color(0xFF060B1E))
 } else {
-    GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color.White, Color(0xFFD5E2F0), Color(0xFF6A88B0))
+    GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color(0xFF1C2742).copy(alpha = 0.1f), Color(0xFF1C2742).copy(alpha = 0.5f))
 }
+
+/** How thick a panel's hairline is. */
+val HairlineWidth = 1.dp
 
 /** A painted sky and the theme it was painted for. */
 private class SkyPaint(val width: Int, val height: Int, val image: ImageBitmap, val twilight: Boolean)
@@ -232,10 +240,9 @@ private suspend fun paintedSky(width: Int, height: Int, twilight: Boolean, boot:
 }
 
 /**
- * The sky behind every screen: a clear gradient, soft coloured glows, a diagonal beam of light and
- * floating bokeh. It is static: nothing loops.
- * The smooth parts are painted per pixel by [paintSky] so they never band; [onPainted] hears when
- * the painted sky first draws. With [boot] it is the launch screen's sky.
+ * The sky behind every screen: one quiet gradient from top to bottom, with nothing glowing or
+ * floating in it (UX rule V7). It is painted per pixel by [paintSky] so it never bands; [onPainted]
+ * hears when the painted sky first draws. With [boot] it is the launch screen's sky.
  */
 @Composable
 fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, boot: Boolean = false, content: @Composable BoxScope.() -> Unit) {
@@ -253,23 +260,12 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
     }
     Box(
         modifier.background(if (boot) skyStops(twilight, true)[1] else MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
-            val w = size.width
-            val h = size.height
-            val m = size.maxDimension
             val painted = sky?.takeIf { it.twilight == twilight }
             if (painted != null) {
-                drawImage(painted.image, dstSize = IntSize(ceil(w).toInt(), ceil(h).toInt()), filterQuality = FilterQuality.Low)
+                drawImage(painted.image, dstSize = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt()), filterQuality = FilterQuality.Low)
                 onPainted?.invoke()
             } else {
                 drawRect(Brush.verticalGradient(skyStops(twilight, boot)))
-            }
-            // Bokeh at fixed places, so every frame and screenshot is the same. Twilight's bokeh are
-            // glows, painted with the sky.
-            if (false) SkyBokeh.forEachIndexed { i, b ->
-                val c = Offset(w * b.x, h * b.y)
-                val r = m * b.radius
-                drawCircle(Color.White.copy(alpha = 0.28f), r, c)
-                if (i % 2 == 0) drawCircle(Color.White.copy(alpha = 0.5f), r, c, style = Stroke(1.5f))
             }
         },
         content = content,
@@ -277,7 +273,7 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
 }
 
 /**
- * A frosted glass surface: translucent fill, a bright rim fading downward, clipped to [shape].
+ * A solid panel: its fill and one hairline round it, clipped to [shape].
  */
 @Composable
 fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false): Modifier {
@@ -286,15 +282,13 @@ fun Modifier.glass(shape: Shape = LockOnShapes.panel, strong: Boolean = false): 
     val fill = if (strong) SolidColor(g.strong) else SolidColor(g.fill)
     return clip(shape)
         .background(fill)
-        .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+        .border(BorderStroke(HairlineWidth, g.line), shape)
 }
 
-/** The glass rim on its own, for surfaces that draw their own fill (art banners, dialogs). */
+/** A panel's hairline on its own, for surfaces that draw their own fill (art banners, dialogs). */
 @Composable
-fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel): Modifier {
-    val g = glassColors()
-    return border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
-}
+fun Modifier.glassFrame(shape: Shape = LockOnShapes.panel): Modifier =
+    border(BorderStroke(HairlineWidth, glassColors().line), shape)
 
 /** A large glass panel with an optional title row (UX rule V1). */
 @Composable
@@ -445,7 +439,7 @@ fun GlassIconButton(
         if (desktopControls) neutralFill(hovered, pressed) else if (hovered) lighten(g.strong, 0.08f) else g.strong,
         motion(Motion.SHORT), label = "icon-disc",
     )
-    val ring by animateColorAsState(if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.6f) else g.rimLow, motion(Motion.SHORT), label = "icon-ring")
+    val ring by animateColorAsState(if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.6f) else g.line, motion(Motion.SHORT), label = "icon-ring")
     val glyph by animateColorAsState(if (hovered && !desktopControls) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
     val small = if (desktopControls) SmallControlShape else RoundedCornerShape(11.dp)
     Box(
@@ -1104,7 +1098,7 @@ private fun PillField(
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     // Focus draws the rim and icon in teal over a moment, so the field visibly wakes up.
-    val rimColor by animateColorAsState(if (focused) scheme.primary else if (desktopControls) Color.Transparent else g.rimLow, motion(Motion.SHORT), label = "field-rim")
+    val rimColor by animateColorAsState(if (focused) scheme.primary else if (desktopControls) Color.Transparent else g.line, motion(Motion.SHORT), label = "field-rim")
     val rimWidth by animateFloatAsState(if (!focused) 1f else if (app.lockon.platform.isMobile) 1.6f else SelectionEdgeWidth.value, motion(Motion.SHORT), label = "field-rim-width")
     val iconTint by animateColorAsState(if (focused) scheme.primary else scheme.onSurfaceVariant, motion(Motion.SHORT), label = "field-icon")
     val shape = LockOnShapes.button
@@ -1187,7 +1181,7 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
 }
 
 /**
- * A dialog on a rounded card: Material's dialog behaviour with the glass rim, a friendly title
+ * A dialog on a rounded card: Material's dialog behaviour with the panel's hairline, a friendly title
  * and [GameButton] actions.
  */
 @Composable
@@ -1228,8 +1222,8 @@ fun GameDialog(
 }
 
 /**
- * A drop-down menu on a glass card: Material's placement and open animation, with the rounded
- * panel shape, the glass rim and a soft shadow. Fill it with [GameMenuItem]s.
+ * A drop-down menu on a solid card: Material's placement and open animation, with the rounded
+ * panel shape, the panel's hairline and a soft shadow. Fill it with [GameMenuItem]s.
  */
 @Composable
 fun GameMenu(
@@ -1250,7 +1244,7 @@ fun GameMenu(
         containerColor = g.strong.compositeOver(MaterialTheme.colorScheme.background),
         tonalElevation = 0.dp,
         shadowElevation = 10.dp,
-        border = BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))),
+        border = BorderStroke(HairlineWidth, g.line),
         content = content,
     )
 }
@@ -1349,7 +1343,7 @@ fun GameToast(data: SnackbarData) {
             .clip(shape)
             // Opaque, so the screen under it doesn't muddy the text.
             .background(g.strong.compositeOver(scheme.background))
-            .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+            .border(BorderStroke(HairlineWidth, g.line), shape)
             .padding(start = 22.dp, end =if (action != null) 6.dp else 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1515,7 +1509,7 @@ fun PillChip(
     )
     val text by animateColorAsState(if (selected) Accent else scheme.onSurface, motion(Motion.SHORT), label = "chip-text")
     val rim by animateColorAsState(
-        if (selected) Accent else if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.5f) else g.rimLow,
+        if (selected) Accent else if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.5f) else g.line,
         motion(Motion.SHORT), label = "chip-rim",
     )
     CompositionLocalProvider(

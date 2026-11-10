@@ -222,12 +222,11 @@ private fun StepDots(current: Int, count: Int, onSelect: (Int) -> Unit) {
     }
 }
 
-/** The stop's picture, in a band that washes down from teal into the dialog. */
+/** The stop's picture, in a band of its own above the words, on the plain panel. */
 @Composable
 private fun Picture(content: @Composable () -> Unit) {
     Box(
-        Modifier.fillMaxWidth().height(216.dp).clipToBounds()
-            .background(Brush.verticalGradient(listOf(Accent.copy(alpha = 0.16f), Color.Transparent))),
+        Modifier.fillMaxWidth().height(216.dp).clipToBounds(),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

@@ -27,7 +27,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.material3.TriStateCheckbox
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -41,7 +40,6 @@ import app.lockon.ui.components.Accent
 import app.lockon.ui.components.ControlSize
 import app.lockon.ui.components.Gold
 import app.lockon.ui.components.Motion
-import app.lockon.ui.components.lighten
 import app.lockon.ui.components.motion
 import kotlin.math.roundToInt
 import androidx.compose.animation.animateContentSize
@@ -1113,7 +1111,7 @@ internal fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = M
     // Finishing or failing, the bar's colour fades across; the two can't be blended as one brush.
     Crossfade(tone, modifier.fillMaxWidth(), animationSpec = motion(), label = "transfer-tone") { shownTone ->
     val fill = when (shownTone) {
-        BarTone.WORKING -> if (flat) SolidColor(accent) else Brush.horizontalGradient(listOf(lighten(accent, 0.3f), accent))
+        BarTone.WORKING -> SolidColor(accent)
         BarTone.DONE -> SolidColor(Gold)
         BarTone.STOPPED -> SolidColor(scheme.outline)
         BarTone.FAILED -> SolidColor(scheme.error)

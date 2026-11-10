@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberUpdatedState
@@ -570,7 +569,7 @@ fun CardSearchPanel(
                 exit = if (reduce) fadeOut(tween(90)) else fadeOut(tween(Motion.SHORT)) + scaleOut(tween(Motion.SHORT), targetScale = 0.7f),
             ) {
                 GlassIconButton(Icons.Default.KeyboardArrowUp, "Back to top", onClick = { backToTop++ },
-                    modifier = Modifier.shadow(6.dp, CircleShape))
+                    modifier = Modifier.shadow(6.dp, LockOnShapes.button, ambientColor = app.lockon.ui.components.glassColors().shade, spotColor = app.lockon.ui.components.glassColors().shade))
             }
         }
         }

@@ -35,7 +35,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.input.key.Key
@@ -157,7 +156,7 @@ internal fun MenuPanel(items: List<ContextMenuItem>, onClose: () -> Unit) {
             .shadow(10.dp, shape, ambientColor = g.shade, spotColor = g.shade)
             .clip(shape)
             .background(g.strong.compositeOver(MaterialTheme.colorScheme.background))
-            .border(BorderStroke(1.2.dp, Brush.verticalGradient(listOf(g.rim, g.rimLow))), shape)
+            .border(BorderStroke(app.lockon.ui.components.HairlineWidth, g.line), shape)
             .width(IntrinsicSize.Max)
             .widthIn(min = 200.dp)
             .padding(6.dp),

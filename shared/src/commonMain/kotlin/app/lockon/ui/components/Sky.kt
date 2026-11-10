@@ -1,26 +1,11 @@
 package app.lockon.ui.components
 
 import androidx.compose.ui.graphics.Color
-import app.lockon.ui.theme.SuitColors
-import kotlin.math.abs
-import kotlin.math.max
 
-// The smooth parts of the sky, painted pixel by pixel instead of with gradient brushes. A gentle
-// gradient across a whole window changes by only a few dozen 8-bit steps, so brushes show it as
-// visible bands, and a glow that fades linearly ends in a bright rim. Here every falloff eases to
-// zero at both ends, and each pixel gets a touch of triangular noise before it is rounded, which
+// The sky is one quiet gradient, painted pixel by pixel instead of with a gradient brush. A gentle
+// gradient across a whole window changes by only a few dozen 8-bit steps, so a brush shows it as
+// visible bands. Here each pixel gets a touch of triangular noise before it is rounded, which
 // dissolves the steps. The noise is a hash of the pixel's place, so a size always paints the same.
-
-/** A soft round glow: centre as a fraction of the width and height, radius of the longer side. */
-internal class SkyGlow(val x: Float, val y: Float, val radius: Float, val color: Color, val alpha: Float)
-
-/** Where the bokeh float, shared by the painted twilight glows and the drawn day discs. */
-internal val SkyBokeh = listOf(
-    SkyGlow(0.08f, 0.18f, 0.05f, Color.White, 0f), SkyGlow(0.22f, 0.62f, 0.03f, Color.White, 0f),
-    SkyGlow(0.47f, 0.3f, 0.025f, Color.White, 0f), SkyGlow(0.71f, 0.72f, 0.045f, Color.White, 0f),
-    SkyGlow(0.9f, 0.4f, 0.03f, Color.White, 0f), SkyGlow(0.35f, 0.9f, 0.04f, Color.White, 0f),
-    SkyGlow(0.6f, 0.12f, 0.02f, Color.White, 0f), SkyGlow(0.95f, 0.88f, 0.035f, Color.White, 0f),
-)
 
 // Cards lie directly on the sky, so it stays quiet: little colour, and a brightness well away from the
 // card faces', lighter by day and darker at twilight, so the cards are the most colourful thing on screen.
@@ -31,70 +16,23 @@ internal val TwilightSky = listOf(Color(0xFF141A3C), Color(0xFF181E44), Color(0x
 internal val DayBootSky = listOf(Color(0xFFC9B9F7), Color(0xFFD5C9F9), Color(0xFFE1D9FB))
 internal val TwilightBootSky = listOf(Color(0xFF181546), Color(0xFF1C1850), Color(0xFF221D5A))
 
-private val DayGlows = listOf(
-    SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF7FE3E8), 0.16f),
-    SkyGlow(0.04f, 0.96f, 0.45f, SuitColors.blush, 0.1f),
-    SkyGlow(0.62f, 1.05f, 0.4f, Gold, 0.05f),
-)
-
-private val TwilightGlows = listOf(
-    SkyGlow(0.86f, 0.02f, 0.5f, Color(0xFF3FC6D4), 0.08f),
-    SkyGlow(0.06f, 0.95f, 0.5f, Color(0xFF8E6BE8), 0.07f),
-)
-
 /**
- * The sky's gradient, glows and diagonal beam of light as opaque 0xAARRGGBB pixels, row by row.
- * The day's bokeh discs are crisp shapes and stay with the drawing code. With [boot] it paints the
- * launch screen's sky, which has no glows or beam.
+ * The sky's gradient as opaque 0xAARRGGBB pixels, row by row: the theme's three tones from top to
+ * bottom and nothing else. No glow, beam or shape sits in it (UX rule V7). With [boot] it paints the
+ * launch screen's sky.
  */
 internal fun paintSky(width: Int, height: Int, twilight: Boolean, boot: Boolean = false): IntArray {
-    val w = width.toFloat()
     val h = height.toFloat()
-    val m = max(w, h)
     val stops = skyStops(twilight, boot)
-    val glows = if (boot) emptyList() else if (twilight) TwilightGlows else DayGlows
-    val n = glows.size
-    val gx = FloatArray(n) { glows[it].x * w }
-    val gy = FloatArray(n) { glows[it].y * h }
-    val gr = FloatArray(n) { glows[it].radius * m }
-    val inv = FloatArray(n) { 1f / (gr[it] * gr[it]) }
-    val dy2 = FloatArray(n)
-    val beamPeak = if (boot) 0f else if (twilight) 0.015f else 0.08f
     val out = IntArray(width * height)
     for (y in 0 until height) {
-        val py = y + 0.5f
-        val t = py / h
+        val t = (y + 0.5f) / h
         // A curve through the three stops rather than two straight segments, so there's no crease.
-        val baseR = through(stops[0].red, stops[1].red, stops[2].red, t)
-        val baseG = through(stops[0].green, stops[1].green, stops[2].green, t)
-        val baseB = through(stops[0].blue, stops[1].blue, stops[2].blue, t)
-        for (i in 0 until n) { val d = py - gy[i]; dy2[i] = if (abs(d) < gr[i]) d * d else -1f }
-        // The beam slants from the top right towards the bottom left, widening as it falls, and is
-        // brightest halfway down.
-        val beamX = w * (0.58f - 0.32f * t)
-        val beamHalf = w * (0.08f + 0.06f * t)
-        val beamAlpha = beamPeak * (0.35f + 2.6f * t * (1f - t))
+        val r = through(stops[0].red, stops[1].red, stops[2].red, t)
+        val g = through(stops[0].green, stops[1].green, stops[2].green, t)
+        val b = through(stops[0].blue, stops[1].blue, stops[2].blue, t)
         val row = y * width
         for (x in 0 until width) {
-            val px = x + 0.5f
-            var r = baseR; var g = baseG; var b = baseB
-            for (i in 0 until n) {
-                if (dy2[i] < 0f) continue
-                val dx = px - gx[i]
-                val d2 = (dx * dx + dy2[i]) * inv[i]
-                if (d2 < 1f) {
-                    val f = 1f - d2
-                    val a = glows[i].alpha * f * f
-                    val c = glows[i].color
-                    r += (c.red - r) * a; g += (c.green - g) * a; b += (c.blue - b) * a
-                }
-            }
-            val bt = (px - beamX) / beamHalf
-            if (bt > -1f && bt < 1f) {
-                val f = 1f - bt * bt
-                val a = beamAlpha * f * f
-                r += (1f - r) * a; g += (1f - g) * a; b += (1f - b) * a
-            }
             val noise = dither(x, y)
             out[row + x] = (0xFF shl 24) or (quantize(r, noise) shl 16) or (quantize(g, noise) shl 8) or quantize(b, noise)
         }

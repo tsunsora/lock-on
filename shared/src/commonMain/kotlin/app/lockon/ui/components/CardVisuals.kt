@@ -83,7 +83,6 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -563,17 +562,9 @@ fun CardDetailContent(
         val roomy = !showName && maxWidth >= 300.dp
         val imageWidth = (maxWidth * 0.4f).coerceIn(260.dp, 340.dp)
         val thumbWidth = (maxWidth * 0.4f).coerceAtMost(156.dp)
-        // The card sits in a pool of its own colour, like a card raised for inspection.
-        val pool = cardColor(card.colors.firstOrNull())
         val image: @Composable (Modifier, Boolean) -> Unit = { m, tight ->
-            // Tight: the glow is an oval squeezed to the box, fading out within its own padding, so a
-            // scrolling column never cuts it off at the sides. The roomy dialog shows the card alone.
-            Box(if (!tight) m else m.drawBehind {
-                val r = size.height / 2
-                scale(scaleX = size.width / size.height, scaleY = 1f, pivot = center) {
-                    drawCircle(Brush.radialGradient(listOf(pool.copy(alpha = 0.55f), pool.copy(alpha = 0f)), center, r), radius = r)
-                }
-            }.padding(8.dp)) {
+            // The card alone on the panel: nothing glows behind it. Tight keeps a little room round it.
+            Box(if (!tight) m else m.padding(8.dp)) {
                 // A click opens the card full size, to turn in the light.
                 val press = remember { MutableInteractionSource() }
                 // Another printing fades in over the last, so the art never blanks between them.
@@ -926,7 +917,7 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
                 enter = fadeIn(motion()) + scaleIn(motion(), initialScale = 0.8f), exit = fadeOut(motion(Motion.SHORT)),
             ) {
                 Box(
-                    Modifier.padding(4.dp).size(20.dp).shadow(3.dp, CircleShape).background(Accent, CircleShape),
+                    Modifier.padding(4.dp).size(20.dp).background(Accent, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(LineIcons.Check, contentDescription = null, tint = OnAccent, modifier = Modifier.size(14.dp))
