@@ -68,12 +68,12 @@ class ButtonMotionPreviewTest {
         record(name, dark = false, content); record(name, dark = true, content)
     }
 
-    @Test fun primary() = both("primary") { GameButton("New deck", onClick = {}, icon = app.lockon.ui.components.GameIcons.Deck) }
-    @Test fun primaryCompact() = both("primary-compact") { GameButton("New deck", onClick = {}, icon = app.lockon.ui.components.GameIcons.Deck, compact = true) }
+    @Test fun primary() = both("primary") { GameButton("New deck", onClick = {}, icon = app.lockon.ui.components.LineIcons.Decks) }
+    @Test fun primaryCompact() = both("primary-compact") { GameButton("New deck", onClick = {}, icon = app.lockon.ui.components.LineIcons.Decks, compact = true) }
     @Test fun secondary() = both("secondary") { GameButton("Import", onClick = {}, style = GameButtonStyle.SECONDARY) }
     @Test fun ghost() = both("ghost") { GameButton("Cancel", onClick = {}, style = GameButtonStyle.GHOST) }
-    @Test fun glassIcon() = both("glass-icon") { GlassIconButton(app.lockon.ui.components.GameIcons.Deck, "More", onClick = {}) }
-    @Test fun materialIcon() = both("material-icon") { IconButton(onClick = {}) { Icon(app.lockon.ui.components.GameIcons.Deck, "Close") } }
+    @Test fun glassIcon() = both("glass-icon") { GlassIconButton(app.lockon.ui.components.LineIcons.Decks, "More", onClick = {}) }
+    @Test fun materialIcon() = both("material-icon") { IconButton(onClick = {}) { Icon(app.lockon.ui.components.LineIcons.Decks, "Close") } }
     @Test fun chip() {
         val on = mutableStateOf(false)
         both("chip") { PillChip(on.value, onClick = { on.value = !on.value }, label = { Text("Unit") }) }

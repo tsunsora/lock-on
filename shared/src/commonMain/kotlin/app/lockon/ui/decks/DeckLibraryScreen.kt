@@ -78,17 +78,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuItem
 import app.lockon.ui.components.GameMenuDivider
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -133,11 +128,9 @@ import app.lockon.ui.Tab
 import androidx.compose.ui.focus.focusRequester
 import app.lockon.ui.components.glass
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.lockon.platform.ageLabel
-import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.Glyphs
 import app.lockon.ui.components.StateTag
 import app.lockon.ui.components.selectionEdge
@@ -570,7 +563,7 @@ private fun FolderRail(
             .glass(LockOnShapes.panel, strong = true).verticalScroll(rememberScrollState()).padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        FolderItem("All decks", total, selected == FolderFilter.All, dropOver = false, Modifier, icon = GameIcons.Deck) { onSelect(FolderFilter.All) }
+        FolderItem("All decks", total, selected == FolderFilter.All, dropOver = false, Modifier, icon = LineIcons.Decks) { onSelect(FolderFilter.All) }
         folders.forEach { (name, count) ->
             val spot = DeckDropSpot.Folder(name)
             FolderContextMenu(name, onRename, onRemove) { openMenu ->

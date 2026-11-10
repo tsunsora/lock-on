@@ -14,7 +14,7 @@ Almost everything is drawn in code, so the app ships few files and nothing has t
 | Sample catalog | `composeResources/files/catalog/sample-catalog.json` | 20 fictional cards shown until the real database is downloaded. |
 | Rulesets | `composeResources/files/rulesets/rulesets.json` | Deck size, colours, copy limits and bans. |
 | Card artwork | downloaded per device into the artwork folder (WebP, 600×838) | Decoded at the size shown and kept in Coil's memory cache by size (`SizedArtworkKeyer`). Never synced. |
-| Icons | Material core icons (Add, Check, Close, Edit, Search, …) plus `GameIcons` in `GameUi.kt` | `GameIcons` draws the editor's section glyphs and Export, which the core set lacks. |
+| Icons | `LineIcons` in `ui/components/LineIcons.kt` | One outline set drawn in code on a 24-unit grid with a 1.9-unit round stroke. Nothing else supplies an icon: the Material icons library is no longer a dependency. |
 | Drawn decoration | `Sky.kt`, `SuitDecor.kt`, `Motion.kt`, `CardVisuals.kt` | The sky is painted once off the main thread into a bitmap. The reticle, Lock On mark, caution and tricolour stripes, cost orbs and card placeholders are Canvas drawings. |
 
 **Plan for assets**

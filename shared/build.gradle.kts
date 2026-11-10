@@ -64,7 +64,6 @@ kotlin {
             implementation("org.jetbrains.compose.ui:ui:$composeVersion")
             implementation("org.jetbrains.compose.components:components-resources:$composeVersion")
             implementation("org.jetbrains.compose.material3:material3:1.9.0")
-            implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             api("androidx.room:room-runtime:$roomVersion")

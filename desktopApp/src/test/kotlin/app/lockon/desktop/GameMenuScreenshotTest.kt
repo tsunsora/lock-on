@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.use
-import app.lockon.ui.components.GameIcons
+import app.lockon.ui.components.LineIcons
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuDivider
 import app.lockon.ui.components.GameMenuItem
@@ -41,11 +41,11 @@ class GameMenuScreenshotTest {
                                 }
                             }
                             Box {
-                                GlassIconButton(GameIcons.Deck, "Deck actions", {})
+                                GlassIconButton(LineIcons.Decks, "Deck actions", {})
                                 GameMenu(expanded = true, onDismissRequest = {}) {
                                     listOf("Rename", "Move to folder", "Edit tags", "Duplicate", "Export deck").forEach { GameMenuItem(it, onClick = {}) }
                                     GameMenuDivider()
-                                    GameMenuItem("Delete", onClick = {}, icon = GameIcons.Deck, danger = true)
+                                    GameMenuItem("Delete", onClick = {}, icon = LineIcons.Decks, danger = true)
                                 }
                             }
                         }

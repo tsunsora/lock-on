@@ -20,9 +20,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import app.lockon.ui.components.Glyphs
 import app.lockon.ui.components.ViewToggle
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.scaleIn
@@ -32,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.draw.clip
@@ -82,9 +78,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import app.lockon.ui.components.rememberPrefetchingGridState
 import app.lockon.ui.components.rememberPrefetchingListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuItem
 import androidx.compose.material3.FilterChip
@@ -568,7 +561,7 @@ fun CardSearchPanel(
                 enter = if (reduce) fadeIn(tween(90)) else fadeIn(tween(Motion.SHORT)) + scaleIn(glide(), initialScale = 0.7f),
                 exit = if (reduce) fadeOut(tween(90)) else fadeOut(tween(Motion.SHORT)) + scaleOut(tween(Motion.SHORT), targetScale = 0.7f),
             ) {
-                GlassIconButton(Icons.Default.KeyboardArrowUp, "Back to top", onClick = { backToTop++ },
+                GlassIconButton(LineIcons.Chevu, "Back to top", onClick = { backToTop++ },
                     modifier = Modifier.shadow(6.dp, LockOnShapes.button, ambientColor = app.lockon.ui.components.glassColors().shade, spotColor = app.lockon.ui.components.glassColors().shade))
             }
         }

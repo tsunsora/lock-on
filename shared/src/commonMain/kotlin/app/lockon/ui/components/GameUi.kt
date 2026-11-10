@@ -62,13 +62,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -564,7 +559,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         val glyph = icons?.getOrNull(i)
-                        if (glyph != null && showIcons) Icon(glyph, contentDescription = null, Modifier.size(15.dp), tint = text)
+                        if (glyph != null && showIcons) Icon(glyph, contentDescription = null, Modifier.size(16.dp), tint = text)
                         Text(label, maxLines = 1, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, color = text)
                     }
                 }
@@ -1714,61 +1709,6 @@ fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp 
 
 /** How wide a [FloatingPillNav] is on a screen [screen] wide: most of it, up to [widest]. */
 fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen - 24.dp, widest)
-
-/** Small drawn icons for the editor's sections and the export, which Material's core icon set lacks. */
-object GameIcons {
-    private fun icon(name: String, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit) =
-        ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(
-            androidx.compose.ui.graphics.vector.PathData(block), fill = SolidColor(Color.Black),
-        ).build()
-
-    /** Two stacked cards: the deck. */
-    val Deck: ImageVector get() = LineIcons.Decks
-
-    /** One card with a diamond in it: the card list. */
-    val Card: ImageVector get() = LineIcons.Cards
-
-    /** Three rising bars: the analysis. */
-    val Curve: ImageVector = icon("Curve") {
-        moveTo(3f, 13f); lineTo(7f, 13f); lineTo(7f, 21f); lineTo(3f, 21f); close()
-        moveTo(10f, 8f); lineTo(14f, 8f); lineTo(14f, 21f); lineTo(10f, 21f); close()
-        moveTo(17f, 3f); lineTo(21f, 3f); lineTo(21f, 21f); lineTo(17f, 21f); close()
-    }
-
-    /** A fanned hand of cards: the test hand. */
-    val Hand: ImageVector = icon("Hand") {
-        moveTo(2.2f, 8.6f); lineTo(8.4f, 6.4f); lineTo(12.6f, 18.2f); lineTo(6.4f, 20.4f); close()
-        moveTo(9.5f, 4f); lineTo(14.5f, 4f); lineTo(14.5f, 17f); lineTo(9.5f, 17f); close()
-        moveTo(15.6f, 6.4f); lineTo(21.8f, 8.6f); lineTo(17.6f, 20.4f); lineTo(11.4f, 18.2f); close()
-    }
-
-    /** A trophy: the match log. */
-    val Trophy: ImageVector = icon("Trophy") {
-        moveTo(6f, 3f); lineTo(18f, 3f); lineTo(18f, 9f); quadTo(18f, 14f, 12f, 14f); quadTo(6f, 14f, 6f, 9f); close()
-        moveTo(6f, 4.5f); lineTo(2.5f, 4.5f); lineTo(2.5f, 7f); quadTo(2.5f, 10.5f, 6.5f, 11.2f); lineTo(6.9f, 9.6f)
-        quadTo(4.2f, 9f, 4.2f, 7f); lineTo(4.2f, 6.2f); lineTo(6f, 6.2f); close()
-        moveTo(18f, 4.5f); lineTo(21.5f, 4.5f); lineTo(21.5f, 7f); quadTo(21.5f, 10.5f, 17.5f, 11.2f); lineTo(17.1f, 9.6f)
-        quadTo(19.8f, 9f, 19.8f, 7f); lineTo(19.8f, 6.2f); lineTo(18f, 6.2f); close()
-        moveTo(10.8f, 13.5f); lineTo(13.2f, 13.5f); lineTo(13.2f, 17.5f); lineTo(10.8f, 17.5f); close()
-        moveTo(7.5f, 18f); lineTo(16.5f, 18f); lineTo(16.5f, 21f); lineTo(7.5f, 21f); close()
-    }
-
-    /** Four corner brackets, like the reticle's: show something at full size. */
-    val Expand: ImageVector = icon("Expand") {
-        moveTo(3f, 3f); lineTo(10f, 3f); lineTo(10f, 5.2f); lineTo(5.2f, 5.2f); lineTo(5.2f, 10f); lineTo(3f, 10f); close()
-        moveTo(14f, 3f); lineTo(21f, 3f); lineTo(21f, 10f); lineTo(18.8f, 10f); lineTo(18.8f, 5.2f); lineTo(14f, 5.2f); close()
-        moveTo(21f, 14f); lineTo(21f, 21f); lineTo(14f, 21f); lineTo(14f, 18.8f); lineTo(18.8f, 18.8f); lineTo(18.8f, 14f); close()
-        moveTo(3f, 14f); lineTo(5.2f, 14f); lineTo(5.2f, 18.8f); lineTo(10f, 18.8f); lineTo(10f, 21f); lineTo(3f, 21f); close()
-    }
-
-    /** A clock face: the saved versions. */
-    val Clock: ImageVector = icon("Clock") {
-        // The ring winds against the face inside it, so the face stays hollow under the hands.
-        moveTo(21f, 12f); arcTo(9f, 9f, 0f, false, true, 3f, 12f); arcTo(9f, 9f, 0f, false, true, 21f, 12f); close()
-        moveTo(19f, 12f); arcTo(7f, 7f, 0f, false, false, 5f, 12f); arcTo(7f, 7f, 0f, false, false, 19f, 12f); close()
-        moveTo(11f, 7f); lineTo(13f, 7f); lineTo(13f, 11.4f); lineTo(16f, 13.2f); lineTo(15f, 14.9f); lineTo(11f, 12.6f); close()
-    }
-}
 
 /**
  * Draws [text] centred in its box by the letters' ink, not the line box or the advance width, so a

@@ -47,6 +47,7 @@ Sources and what we took from each are in [UX research](#research-behind-the-rul
 - **I3. Explain the rule with the problem.** A legality message names the card, the count and the limit (*"Inferno Lancer has 5 copies; the limit is 4"*), never just *"Invalid deck."*
 - **I4. Color is never the only signal.** Card colors always come with their name or initial, and status tags always include a word.
 - **I5. Label every icon.** An icon on its own needs a text label next to it or an accessible description plus a tooltip on desktop. (A reviewer criticized Aniimo's controller menu for having "the most incomprehensible buttons for any given action.")
+- **I6. One icon set.** Every icon is an outline from `LineIcons`, in the colour of the text beside it. Sizes are 16 dp beside a label, 18 dp in a small control, 20 dp in a toolbar control and 22 dp in a phone's controls and nav, with 14 dp only inside a tag and larger ones only on a big tile or the phone's + button. A filled glyph or one from another library reads as a different product. (Three filled Material arrows and one filled glyph went on 2026-11-10.)
 
 ## 4. Calm by default
 

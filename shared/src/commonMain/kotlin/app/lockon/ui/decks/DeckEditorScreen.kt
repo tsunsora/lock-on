@@ -14,7 +14,6 @@ import androidx.compose.animation.AnimatedVisibility
 import app.lockon.ui.components.SlidingPages
 import app.lockon.ui.components.LocalTopBand
 import app.lockon.ui.components.Accent
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.PlainIconButton
 import androidx.compose.ui.semantics.contentDescription
@@ -29,9 +28,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
 import app.lockon.ui.components.BottomItem
-import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.ProgressGauge
-import androidx.compose.material.icons.filled.MoreVert
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuDivider
 import app.lockon.ui.components.GameMenuItem
@@ -71,12 +68,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -933,7 +924,7 @@ private fun DeckList(
                     // One tap per copy (UX rule S1): move one into the deck, or change the side deck's count.
                     // On phones an arrow, so the card's name keeps its room; its label is still read out.
                     if (LocalTopBand.current.height == 0.dp) PlainIconButton(onClick = { onMoveToDeck(card) }) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move one ${card.name} to the deck", tint = Accent)
+                        Icon(LineIcons.Chevu, contentDescription = "Move one ${card.name} to the deck", tint = Accent)
                     }
                     else GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true)
                     PlateStepper(entry.quantity, card.name, onMinus = { onSideChange(card, -1) }, onPlus = { onSideChange(card, 1) })

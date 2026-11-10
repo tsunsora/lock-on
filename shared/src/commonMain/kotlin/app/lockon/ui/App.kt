@@ -21,7 +21,6 @@ import app.lockon.ui.components.ControlSize
 import app.lockon.ui.components.navClearance
 import app.lockon.ui.components.PillNavBar
 import app.lockon.ui.components.PillNavHeight
-import androidx.compose.material.icons.filled.Settings
 import app.lockon.ui.components.BottomItem
 import app.lockon.ui.components.glass
 import app.lockon.ui.components.glassColors
@@ -77,10 +76,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -184,7 +179,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.contentDescription
@@ -192,8 +186,8 @@ import androidx.compose.ui.semantics.semantics
 import app.lockon.ui.components.collectIsPressedHeld
 
 private fun Tab.icon(): ImageVector = when (this) {
-    Tab.DECKS -> app.lockon.ui.components.GameIcons.Deck
-    Tab.CARDS -> app.lockon.ui.components.GameIcons.Card
+    Tab.DECKS -> app.lockon.ui.components.LineIcons.Decks
+    Tab.CARDS -> app.lockon.ui.components.LineIcons.Cards
     Tab.SYNC -> LineIcons.Sync
     Tab.SETTINGS -> LineIcons.Settings
 }

@@ -44,10 +44,7 @@ import app.lockon.model.CardType
 import app.lockon.model.DeckSection
 import app.lockon.model.DeckSnapshot
 import app.lockon.rules.SampleHand
-import app.lockon.ui.components.GameIcons
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource

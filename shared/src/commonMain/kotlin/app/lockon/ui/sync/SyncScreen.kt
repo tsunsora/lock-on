@@ -11,9 +11,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import app.lockon.ui.components.LineIcons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.derivedStateOf
 import app.lockon.ui.components.rememberArrival
 import app.lockon.ui.components.arrive
@@ -73,13 +70,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -361,7 +351,7 @@ private fun ThisDevice(deviceName: String, status: SyncStatus, onOtherWays: () -
     val caption = "On Wi‑Fi"
     val wifi: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(LineIcons.Wifi, contentDescription = null, Modifier.size(if (grouped) 16.dp else 15.dp), tint = scheme.onSurfaceVariant)
+            Icon(LineIcons.Wifi, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
             Text(caption, style = statusStyle(), color = scheme.onSurfaceVariant, maxLines = 1)
         }
     }
@@ -640,7 +630,7 @@ private fun SyncChoiceDialog(
                 ModeOption(
                     "Make ${device.name} match $here",
                     "Everything on ${device.name} is replaced by what's here.",
-                    Icons.Default.KeyboardArrowUp,
+                    LineIcons.Chevu,
                 ) { confirming = SyncMode.GIVE }
                 Text("Or keep both", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp))

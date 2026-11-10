@@ -47,6 +47,9 @@ object LineIcons {
     val Wifi: ImageVector by lazy { icon("Wifi", "M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0", "M11.1 19.2A0.9 0.9 0 1 1 12.9 19.2A0.9 0.9 0 1 1 11.1 19.2Z") }
     val Chev: ImageVector by lazy { icon("Chev", "m9 6 6 6-6 6") }
     val Chevd: ImageVector by lazy { icon("Chevd", "m6 9 6 6 6-6") }
+    val Chevu: ImageVector by lazy { icon("Chevu", "m6 15 6-6 6 6") }
+    /** Four corner brackets, like the reticle's: show something at full size. */
+    val Expand: ImageVector by lazy { icon("Expand", "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5") }
     val Trash: ImageVector by lazy { icon("Trash", "M4 7h16M9.5 7V4.5h5V7M6.5 7l.8 12.2a1.5 1.5 0 0 0 1.5 1.3h6.4a1.5 1.5 0 0 0 1.5-1.3L17.5 7") }
     val Edit: ImageVector by lazy { icon("Edit", "M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z") }
     val Undo: ImageVector by lazy { icon("Undo", "M9 14 4 9l5-5", "M4 9h10.5a5.5 5.5 0 0 1 0 11H11") }

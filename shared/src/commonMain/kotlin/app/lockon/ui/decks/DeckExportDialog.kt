@@ -34,7 +34,6 @@ import app.lockon.ui.components.PillTabs
 import app.lockon.ui.components.Glyphs
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
-import app.lockon.ui.components.GameIcons
 import app.lockon.ui.components.GameMenuItem
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -51,7 +50,6 @@ import app.lockon.ui.components.dealIn
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextAlign
@@ -67,8 +65,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.lockon.ui.components.Motion
@@ -147,7 +143,6 @@ import kotlin.math.roundToInt
 import kotlin.math.pow
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.LocalContentColor
@@ -367,7 +362,7 @@ private fun DeckExport(
                         }
                     }
                     // Holding the image opens it too; this shows that it opens.
-                    GlassIconButton(GameIcons.Expand, "View full size", onClick = { viewing = true },
+                    GlassIconButton(LineIcons.Expand, "View full size", onClick = { viewing = true },
                         Modifier.align(Alignment.BottomEnd).padding(12.dp))
                 }
             }
