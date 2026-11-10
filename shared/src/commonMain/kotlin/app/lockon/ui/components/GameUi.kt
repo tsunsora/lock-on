@@ -1575,6 +1575,10 @@ fun PillNavBar(
     modifier: Modifier = Modifier,
     labels: Boolean = false,
     spread: Boolean = false,
+    /** The bar's height, its lit item's and its icons': smaller in the desktop header than on phones. */
+    height: Dp = PillNavHeight,
+    itemHeight: Dp = 42.dp,
+    iconSize: Dp = 22.dp,
 ) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
@@ -1604,11 +1608,11 @@ fun PillNavBar(
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
             .background(if (twilight) Color(0xFF343C72) else Color.White)
             .border(BorderStroke(1.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
-            .height(PillNavHeight)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .height(height)
+            .padding(horizontal = if (height < PillNavHeight) 4.dp else 8.dp, vertical = 4.dp)
             .drawBehind {
-                // As tall as an item's own pill: its icon and 10 dp above and below.
-                val h = minOf(size.height, 42.dp.toPx())
+                // As tall as an item's own pill.
+                val h = minOf(size.height, itemHeight.toPx())
                 if (sliding) drawRoundRect(accent, Offset(x.value, (size.height - h) / 2), Size(w.value, h), CornerRadius(h / 2))
             },
         verticalAlignment = Alignment.CenterVertically,
@@ -1617,7 +1621,7 @@ fun PillNavBar(
             val isSelected = i == selected
             // The selected item takes more of the bar, so its label has room (AnymeX's 2.4 : 1).
             val share by animateFloatAsState(if (labels || !isSelected) 1f else 2.4f, if (reduce) snap() else PillSpring, label = "pill-share")
-            val pad by androidx.compose.animation.core.animateDpAsState(if (labels) 16.dp else if (isSelected) 20.dp else 12.dp, glide(), label = "pill-pad")
+            val pad by androidx.compose.animation.core.animateDpAsState(if (labels) (if (itemHeight < 42.dp) 12.dp else 16.dp) else if (isSelected) 20.dp else 12.dp, glide(), label = "pill-pad")
             val itemFill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
             // Once the shared pill slides, items draw no fill of their own; before then the chosen one lights itself.
             val fill = if (!labels) itemFill else if (isSelected && !placed) accent else Color.Transparent
@@ -1639,11 +1643,11 @@ fun PillNavBar(
                 Row(
                     Modifier
                         .clip(LockOnShapes.pill).background(fill)
-                        .padding(horizontal = pad, vertical = 10.dp),
+                        .height(itemHeight).padding(horizontal = pad),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CompositionLocalProvider(LocalContentColor provides content) {
-                        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { item.icon() }
+                        Box(Modifier.size(iconSize), contentAlignment = Alignment.Center) { item.icon() }
                     }
                     androidx.compose.animation.AnimatedVisibility(
                         visible = labels || isSelected,

@@ -158,6 +158,7 @@ fun main() {
                             if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
                                 container, state, sync, DesktopFileBridge(window),
                                 artworkDir = File(AppDirs.data, "artwork").absolutePath,
+                                titleBar = ownTitleBar,
                                 // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
                                 // theme's sky colour rather than white.
                                 windowBackground = { color ->

@@ -204,6 +204,8 @@ fun LockOnApp(
     reduceMotion: Boolean = false,
     /** Desktop's own title bar, drawn into the top band; null keeps the system's (and on phones). */
     chrome: WindowChrome? = null,
+    /** The window has Lock On's own title bar, which carries the mark and name, so the top band shows no brand. */
+    titleBar: Boolean = false,
     /** Hears the theme's background colour, for the window behind the app. */
     windowBackground: (Color) -> Unit = {},
 ) {
@@ -494,7 +496,7 @@ fun LockOnApp(
                         FloatingTopNav(
                             state.tab, state::select, icon = { TabIcon(it) },
                             back = when (state.current) { null -> null; is Screen.Conflict -> "Back"; else -> "Decks" }, onBack = state::goBack,
-                            trailing = chrome?.controls) { start, end, height ->
+                            trailing = chrome?.controls, brand = !titleBar) { start, end, height ->
                             band = with(density) { TopBand(height.toDp(), start.toDp(), end.toDp()) }
                         }
                     }
@@ -627,11 +629,14 @@ private fun FloatingTopNav(
     onBack: () -> Unit,
     /** The window controls on desktop, just right of the pill, so the band keeps clear of them too. */
     trailing: (@Composable () -> Unit)?,
+    /** False where the window's title bar already names the app: the corner then holds only the way back. */
+    brand: Boolean,
     /** Reports, in pixels, the room the plates take at the start and end, and the band's height. */
     onMeasured: (start: Int, end: Int, height: Int) -> Unit,
 ) {
     var start by remember { mutableStateOf(IntSize.Zero) }
     var end by remember { mutableStateOf(IntSize.Zero) }
+    val style = previewHeader ?: if (app.lockon.ui.components.desktopControls) HeaderStyle.Compact else HeaderStyle.Roomy
     val margin = with(LocalDensity.current) { 12.dp.roundToPx() }
     LaunchedEffect(start, end) {
         if (start != IntSize.Zero && end != IntSize.Zero) {
@@ -640,8 +645,8 @@ private fun FloatingTopNav(
     }
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(12.dp)) {
         // As tall as the nav pill, so the brand or the smaller back button lines up with its middle.
-        Box(Modifier.align(Alignment.TopStart).height(PillNavHeight).onSizeChanged { start = it }, contentAlignment = Alignment.CenterStart) {
-            PlayerCard(back, onBack)
+        Box(Modifier.align(Alignment.TopStart).height(style.pill).onSizeChanged { start = it }, contentAlignment = Alignment.CenterStart) {
+            PlayerCard(back, onBack, style, brand)
         }
         Row(
             Modifier.align(Alignment.TopEnd).onSizeChanged { end = it },
@@ -650,7 +655,7 @@ private fun FloatingTopNav(
         ) {
             PillNavBar(
                 Tab.entries.map { tab -> BottomItem(tab.label) { icon(tab) } }, Tab.entries.indexOf(selected), { onSelect(Tab.entries[it]) },
-                labels = true,
+                labels = true, height = style.pill, itemHeight = style.item, iconSize = style.icon,
             )
             trailing?.invoke()
         }
@@ -664,13 +669,34 @@ private val CaptionHeight = 64.dp
 private val TrayShape = RoundedCornerShape(24.dp)
 
 /**
+ * The sizes of the top band's pieces (UX rule N5). [pill] is the nav pill's height, [item] its lit
+ * item's and [icon] its icons'. [tile] is the logo tile beside the name and [back] the back button
+ * it turns into inside a deck.
+ */
+class HeaderStyle(val pill: Dp, val item: Dp, val icon: Dp, val tile: Dp, val back: Dp) {
+    companion object {
+        /** Wide touch screens: the phone's nav pill, with every label showing. */
+        val Roomy = HeaderStyle(pill = PillNavHeight, item = 42.dp, icon = 22.dp, tile = 44.dp, back = 44.dp)
+        /** Desktop: the pill and the back button are as tall as the toolbar buttons under them (UX rule K1). */
+        val Compact = HeaderStyle(pill = 40.dp, item = 32.dp, icon = 18.dp, tile = 32.dp, back = 40.dp)
+    }
+}
+
+/**
+ * For image tests: draws the top band in this style instead of the platform's own, so a render can
+ * show the roomy band on a computer. Set it before composing and clear it after; the app never sets it.
+ */
+var previewHeader: HeaderStyle? by mutableStateOf(null)
+
+/**
  * The brand as a player card: a ringed badge with the Lock On mark overlapping a glass name plate.
  * Inside a deck it becomes the way out ([back] names where it goes): the reticle turns into an
  * arrow, the name gives way to [back], and the whole plate is the button, so going back keeps the
- * corner people look to for it.
+ * corner people look to for it. Under Lock On's own title bar, which already carries the mark and
+ * name, there is no [brand] and the corner stays empty until a deck opens.
  */
 @Composable
-private fun PlayerCard(back: String?, onBack: () -> Unit) {
+private fun PlayerCard(back: String?, onBack: () -> Unit, style: HeaderStyle, brand: Boolean) {
     val accent = Accent
     val scheme = MaterialTheme.colorScheme
     // Kept while the plate turns back into the brand, so the label fades out rather than vanishing.
@@ -683,7 +709,9 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
     val live = back != null
     val squish by animateFloatAsState(if (live && pressed) 0.96f else 1f, motion(Motion.SHORT), label = "player-card-press")
     val ring by animateColorAsState(if (live && hovered && !app.lockon.ui.components.desktopControls) accent.copy(alpha = 0.7f) else Color.Transparent, motion(Motion.SHORT), label = "player-card-ring")
-    val textStyle = MaterialTheme.typography.titleLarge
+    val slim = style.tile < 44.dp
+    val shift = if (slim) 4.dp else 6.dp
+    val textStyle = if (slim) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
     Box(
         Modifier.graphicsLayer { scaleX = squish; scaleY = squish }
             .then(
@@ -696,13 +724,13 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
         contentAlignment = Alignment.CenterStart,
     ) {
         // It stays while it fades, so the plate gives way to the back label rather than vanishing.
-        if (turn < 1f) Box(
+        if (brand && turn < 1f) Box(
             Modifier
                 .graphicsLayer { alpha = 1f - turn }
                 .shadow(10.dp, NamePlate, ambientColor = glassColors().shade, spotColor = glassColors().shade)
                 .glass(NamePlate, strong = true)
                 .border(1.dp, ring, NamePlate)
-                .padding(start = 62.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                .padding(start = shift + style.tile + 12.dp, end = if (slim) 16.dp else 24.dp, top = if (slim) 8.dp else 12.dp, bottom = if (slim) 8.dp else 12.dp),
         ) {
             // Both names are laid out at once, so the plate keeps one width and nothing beside it moves.
             Text(
@@ -715,7 +743,11 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
                 modifier = Modifier.graphicsLayer { alpha = turn; translationY = (1f - turn) * 10.dp.toPx() },
             )
         }
-        Box(Modifier.graphicsLayer { translationX = (1f - turn) * 6.dp.toPx() }) { LevelBadge(turn, ring, live && hovered, live && pressed) }
+        Box(Modifier.graphicsLayer {
+            translationX = if (brand) (1f - turn) * shift.toPx() else 0f
+            // Without a brand there is nothing here until a deck opens, when the back button fades in.
+            if (!brand) alpha = turn
+        }) { LevelBadge(turn, ring, live && hovered, live && pressed, style.tile + (style.back - style.tile) * turn, brand) }
     }
 }
 
@@ -742,7 +774,7 @@ internal fun BrandTile(size: Dp) {
 
 /** The logo tile in the header. As [turn] goes to 1 the mark spins away and a back arrow spins in where it was. */
 @Composable
-private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Boolean) {
+private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Boolean, size: Dp, brand: Boolean) {
     val twilight = isTwilight()
     val desktop = app.lockon.ui.components.desktopControls
     val plain by animateColorAsState(
@@ -750,25 +782,25 @@ private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Bool
         motion(Motion.SHORT), label = "back-fill",
     )
     val ink = androidx.compose.ui.graphics.lerp(if (twilight) LogoInkTwilight else Color.White, MaterialTheme.colorScheme.onSurface, turn)
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(if (size < 44.dp) 12.dp else 14.dp)
     Box(
-        Modifier.size(44.dp).shadow(4.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
+        Modifier.size(size).shadow(4.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
             .clip(shape)
             // Going back, the tile turns to a plain button. Each layer goes once the other has fully
             // taken over: a gradient left under the fill would tint the fill's anti-aliased corners.
-            .then(if (turn > 0f) Modifier.background(plain) else Modifier)
-            .then(if (turn < 1f) Modifier.background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay), alpha = 1f - turn) else Modifier)
+            .then(if (turn > 0f || !brand) Modifier.background(plain) else Modifier)
+            .then(if (turn < 1f && brand) Modifier.background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay), alpha = 1f - turn) else Modifier)
             // The logo's rim fades with it on desktop, so the back button has no outline its neighbours lack.
             .border(1.5.dp, if (ring == Color.Transparent) Color.White.copy(alpha = if (desktop) 0.4f * (1f - turn) else 0.4f) else ring, shape),
         contentAlignment = Alignment.Center,
     ) {
-        LockOnMark(
-            size = 28.dp, reticleColor = ink,
+        if (brand) LockOnMark(
+            size = size * 0.64f, reticleColor = ink,
             modifier = Modifier.graphicsLayer { alpha = 1f - turn; rotationZ = turn * 90f; scaleX = 1f - turn * 0.4f; scaleY = 1f - turn * 0.4f },
         )
         Icon(
             LineIcons.Back, contentDescription = null, tint = ink,
-            modifier = Modifier.size(22.dp).graphicsLayer { alpha = turn; rotationZ = (turn - 1f) * 90f; scaleX = 0.6f + turn * 0.4f; scaleY = 0.6f + turn * 0.4f },
+            modifier = Modifier.size(if (size < 44.dp) 20.dp else 22.dp).graphicsLayer { alpha = turn; rotationZ = (turn - 1f) * 90f; scaleX = 0.6f + turn * 0.4f; scaleY = 0.6f + turn * 0.4f },
         )
     }
 }

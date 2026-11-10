@@ -37,6 +37,8 @@ class DeckDragTest {
     }
     private val beta = runBlocking {
         container.decks.create(DeckSnapshot(name = "Alpha", folder = "Testing"))
+        // Beta is edited last, so "Last edited" puts it first, where the drag starts.
+        Thread.sleep(20)
         container.decks.create(DeckSnapshot(name = "Beta"))
     }
     private val noSync = object : ClientSyncController {
@@ -98,8 +100,8 @@ class DeckDragTest {
             settle(70)
             shot("deck-drag-before")
             // From the Beta box to the Testing folder in the rail, at this size and density.
-            val from = Offset(500f, 290f)
-            val to = Offset(150f, 243f)
+            val from = Offset(500f, 260f)
+            val to = Offset(150f, 213f)
             val held = PointerButtons(isPrimaryPressed = true)
             scene.sendPointerEvent(PointerEventType.Move, from, type = PointerType.Mouse)
             scene.sendPointerEvent(PointerEventType.Press, from, type = PointerType.Mouse, buttons = held, button = PointerButton.Primary)

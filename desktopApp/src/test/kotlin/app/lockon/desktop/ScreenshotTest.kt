@@ -158,16 +158,20 @@ class ScreenshotTest {
     private fun shoot(
         name: String, width: Int, height: Int, dark: Boolean = true, controller: SyncController = sync,
         taps: List<androidx.compose.ui.geometry.Offset> = emptyList(), hover: androidx.compose.ui.geometry.Offset? = null,
-        scrollAt: androidx.compose.ui.geometry.Offset? = null, setup: AppState.() -> Unit,
+        scrollAt: androidx.compose.ui.geometry.Offset? = null,
+        titleBar: Boolean = width > 600,
+        /** Whether the top band carries the brand, as it does where the window has no title bar of Lock On's own. */
+        brand: Boolean = !titleBar,
+        setup: AppState.() -> Unit,
     ) {
         // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup).apply { bootClock.skipToLock() }
         ImageComposeScene(width, height, Density(1.5f)) {
             androidx.compose.foundation.layout.Column {
-                if (width > 600) app.lockon.ui.theme.LockOnTheme(dark) {
+                if (titleBar) app.lockon.ui.theme.LockOnTheme(dark) {
                     TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
                 }
-                LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark)
+                LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, titleBar = !brand)
             }
         }.use { scene ->
             var image = scene.render()
@@ -662,6 +666,29 @@ class ScreenshotTest {
         // On the built-in sample, where getting the official list is the thing to do.
         render("catalog-sample-desktop", 1980 to 1290, true)
         render("catalog-sample-phone", 600 to 1260, true)
+    }
+
+    /**
+     * The desktop's top band (UX rule N5): on Windows under the title bar, where it holds only the
+     * navigation, and without a title bar of Lock On's own, where the brand stays. "before" is the
+     * band as it was until 26.11.23. Shot with the boot screen already gone, so none of it shows through.
+     */
+    @Test fun renderDesktopHeader() {
+        fun set(name: String, titleBar: Boolean = true, brand: Boolean = !titleBar) {
+            for (dark in listOf(true, false)) {
+                val theme = if (dark) "dark" else "light"
+                shoot("header-$name-library-$theme", 1980, 1290, dark = dark, titleBar = titleBar, brand = brand) { booted = true; select(Tab.DECKS) }
+                shoot("header-$name-cards-$theme", 1980, 1290, dark = dark, titleBar = titleBar, brand = brand) { booted = true; select(Tab.CARDS) }
+                shoot("header-$name-editor-$theme", 1980, 1290, dark = dark, titleBar = titleBar, brand = brand) { booted = true; open(Screen.DeckEditor(deckId)) }
+                shoot("header-$name-settings-$theme", 1980, 1290, dark = dark, titleBar = titleBar, brand = brand) { booted = true; select(Tab.SETTINGS) }
+                shoot("header-$name-narrow-library-$theme", 1320, 1290, dark = dark, titleBar = titleBar, brand = brand) { booted = true; select(Tab.DECKS) }
+                shoot("header-$name-narrow-editor-$theme", 1320, 1290, dark = dark, titleBar = titleBar, brand = brand) { booted = true; open(Screen.DeckEditor(deckId)) }
+            }
+        }
+        set("new")
+        set("new-no-title-bar", titleBar = false)
+        app.lockon.ui.previewHeader = app.lockon.ui.HeaderStyle.Roomy
+        try { set("before", brand = true) } finally { app.lockon.ui.previewHeader = null }
     }
 
     /** The deck panel's other tabs on a computer, in both themes. */

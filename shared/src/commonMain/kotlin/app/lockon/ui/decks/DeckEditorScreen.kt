@@ -366,7 +366,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // A tight band stacks the name over the state, so the deck's problem still has room in words.
             val oneLine = wide && maxWidth >= 560.dp
             Row(
-                Modifier.fillMaxWidth().padding(start = if (wide) 0.dp else 12.dp, end = if (wide) 8.dp else 12.dp, top = if (wide) 0.dp else 8.dp, bottom = if (wide) 0.dp else 4.dp)
+                // Stacked in a tight band, the two lines stand taller than the nav pill, so they keep their own air.
+                Modifier.fillMaxWidth().padding(start = if (wide) 0.dp else 12.dp, end = if (wide) 8.dp else 12.dp,
+                    top = if (!wide || !oneLine) 8.dp else 0.dp, bottom = if (!wide) 4.dp else if (!oneLine) 8.dp else 0.dp)
                     .then(if (wide) Modifier.align(Alignment.CenterStart) else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
