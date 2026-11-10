@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.derivedStateOf
-import app.lockon.ui.components.LocalScreenShown
 import app.lockon.ui.components.rememberArrival
 import app.lockon.ui.components.arrive
 import app.lockon.ui.components.onDialogStage
@@ -47,10 +46,6 @@ import app.lockon.ui.components.motion
 import kotlin.math.roundToInt
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -144,6 +139,7 @@ import app.lockon.ui.components.panelFill
 import app.lockon.ui.components.GlassIconButton
 import app.lockon.ui.components.LocalNavClearance
 import app.lockon.ui.components.LocalReduceMotion
+import app.lockon.ui.components.loopingFloat
 import app.lockon.ui.components.PillChip
 import app.lockon.ui.components.PillSwitch
 import app.lockon.ui.components.PillSearchField
@@ -1112,7 +1108,6 @@ internal enum class BarTone { WORKING, DONE, STOPPED, FAILED }
 @Composable
 internal fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = Modifier, flat: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
-    val reduce = LocalReduceMotion.current
     val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
     val accent = Accent
     // Finishing or failing, the bar's colour fades across; the two can't be blended as one brush.
@@ -1125,10 +1120,7 @@ internal fun TransferBar(fraction: Float?, tone: BarTone, modifier: Modifier = M
     }
     val filled by animateFloatAsState(fraction ?: 0f, motion(Motion.LONG), label = "transfer")
     // Read only while drawing, so the sweep redraws the bar without recomposing it.
-    val sweep: State<Float>? = if (fraction != null || reduce) null else {
-        val t = rememberInfiniteTransition(label = "transfer-sweep")
-        t.animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "sweep")
-    }
+    val sweep = if (fraction != null) null else loopingFloat(0f, 1f, tween(1300, easing = FastOutSlowInEasing), "transfer-sweep")
     Canvas(
         Modifier.fillMaxWidth().height(if (flat) 8.dp else 6.dp).clip(LockOnShapes.button).semantics {
             progressBarRangeInfo = if (fraction == null) ProgressBarRangeInfo.Indeterminate else ProgressBarRangeInfo(fraction, 0f..1f)

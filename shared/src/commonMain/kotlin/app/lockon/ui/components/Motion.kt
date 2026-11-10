@@ -16,6 +16,7 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.DurationBasedAnimationSpec
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -48,7 +49,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,6 +121,21 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
  * it is drawn or not, so the whole window kept redrawing on every other screen.
  */
 val LocalScreenShown = compositionLocalOf { true }
+
+/**
+ * A number that runs from [from] to [to] over and over, for spinners and sweeps to read while they
+ * draw. It runs only while its screen shows ([LocalScreenShown]); out of sight it holds where it
+ * stopped. Null with reduced motion, when the caller draws its still form.
+ */
+@Composable
+fun loopingFloat(from: Float, to: Float, animation: DurationBasedAnimationSpec<Float>, label: String): State<Float>? {
+    if (LocalReduceMotion.current) return null
+    val held = remember { mutableFloatStateOf(from) }
+    if (!LocalScreenShown.current) return held
+    val running = rememberInfiniteTransition(label).animateFloat(from, to, infiniteRepeatable(animation, RepeatMode.Restart), label)
+    DisposableEffect(Unit) { onDispose { held.floatValue = running.value } }
+    return running
+}
 
 @Composable
 fun <T> motion(durationMillis: Int = Motion.MEDIUM, delayMillis: Int = 0): FiniteAnimationSpec<T> =
@@ -238,12 +256,8 @@ fun LockIndicator(locked: Boolean, modifier: Modifier = Modifier, size: Dp = 40.
 /** A reticle that sweeps while work is in progress; used instead of a plain spinner. */
 @Composable
 fun ReticleSpinner(modifier: Modifier = Modifier, size: Dp = 20.dp, color: Color = MaterialTheme.colorScheme.primary) {
-    val reduce = LocalReduceMotion.current
     // Read only while drawing, so each frame redraws the reticle without recomposing it.
-    val angle: State<Float>? = if (reduce) null else {
-        val t = rememberInfiniteTransition(label = "spinner")
-        t.animateFloat(0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "angle")
-    }
+    val angle = loopingFloat(0f, 360f, tween(1100, easing = LinearEasing), "spinner")
     Canvas(modifier.size(size)) {
         val angle = angle?.value ?: 0f
         val stroke = this.size.minDimension * 0.12f

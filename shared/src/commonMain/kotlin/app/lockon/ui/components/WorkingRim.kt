@@ -1,13 +1,8 @@
 package app.lockon.ui.components
 
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithCache
@@ -30,12 +25,8 @@ import kotlin.math.hypot
  */
 fun Modifier.workingRim(active: Boolean, shape: Shape, color: Color? = null): Modifier = if (!active) this else composed {
     val tint = color ?: MaterialTheme.colorScheme.primary
-    val reduce = LocalReduceMotion.current
     // Read only while drawing, so the band turns without recomposing the tile.
-    val angle: State<Float>? = if (reduce) null else {
-        val t = rememberInfiniteTransition(label = "working-rim")
-        t.animateFloat(0f, 360f, infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart), label = "working-rim-angle")
-    }
+    val angle = loopingFloat(0f, 360f, tween(2400, easing = LinearEasing), "working-rim")
     drawWithCache {
         val width = 2.dp.toPx()
         val outer = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache)) }
