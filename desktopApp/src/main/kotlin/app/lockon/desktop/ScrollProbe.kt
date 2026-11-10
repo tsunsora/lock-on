@@ -48,8 +48,9 @@ fun ScrollProbe(window: ComposeWindow, container: AppContainer, state: AppState,
         // The window draws on this thread, so its stack during slow frames says what they spend time on.
         val sampler = StackSampler(Thread.currentThread()).apply { start() }
         val render = renderThread()?.let { StackSampler(it).apply { start() } }
-        // Who posts tasks to the window's queue while it scrolls; taking each poster's stack slows the run, so not when timing.
-        val posted = if (PROBE_QUIET) null else PostedTasks().start()
+        // What the window's thread does between frames too, and when not timing, who posts tasks to its
+        // queue: taking each poster's stack slows the run.
+        val queue = WindowQueue(stacks = !PROBE_QUIET).start()
         // Wheel notches go through the event queue from their own thread, the way real wheel input arrives.
         suspend fun scroll(into: MutableList<Long>, times: Int, notches: Int) = coroutineScope {
             val recording = launch { while (true) withFrameNanos { into += System.nanoTime() } }
@@ -81,9 +82,14 @@ fun ScrollProbe(window: ComposeWindow, container: AppContainer, state: AppState,
             File(report.path + ".render.samples.txt").writeText(it.report(slow(steady) + slow(back)))
             File(report.path + ".start.render.samples.txt").writeText(it.report(slow(start)))
         }
-        posted?.let { File(report.path + ".posted.txt").writeText(it.report(frames.size + back.size)) }
+        if (!PROBE_QUIET) File(report.path + ".posted.txt").writeText(queue.report(frames.size + back.size))
+        File(report.path + ".longest.txt").writeText(
+            "The first 1.5 s:\n" + queue.longest(start.zipWithNext { a, b -> a..b }, drawn) +
+                "\n\nAfter that:\n" + queue.longest(steady.zipWithNext { a, b -> a..b }, drawn) + "\n")
         // Every frame's time, to line up with other records of the same run, such as a collector's log.
-        File(report.path + ".frames.txt").writeText((frames + back).joinToString("\n"))
+        // Those give times since the JVM started, so the first line says what that was on this clock.
+        val jvmStart = System.nanoTime() - java.lang.management.ManagementFactory.getRuntimeMXBean().uptime * 1_000_000L
+        File(report.path + ".frames.txt").writeText("$jvmStart\n" + (frames + back).joinToString("\n"))
         report.appendText(
             "${window.renderApi}, ${window.refreshHz()} Hz, ${window.width}×${window.height}: ${frameSummary(frames)}; collections: ${gcSince(gc)}; ${memorySummary()}\n" +
                 "  first 1.5 s: ${frameSummary(start)}; ${drawn.workSummary(start.first(), start.last())}\n" +

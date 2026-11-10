@@ -54,6 +54,9 @@ internal class DrawnFrames(window: ComposeWindow) {
         }
     }
 
+    /** How much of [from]..[to] (nanoTime) the window's thread spent composing, laying out and recording frames. */
+    fun workIn(from: Long, to: Long): Long = work.sumOf { (minOf(it[1], to) - maxOf(it[0], from)).coerceAtLeast(0) }
+
     /** The window thread's work in the frames drawn from [from] to [to] (nanoTime): the middle, the slow end and the worst. */
     fun workSummary(from: Long, to: Long): String {
         val took = work.filter { it[0] in from..to }.map { (it[1] - it[0]) / 1_000_000.0 }.sorted()
@@ -80,20 +83,53 @@ internal fun components(root: Component): Sequence<Component> = sequence {
 }
 
 /**
- * Counts the tasks posted to the window's event queue and who posted them. Every coroutine Compose
- * starts, resumes or cancels on desktop is one, and on Java 21 each costs a walk of the whole call
- * stack (about 13 µs from inside a composition), so a screen that posts hundreds while it builds
- * pays for them in frames. Started with [start], it stays in place for the rest of the run.
+ * Stands in for the window's event queue to time everything its thread does, frame or not, and with
+ * [stacks] to count the tasks posted to it and who posted them. Every coroutine Compose starts,
+ * resumes or cancels on desktop is a task, and on Java 21 each costs a walk of the whole call stack
+ * (about 13 µs from inside a composition), so a screen that posts hundreds while it builds pays for
+ * them in frames. Started with [start], it stays in place for the rest of the run.
  */
-internal class PostedTasks : java.awt.EventQueue() {
+internal class WindowQueue(private val stacks: Boolean) : java.awt.EventQueue() {
     private val posters = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
     private val count = java.util.concurrent.atomic.AtomicInteger()
     @Volatile private var counting = false
+    // Each thing the thread did: when it began and ended, and 0 for a task, 1 for input, 2 for anything
+    // else, 3 for a task that builds rows ahead of a scroll (LazyPrefetch.jvm.kt).
+    private val done = java.util.concurrent.ConcurrentLinkedQueue<LongArray>()
 
     fun start() = apply { java.awt.Toolkit.getDefaultToolkit().systemEventQueue.push(this); counting = true }
 
+    override fun dispatchEvent(event: java.awt.AWTEvent) {
+        val began = System.nanoTime()
+        try { super.dispatchEvent(event) } finally {
+            val kind = when {
+                // A task names what it runs in its description.
+                event is java.awt.event.InvocationEvent -> if ("BetweenFramesScheduler" in event.paramString()) 3L else 0L
+                event is java.awt.event.InputEvent -> 1L
+                else -> 2L
+            }
+            done += longArrayOf(began, System.nanoTime(), kind)
+        }
+    }
+
+    /**
+     * Where the time went in the longest of these [gaps] between frames: the frame's own composing and
+     * recording (from [drawn]), building rows ahead, other tasks on the window's thread, input, and the
+     * rest, when the thread was free and the frame was with the render thread and the GPU.
+     */
+    fun longest(gaps: List<LongRange>, drawn: DrawnFrames, n: Int = 12): String =
+        gaps.sortedByDescending { it.last - it.first }.take(n).joinToString("\n") { gap ->
+            fun spent(kind: Long) = done.filter { it[2] == kind }.sumOf { (minOf(it[1], gap.last) - maxOf(it[0], gap.first)).coerceAtLeast(0) }
+            val frame = drawn.workIn(gap.first, gap.last)
+            val tasks = spent(0)
+            val ahead = spent(3)
+            val input = spent(1) + spent(2)
+            "%5.1f ms: frame %.1f, building ahead %.1f, other tasks %.1f, input %.1f, thread free %.1f".format(
+                (gap.last - gap.first) / 1e6, frame / 1e6, ahead / 1e6, (tasks - frame) / 1e6, input / 1e6, (gap.last - gap.first - tasks - ahead - input) / 1e6)
+        }
+
     override fun postEvent(event: java.awt.AWTEvent) {
-        if (counting && event is java.awt.event.InvocationEvent && java.awt.EventQueue.isDispatchThread()) {
+        if (stacks && counting && event is java.awt.event.InvocationEvent && java.awt.EventQueue.isDispatchThread()) {
             count.incrementAndGet()
             // The nearest callers that say whose work it is, skipping the coroutine machinery between.
             val who = Thread.currentThread().stackTrace.asSequence()
@@ -114,7 +150,7 @@ internal class PostedTasks : java.awt.EventQueue() {
 
     private companion object {
         val Machinery = listOf(
-            "Thread.", "PostedTasks.", "EventQueue.", "SwingUtilities.", "SwingDispatcher.", "Dispatched", "CancellableContinuation", "Cancellable",
+            "Thread.", "WindowQueue.", "EventQueue.", "SwingUtilities.", "SwingDispatcher.", "Dispatched", "CancellableContinuation", "Cancellable",
             "BuildersKt", "CoroutineStart.", "AbstractCoroutine.", "BaseContinuationImpl.", "FlushCoroutineDispatcher", "JobSupport", "ChildContinuation.",
             "StandaloneCoroutine.", "JobKt", "CoroutineScopeKt.", "ContinuationImpl.", "SafeContinuation.", "Timer.", "AWTEvent.", "InvocationEvent.",
             "Actuals_skikoKt.", "DelayKt.", "EventLoop", "Undispatched", "ScopeCoroutine.", "ContinuationKt.", "IntrinsicsKt",
