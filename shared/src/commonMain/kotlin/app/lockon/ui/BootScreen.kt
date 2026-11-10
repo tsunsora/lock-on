@@ -60,10 +60,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.lockon.ui.components.Gold
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.LockOnMark
@@ -230,7 +228,7 @@ fun BootScreen(
     val scan = look.scan
     val ink = look.ink
     val labels = rememberTextMeasurer()
-    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+    val labelStyle = MaterialTheme.typography.labelMedium
     val density = LocalDensity.current
     val screen = modifier.fillMaxSize()
         // Nothing underneath takes a press while it boots.
@@ -343,7 +341,7 @@ private fun smooth(from: Float, to: Float, x: Float): Float {
 private fun bootReach(width: Float, height: Float) = minOf(width, height * 1.4f) * 0.34f
 
 /** The seeker's readouts, searching, tracking and locked, each in its colour. */
-private fun readouts(ink: Color, lockInk: Color) = Triple("SEARCHING" to ink.copy(alpha = 0.85f), "TRACKING" to ink.copy(alpha = 0.95f), "LOCKED" to lockInk)
+private fun readouts(ink: Color, lockInk: Color) = Triple("Searching" to ink.copy(alpha = 0.85f), "Tracking" to ink.copy(alpha = 0.95f), "Locked" to lockInk)
 
 /** Faint contacts on the radar, as (bearing in turns, range as a share of reach); the sweep lights each as it passes. */
 private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.63f to 1.05f, 0.79f to 1.42f, 0.93f to 0.7f)

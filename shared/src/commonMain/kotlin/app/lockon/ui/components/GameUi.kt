@@ -1738,8 +1738,9 @@ fun CenteredGlyph(text: String, color: Color, fontSize: androidx.compose.ui.unit
 private const val GlyphLayoutScale = 8
 
 /**
- * How far Quicksand's bold glyphs sit from the middle of their advance and cap height, in em, for
- * those far enough off to show. Measured from renders: a stem carries a wider margin than an open side.
+ * How far Quicksand's glyphs sit from the middle of their advance and cap height, in em, for
+ * those far enough off to show. Measured from renders at weight 700: a stem carries a wider margin
+ * than an open side. At 600 the stems are a little thinner and CenteredGlyphTest still passes.
  */
 private val GlyphInkBias = mapOf(
     'B' to Offset(0.018f, 0f), 'P' to Offset(0.018f, 0f), 'R' to Offset(0.019f, 0f),

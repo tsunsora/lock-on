@@ -43,7 +43,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -150,7 +149,6 @@ fun Badge(text: String, background: Color, foreground: Color, modifier: Modifier
     Text(
         text,
         style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
         color = foreground,
         maxLines = 1,
         softWrap = false,

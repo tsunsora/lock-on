@@ -228,7 +228,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
             }
             val level = card?.level
             if (level != null && full) Text(
-                "Lv $level", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
+                "Lv $level", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp),
             )
         }
@@ -240,12 +240,12 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy((u * 1.2f).dp),
         ) {
             Text(card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.6f).sp, lineHeight = (u * 6.4f).sp,
-                fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
+                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
             Row(Modifier.fillMaxWidth().heightIn(min = (u * 6.4f).dp), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
                 if (card?.ap != null || card?.hp != null) {
                     Text(
-                        "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp, fontWeight = FontWeight.ExtraBold,
+                        "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp,
                         style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
                         modifier = Modifier.clip(RoundedCornerShape((u * 1.4f).dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = (u * 1.6f).dp),
                     )
@@ -923,7 +923,6 @@ private fun PrintingTile(card: Card, printing: Printing, isShown: Boolean, modif
         // Two lines, so names like "Parallel LR++" or a promo's set name read in full.
         Text(
             printing.label.removePrefix("Reprint: "), style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (isShown) FontWeight.Bold else null,
             color = label,
             maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
@@ -949,7 +948,7 @@ private fun effectText(text: String): AnnotatedString {
             var last = 0
             for (m in EffectMarker.findAll(text)) {
                 append(text.substring(last, m.range.first))
-                withStyle(SpanStyle(color = primary, fontWeight = FontWeight.Bold)) { append(m.value) }
+                withStyle(SpanStyle(color = primary, fontWeight = FontWeight.SemiBold)) { append(m.value) }
                 last = m.range.last + 1
             }
             append(text.substring(last))

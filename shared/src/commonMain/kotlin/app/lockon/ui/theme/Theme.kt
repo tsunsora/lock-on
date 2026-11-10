@@ -142,8 +142,8 @@ val TabularNumbers = TextStyle(fontFeatureSettings = "tnum")
 
 /**
  * Friendly rounded type in mixed case, like a game's menus (UX rule V2a). Quicksand (SIL OFL,
- * licenses/Quicksand-OFL.txt) sets headings, labels and numbers in bold; body text stays the
- * platform sans for long-form readability.
+ * licenses/Quicksand-OFL.txt) sets headings, labels and numbers at one weight, 600; body text stays the
+ * platform sans at 400 for long-form readability. Size and colour make the hierarchy, not weight.
  */
 @OptIn(ExperimentalTextApi::class)
 @Composable
@@ -151,27 +151,25 @@ private fun lockOnTypography(): Typography {
     val base = Typography()
     val rounded = FontFamily(
         Font(Res.font.quicksand, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
-        Font(Res.font.quicksand, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
-        Font(Res.font.quicksand, FontWeight.ExtraBold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
     )
-    fun TextStyle.game(weight: FontWeight, grow: Float = 0f, tracking: Double = 0.0) =
-        copy(fontFamily = rounded, fontWeight = weight, fontSize = (fontSize.value + grow).sp, letterSpacing = tracking.sp)
+    fun TextStyle.game(grow: Float = 0f, tracking: Double = 0.0) =
+        copy(fontFamily = rounded, fontWeight = FontWeight.SemiBold, fontSize = (fontSize.value + grow).sp, letterSpacing = tracking.sp)
     // Quicksand's capitals and numbers sit below the middle of its line, which shows in small labels
     // centred in a chip, bar or button. Each size is raised by what it needs to look centred.
     fun TextStyle.raised(by: Float) = copy(baselineShift = BaselineShift(by))
     return base.copy(
-        displayLarge = base.displayLarge.game(FontWeight.ExtraBold),
-        displayMedium = base.displayMedium.game(FontWeight.ExtraBold),
-        displaySmall = base.displaySmall.game(FontWeight.ExtraBold),
-        headlineLarge = base.headlineLarge.game(FontWeight.ExtraBold),
-        headlineMedium = base.headlineMedium.game(FontWeight.ExtraBold, -2f),
-        headlineSmall = base.headlineSmall.game(FontWeight.ExtraBold, -1f),
-        titleLarge = base.titleLarge.game(FontWeight.ExtraBold, -1f),
-        titleMedium = base.titleMedium.game(FontWeight.Bold),
-        titleSmall = base.titleSmall.game(FontWeight.Bold),
-        labelLarge = base.labelLarge.game(FontWeight.Bold, tracking = 0.2).raised(0.02f),
-        labelMedium = base.labelMedium.game(FontWeight.Bold, tracking = 0.2).raised(0.05f),
-        labelSmall = base.labelSmall.game(FontWeight.Bold, tracking = 0.2).raised(0.05f),
+        displayLarge = base.displayLarge.game(),
+        displayMedium = base.displayMedium.game(),
+        displaySmall = base.displaySmall.game(),
+        headlineLarge = base.headlineLarge.game(),
+        headlineMedium = base.headlineMedium.game(-2f),
+        headlineSmall = base.headlineSmall.game(-1f),
+        titleLarge = base.titleLarge.game(-1f),
+        titleMedium = base.titleMedium.game(),
+        titleSmall = base.titleSmall.game(),
+        labelLarge = base.labelLarge.game(tracking = 0.2).raised(0.02f),
+        labelMedium = base.labelMedium.game(tracking = 0.2).raised(0.05f),
+        labelSmall = base.labelSmall.game(tracking = 0.2).raised(0.05f),
         bodyLarge = base.bodyLarge.copy(fontFamily = FontFamily.SansSerif),
         bodyMedium = base.bodyMedium.copy(fontFamily = FontFamily.SansSerif),
         bodySmall = base.bodySmall.copy(fontFamily = FontFamily.SansSerif),

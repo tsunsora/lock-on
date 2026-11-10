@@ -106,7 +106,6 @@ import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
 import app.lockon.platform.FileBridge
@@ -708,12 +707,12 @@ private fun PlayerCard(back: String?, onBack: () -> Unit) {
         ) {
             // Both names are laid out at once, so the plate keeps one width and nothing beside it moves.
             Text(
-                "Lock On", style = textStyle, color = scheme.onSurface, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.2.sp,
+                "Lock On", style = textStyle, color = scheme.onSurface, letterSpacing = 0.2.sp,
                 modifier = Modifier.graphicsLayer { alpha = 1f - turn; translationY = -turn * 10.dp.toPx() },
             )
             Text(
                 lastBack, style = textStyle, color = if (hovered && live) scheme.primary else scheme.onSurface,
-                fontWeight = FontWeight.ExtraBold, letterSpacing = 0.2.sp,
+                letterSpacing = 0.2.sp,
                 modifier = Modifier.graphicsLayer { alpha = turn; translationY = (1f - turn) * 10.dp.toPx() },
             )
         }
