@@ -58,8 +58,15 @@ internal class DrawnFrames(window: ComposeWindow) {
     fun workIn(from: Long, to: Long): Long = work.sumOf { (minOf(it[1], to) - maxOf(it[0], from)).coerceAtLeast(0) }
 
     /** The window thread's work in the frames drawn from [from] to [to] (nanoTime): the middle, the slow end and the worst. */
-    fun workSummary(from: Long, to: Long): String {
-        val took = work.filter { it[0] in from..to }.map { (it[1] - it[0]) / 1_000_000.0 }.sorted()
+    fun workSummary(from: Long, to: Long): String = workSummary(listOf(from..to))
+
+    /** Each frame drawn from [from] to [to]: when the window's thread began it, and how long it took, in ms from [from]. */
+    fun timeline(from: Long, to: Long): String = work.filter { it[0] in from..to }
+        .joinToString(" ") { "%.0f:%.1f".format((it[0] - from) / 1e6, (it[1] - it[0]) / 1e6) }
+
+    /** [workSummary] over several stretches, such as each time an animation played. */
+    fun workSummary(spans: List<LongRange>): String {
+        val took = work.filter { frame -> spans.any { frame[0] in it } }.map { (it[1] - it[0]) / 1_000_000.0 }.sorted()
         if (took.isEmpty()) return "no frames"
         fun at(share: Double) = took[((took.size - 1) * share).toInt()]
         return "window thread per frame: p50 %.1f, p95 %.1f, p99 %.1f, max %.1f ms".format(at(0.5), at(0.95), at(0.99), took.last())

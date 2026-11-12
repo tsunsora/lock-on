@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -52,7 +53,36 @@ class DialogStage {
     internal var taking by mutableStateOf(false)
     internal var themeFrame: GraphicsLayer? = null
     internal var graphics: GraphicsContext? = null
+    /** Where in the window the app's root sits, which is where a picture of it belongs. */
+    internal var rootPosition = Offset.Zero
+
+    /**
+     * True for the frames in which the theme itself changes, when [motion] and the tile states in Settle.kt
+     * go straight to their new colours. The window's old picture is fading away over them, which is the
+     * change people see; under it every button, tab and chip on every kept screen used to ease its own
+     * colours too, building itself again on each frame, and the fade showed only every third frame or so.
+     * Not state: whatever reads it is being built again by the change of theme anyway.
+     */
+    internal var turning = false
 }
+
+/** Runs [change], which swaps the theme, with colours going straight to their new values rather than easing ([DialogStage.turning]). */
+suspend fun DialogStage.turnTheme(change: () -> Unit) {
+    turning = true
+    try {
+        change()
+        // One frame builds the app in its new colours, and the next two what that set off: colours that
+        // go straight to a new value still arrive a frame after they are asked for.
+        // Bounded, since a minimised window draws no frames.
+        withTimeoutOrNull(500) { repeat(3) { withFrameNanos { } } }
+    } finally {
+        turning = false
+    }
+}
+
+/** Whether the theme is changing under a picture of the old one, so nothing needs to ease its colours. */
+@Composable
+internal fun themeTurning(): Boolean = LocalDialogStage.current?.turning == true
 
 /** What fades away: a closed dialog's last frame as recorded, or the window in its old theme as an [image]. */
 internal class StageGhost(val layer: GraphicsLayer?, val position: Offset, val durationMillis: Int, val to: Float, val image: ImageBitmap? = null) {
@@ -115,6 +145,9 @@ fun DialogStageHost(stage: DialogStage) {
     stage.ghosts.forEach { ghost ->
         key(ghost) {
             LaunchedEffect(Unit) {
+                // The old theme's picture holds until the app beneath has been built in the new one, so
+                // those long frames pass behind a still picture and the fade itself plays on quick ones.
+                while (stage.turning) withFrameNanos { }
                 ghost.progress.animateTo(1f, tween(ghost.durationMillis, easing = Motion.emphasizedAccelerate))
                 stage.ghosts.remove(ghost)
                 ghost.layer?.let(context::releaseGraphicsLayer)
@@ -148,7 +181,7 @@ fun DialogStageHost(stage: DialogStage) {
 fun Modifier.takesThemeFrame(stage: DialogStage): Modifier {
     val context = LocalGraphicsContext.current
     stage.graphics = context
-    return drawWithContent {
+    return onPlaced { stage.rootPosition = it.positionInWindow() }.drawWithContent {
         if (!stage.taking) {
             drawContent()
             return@drawWithContent
@@ -175,5 +208,7 @@ suspend fun DialogStage.takeThemeFrame() {
     themeFrame = null
     val image = layer.toImageBitmap()
     graphics?.releaseGraphicsLayer(layer)
-    ghosts += StageGhost(null, Offset.Zero, Motion.LONG, to = 1f, image)
+    // At the root's own place in the window. Under Lock On's title bar that is not the window's corner,
+    // and a picture put there sat a title bar's height too high until it had faded.
+    ghosts += StageGhost(null, rootPosition, Motion.LONG, to = 1f, image)
 }

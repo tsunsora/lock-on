@@ -109,6 +109,11 @@ compose.desktop {
         listOf("lockon.actProbe", "lockon.actProbe.only").forEach { key ->
             providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
         }
+        // `-Plockon.motionProbe=<file>` times the app's own animations, each over the stretch it plays, and closes
+        // the app (MotionProbe.kt); `-Plockon.motionProbe.only=tabs,dialog` picks some.
+        listOf("lockon.motionProbe", "lockon.motionProbe.only", "lockon.motionProbe.label").forEach { key ->
+            providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "Lock On"

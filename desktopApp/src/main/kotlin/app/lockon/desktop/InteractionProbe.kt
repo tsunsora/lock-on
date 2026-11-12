@@ -208,11 +208,11 @@ fun InteractionProbe(window: ComposeWindow, container: AppContainer, state: AppS
  * Kept screens that are out of sight stay in the tree, unplaced.
  */
 @OptIn(ExperimentalComposeUiApi::class)
-private fun nodes(window: ComposeWindow): List<SemanticsNode> = window.semanticsOwners.flatMap { it.getAllSemanticsNodes(mergingEnabled = false) }
+internal fun nodes(window: ComposeWindow): List<SemanticsNode> = window.semanticsOwners.flatMap { it.getAllSemanticsNodes(mergingEnabled = false) }
 
-private fun SemanticsNode.description(): String? = config.getOrNull(SemanticsProperties.ContentDescription)?.firstOrNull()
+internal fun SemanticsNode.description(): String? = config.getOrNull(SemanticsProperties.ContentDescription)?.firstOrNull()
 
-private fun SemanticsNode.text(): String? = config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.text
+internal fun SemanticsNode.text(): String? = config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.text
     ?: children.firstNotNullOfOrNull { it.config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.text }
 
 /** Mouse events sent straight to the window, at places given in the window's pixels as the accessibility tree has them. */
@@ -237,6 +237,14 @@ internal class ProbePointer(private val window: ComposeWindow) {
     fun click(node: SemanticsNode) {
         val x = (node.boundsInWindow.center.x / scale).toInt()
         val y = (node.boundsInWindow.center.y / scale).toInt()
+        post(MouseEvent.MOUSE_MOVED, x, y)
+        post(MouseEvent.MOUSE_PRESSED, x, y, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1, 1)
+        post(MouseEvent.MOUSE_RELEASED, x, y, 0, MouseEvent.BUTTON1, 1)
+    }
+
+    /** A click in the window's bottom-left corner, where nothing is, to close a menu. */
+    fun clickCorner() {
+        val x = 3; val y = pane.height - 3
         post(MouseEvent.MOUSE_MOVED, x, y)
         post(MouseEvent.MOUSE_PRESSED, x, y, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1, 1)
         post(MouseEvent.MOUSE_RELEASED, x, y, 0, MouseEvent.BUTTON1, 1)

@@ -165,7 +165,7 @@ fun loopingFloat(from: Float, to: Float, animation: DurationBasedAnimationSpec<F
 
 @Composable
 fun <T> motion(durationMillis: Int = Motion.MEDIUM, delayMillis: Int = 0): FiniteAnimationSpec<T> =
-    if (LocalReduceMotion.current) snap() else tween(durationMillis, delayMillis, Motion.emphasized)
+    if (LocalReduceMotion.current || themeTurning()) snap() else tween(durationMillis, delayMillis, Motion.emphasized)
 
 /**
  * For things that move to where the pointer sent them (a sliding pill, a switch's knob): a spring,
@@ -173,7 +173,7 @@ fun <T> motion(durationMillis: Int = Motion.MEDIUM, delayMillis: Int = 0): Finit
  * with the speed it already had instead of starting over. Critically damped, so it never overshoots.
  */
 @Composable
-fun <T> glide(): FiniteAnimationSpec<T> = glideSpec(LocalReduceMotion.current)
+fun <T> glide(): FiniteAnimationSpec<T> = glideSpec(LocalReduceMotion.current || themeTurning())
 
 /** A [glide] for use outside composition, given whether motion is reduced. */
 fun <T> glideSpec(reduce: Boolean): FiniteAnimationSpec<T> =

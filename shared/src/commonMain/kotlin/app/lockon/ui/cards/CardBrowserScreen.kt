@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,7 +64,9 @@ fun CardBrowserScreen(container: AppContainer, state: AppState, wide: Boolean = 
         // This screen stays composed while hidden (KeptTabs), so only Ctrl+F presses made while it shows
         // reach its search; a deck's own search takes the rest.
         val focusSeen = remember { intArrayOf(state.searchFocusRequests) }
-        if (state.current == null && state.tab == Tab.CARDS) focusSeen[0] = state.searchFocusRequests
+        // Derived, so this screen builds itself again when it shows or hides, not whenever any screen opens.
+        val showing by remember { derivedStateOf { state.current == null && state.tab == Tab.CARDS } }
+        if (showing) focusSeen[0] = state.searchFocusRequests
         val focusRequests = focusSeen[0]
         Row(Modifier.fillMaxSize().padding(start = if (wide) 12.dp else 0.dp, top = if (wide) 8.dp else 0.dp)) {
             val search: @Composable (Modifier) -> Unit = { m ->
