@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.11.25 (2026-11-12)
+
+On the computer, moving around is smoother: opening and leaving a deck and changing the theme drop far fewer frames, and the theme no longer jumps as it changes.
+
+- **Opening and leaving a deck:** the slide used to stutter the whole way across. The back button growing into its corner made every screen measure itself again on each frame, and the slide itself was more work than it looked. Both are fixed, so the deck glides in and out.
+- **Switching screens:** the screen you are going to is made ready in the same moment as your click, instead of part way through the old screen's fade, where it showed as a hitch. Deck editors kept ready in the background no longer rebuild themselves each time you switch tabs or open another deck.
+- **Changing theme:** the fade from Sky to Twilight and back played at about a third of its frames, because every button and tab was also changing color underneath it. Now the old look holds for a moment while the new one is made ready, then fades smoothly.
+- **Theme jump:** on Windows, the screen shifted up by the height of the title bar while the theme changed, then dropped back. It stays put.
+
 ## 26.11.24 (2026-11-10)
 
 On the computer, the bar across the top of the app is slimmer, now that the window's buttons have a title bar of their own.
