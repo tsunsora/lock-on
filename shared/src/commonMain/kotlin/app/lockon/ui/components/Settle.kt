@@ -54,6 +54,10 @@ private class Settle(var rest: Float) {
     }
 }
 
+/** True when a change should land at once: with reduced motion, or while the theme changes under its own fade ([DialogStage.turning]). */
+private fun CompositionLocalConsumerModifierNode.still(): Boolean =
+    currentValueOf(LocalReduceMotion) || currentValueOf(LocalDialogStage)?.turning == true
+
 /**
  * Draws with a number that eases to [target] whenever it changes, for things like an outline's strength
  * or how many pips are lit. [draw] must call `drawContent()` itself.
@@ -79,7 +83,7 @@ private class DrawSettledNode(private var target: Float, private var drawBlock: 
         drawBlock = draw
         if (target != this.target) {
             this.target = target
-            if (reused || !isAttached || currentValueOf(LocalReduceMotion)) settle.snap(target)
+            if (reused || !isAttached || still()) settle.snap(target)
             else settle.go(coroutineScope, target, durationMillis)
         }
         reused = false
@@ -130,7 +134,7 @@ private class DrawTonesNode(
             val p = settle.value
             fromA = lerp(fromA, toA, p); fromB = lerp(fromB, toB, p); fromC = lerp(fromC, toC, p)
             toA = a; toB = b; toC = c
-            if (reused || !isAttached || currentValueOf(LocalReduceMotion)) settle.snap(1f)
+            if (reused || !isAttached || still()) settle.snap(1f)
             else {
                 settle.snap(0f)
                 settle.go(coroutineScope, 1f, durationMillis)
@@ -165,7 +169,7 @@ private class SettleAlphaNode(private var target: Float) : Modifier.Node(), Layo
     fun update(target: Float, durationMillis: Int) {
         if (target != this.target) {
             this.target = target
-            if (reused || !isAttached || currentValueOf(LocalReduceMotion)) {
+            if (reused || !isAttached || still()) {
                 settle.snap(target)
                 invalidatePlacement()
             } else settle.go(coroutineScope, target, durationMillis)
@@ -202,7 +206,7 @@ private class FadeOnChangeNode(private var key: Any?) : Modifier.Node(), LayoutM
     fun update(key: Any?, durationMillis: Int) {
         if (key != this.key) {
             this.key = key
-            if (reused || !isAttached || currentValueOf(LocalReduceMotion)) settle.snap(1f)
+            if (reused || !isAttached || still()) settle.snap(1f)
             else {
                 settle.snap(0f)
                 settle.go(coroutineScope, 1f, durationMillis)

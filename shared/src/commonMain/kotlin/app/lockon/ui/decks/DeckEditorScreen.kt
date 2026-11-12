@@ -295,7 +295,11 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     // The editor stays built while hidden (KeptScreens), so only Ctrl+F presses made while this deck
     // shows reach its search.
     val focusSeen = remember(deckId) { intArrayOf(state.searchFocusRequests) }
-    if ((state.current as? Screen.DeckEditor)?.deckId == deckId) focusSeen[0] = state.searchFocusRequests
+    // Whether this deck is the one open, and how it was opened. Derived, so the editor builds itself again
+    // only when that changes for this deck: every editor kept built reads it, and read plainly each of
+    // them rebuilt whenever any screen opened or closed, in the frame its animation starts on.
+    val showingAt by remember(deckId) { derivedStateOf { (state.current as? Screen.DeckEditor)?.takeIf { it.deckId == deckId } } }
+    if (showingAt != null) focusSeen[0] = state.searchFocusRequests
     val haptics = LocalHapticFeedback.current
     var wasLegal by remember(deckId) { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(legality.isLegal) {
@@ -439,13 +443,12 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         // lists start back at the top and it opens on the tab asked for: the deck itself, unless the deck
         // is brand new and goes to Add cards. It jumps while the screen is still faded out, so nothing shows it.
         var opened by remember(deckId) { mutableIntStateOf(0) }
-        val showingAt = (state.current as? Screen.DeckEditor)?.takeIf { it.deckId == deckId }
         val showing = showingAt != null
         LaunchedEffect(showing) {
-            if (showingAt == null) return@LaunchedEffect
+            val at = showingAt ?: return@LaunchedEffect
             opened++
-            phoneTab = showingAt.startTab
-            deckTab = if (showingAt.startTab >= 2) showingAt.startTab - 1 else 0
+            phoneTab = at.startTab
+            deckTab = if (at.startTab >= 2) at.startTab - 1 else 0
         }
         // One split for every deck, kept across launches. Each editor drags its own copy so a drag only
         // relays out, and takes up the saved one whenever any editor or Settings changes it.

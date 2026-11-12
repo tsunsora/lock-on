@@ -155,8 +155,12 @@ fun main() {
                             }
                         }
                         Box(Modifier.fillMaxWidth().weight(1f)) {
+                            // One bridge for the window's life. A new one whenever this was built again (as the
+                            // theme's colour arrives, or the window is maximised) looked like a change to every
+                            // screen that saves or opens files, and each built itself again.
+                            val files = remember(window) { DesktopFileBridge(window) }
                             if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
-                                container, state, sync, DesktopFileBridge(window),
+                                container, state, sync, files,
                                 artworkDir = File(AppDirs.data, "artwork").absolutePath,
                                 titleBar = ownTitleBar,
                                 // Any part of the window the app hasn't drawn yet, such as while it maximises, shows the
@@ -180,6 +184,7 @@ fun main() {
             System.getProperty("lockon.bootProbe")?.let { BootProbe(window, state, bootCover, File(it), exit) }
             System.getProperty("lockon.idleProbe")?.let { IdleProbe(window, state, File(it), exit) }
             System.getProperty("lockon.actProbe")?.let { InteractionProbe(window, container, state, File(it), exit) }
+            System.getProperty("lockon.motionProbe")?.let { MotionProbe(window, container, state, File(it), exit) }
             if (training) ClassArchiveTraining(state, exit)
         }
     }

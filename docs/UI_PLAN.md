@@ -102,13 +102,17 @@ These come from an audit on 2026-11-03. On desktop every coroutine started in co
   - Search sorts once per order and only filters per keystroke.
   - The library's filtered list and the card effect text are remembered, and the effect-text regex is compiled once.
 - **P6. Constant transparency doesn't take an offscreen layer.** Side deck strips use `CompositingStrategy.ModulateAlpha`.
-- **P7. Measure in the real window.** `-Plockon.scrollProbe`, `-Plockon.deckOpenProbe` and `-Plockon.bootProbe` time real frames. The off-screen `ScrollBenchmarkTest` misses the Swing and Direct3D costs above.
+- **P7. Measure in the real window.** `-Plockon.scrollProbe`, `-Plockon.deckOpenProbe` and `-Plockon.bootProbe` time real frames, and `-Plockon.motionProbe` times each animation over the stretch it plays. The off-screen `ScrollBenchmarkTest` misses the Swing and Direct3D costs above.
+- **P8. A whole screen slides as it is drawn, not by moving its layer.** Changing a layer's `translationX`, scale or rotation makes Compose work out again where every node under it is, on every frame. That is nothing for a button and several milliseconds for a deck editor. `KeptScreens` translates in `drawWithContent`, between the layer that fades and a plain layer that keeps the screen's drawing. *(Done 2026-11-12.)*
+- **P9. A size that others measure from doesn't animate.** The top band's width is read by every screen, so the back button takes its final width at once and grows inside it. *(Done 2026-11-12.)*
+- **P10. Work a transition needs happens in the click's frame.** A screen about to show is laid out before the old one starts to fade, and a change of theme rebuilds the app behind a still picture of the old theme, then fades. A long frame before anything moves is not seen; the same frame part way through a fade is.
+- **P11. Navigation state is read narrowly.** `state.current` goes through `derivedStateOf` in screens that are kept built, and `AppState.select` leaves an empty stack alone: clearing an empty state list still tells every reader it changed.
 
 ### Next, by expected gain
 1. `CardArtwork` starts a placeholder timer coroutine for every image, even ones already in memory. Check Coil's memory cache first, or read the painter's state, so a cached image starts no coroutine.
 2. Phone editor tabs (Deck ↔ Add cards) rebuild the whole grid or list on every switch and lose their scroll position. Keep pages 0 and 1 composed, the way `KeptScreens` keeps tabs.
 3. In Add cards, one +/− recomposes every visible tile, because all tiles read one counts map. Give each card its own count state.
-4. Kept deck editors recompose on every save and every navigation, because their root reads `liveDecks` and `state.current`. Narrow those reads with `derivedStateOf`.
+4. *(Done: saves in 26.11.21, navigation on 2026-11-12, see P11.)* Kept deck editors recomposed on every save and every navigation, because their root read `liveDecks` and `state.current`.
 5. Each deck box validates its deck when it composes. Compute legality, colours and cover once per list.
 6. The export dialog starts a `dealIn` coroutine per row and encodes its QR code on the UI thread. Drive the stagger from one animation, and encode with `produceState` on `Dispatchers.Default`.
 7. Cards already in the deck keep a real shadow while the grid scrolls. Draw a cheap glow at rest and keep the shadow for hover.

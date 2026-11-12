@@ -47,7 +47,9 @@ class AppState(val appScope: CoroutineScope) {
 
     fun open(screen: Screen) { stack.add(screen) }
     fun goBack() { stack.removeLastOrNull() }
-    fun select(tab: Tab) { this.tab = tab; stack.clear() }
+    // Clearing a list that is already empty still counts as a change to it, and everything that reads
+    // [current] would build itself again on every switch of tab.
+    fun select(tab: Tab) { this.tab = tab; if (stack.isNotEmpty()) stack.clear() }
     fun notify(message: String) { notice = Notice(message) }
     fun notify(message: String, actionLabel: String, action: () -> Unit) { notice = Notice(message, actionLabel, action) }
     fun requestSearchFocus() { searchFocusRequests++ }

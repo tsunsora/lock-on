@@ -1,6 +1,7 @@
 package app.lockon.ui
 
 import app.lockon.ui.components.takeThemeFrame
+import app.lockon.ui.components.turnTheme
 import app.lockon.ui.components.DialogStage
 import app.lockon.ui.components.DialogStageHost
 import app.lockon.ui.components.LocalDialogStage
@@ -70,6 +71,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -138,6 +142,7 @@ import coil3.compose.setSingletonImageLoaderFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleOut
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.State
@@ -243,8 +248,10 @@ fun LockOnApp(
     var shownDark by remember { mutableStateOf(useDark) }
     LaunchedEffect(useDark) {
         if (useDark == shownDark) return@LaunchedEffect
-        if (stage != null && !reduce) stage.takeThemeFrame()
-        shownDark = useDark
+        if (stage != null && !reduce) {
+            stage.takeThemeFrame()
+            stage.turnTheme { shownDark = useDark }
+        } else shownDark = useDark
     }
     CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density, LocalDialogStage provides stage) {
     ArtworkProvider(container, artworkDir) {
@@ -572,20 +579,29 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
             }
             // Whether the screen takes part in layout changes only when a fade starts or ends; reading the
             // fade's value in measure instead would measure every screen again on each frame of the fade.
-            show to remember { derivedStateOf { show.value > 0f } }
+            // A screen about to show is laid out at once, in the frame that answers the click, though it
+            // stays clear until the old screen has begun to go: placing a whole screen takes several
+            // frames' worth of time, and part way into the old screen's fade that showed as a hitch.
+            val chosen = rememberUpdatedState(k == shown)
+            show to remember { derivedStateOf { chosen.value || show.value > 0f } }
         }
     }.unzip()
     Layout(
         content = {
             keys.forEachIndexed { i, k ->
                 key(k) {
-                    Box(Modifier.fillMaxSize().graphicsLayer {
-                        val p = shows[i].value
-                        // Under the boot screen: half way through a show, then as it ends (see [warmSettled]).
-                        val q = if (booted) p else if (warmSettled.value) 1f else 0.5f
-                        alpha = q
-                        if (slide) translationX = (1f - q) * size.width / 20f
-                    }) {
+                    // Under the boot screen: half way through a show, then as it ends (see [warmSettled]).
+                    fun shownBy() = if (booted) shows[i].value else if (warmSettled.value) 1f else 0.5f
+                    Box(Modifier.fillMaxSize().graphicsLayer { alpha = shownBy() }.then(
+                        // The slide moves the screen's picture as it is drawn, inside the fade. Moving the
+                        // layer itself made Compose work out where everything in the screen now was, on
+                        // every frame of the slide. The layer beneath keeps the screen's own drawing as it
+                        // is, so a frame of the slide draws that picture again a little further along.
+                        if (slide) Modifier.drawWithContent {
+                            val dx = (1f - shownBy()) * size.width / 20f
+                            if (dx == 0f) drawContent() else translate(left = dx) { this@drawWithContent.drawContent() }
+                        }.graphicsLayer { } else Modifier,
+                    )) {
                         if (booted || k in warmed) CompositionLocalProvider(LocalScreenShown provides (k == shown)) { content(k) }
                     }
                 }
@@ -743,7 +759,14 @@ private fun PlayerCard(back: String?, onBack: () -> Unit, style: HeaderStyle, br
                 modifier = Modifier.graphicsLayer { alpha = turn; translationY = (1f - turn) * 10.dp.toPx() },
             )
         }
-        Box(Modifier.graphicsLayer {
+        // Without a brand the button is all there is here, and its width is the room every screen's header
+        // leaves for it (the top band). It takes the width it is heading for at once and grows into it:
+        // growing the band with it built and laid out every screen again on each frame of the change.
+        val settled = if (live) style.back else style.tile
+        Box(Modifier.then(if (brand) Modifier else Modifier.layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints)
+            layout(settled.roundToPx(), placeable.height) { placeable.place(0, 0) }
+        }).graphicsLayer {
             translationX = if (brand) (1f - turn) * shift.toPx() else 0f
             // Without a brand there is nothing here until a deck opens, when the back button fades in.
             if (!brand) alpha = turn
