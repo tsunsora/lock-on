@@ -321,6 +321,7 @@ fun GameButton(
     onTone: Color? = null,
     trailingIcon: ImageVector? = null,
     outline: Color? = null,
+    ink: Color? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
@@ -342,7 +343,7 @@ fun GameButton(
         // A soft fill in the ink colour; hover deepens it.
         style == GameButtonStyle.SECONDARY -> {
             fillTarget = if (desktopControls) neutralFill(hovered, pressed) else scheme.onSurface.copy(alpha = if (on) 0.12f else 0.07f)
-            contentTarget = scheme.onSurface
+            contentTarget = ink ?: scheme.onSurface
         }
         else -> { fillTarget = accent.copy(alpha = if (on) 0.10f else 0f); contentTarget = accent }
     }
