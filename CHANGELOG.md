@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.11.26 (2026-11-15)
+
+A calmer look that lets the cards lead: one count on each card instead of a number and dots, simpler Analysis, Matches and Sync screens, and a clearer gold full-deck count on phones by day.
+
+- **Twilight:** the dark theme's navy is calmer, the same hue with less color, so cards stand out from the panels around them.
+- **Counts:** each card's − and + plate shows one number: teal in the deck, grey at 0, red past the limit. The copy dots and "×4" are gone, and + never dims. A card at its copy limit says Max on its name strip.
+- **Decks:** a deck's state reads as quiet text, like "✓ Legal · 3–1 · 75%", and every gauge ends in the same place.
+- **Deck editor on phones:** the bar at the bottom has Analysis and Test next to Deck, Add and More.
+- **Analysis:** one larger chart with a Cost / Level switch replaces the two small ones. Card types and colors have legends under their bars.
+- **Matches:** the record reads as "3–1 · 75% won" without the ring. Win, Loss and Draw are calmer, and new games start as going first.
+- **Sync:** this device and what syncs ("Decks only · no account, no server") come first, with Sync now, Scan QR code and Address at the bottom. Paired devices say "Live" and when they last synced, and results only count decks.
+- **Day theme on phones:** the deck's header is plain white, so a full deck's 50/50 count reads clearly in gold.
+- **Tooltips:** the Filters button and the match note button say what they do when you point at them, or hold them on a phone.
+
 ## 26.11.25 (2026-11-12)
 
 On the computer, moving around is smoother: opening and leaving a deck and changing the theme drop far fewer frames, and the theme no longer jumps as it changes.
