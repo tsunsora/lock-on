@@ -269,7 +269,7 @@ fun CardSearchPanel(
                 }
             }
         }
-        if (!leadingAbove) ViewToggle(grid, { grid = it }, cardsFirst = true)
+        if (!leadingAbove) ViewToggle(grid, { grid = it })
     }
 
     // Filters set beyond the quick row, so a closed Filters chip still says something is on.
@@ -303,7 +303,7 @@ fun CardSearchPanel(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             leading?.invoke(this)
-            ViewToggle(grid, { grid = it }, cardsFirst = true)
+            ViewToggle(grid, { grid = it })
         }
         // On phones the search and its chips sit on one solid panel, so only cards lie on the sky (UX rule V3).
         HeaderPlate(!wide) {
@@ -490,7 +490,7 @@ fun CardSearchPanel(
                         GameMenuItem(option.label, onClick = { sort = option; close() }, selected = option == sort)
                     }
                 }
-                ViewToggle(grid, { grid = it }, Modifier.height(ControlSize), cardsFirst = true)
+                ViewToggle(grid, { grid = it }, Modifier.height(ControlSize))
             }
             NumberStrip("Level", levels, query.levels, onPanel = true) { query = query.copy(levels = it) }
             NumberStrip("Cost", costs, query.costs, onPanel = true) { query = query.copy(costs = it) }

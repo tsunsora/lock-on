@@ -84,16 +84,20 @@ fun DeckStatusLine(legal: Boolean, modifier: Modifier = Modifier, review: Boolea
     }
 }
 
-/** Whole cards or a list, as two small icons on a soft track. On desktop, [small] takes the height of a chip or small icon button. */
+/**
+ * Whole cards or a list, as two small icons on a soft track: cards first and the list second, in every
+ * list that has the choice, since cards are the default view. On desktop, [small] takes the height of a
+ * chip or small icon button.
+ */
 @Composable
-fun ViewToggle(asCards: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, cardsFirst: Boolean = false, small: Boolean = false) {
+fun ViewToggle(asCards: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, small: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     val height = if (!desktopControls) 36.dp else if (small) SmallControlSize else ControlSize
     val inset = if (desktopControls && !small) 4.dp else 3.dp
     val trackShape = if (desktopControls && small) SmallControlShape else LockOnShapes.button
     val thumbShape = if (!desktopControls) RoundedCornerShape(10.dp) else if (small) RoundedCornerShape(7.dp) else InsetControlShape
     Row(modifier.height(height).clip(trackShape).background(if (desktopControls) neutralWash() else scheme.onSurface.copy(alpha = 0.09f)).padding(inset), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        listOf(LineIcons.List to false, LineIcons.Grid to true).let { if (cardsFirst) it.reversed() else it }.forEach { (icon, cards) ->
+        listOf(LineIcons.Grid to true, LineIcons.List to false).forEach { (icon, cards) ->
             val on = asCards == cards
             Box(
                 Modifier.fillMaxHeight().width(if (desktopControls && small) 30.dp else 36.dp).clip(thumbShape).background(softThumbFill(on))

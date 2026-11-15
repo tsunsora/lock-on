@@ -388,8 +388,6 @@ fun CardTile(
     }
 }
 
-private val SmallPlate = RoundedCornerShape(14.dp)
-
 /**
  * The colour of a card's count: teal while it is in the deck (UX rule V3), quiet at 0, and red past the
  * limit, where the problem bar names the card and the limit (I3).
@@ -467,7 +465,9 @@ private fun TileButton(symbol: String, description: String, enabled: Boolean = t
 
 /**
  * A deck-list row: a cost gem in the card colour, a small crop of the art, the name, and the
- * controls at the right. The whole card is one tap away in its details (UX rule V4a).
+ * controls at the right. The whole card is one tap away in its details (UX rule V4a). On desktop, rows
+ * lie flat on the deck panel like the card list's rows, with no fill or rim of their own: hover is the
+ * 4% ink wash every row takes (V5), and only the gem and the art carry colour (V3).
  */
 @Composable
 fun DeckStrip(
@@ -486,14 +486,14 @@ fun DeckStrip(
     val interaction = remember { MutableInteractionSource() }
     val hover = remember { HoverState() }
     val hovered = hover.hovered
-    val base = if (isTwilight()) Color(0xFF414A88) else Color(0xFFF3F6FB)
     Box(
         modifier.fillMaxWidth().height(if (compact) 48.dp else 56.dp)
             .flashOnChange(quantity, scheme.primary, scheme.error, StripShape)
             .clip(StripShape)
-            .background(base)
+            // Phones lay the list on the sky, so there a row sits on the same solid glass as its heading.
+            .then(if (desktopControls) Modifier else Modifier.background(glassColors().strong))
             .hoverable(interaction).hoverState(hover)
-            .clickable(interaction, indication = pressWash(StripShape, hover = false), enabled = card != null, onClick = onClick),
+            .clickable(interaction, indication = pressWash(StripShape), enabled = card != null, onClick = onClick),
     ) {
         // A strip shows only a crop of the art, so the whole card opens beside it on hover.
         if (card != null) CardHoverPreview(card, printingId, hovered)
@@ -517,32 +517,20 @@ fun DeckStrip(
                         color = scheme.onSurfaceVariant)
                 }
             }
-            // Controls sit on their own dark plate so busy artwork never hides them.
-            StepperTray(rim = !hovered, controls = controls)
+            StepperTray(controls = controls)
         }
-        // A lit edge on hover, over the controls so their plate does not cut it.
-        Box(Modifier.fillMaxSize().then(if (isTwilight()) Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)), StripShape) else Modifier).selectionEdge(StripShape, scheme.primary, hovered))
     }
 }
 
 private val StripShape = RoundedCornerShape(16.dp)
 
 /**
- * The deck list's tray for a row's controls: the strip's own colour with a thin rim, which eases away
- * while [rim] is off (the strip is hovered and lit). Add cards' list uses it too, so both lists match.
+ * A row's − count + plate: the one neutral fill every control that isn't teal wears (UX rule K3), with
+ * no rim. The card list's rows use it too, so both lists match.
  */
 @Composable
-fun StepperTray(modifier: Modifier = Modifier, rim: Boolean = true, controls: @Composable () -> Unit) {
-    val base = if (isTwilight()) Color(0xFF414A88) else Color(0xFFF3F6FB)
-    val plateRim = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
-    Row(
-        modifier.clip(SmallPlate).background(base.copy(alpha = 0.9f))
-            .drawSettled(if (rim) 1f else 0f) { rest ->
-                drawContent()
-                if (rest > 0f) drawOutline(SmallPlate.createOutline(size, layoutDirection, this), plateRim, alpha = rest, style = Stroke(1.dp.toPx()))
-            },
-        verticalAlignment = Alignment.CenterVertically,
-    ) { controls() }
+fun StepperTray(modifier: Modifier = Modifier, controls: @Composable () -> Unit) {
+    Row(modifier.clip(LockOnShapes.button).background(neutralFill()), verticalAlignment = Alignment.CenterVertically) { controls() }
 }
 
 /**
