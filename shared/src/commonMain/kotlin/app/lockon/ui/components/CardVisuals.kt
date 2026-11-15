@@ -183,88 +183,97 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
 }
 
 /**
- * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
- * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
- * Below 96 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
- * The disc sits in the exact middle of the card at every size. With [max], the plate's AP / HP line starts
- * with "Max" in quiet text: the card is at its copy limit (UX rule S3).
+ * A drawn stand-in card for a card without artwork, laid out like a printed card so it reads as one
+ * at a glance: a flat face in the card's colour, a corner tab holding the cost with the level under
+ * it, the type symbol as a line drawing where the art would be, and a deep band along the bottom with
+ * the name on up to two lines, the colour and type in words, and AP / HP. Every word sits on the deep
+ * tone, never on the bright face, so it stays readable on every colour (UX rules V4, I4).
+ * Below 96 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour
+ * and the symbol, so small faces never crowd. With [max], the band's last line ends with "Max" in
+ * quiet text: the card is at its copy limit (UX rule S3).
  */
 @Composable
 fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = false) {
-    val cardColor = card?.colors?.firstOrNull()
-    val color = cardColor(cardColor)
-    val white = cardColor == app.lockon.model.CardColor.WHITE
-    val glyphInk = if (white) darken(color, 0.55f) else Color.White
-    val type = card?.type
-    BoxWithConstraints(
-        modifier.background(color)
-            .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
-    ) {
+    val lead = card?.colors?.firstOrNull()
+    val face = cardColor(lead)
+    val deep = placeholderDeep(face)
+    val white = lead == app.lockon.model.CardColor.WHITE
+    // The symbol stands on the bright face: white, or the deep tone on a white card.
+    val glyphInk = if (white) deep else Color.White.copy(alpha = 0.92f)
+    BoxWithConstraints(modifier.background(face).border(BorderStroke(1.dp, PlaceholderEdge), CardShape)) {
         val u = maxWidth.value / 63f // one card millimetre in dp
         val full = maxWidth >= 96.dp
         val roomForCost = maxWidth >= 48.dp
-        // The type symbol on a soft disc, with the same margin all round it whichever symbol it is.
-        Canvas(Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val c = Offset(w * 0.5f, h * 0.5f)
-            val r = w * (if (full) 0.222f else 0.27f)
-            drawCircle(Color.White.copy(alpha = if (white) 0.55f else 0.18f), r, c)
-            val glyph = r * 0.72f
-            drawTypeGlyph(type, c, glyph, glyphInk, stroke = glyph * 0.16f)
+        val cost = card?.cost
+        val tab = cost != null && roomForCost
+        Column(Modifier.fillMaxSize()) {
+            // The art area: the symbol in the middle of what is left between the corner tab and the band.
+            Box(Modifier.fillMaxWidth().weight(1f).padding(top = if (tab && full) (u * 20f).dp else 0.dp)) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val r = size.width * (if (full) 0.17f else if (roomForCost) 0.2f else 0.26f)
+                    drawTypeGlyph(card?.type, Offset(size.width / 2f, size.height / 2f), r, glyphInk, stroke = r * 0.12f)
+                }
+            }
+            if (full) PlaceholderBand(card, max, deep, u)
         }
-        Column(
-            Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 3.6f).dp),
-            verticalArrangement = Arrangement.spacedBy((u * 2.4f).dp),
+        // The cost tab: flush in the top-left corner like a printed card's, the level under the cost.
+        if (tab && cost != null) Column(
+            Modifier.align(Alignment.TopStart).width((u * 15f).dp)
+                .background(deep, RoundedCornerShape(bottomEnd = (u * 4f).dp))
+                .padding(top = (u * 2f).dp, bottom = (u * (if (full) 2f else 1.6f)).dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy((u * 0.6f).dp),
         ) {
-            // Cost on a white-rimmed disc in the card's colour; a deck row's thumbnail is too small for one, and its cost sits beside it.
-            val cost = card?.cost
-            if (cost != null && roomForCost) Box(
-                Modifier.size((u * 15).dp)
-                    .clip(CircleShape)
-                    .background(color)
-                    .border(BorderStroke((u * 0.9f).dp, Color.White.copy(alpha = 0.9f)), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                CenteredGlyph(cost.toString(), if (white) Color(0xFF1D2742) else Color.White, (u * 8.6f).sp)
+            Box(Modifier.fillMaxWidth().height((u * 9f).dp)) {
+                CenteredGlyph(cost.toString(), Color.White, (u * 9f).sp)
             }
             val level = card?.level
             if (level != null && full) Text(
-                "Lv $level", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp),
+                "Lv $level", color = PlaceholderQuiet, fontSize = (u * 3.8f).sp, lineHeight = (u * 4.4f).sp,
+                maxLines = 1, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
             )
-        }
-        // The colour's initial on the same dark tag as the level, so colour is never the only signal (UX rule I4).
-        val initials = card?.colors?.sortedBy { it.ordinal }?.joinToString("") { it.label.take(1) }.orEmpty()
-        if (initials.isNotEmpty() && roomForCost) Text(
-            initials, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
-            modifier = Modifier.align(Alignment.TopEnd).padding(end = (u * 3.6f).dp, top = (u * 3.6f).dp)
-                .clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp)
-                .semantics { contentDescription = card?.colors?.joinToString(" and ") { it.label }.orEmpty() },
-        )
-        if (!full) return@BoxWithConstraints
-        Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = (u * 1.9f).dp, vertical = (u * 2.6f).dp)
-                .clip(RoundedCornerShape((u * 3.6f).dp)).background(Color(0xCC0A1028))
-                .padding(horizontal = (u * 3f).dp, vertical = (u * 2.4f).dp),
-            verticalArrangement = Arrangement.spacedBy((u * 1.2f).dp),
-        ) {
-            Text(card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.6f).sp, lineHeight = (u * 6.4f).sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
-            Row(Modifier.fillMaxWidth().heightIn(min = (u * 6.4f).dp), verticalAlignment = Alignment.CenterVertically) {
-                if (max) Text("Max", color = MaxInk, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp, style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.weight(1f))
-                if (card?.ap != null || card?.hp != null) {
-                    Text(
-                        "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.clip(RoundedCornerShape((u * 1.4f).dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = (u * 1.6f).dp),
-                    )
-                }
-            }
         }
     }
 }
+
+/** The band along the bottom of a full-size drawn face: the name, then colour and type, Max and AP / HP. */
+@Composable
+private fun PlaceholderBand(card: Card?, max: Boolean, deep: Color, u: Float) {
+    Column(
+        Modifier.fillMaxWidth().background(deep).padding(horizontal = (u * 3.4f).dp, vertical = (u * 2.6f).dp),
+        verticalArrangement = Arrangement.spacedBy((u * 1.4f).dp),
+    ) {
+        Text(
+            card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.4f).sp, lineHeight = (u * 6.4f).sp,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge,
+        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // Colour in words as well as on the face, so colour is never the only signal (UX rule I4).
+            val kind = listOfNotNull(
+                card?.colors?.sortedBy { it.ordinal }?.joinToString(" ") { it.label }?.takeIf { it.isNotEmpty() },
+                card?.type?.label?.let { if (card.colors.isEmpty()) it else it.lowercase() },
+            ).joinToString(" ")
+            val small = MaterialTheme.typography.labelMedium
+            Text(kind, color = PlaceholderQuiet, fontSize = (u * 3.8f).sp, lineHeight = (u * 4.8f).sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, style = small, modifier = Modifier.weight(1f, fill = true))
+            if (max) Text("Max", color = MaxInk, fontSize = (u * 3.8f).sp, lineHeight = (u * 4.8f).sp, style = small,
+                modifier = Modifier.padding(start = (u * 1.6f).dp))
+            if (card?.ap != null || card?.hp != null) Text(
+                "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.4f).sp, lineHeight = (u * 4.8f).sp,
+                maxLines = 1, style = small.merge(TabularNumbers), modifier = Modifier.padding(start = (u * 2f).dp),
+            )
+        }
+    }
+}
+
+/** The deep tone of a drawn face's tab and band: its colour taken well toward the night ink, so white text reads on every colour. */
+private fun placeholderDeep(face: Color): Color = androidx.compose.ui.graphics.lerp(face, Color(0xFF0A1028), 0.55f)
+
+/** A drawn face's edge: one ink hairline, so a white card still has an edge on a day panel (UX rule V1). */
+private val PlaceholderEdge = Color(0xFF0A1028).copy(alpha = 0.14f)
+
+/** Secondary words on a drawn face's deep tone: the level, and the colour and type. */
+private val PlaceholderQuiet = Color.White.copy(alpha = 0.74f)
 
 /** Max in a card's name strip: quiet text on the strip's dark plate, the same in both themes. */
 private val MaxInk = Color(0xFFA9B3CC)
