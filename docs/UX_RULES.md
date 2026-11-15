@@ -52,7 +52,7 @@ Lock On is a working tool first. In impeccable's terms every screen is an **Oper
 - **S1. One tap per copy.** Adding or removing a copy is a single tap or click from both the card list and the deck list. Card details never sit between the person and a quantity change. (GNDM TCG Dex shipped "Quick Connect" so cards stop needing multiple taps.)
 - **S2. Tap the card for details; buttons change counts.** The card body opens details, and the − and + buttons only change quantity. The two never swap places.
 - **S3. Every rule limit is visible where you act.** In the card list, a card shows how many copies are in the deck, a **Max** tag at its copy limit, and an **Off-color** tag when adding it would make a third color. The person learns the rule without trying and failing.
-- **S4. Nothing blocks a save.** Illegal or incomplete decks save as drafts. Rules produce messages, never disabled buttons.
+- **S4. Nothing blocks a save.** Illegal or incomplete decks save as drafts. Rules produce messages, never disabled buttons, with one exception: the main deck stops taking copies at a card's copy limit, so + (and To deck, and dropping a card on the deck) rests at Max. The side deck has no limit. A deck already over a limit is never trimmed; it only can't gain more until copies come out.
 - **S5. Results update as you type.** Search and filters apply immediately, with no Search button, and the result count is always on screen.
 
 ## 3. Information and feedback

@@ -317,16 +317,22 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
 
     // Changes read the draft itself, not this composition's copy, so quick taps never lose a copy
     // and the card list's controls stay the same object from one change to the next.
+    // Read through state, so the card list's drag, made once per deck, always adds under the current rules.
+    val rulesNow = rememberUpdatedState(ruleset)
+    // Adding stops at the card's copy limit, wherever the copy comes from: +, a drop or To deck.
+    // The side deck has no limit. A deck already over one keeps its copies until they're taken out.
+    fun limitIn(card: GameCard, section: DeckSection) = if (section == DeckSection.SIDE) null else copyLimit(card, rulesNow.value)
+
     fun change(card: GameCard, delta: Int, section: DeckSection = DeckSection.playedIn(card)) {
         val current = draft ?: return
-        draft = current.withQuantity(card.cardNumber, section, (current.quantityOf(card.cardNumber, section) + delta).coerceAtLeast(0))
+        draft = current.adjusted(card.cardNumber, section, delta, limitIn(card, section))
     }
 
     fun move(card: GameCard, toSide: Boolean) {
         val current = draft ?: return
         val played = DeckSection.playedIn(card)
         draft = if (toSide) current.move(card.cardNumber, played, DeckSection.SIDE)
-        else current.move(card.cardNumber, DeckSection.SIDE, played)
+        else current.move(card.cardNumber, DeckSection.SIDE, played, limit = limitIn(card, played))
     }
 
     // A list edited as text replaces the deck. A text list names cards, not their art, so cards
@@ -931,10 +937,12 @@ private fun DeckList(
                 if (card != null) {
                     // One tap per copy (UX rule S1): move one into the deck, or change the side deck's count.
                     // On phones an arrow, so the card's name keeps its room; its label is still read out.
-                    if (LocalTopBand.current.height == 0.dp) PlainIconButton(onClick = { onMoveToDeck(card) }) {
-                        Icon(LineIcons.Chevu, contentDescription = "Move one ${card.name} to the deck", tint = Accent)
+                    // A card at its copy limit in the deck has no room for another, so To deck rests.
+                    val room = copyLimit(card, ruleset)?.let { deck.quantityOf(card.cardNumber, DeckSection.playedIn(card)) < it } ?: true
+                    if (LocalTopBand.current.height == 0.dp) PlainIconButton(onClick = { onMoveToDeck(card) }, enabled = room) {
+                        Icon(LineIcons.Chevu, contentDescription = "Move one ${card.name} to the deck", tint = if (room) Accent else Accent.copy(alpha = 0.38f))
                     }
-                    else GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true)
+                    else GameButton("To deck", onClick = { onMoveToDeck(card) }, style = GameButtonStyle.GHOST, compact = true, enabled = room)
                     PlateStepper(entry.quantity, card.name, onMinus = { onSideChange(card, -1) }, onPlus = { onSideChange(card, 1) })
                 } else {
                     Text("×${entry.quantity}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 12.dp))

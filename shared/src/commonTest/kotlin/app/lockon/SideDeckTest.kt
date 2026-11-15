@@ -16,6 +16,7 @@ import app.lockon.sync.SyncProtocol
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -62,6 +63,29 @@ class SideDeckTest {
         val back = parked.move("B-01", DeckSection.SIDE, DeckSection.MAIN, copies = 5)
         assertEquals(4, back.quantityOf("B-01", DeckSection.MAIN))
         assertEquals(0, back.quantityOf("B-01", DeckSection.SIDE))
+    }
+
+    @Test fun addingStopsAtTheCopyLimitButLeavesDecksAlreadyOverIt() {
+        val start = DeckSnapshot("D", entries = listOf(DeckEntry("B-01", 3, printingId = "B-01-ALT")))
+        val four = start.adjusted("B-01", DeckSection.MAIN, 1, limit = 4)
+        assertEquals(4, four.quantityOf("B-01", DeckSection.MAIN))
+        assertEquals("B-01-ALT", four.entries.single().printingId)
+        assertSame(four, four.adjusted("B-01", DeckSection.MAIN, 1, limit = 4), "a fifth copy is not added")
+        assertEquals(4, start.adjusted("B-01", DeckSection.MAIN, 5, limit = 4).quantityOf("B-01", DeckSection.MAIN))
+        // The side deck has no limit.
+        assertEquals(9, four.adjusted("B-01", DeckSection.SIDE, 9).quantityOf("B-01", DeckSection.SIDE))
+        // A deck already past the limit keeps its copies, gains none, and can still lose them.
+        val over = DeckSnapshot("D", entries = listOf(DeckEntry("B-01", 6)))
+        assertSame(over, over.adjusted("B-01", DeckSection.MAIN, 1, limit = 4))
+        assertEquals(5, over.adjusted("B-01", DeckSection.MAIN, -1, limit = 4).quantityOf("B-01", DeckSection.MAIN))
+    }
+
+    @Test fun movingToTheDeckStopsAtTheCopyLimit() {
+        val start = DeckSnapshot("D", entries = listOf(DeckEntry("B-01", 3), DeckEntry("B-01", 3, DeckSection.SIDE)))
+        val moved = start.move("B-01", DeckSection.SIDE, DeckSection.MAIN, copies = 3, limit = 4)
+        assertEquals(4, moved.quantityOf("B-01", DeckSection.MAIN))
+        assertEquals(2, moved.quantityOf("B-01", DeckSection.SIDE))
+        assertSame(moved, moved.move("B-01", DeckSection.SIDE, DeckSection.MAIN, limit = 4))
     }
 
     @Test fun deckListsRoundTripTheSideDeck() {

@@ -70,10 +70,26 @@ data class DeckSnapshot(
         return copy(entries = updated.sortedWith(compareBy({ it.section }, { it.cardNumber })))
     }
 
-    /** Moves up to [copies] of a card between sections, keeping its preferred printing. */
-    fun move(cardNumber: String, from: DeckSection, to: DeckSection, copies: Int = 1): DeckSnapshot {
+    /**
+     * Adds [delta] copies of a card to a section, or takes them away when negative. Adding stops at
+     * [limit], the card's copy limit in that section (null for none). A section already past its limit
+     * is left as it is: it can lose copies but gains none, and nothing is taken away to fit.
+     */
+    fun adjusted(cardNumber: String, section: DeckSection, delta: Int, limit: Int? = null): DeckSnapshot {
+        val now = quantityOf(cardNumber, section)
+        val wanted = if (delta > 0 && limit != null) minOf(now + delta, maxOf(now, limit)) else now + delta
+        val next = wanted.coerceAtLeast(0)
+        return if (next == now) this else withQuantity(cardNumber, section, next)
+    }
+
+    /**
+     * Moves up to [copies] of a card between sections, keeping its preferred printing. With a [limit],
+     * no more move than [to] has room for under it.
+     */
+    fun move(cardNumber: String, from: DeckSection, to: DeckSection, copies: Int = 1, limit: Int? = null): DeckSnapshot {
         val available = quantityOf(cardNumber, from)
-        val moving = copies.coerceAtMost(available)
+        val room = limit?.let { (it - quantityOf(cardNumber, to)).coerceAtLeast(0) } ?: Int.MAX_VALUE
+        val moving = copies.coerceAtMost(available).coerceAtMost(room)
         if (moving <= 0 || from == to) return this
         val printing = entries.firstOrNull { it.cardNumber == cardNumber && it.section == from }?.printingId
         return withQuantity(cardNumber, from, available - moving)
