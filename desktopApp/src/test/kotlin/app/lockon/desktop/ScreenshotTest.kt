@@ -350,15 +350,15 @@ class ScreenshotTest {
                 app.lockon.ui.theme.SystemAccent.color.value = seed
                 for (dark in listOf(true, false)) {
                     val t = if (dark) "dark" else "light"
-                    shoot("my-$name-editor-$t", 1980, 1290, dark = dark, hover = rest) { open(Screen.DeckEditor(deckId)) }
-                    shoot("my-$name-phone-library-$t", 600, 1260, dark = dark) { select(Tab.DECKS) }
-                    shoot("my-$name-phone-settings-$t", 600, 1260, dark = dark) { select(Tab.SETTINGS) }
+                    shoot("my-$name-editor-$t", 1980, 1290, dark = dark, hover = rest) { booted = true; open(Screen.DeckEditor(deckId)) }
+                    shoot("my-$name-phone-library-$t", 600, 1260, dark = dark) { booted = true; select(Tab.DECKS) }
+                    shoot("my-$name-phone-settings-$t", 600, 1260, dark = dark) { booted = true; select(Tab.SETTINGS) }
                 }
             }
             // Turned off in Settings, the accent is passed over.
             app.lockon.ui.theme.SystemAccent.color.value = seeds[1].second
             runBlocking { container.settings.setSystemColors(false) }
-            shoot("my-off-phone-settings-dark", 600, 1260) { select(Tab.SETTINGS) }
+            shoot("my-off-phone-settings-dark", 600, 1260) { booted = true; select(Tab.SETTINGS) }
         } finally {
             app.lockon.ui.theme.SystemAccent.color.value = null
             runBlocking { container.settings.setSystemColors(true) }
