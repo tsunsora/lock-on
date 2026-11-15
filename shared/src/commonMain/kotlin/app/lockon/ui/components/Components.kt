@@ -183,7 +183,7 @@ fun ColorPips(colors: Collection<app.lockon.model.CardColor>, modifier: Modifier
 @Composable
 fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = false, footer: @Composable () -> Unit = {}) {
     Column(modifier) {
-        if (faceDown) CardBack(Modifier.fillMaxWidth()) else CardImage(card, Modifier.fillMaxWidth())
+        if (faceDown) CardBack(Modifier.fillMaxWidth()) else CardImage(card, Modifier.fillMaxWidth(), shadow = false)
         footer()
     }
 }

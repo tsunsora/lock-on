@@ -75,6 +75,7 @@ object LineIcons {
     val Palette: ImageVector by lazy { icon("Palette", "M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 1.8-1.1 1.2-2.1-.7-1.1 0-2.4 1.3-2.4H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.8-9-8.5-9z", "M6.5 11A1 1 0 1 1 8.5 11A1 1 0 1 1 6.5 11Z", "M9 7.5A1 1 0 1 1 11 7.5A1 1 0 1 1 9 7.5Z", "M13.5 7.5A1 1 0 1 1 15.5 7.5A1 1 0 1 1 13.5 7.5Z") }
     val Sliders: ImageVector by lazy { icon("Sliders", "M4 7h9M17 7h3M4 17h3M11 17h9", "M13 7A2 2 0 1 1 17 7A2 2 0 1 1 13 7Z", "M7 17A2 2 0 1 1 11 17A2 2 0 1 1 7 17Z") }
     val Database: ImageVector by lazy { icon("Database", "M4.5 6A7.5 2.8 0 1 1 19.5 6A7.5 2.8 0 1 1 4.5 6Z", "M4.5 6v12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8") }
+    val Alert: ImageVector by lazy { icon("Alert", "M10.3 4.5 2.9 17.5A2 2 0 0 0 4.6 20.5h14.8a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0Z", "M12 9.5v4.5M12 17.2v.2") }
     val Info: ImageVector by lazy { icon("Info", "M3.5 12A8.5 8.5 0 1 1 20.5 12A8.5 8.5 0 1 1 3.5 12Z", "M12 11v5.5M12 7.8v.2") }
     val Home: ImageVector by lazy { icon("Home", "M4 11 12 4l8 7v8.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z") }
     val Download: ImageVector by lazy { icon("Download", "M12 4v11M7.5 10.5 12 15l4.5-4.5", "M5 19.5h14") }

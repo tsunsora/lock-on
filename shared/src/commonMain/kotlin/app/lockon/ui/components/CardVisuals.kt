@@ -185,7 +185,7 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
 /**
  * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
  * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
- * Below 100 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
+ * Below 96 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
  * The disc sits in the exact middle of the card at every size. With [max], the plate's AP / HP line starts
  * with "Max" in quiet text: the card is at its copy limit (UX rule S3).
  */
@@ -201,7 +201,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
             .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
     ) {
         val u = maxWidth.value / 63f // one card millimetre in dp
-        val full = maxWidth >= 100.dp
+        val full = maxWidth >= 96.dp
         val roomForCost = maxWidth >= 48.dp
         // The type symbol on a soft disc, with the same margin all round it whichever symbol it is.
         Canvas(Modifier.fillMaxSize()) {
@@ -234,6 +234,14 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp),
             )
         }
+        // The colour's initial on the same dark tag as the level, so colour is never the only signal (UX rule I4).
+        val initials = card?.colors?.sortedBy { it.ordinal }?.joinToString("") { it.label.take(1) }.orEmpty()
+        if (initials.isNotEmpty() && roomForCost) Text(
+            initials, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = (u * 3.6f).dp, top = (u * 3.6f).dp)
+                .clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp)
+                .semantics { contentDescription = card?.colors?.joinToString(" and ") { it.label }.orEmpty() },
+        )
         if (!full) return@BoxWithConstraints
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = (u * 1.9f).dp, vertical = (u * 2.6f).dp)
@@ -249,7 +257,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
                 if (card?.ap != null || card?.hp != null) {
                     Text(
                         "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp,
-                        style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                        style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.clip(RoundedCornerShape((u * 1.4f).dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = (u * 1.6f).dp),
                     )
                 }
@@ -569,7 +577,7 @@ fun CardDetailContent(
                     Modifier.fillMaxWidth().pressScale(press).pointerHoverIcon(PointerIcon.Hand)
                         .clickable(press, indication = null, onClickLabel = "View larger") { inspecting = true },
                     animationSpec = motion(), label = "printing",
-                ) { CardImage(card, Modifier.fillMaxWidth(), printingId = it) }
+                ) { CardImage(card, Modifier.fillMaxWidth(), printingId = it, shadow = false) }
             }
         }
         if (inspecting) CardInspectDialog(card, shown, onDismiss = { inspecting = false })
@@ -802,11 +810,14 @@ fun CardDetailDialog(
     Dialog(onDismissRequest = onDismiss, properties = app.lockon.platform.fullWindowDialogProperties()) {
         app.lockon.platform.LightSystemBarIcons()
         // The dialog fills the window, so clicks around the panel land on this backdrop. It sits behind
-        // the panel rather than around it, so clicks inside never reach it. Phones get no system dim, so it paints one,
-        // the same as the filter sheet's.
-        Spacer(Modifier.fillMaxSize().graphicsLayer { alpha = arrival.value }
-            .then(if (app.lockon.platform.isMobile) Modifier.background(Color.Black.copy(alpha = 0.45f)) else Modifier)
-            .clickable(interactionSource = null, indication = null, onClick = onDismiss))
+        // the panel rather than around it, so clicks inside never reach it. Phones, and any window narrow
+        // enough for the floating sheet, get the filter sheet's plain dim (UX rule N4).
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val sheet = app.lockon.platform.isMobile || maxWidth < 600.dp
+            Spacer(Modifier.fillMaxSize().graphicsLayer { alpha = arrival.value }
+                .then(if (sheet) Modifier.background(Color.Black.copy(alpha = 0.45f)) else Modifier)
+                .clickable(interactionSource = null, indication = null, onClick = onDismiss))
+        }
         BoxWithConstraints(
             Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.safeDrawing),
             contentAlignment = Alignment.Center,

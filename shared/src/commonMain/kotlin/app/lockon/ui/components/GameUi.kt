@@ -209,7 +209,7 @@ data class GlassColors(val fill: Color, val strong: Color, val line: Color, val 
 @Composable
 @ReadOnlyComposable
 fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color(0xFF20273D).copy(alpha = 0.96f), Color(0xFF29314A), Color(0xFFDCE6FF).copy(alpha = 0.1f), Color(0xFF070A16))
+    GlassColors(Color(0xFF232836).copy(alpha = 0.96f), Color(0xFF2D3241), Color(0xFFDCE6FF).copy(alpha = 0.1f), Color(0xFF070A16))
 } else {
     GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color(0xFF1C2742).copy(alpha = 0.1f), Color(0xFF1C2742).copy(alpha = 0.5f))
 }
@@ -578,8 +578,12 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     val error = scheme.error
     // By day a slightly deeper track, so a full gold bar still reads as a shape on white (UX rule V3).
     val track = if (isTwilight()) scheme.onSurface.copy(alpha = 0.12f) else Color(0xFFD3DEEA)
+    // Inline gauges carry no label row, so the number names what it counts: "Main 42/50" (UX rule I1).
+    val short = if (label.startsWith("Main")) "Main" else label
     @Composable
     fun Number() {
+        if (inline) Text(short, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1,
+            modifier = Modifier.padding(end = 4.dp, bottom = 3.dp))
         RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
             numberColor, Modifier.bumpOnIncrease(count))
         Text("/$limit", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant,
@@ -1534,6 +1538,9 @@ class BottomItem(
  */
 val LocalNavClearance = compositionLocalOf { 0.dp }
 
+/** Whether a toast is showing, so a floating button near the bottom can rise above it instead of under it. */
+val LocalToastShowing = compositionLocalOf { false }
+
 /** The nav bar's height, without its margin and the system's gesture area. */
 val PillNavHeight = 60.dp
 
@@ -1556,11 +1563,10 @@ private val PillSpring = spring<Float>(dampingRatio = 1f, stiffness = 500f)
 
 /**
  * Navigation as a floating pill (UX rules N5, V9), after AnymeX's "Dynamic Pill" bar: a
- * translucent glass capsule with a hairline rim and soft shadow, floating above the bottom edge on
- * phones. The selected destination expands into a teal pill with its icon and label; the others
- * shrink to icons, which still carry their label for screen readers (I5).
+ * translucent capsule with a soft shadow, floating above the bottom edge on phones. With [stacked]
+ * (phones) every item shows its label under its icon and the chosen one's icon sits on a teal pill (I5).
  *
- * With [labels] every item shows its label, for wide windows where there is room.
+ * With [labels] every item shows its label beside its icon, for wide windows where there is room.
  */
 @Composable
 fun PillNavBar(
@@ -1574,6 +1580,8 @@ fun PillNavBar(
     height: Dp = PillNavHeight,
     itemHeight: Dp = 42.dp,
     iconSize: Dp = 22.dp,
+    /** Labels under icons, every item an equal share: the phone's floating bar. */
+    stacked: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
@@ -1602,9 +1610,9 @@ fun PillNavBar(
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
             // Elevation is said once: it floats, so it has a shadow and no border (UX rule V1).
-            .background(if (twilight) Color(0xFF29314A) else Color.White)
+            .background(if (twilight) Color(0xFF2D3241) else Color.White)
             .height(height)
-            .padding(horizontal = if (height < PillNavHeight) 4.dp else 8.dp, vertical = 4.dp)
+            .padding(horizontal = if (height < PillNavHeight || stacked) 4.dp else 8.dp, vertical = 4.dp)
             .drawBehind {
                 // As tall as an item's own pill.
                 val h = minOf(size.height, itemHeight.toPx())
@@ -1612,7 +1620,36 @@ fun PillNavBar(
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        items.forEachIndexed { i, item ->
+        if (stacked) items.forEachIndexed { i, item ->
+            // On phones every item shows its label under its icon, as Material's navigation bar does,
+            // so nobody has to guess what an icon means (UX rules N5, I5). The chosen one is a teal plate.
+            val isSelected = i == selected
+            val fill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
+            val content by animateColorAsState(if (isSelected) onAccent else scheme.onSurface.copy(alpha = 0.85f), motion(Motion.LONG), label = "pill-content")
+            val labelInk = if (isSelected) scheme.onSurface else scheme.onSurfaceVariant
+            Box(
+                Modifier.weight(1f).fillMaxHeight()
+                    .then(
+                        if (item.onLongClick == null) Modifier.selectable(isSelected, role = Role.Tab, interactionSource = null, indication = null) { onSelect(i) }
+                        else Modifier.combinedClickable(
+                            interactionSource = null, indication = null, role = Role.Tab,
+                            onLongClickLabel = item.onLongClickLabel, onLongClick = item.onLongClick,
+                        ) { onSelect(i) }.semantics { this.selected = isSelected },
+                    )
+                    .semantics { contentDescription = item.label },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Box(Modifier.clip(LockOnShapes.pill).background(fill).size(48.dp, 28.dp), contentAlignment = Alignment.Center) {
+                        CompositionLocalProvider(LocalContentColor provides content) {
+                            Box(Modifier.size(iconSize), contentAlignment = Alignment.Center) { item.icon() }
+                        }
+                    }
+                    Text(item.label, style = MaterialTheme.typography.labelSmall, color = labelInk, maxLines = 1, softWrap = false,
+                        overflow = TextOverflow.Visible, modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics {})
+                }
+            }
+        } else items.forEachIndexed { i, item ->
             val isSelected = i == selected
             // The selected item takes more of the bar, so its label has room (AnymeX's 2.4 : 1).
             val share by animateFloatAsState(if (labels || !isSelected) 1f else 2.4f, if (reduce) snap() else PillSpring, label = "pill-share")
@@ -1666,9 +1703,9 @@ fun PillNavBar(
  * at most [widest] across (see [floatingPillWidth]).
  */
 @Composable
-fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp = 440.dp, labels: Boolean = false, onSelect: (Int) -> Unit) {
+fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp = 440.dp, onSelect: (Int) -> Unit) {
     BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)) {
-        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(floatingPillWidth(maxWidth, widest)), labels = labels, spread = labels)
+        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(floatingPillWidth(maxWidth, widest)), stacked = true)
     }
 }
 
@@ -1684,7 +1721,8 @@ fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen - 24.d
 @Composable
 fun CenteredGlyph(text: String, color: Color, fontSize: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)
+    // One Quicksand glyph, measured by Quicksand's own cap height below, so no tabular sans here.
+    val style = MaterialTheme.typography.labelLarge
         .copy(fontSize = fontSize * GlyphLayoutScale, color = color, lineHeight = fontSize * GlyphLayoutScale, letterSpacing = 0.sp, baselineShift = androidx.compose.ui.text.style.BaselineShift.None)
     Canvas(modifier.fillMaxSize()) {
         val layout = measurer.measure(text, style)

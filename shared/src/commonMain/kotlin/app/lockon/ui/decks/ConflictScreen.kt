@@ -92,6 +92,7 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
                 others = versions - version,
                 cards = cards,
                 deviceLabel = deviceLabel(version.originDeviceId, container.identity.deviceId, devices),
+                otherLabel = (versions - version).firstOrNull()?.let { deviceLabel(it.originDeviceId, container.identity.deviceId, devices) },
                 fromComputer = if (version.originDeviceId == container.identity.deviceId) !isMobile
                     else devices.firstOrNull { it.deviceId == version.originDeviceId }?.role == app.lockon.sync.DeviceRole.HOST,
                 modifier = modifier,
@@ -125,7 +126,7 @@ fun ConflictScreen(container: AppContainer, state: AppState, deckId: String, wid
 }
 
 internal fun deviceLabel(originId: String, localId: String, devices: List<PairedDevice>): String =
-    if (originId == localId) "This device" else devices.firstOrNull { it.deviceId == originId }?.name ?: "Another device"
+    if (originId == localId) "This device" else devices.firstOrNull { it.deviceId == originId }?.name ?: "A device no longer paired"
 
 @Composable
 fun VersionCard(
@@ -133,6 +134,8 @@ fun VersionCard(
     others: List<DeckVersion>,
     cards: Map<String, GameCard>,
     deviceLabel: String,
+    /** Whose version the differences are counted against, named so the +/− counts say what they compare (UX rule C5). */
+    otherLabel: String?,
     fromComputer: Boolean,
     modifier: Modifier,
     onKeep: () -> Unit,
@@ -166,7 +169,9 @@ fun VersionCard(
                 }
                 if (other.name != snapshot.name) Text("Named \"${snapshot.name}\"", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 if (other.notes != snapshot.notes) Text("Notes differ", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-                if (diffs.isEmpty() && other.name == snapshot.name) Text("Same cards as the other version.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                val against = otherLabel?.let { if (it == "This device") "this device's version" else "the version from $it" } ?: "the other version"
+                if (diffs.isEmpty() && other.name == snapshot.name) Text("Same cards as $against.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                if (diffs.isNotEmpty()) Text("Copies compared with $against", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                 diffs.forEach { (key, mine, theirs) ->
                     val (number, section) = key
                     val card = cards[number]

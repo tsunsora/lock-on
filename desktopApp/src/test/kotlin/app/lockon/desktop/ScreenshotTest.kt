@@ -509,7 +509,7 @@ class ScreenshotTest {
         val mine = app.lockon.model.DeckVersion("a", "here", 1_761_400_000_000, deck)
         val theirs = app.lockon.model.DeckVersion("b", "there", 1_761_300_000_000, changed)
         draw("desktop-compare-card", 620, 460) {
-            app.lockon.ui.decks.VersionCard(mine, listOf(theirs), cards, "This device", fromComputer = true, androidx.compose.ui.Modifier.padding(16.dp), onKeep = {})
+            app.lockon.ui.decks.VersionCard(mine, listOf(theirs), cards, "This device", otherLabel = "Pixel 8", fromComputer = true, modifier = androidx.compose.ui.Modifier.padding(16.dp), onKeep = {})
         }
         sync.pairingPrompt.value = app.lockon.sync.PairingPrompt("r1", "Pixel 9", "482913", false)
         draw("desktop-pairing", 1440, 900) { app.lockon.ui.sync.SyncPrompts(sync) }

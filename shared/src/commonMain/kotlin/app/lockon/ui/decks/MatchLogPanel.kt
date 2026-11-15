@@ -221,13 +221,18 @@ fun MatchLogPanel(
                                     Text(it, Modifier.padding(bottom = 2.dp), style = MaterialTheme.typography.titleSmall.merge(TabularNumbers), color = scheme.onSurfaceVariant)
                                 }
                             }
+                            Spacer(Modifier.weight(1f))
+                            // The bars' key, so slate and red are never the only signal (UX rule I4).
+                            ResultKey(Modifier.padding(bottom = 4.dp), draws = stats.overall.draws > 0)
                         }
-                        RecordRow("1st", stats.goingFirst, nameWidth = 36.dp)
-                        RecordRow("2nd", stats.goingSecond, nameWidth = 36.dp)
-                        // Games logged without a turn order, so the rows add up to the record.
+                        // Play order in words, and games logged without one, so the rows add up to the record (C5).
+                        // The order rows share one count scale, so a bar's length is its number of games.
                         val o = stats.overall; val a = stats.goingFirst; val b = stats.goingSecond
                         val unsided = Record(o.wins - a.wins - b.wins, o.losses - a.losses - b.losses, o.draws - a.draws - b.draws)
-                        if (unsided.games > 0) RecordRow("—", unsided, nameWidth = 36.dp)
+                        val most = maxOf(a.games, b.games, unsided.games)
+                        RecordRow("Went 1st", a, nameWidth = OrderWidth, most = most)
+                        RecordRow("Went 2nd", b, nameWidth = OrderWidth, most = most)
+                        if (unsided.games > 0) RecordRow("Order not logged", unsided, nameWidth = OrderWidth, most = most)
                 }
             }
             if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true, padding = if (short) 12.dp else 16.dp) { record() } else record()
@@ -239,7 +244,8 @@ fun MatchLogPanel(
                 val opponents = @Composable {
                     SectionHeader("By opponent", readout = "${stats.byOpponent.size}")
                     Column(verticalArrangement = Arrangement.spacedBy(if (phone) 8.dp else 12.dp)) {
-                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 152.dp) }
+                        val most = stats.byOpponent.maxOf { it.second.games }
+                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 152.dp, most = most) }
                     }
                 }
                 if (phone) SoftTile(Modifier.animateItem().padding(bottom = gap).fillMaxWidth(), solid = true) { opponents() }
@@ -266,25 +272,25 @@ fun MatchLogPanel(
                         .clickable(onClickLabel = "Edit this game") { editingId = match.id }.padding(vertical = 4.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    // A neutral badge for wins and draws and a red tint for losses: the word is the letter (I4).
-                    val (letter, tone, ink) = when (match.result) {
-                        MatchResult.WIN -> Triple("W", scheme.onSurface.copy(alpha = 0.08f), scheme.onSurface)
-                        MatchResult.LOSS -> Triple("L", scheme.error.copy(alpha = 0.16f), scheme.error)
-                        MatchResult.DRAW -> Triple("D", scheme.onSurface.copy(alpha = 0.08f), scheme.onSurfaceVariant)
+                    // A neutral tag for wins and draws and a red tint for losses, each with its word (I4).
+                    val (word, tone, ink) = when (match.result) {
+                        MatchResult.WIN -> Triple("Win", scheme.onSurface.copy(alpha = 0.08f), scheme.onSurface)
+                        MatchResult.LOSS -> Triple("Loss", scheme.error.copy(alpha = 0.16f), scheme.error)
+                        MatchResult.DRAW -> Triple("Draw", scheme.onSurface.copy(alpha = 0.08f), scheme.onSurfaceVariant)
                     }
-                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(tone), contentAlignment = Alignment.Center) {
-                        Text(letter, style = MaterialTheme.typography.labelLarge, color = ink)
+                    Box(Modifier.size(48.dp, 28.dp).clip(RoundedCornerShape(8.dp)).background(tone), contentAlignment = Alignment.Center) {
+                        Text(word, style = MaterialTheme.typography.labelMedium, color = ink, maxLines = 1)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(match.opponent.ifBlank { "Opponent not noted" }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        Text(match.opponent.ifBlank { "Opponent not noted" }, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
                             color = if (match.opponent.isBlank()) scheme.onSurfaceVariant else scheme.onSurface)
                         if (match.notes.isNotBlank()) Text(match.notes, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     match.wentFirst?.let { first ->
                         // One width for both, so the badges make a tidy column.
                         Text(
-                            if (first) "1st" else "2nd", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center,
-                            modifier = Modifier.width(40.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, scheme.onSurface.copy(alpha = 0.24f), RoundedCornerShape(8.dp)).padding(vertical = 4.dp),
+                            if (first) "Went 1st" else "Went 2nd", style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 1,
+                            modifier = Modifier.width(72.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, scheme.onSurface.copy(alpha = 0.24f), RoundedCornerShape(8.dp)).padding(vertical = 4.dp),
                         )
                     }
                     Text(dayLabel(match.playedAt), Modifier.widthIn(min = 56.dp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.End, maxLines = 1)
@@ -377,11 +383,29 @@ private fun drawTone(): Color = if (isTwilight()) ChartSlateTwilight else ChartS
 private fun onDrawTone(): Color = if (isTwilight()) Color(0xFF1B2147) else Color.White
 
 /** A name, wins against losses as one bar, and the score. */
+/** The name column of the play-order rows, wide enough for "Order not logged". */
+private val OrderWidth = 128.dp
+
+/** What the record bars' colours mean: Won, Lost, and Drawn when there are draws. */
 @Composable
-private fun RecordRow(name: String, record: Record, nameWidth: Dp) {
+private fun ResultKey(modifier: Modifier = Modifier, draws: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        listOfNotNull("Won" to winTone(), ("Drawn" to drawTone()).takeIf { draws }, "Lost" to scheme.error).forEach { (word, tone) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(tone))
+                Text(word, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+/** A name, its results as one bar on a scale of [most] games, and the score. */
+private fun RecordRow(name: String, record: Record, nameWidth: Dp, most: Int = record.games) {
     val scheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(name, Modifier.width(nameWidth), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(name, Modifier.width(nameWidth), style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Row(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             // Logging a game moves the split instead of redrawing it.
             val wins by animateFloatAsState(record.wins.toFloat(), motion(Motion.LONG), label = "record-wins")
@@ -392,6 +416,9 @@ private fun RecordRow(name: String, record: Record, nameWidth: Dp) {
             if (wins > 0.01f) Box(Modifier.weight(wins).fillMaxHeight().background(winTone()))
             if (draws > 0.01f) Box(Modifier.weight(draws).fillMaxHeight().background(drawTone()))
             if (losses > 0.01f) Box(Modifier.weight(losses).fillMaxHeight().background(scheme.error))
+            // The rest of the scale stays empty, so fewer games make a shorter bar.
+            val rest = most - record.games
+            if (rest > 0) Box(Modifier.weight(rest.toFloat()).fillMaxHeight())
         }
         FadeSwap(if (record.games == 0) "—" else record.score, Modifier.widthIn(min = 40.dp), contentAlignment = Alignment.CenterEnd) {
             Text(it, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), textAlign = TextAlign.End, maxLines = 1)

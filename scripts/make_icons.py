@@ -1,6 +1,6 @@
 """Draws the Lock On app icon for desktop packaging as a flat tile: the Lock On mark (a bold ring
-with four studs and a center dot) in white, on a violet tile with a soft diagonal gradient, lighter
-at the top right. No glows or shading, to match the Android launcher icon.
+with four studs and a center dot) in white, on one flat violet tile. No gradient, glow or shading
+(UX rule V7), to match the Android launcher icon and the in-app logo tile.
 
 Uses the same 108-unit geometry as LockOnMark in the shared UI and the Android launcher icon.
 Run from the repo root:  python scripts/make_icons.py
@@ -10,10 +10,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-# The tile fades from TILE_TOP to TILE_BOTTOM; #8A5EE1, their midpoint, is ic_launcher_background
-# (the splash screen's solid colour).
-TILE_TOP = (154, 104, 230)  # #9A68E6
-TILE_BOTTOM = (122, 85, 220)  # #7A55DC
+# The same violet as ic_launcher_background and LogoTileDay.
+TILE = (138, 94, 225)  # #8A5EE1
 MARK = (255, 255, 255, 255)
 ARMS = [((54, 18), (54, 29)), ((54, 79), (54, 90)), ((18, 54), (29, 54)), ((79, 54), (90, 54))]
 
@@ -34,10 +32,7 @@ def draw(size: int) -> Image.Image:
     scale = 4  # draw large, then downsample for smooth edges
     s = size * scale
     u = s / 108
-    # Lighter at the top right, darker at the bottom left.
-    fade = Image.new("L", (s, s))
-    fade.putdata([round(255 * ((s - 1 - x) + y) / (2 * (s - 1))) for y in range(s) for x in range(s)])
-    tile = Image.composite(Image.new("RGBA", (s, s), TILE_BOTTOM + (255,)), Image.new("RGBA", (s, s), TILE_TOP + (255,)), fade)
+    tile = Image.new("RGBA", (s, s), TILE + (255,))
     shape = Image.new("L", (s, s), 0)
     ImageDraw.Draw(shape).rounded_rectangle([0, 0, s - 1, s - 1], radius=24 * u, fill=255)
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))

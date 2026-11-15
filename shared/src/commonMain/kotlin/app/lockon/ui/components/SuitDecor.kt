@@ -22,8 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.SuitColors
 
-// The Lock On mark and the caution stripes (UX rule V7). These are original shapes, not official
-// marks, and they never carry meaning on their own.
+// The Lock On mark (UX rule V7). It is an original shape, not an official mark.
 
 /**
  * The Lock On mark: a bold ring with four short studs growing out of it and a big center dot, all
@@ -40,23 +39,6 @@ fun LockOnMark(modifier: Modifier = Modifier, size: Dp = 32.dp, reticleColor: Co
                 drawLine(reticleColor, a, b, strokeWidth = 12f, cap = StrokeCap.Round)
             }
             drawCircle(reticleColor, radius = 10f, center = Offset(54f, 54f))
-        }
-    }
-}
-
-/** Yellow and black hazard stripes. Reserved for states that need attention (UX rule V7). */
-@Composable
-fun CautionStripes(modifier: Modifier = Modifier) {
-    Canvas(modifier.clipToBounds()) {
-        drawRect(SuitColors.cautionBlack)
-        val band = 7.dp.toPx()
-        var x = -size.height
-        while (x < size.width + size.height) {
-            val path = Path().apply {
-                moveTo(x, size.height); lineTo(x + band, size.height); lineTo(x + band + size.height, 0f); lineTo(x + size.height, 0f); close()
-            }
-            drawPath(path, SuitColors.vFinYellow)
-            x += band * 2
         }
     }
 }

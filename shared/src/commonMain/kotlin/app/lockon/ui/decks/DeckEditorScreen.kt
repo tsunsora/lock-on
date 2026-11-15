@@ -141,7 +141,6 @@ import app.lockon.ui.components.Badge
 import app.lockon.ui.components.DeckGauge
 import app.lockon.ui.components.LockIndicator
 import app.lockon.ui.components.RollingNumber
-import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.CardDetailDialog
@@ -430,8 +429,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
-                Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                    CautionStripes(Modifier.width(10.dp).fillMaxHeight())
+                // The error tint, its icon and the words say it; no stripe runs down its side (UX rules V7, K8).
+                Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(LineIcons.Alert, contentDescription = "Conflict", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
                     Text("This deck was changed on two devices. Both versions are kept.", Modifier.weight(1f).padding(12.dp),
                         color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
                     GameButton("Compare", onClick = { state.open(Screen.Conflict(deckId)) }, style = GameButtonStyle.GHOST, compact = true)
@@ -855,7 +855,7 @@ private fun DeckList(
         }
         for ((label, entries) in groups) {
             item(key = "header-$label", contentType = "header") {
-                SectionHeader(label, Modifier.animateItem().padding(start = 8.dp, end = 8.dp, top = if (!compact && label == groups.first().first) 0.dp else 8.dp, bottom = 4.dp),
+                SectionHeader(label, Modifier.animateItem().padding(start = if (compact) 8.dp else 0.dp, end = if (compact) 8.dp else 0.dp, top = if (!compact && label == groups.first().first) 0.dp else 8.dp, bottom = 4.dp).solidOnPhone(!compact),
                     readout = "${entries.sumOf { it.quantity }}") {
                     if (compact && label == groups.first().first) ViewToggle(
                         cardView, onCardView, small = true,
@@ -907,7 +907,7 @@ private fun DeckList(
         item(key = "side-header", contentType = "side-header") {
             Column(Modifier.animateItem()) {
             SectionHeader(
-                "Side deck", Modifier.padding(start = 8.dp, end = 8.dp, top = 24.dp),
+                "Side deck", Modifier.padding(start = if (compact) 8.dp else 0.dp, end = if (compact) 8.dp else 0.dp, top = 24.dp).solidOnPhone(!compact),
                 readout = "${side.sumOf { it.quantity }}",
             )
             Text(
@@ -1207,8 +1207,6 @@ private fun BoxScope.EditorNav(
                 if (slot == null) moreOpen = true else onSelect(slot)
             },
             widest = EDITOR_NAV_WIDTH,
-            // Three buttons all have room for their names; with five, the open one shows its name (N5).
-            labels = slots.size <= 3,
         )
         // As wide as the pill and opening 8 dp above it, so every section is a short thumb move away.
         val pillWidth = floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH)
@@ -1288,3 +1286,8 @@ private fun MoreTile(item: EditorMoreItem, selected: Boolean, modifier: Modifier
 
 /** The editor's bar holds only three items, so it stays short enough to cross with one thumb. */
 private val EDITOR_NAV_WIDTH = 480.dp
+
+/** On phones a label over the deck's cards sits on a solid plate, so only cards lie on the sky (UX rules N4, V3). */
+@Composable
+private fun Modifier.solidOnPhone(phone: Boolean): Modifier =
+    if (!phone) this else clip(LockOnShapes.button).background(app.lockon.ui.components.glassColors().strong).padding(horizontal = 12.dp, vertical = 8.dp)

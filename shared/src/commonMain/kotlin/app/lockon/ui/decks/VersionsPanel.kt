@@ -86,7 +86,7 @@ fun VersionsPanel(
     // On a phone the versions read as one solid panel, and keeping one stays above the bar under the thumb.
     val phone = LocalTopBand.current.height == 0.dp
     val fill = panelFill()
-    val headChanges = @Composable { versions.firstOrNull()?.let { head -> versions.getOrNull(1)?.let { Changes(it.snapshot, head.snapshot) } } }
+    val headChanges = @Composable { versions.firstOrNull()?.let { head -> versions.getOrNull(1)?.let { Changes(it.snapshot, head.snapshot, "", onlyChanges = true) } } }
     Column(modifier) {
     Box(Modifier.weight(1f).fillMaxWidth()) {
     LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = if (phone) 8.dp else 16.dp, bottom = if (phone) 8.dp else 16.dp + LocalNavClearance.current),
@@ -130,13 +130,13 @@ fun VersionsPanel(
                         older.name != version.snapshot.name -> "Renamed"
                         else -> ""
                     }
-                    // The note sits under the time, so nothing floats in the row's middle.
+                    // Under the time, one line says what the version holds and what changed against the one before
+                    // it, in words: "50 cards · +1 −1 vs previous" (UX rule C5).
                     Column(Modifier.weight(1f)) {
-                        Text(dayAndTimeLabel(version.createdAt), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                        if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        // A stable number, oldest first, so two versions saved the same minute still read apart.
+                        Text("Version ${versions.size - 1 - index} · ${dayAndTimeLabel(version.createdAt)}", style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        Changes(older, version.snapshot, note)
                     }
-                    Text("${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Box(Modifier.width(64.dp)) { if (older != null) Changes(older, version.snapshot) else Text("+${version.snapshot.count(DeckSection.MAIN)}", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary) }
                     Icon(LineIcons.Chev, contentDescription = null, Modifier.size(20.dp).rotate(90f * opening), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 app.lockon.ui.components.Reveal(isOpen) { Compared(version, current, cards) { open = null; onRestore(version) } }
@@ -155,15 +155,31 @@ fun VersionsPanel(
     }
 }
 
-/** Copies added and taken away between two snapshots. */
+/** A version's main-deck size, and the copies added and taken away since [before], the version under it. */
 @Composable
-private fun Changes(before: DeckSnapshot, after: DeckSnapshot) {
-    val changes = remember(before, after) { DeckDiff.cards(before, after) }
+private fun Changes(before: DeckSnapshot?, after: DeckSnapshot, note: String, onlyChanges: Boolean = false) {
+    val changes = remember(before, after) { if (before == null) emptyList() else DeckDiff.cards(before, after) }
     val added = changes.sumOf { (it.after - it.before).coerceAtLeast(0) }
     val removed = changes.sumOf { (it.before - it.after).coerceAtLeast(0) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (added > 0) Text("+$added", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.primary)
-        if (removed > 0) Text("−$removed", style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = MaterialTheme.colorScheme.error)
+    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
+    val style = MaterialTheme.typography.labelMedium
+    val figures = style.merge(TabularNumbers)
+    val count = after.count(DeckSection.MAIN)
+    // Beside Keep as a version, it says something only when the deck has changed since the last one.
+    if (onlyChanges && added == 0 && removed == 0) return
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (note.isNotEmpty()) Text("$note ·", style = style, color = quiet, maxLines = 1)
+        Text("$count", style = figures, color = quiet, maxLines = 1)
+        Text(if (count == 1) "card" else "cards", style = style, color = quiet, maxLines = 1)
+        if (before != null) {
+            Text("·", style = style, color = app.lockon.ui.components.mutedInk(), maxLines = 1)
+            if (added == 0 && removed == 0) Text("same cards as previous", style = style, color = quiet, maxLines = 1)
+            else {
+                if (added > 0) Text("+$added", style = figures, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                if (removed > 0) Text("−$removed", style = figures, color = MaterialTheme.colorScheme.error, maxLines = 1)
+                Text("vs previous", style = style, color = quiet, maxLines = 1)
+            }
+        }
     }
 }
 

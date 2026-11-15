@@ -14,7 +14,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.size
-import app.lockon.ui.theme.TabularNumbers
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -74,7 +73,7 @@ fun DeckStatusLine(legal: Boolean, modifier: Modifier = Modifier, review: Boolea
     val scheme = MaterialTheme.colorScheme
     val problem = review || over > 0
     val ink = when { problem -> scheme.error; legal -> scheme.onSurface; else -> scheme.onSurfaceVariant }
-    val style = MaterialTheme.typography.labelMedium.merge(TabularNumbers)
+    val style = MaterialTheme.typography.labelMedium
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (legal && !problem) Icon(LineIcons.Check, contentDescription = null, Modifier.size(14.dp), tint = ink)
         Text(when { review -> "Needs review"; over > 0 -> "$over over"; legal -> "Legal"; else -> "Draft" }, style = style, color = ink, maxLines = 1, softWrap = false)
