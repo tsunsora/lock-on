@@ -56,7 +56,9 @@ import kotlin.test.Test
  * the same sources give the same pixels. Writes to build/unslop-shots.
  */
 class UnslopScreenshotTest {
-    private val out = File("build/unslop-shots").apply { deleteRecursively(); mkdirs() }
+    private var out = File("build/unslop-shots")
+
+    private fun startIn(dir: String) { out = File(dir).apply { deleteRecursively(); mkdirs() } }
 
     private val container = runBlocking {
         AppContainer.create(LockOnDatabase.build(Room.inMemoryDatabaseBuilder<LockOnDatabase>()), "Test Desktop").apply { settings.setWelcomed() }
@@ -168,7 +170,7 @@ class UnslopScreenshotTest {
                     if (!phone) app.lockon.ui.theme.LockOnTheme(dark) {
                         TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
                     }
-                    LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, reduceMotion = true)
+                    LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, reduceMotion = true, titleBar = !phone)
                 }
             }.use { scene ->
                 var time = 0L
@@ -208,7 +210,34 @@ class UnslopScreenshotTest {
         }
     }
 
+    /**
+     * Every screen the polish pass touched, on desktop and phone in both themes, in build/polish-shots.
+     * Pass -Dpolish.only=<part of a name> to render only the matching shots.
+     */
+    @Test fun renderPolishSet() {
+        startIn("build/polish-shots")
+        val only = System.getProperty("polish.only")
+        app("warm-up", phone = false, dark = true) { select(Tab.DECKS) }
+        File(out, "warm-up.png").delete()
+        val shots = listOf<Pair<String, AppState.() -> Unit>>(
+            "decks" to { select(Tab.DECKS) },
+            "editor" to { open(Screen.DeckEditor(deckId)) },
+            "add-cards" to { open(Screen.DeckEditor(deckId, startTab = 1)) },
+            "analysis" to { open(Screen.DeckEditor(deckId, startTab = 2)) },
+            "matches" to { open(Screen.DeckEditor(deckId, startTab = 4)) },
+            "sync" to { select(Tab.SYNC) },
+        )
+        for (phone in listOf(false, true)) for (dark in listOf(true, false)) for ((screen, setup) in shots) {
+            // Desktop shows the card list and the deck together, so its Add cards is the editor.
+            if (!phone && screen == "add-cards") continue
+            val name = "${if (phone) "phone" else "desktop"}-$screen-${if (dark) "dark" else "light"}"
+            if (only != null && only !in name) continue
+            app(name, phone = phone, dark = dark, setup = setup)
+        }
+    }
+
     @Test fun renderUnslopSet() {
+        startIn("build/unslop-shots")
         // The first shot in a run starts slowly and can catch the boot screen, so one is thrown away.
         app("warm-up", phone = false, dark = true) { select(Tab.DECKS) }
         File(out, "warm-up.png").delete()

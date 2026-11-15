@@ -545,7 +545,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
  * when exactly full, red when over. The colour and the number say it; nothing is drawn on the bar.
  */
 @Composable
-fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false, numberLast: Boolean = false) {
+fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false, numberLast: Boolean = false, numberSlot: Dp? = null) {
     val scheme = MaterialTheme.colorScheme
     val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
     // One value for the gauge's state, 0 filling, 1 exactly full, 2 over, so the teal warms to gold
@@ -561,7 +561,8 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     val fillingBrush = SolidColor(if (hold) slate else accent)
     val fullBrush = SolidColor(Gold)
     val error = scheme.error
-    val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
+    // By day a slightly deeper track, so a full gold bar still reads as a shape on white (UX rule V3).
+    val track = if (isTwilight()) scheme.onSurface.copy(alpha = 0.12f) else Color(0xFFD3DEEA)
     @Composable
     fun Number() {
         RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
@@ -598,7 +599,8 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     ) {
         if (!numberLast) { Row(verticalAlignment = Alignment.Bottom) { Number() }; Spacer(Modifier.width(8.dp)) }
         Bar(Modifier.weight(1f))
-        if (numberLast) { Spacer(Modifier.width(8.dp)); Row(verticalAlignment = Alignment.Bottom) { Number() } }
+        // A fixed slot, when given, keeps every row's gauge ending at the same x whatever its count.
+        if (numberLast) { Spacer(Modifier.width(8.dp)); Box(if (numberSlot != null) Modifier.width(numberSlot) else Modifier, contentAlignment = Alignment.CenterEnd) { Row(verticalAlignment = Alignment.Bottom) { Number() } } }
     } else Column(modifier.widthIn(min = 112.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,

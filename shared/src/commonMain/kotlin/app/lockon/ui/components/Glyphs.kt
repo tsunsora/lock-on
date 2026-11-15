@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.size
+import app.lockon.ui.theme.TabularNumbers
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -60,6 +61,27 @@ fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modif
         if (icon && review) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = ink)
         else if (icon && legal && !review) Icon(LineIcons.Check, contentDescription = null, Modifier.size(14.dp), tint = ink)
         Text(label ?: if (review) "Needs review" else if (legal) "Legal" else "Draft", style = MaterialTheme.typography.labelMedium, color = ink, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * A deck's state as one quiet line of text, no capsule (UX rules I2, I4): "✓ Legal · 3–1 · 75%" or
+ * "Draft". A deck that needs review or is over the limit says so in the error colour, in words. The record
+ * and other facts follow in [extras], split by muted dots.
+ */
+@Composable
+fun DeckStatusLine(legal: Boolean, modifier: Modifier = Modifier, review: Boolean = false, over: Int = 0, extras: List<String> = emptyList()) {
+    val scheme = MaterialTheme.colorScheme
+    val problem = review || over > 0
+    val ink = when { problem -> scheme.error; legal -> scheme.onSurface; else -> scheme.onSurfaceVariant }
+    val style = MaterialTheme.typography.labelMedium.merge(TabularNumbers)
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (legal && !problem) Icon(LineIcons.Check, contentDescription = null, Modifier.size(14.dp), tint = ink)
+        Text(when { review -> "Needs review"; over > 0 -> "$over over"; legal -> "Legal"; else -> "Draft" }, style = style, color = ink, maxLines = 1, softWrap = false)
+        extras.forEach {
+            Text("·", style = style, color = mutedInk(), maxLines = 1)
+            Text(it, style = style, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+        }
     }
 }
 

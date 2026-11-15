@@ -150,6 +150,9 @@ import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.LocalArtwork
 import app.lockon.ui.components.ProgressGauge
+import androidx.compose.foundation.border
+import app.lockon.ui.components.HairlineWidth
+import app.lockon.ui.components.DeckStatusLine
 import app.lockon.ui.components.glassFrame
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.theme.LockOnShapes
@@ -821,13 +824,13 @@ private fun DeckRow(
     }
     // A deck on a phone: a strip of its main card's art, then its name, state and gauge.
     Row(
-        modifier.fillMaxWidth().height(CompactDeckBoxHeight).clip(LockOnShapes.panel).background(glassColors().strong)
-            .clickable(interactionSource = press, indication = pressWash(LockOnShapes.panel, hover = false), onClick = onOpen),
+        modifier.fillMaxWidth().height(CompactDeckBoxHeight).clip(LockOnShapes.tile).background(glassColors().fill)
+            .border(HairlineWidth, glassColors().line, LockOnShapes.tile)
+            .clickable(interactionSource = press, indication = pressWash(LockOnShapes.tile, hover = false), onClick = onOpen)
+            .padding(12.dp),
     ) {
-        Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(deckArtFill(colors, glassColors().strong))) {
-            CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.18f, top = 0.05f), ContentScale.FillBounds) { Box(Modifier.fillMaxSize()) }
-        }
-        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        DeckCoverCrop(colors, art, glassColors().fill, Modifier.width(72.dp).fillMaxHeight())
+        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(deck.snapshot.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface)
                 ColorPips(colors)
@@ -847,15 +850,12 @@ private fun DeckRow(
                 }
             }
             val record = remember(deck.snapshot.matches) { MatchStats.of(deck.snapshot.matches).overall }
-            Row(Modifier.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FadeSwap(legal to deck.hasConflict) { (isLegal, review) -> StateTag(isLegal, review = review) }
-                Spacer(Modifier.weight(1f))
-                if (record.winRate != null) {
-                    Text(record.score, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), maxLines = 1)
-                    Text("${record.winRate}%", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
-                }
+            val extras = record.winRate?.let { listOf(record.score, "$it%") } ?: emptyList()
+            FadeSwap(Triple(legal, deck.hasConflict, extras)) { (isLegal, review, facts) ->
+                DeckStatusLine(isLegal, review = review, extras = facts)
             }
-            ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true)
+            ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp),
+                compact = true, hold = deck.hasConflict, inline = true, numberLast = true, numberSlot = DeckCountSlot)
         }
     }
 }
@@ -970,16 +970,11 @@ private fun DeckTile(
     val panel = app.lockon.ui.components.glassColors().strong
     Row(
         modifier.fillMaxWidth().height(CompactDeckBoxHeight).selectionEdge(LockOnShapes.tile, scheme.primary, hovered).clip(LockOnShapes.tile).background(panel)
-            .clickable(interactionSource = press, indication = pressWash(LockOnShapes.tile, hover = false), onClick = onOpen),
+            .clickable(interactionSource = press, indication = pressWash(LockOnShapes.tile, hover = false), onClick = onOpen)
+            .padding(12.dp),
     ) {
-        // The deck's colours lie under the art, so they show while it loads and if it never does.
-        Box(Modifier.width(88.dp).fillMaxHeight().clipToBounds().background(deckArtFill(colors, panel))) {
-            if (art == null && colors.isNotEmpty()) {
-                Icon(LineIcons.Shield, contentDescription = null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.align(Alignment.Center).size(32.dp))
-            }
-            CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.16f, top = 0.035f), ContentScale.FillBounds) {}
-        }
-        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        DeckCoverCrop(colors, art, panel, Modifier.width(72.dp).fillMaxHeight(), shield = true)
+        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = scheme.onSurface, modifier = Modifier.weight(1f))
@@ -1006,17 +1001,14 @@ private fun DeckTile(
                 Modifier.fillMaxWidth().padding(end = 8.dp),
                 lead = {
                     FadeSwap(Triple(legal, deck.hasConflict, over)) { (isLegal, review, past) ->
-                        when {
-                            review -> StateTag(false, review = true, label = "Review", icon = false)
-                            past > 0 -> StateTag(false, review = true, label = "$past over", icon = false)
-                            else -> StateTag(isLegal)
-                        }
+                        DeckStatusLine(isLegal, review = review, over = past)
                     }
                 },
                 age = ageLabel(deck.updatedAt),
                 record = record.winRate?.let { rate -> "${record.score}" to "$rate%" },
             )
-            ProgressGauge("Main deck", count, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp), compact = true, hold = deck.hasConflict, inline = true)
+            ProgressGauge("Main deck", count, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp),
+                compact = true, hold = deck.hasConflict, inline = true, numberLast = true, numberSlot = DeckCountSlot)
         }
     }
 }
@@ -1033,9 +1025,11 @@ private fun DeckFacts(modifier: Modifier, lead: @Composable () -> Unit, age: Str
             Box { lead() }
             Text(age, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
             if (record != null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(record.first, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), color = scheme.onSurface, maxLines = 1, softWrap = false)
-                    Text(record.second, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val style = MaterialTheme.typography.labelMedium.merge(TabularNumbers)
+                    Text(record.first, style = style, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                    Text("·", style = style, color = app.lockon.ui.components.mutedInk(), maxLines = 1)
+                    Text(record.second, style = style, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
                 }
             }
         },
@@ -1081,7 +1075,26 @@ private fun deckArtFill(colors: Set<CardColor>, panel: Color): Brush {
     }
 }
 
-private val CompactDeckBoxHeight = 108.dp
+private val CompactDeckBoxHeight = 120.dp
+
+/** Room for "50/50" after a deck's gauge, so every row's gauge ends at the same x. */
+private val DeckCountSlot = 56.dp
+
+/**
+ * A deck's cover: a crop of its main card's art inset in the row, with one hairline instead of a shadow
+ * (UX rule V1). The deck's colours lie under the art, so they show while it loads and if it never does;
+ * with [shield], a deck without art shows a shield on them.
+ */
+@Composable
+private fun DeckCoverCrop(colors: Set<CardColor>, art: String?, under: Color, modifier: Modifier, shield: Boolean = false) {
+    val shape = RoundedCornerShape(4.dp)
+    Box(modifier.clip(shape).background(deckArtFill(colors, under)).border(HairlineWidth, glassColors().line, shape)) {
+        if (shield && art == null && colors.isNotEmpty()) {
+            Icon(LineIcons.Shield, contentDescription = null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.align(Alignment.Center).size(28.dp))
+        }
+        CardArtwork(art, null, Modifier.matchParentSize().cardCrop(side = 0.16f, top = 0.035f), ContentScale.FillBounds) { Box(Modifier.fillMaxSize()) }
+    }
+}
 
 @Composable
 fun TextPromptDialog(
