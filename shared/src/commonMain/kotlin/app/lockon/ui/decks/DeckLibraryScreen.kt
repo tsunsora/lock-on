@@ -182,7 +182,6 @@ private sealed interface LibraryDialog {
     data class Rename(val deck: DeckSummary) : LibraryDialog
     data class Move(val deck: DeckSummary) : LibraryDialog
     data class Export(val deck: DeckSummary) : LibraryDialog
-    data class Delete(val deck: DeckSummary) : LibraryDialog
     /** [with] is a deck dropped on New folder, which goes into it. */
     data class NewFolder(val with: String? = null) : LibraryDialog
     data class RenameFolder(val folder: String) : LibraryDialog
@@ -226,6 +225,15 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
         dialog = LibraryDialog.RemoveFolder(name, folders.firstOrNull { it.first == name }?.second ?: 0)
     }
     val renameFolder: (String) -> Unit = { dialog = LibraryDialog.RenameFolder(it) }
+    // Deleting a deck happens at once and offers Undo, so it never asks first (UX rule C2).
+    val deleteDeck: (DeckSummary) -> Unit = { deck ->
+        scope.launch {
+            container.decks.delete(deck.deckId)
+            state.notify("Deleted ${deck.snapshot.name}", "Undo") {
+                scope.launch { container.decks.restore(deck.deckId, deck.snapshot) }
+            }
+        }
+    }
     // A folder goes when it is removed, here or by its last deck moving out on another device; then show every deck.
     LaunchedEffect(folders, unfiled) {
         val f = folderFilter
@@ -427,7 +435,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                                         onMove = { dialog = LibraryDialog.Move(deck) },
                                         onDuplicate = { scope.launch { container.decks.duplicate(deck.deckId); state.notify("Deck duplicated") } },
                                         onExport = { dialog = LibraryDialog.Export(deck) },
-                                        onDelete = { dialog = LibraryDialog.Delete(deck) },
+                                        onDelete = { deleteDeck(deck) },
                                     )
                                 }
                             }
@@ -486,7 +494,7 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             dialog = null
             scope.launch { container.decks.renameFolder(d.folder, name)?.let { folderFilter = FolderFilter.Named(it) } }
         }
-        // Removing a folder only unfiles its decks, but like deleting a deck it asks first and still offers Undo.
+        // Removing a folder only unfiles its decks; it asks first, since an empty folder can't come back, and still offers Undo.
         is LibraryDialog.RemoveFolder -> GameDialog(
             onDismissRequest = { dialog = null },
             title = "Remove ${d.folder}?",
@@ -506,24 +514,6 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         val moved = container.decks.removeFolder(d.folder)
                         state.notify("Removed folder ${d.folder}", "Undo") {
                             scope.launch { container.decks.moveToFolder(moved, d.folder) }
-                        }
-                    }
-                })
-            },
-            dismissButton = { GameButton("Cancel", onClick = { dialog = null }, style = GameButtonStyle.GHOST, compact = true) },
-        )
-        // Asks first, and still offers Undo afterwards.
-        is LibraryDialog.Delete -> GameDialog(
-            onDismissRequest = { dialog = null },
-            title = "Delete ${d.deck.snapshot.name}?",
-            text = { Text("You can undo this right after.") },
-            confirmButton = {
-                GameButton("Delete", compact = true, onClick = {
-                    dialog = null
-                    scope.launch {
-                        container.decks.delete(d.deck.deckId)
-                        state.notify("Deleted ${d.deck.snapshot.name}", "Undo") {
-                            scope.launch { container.decks.restore(d.deck.deckId, d.deck.snapshot) }
                         }
                     }
                 })
@@ -902,8 +892,10 @@ private fun BoxScope.DeckActionsButton(actions: List<DeckAction>) {
     AnimatedVisibility(open, Modifier.matchParentSize(), enter = fadeIn(motion(Motion.SHORT)), exit = fadeOut(motion(Motion.SHORT))) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)).clickable(interactionSource = null, indication = null) { open = false })
     }
+    // A toast (such as Undo after a delete) shows over the bar, so the + rises above it rather than under it.
+    val lift by androidx.compose.animation.core.animateDpAsState(if (app.lockon.ui.components.LocalToastShowing.current) 64.dp else 0.dp, motion(), label = "deck-actions-lift")
     Column(
-        Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + LocalNavClearance.current),
+        Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + LocalNavClearance.current + lift),
         horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         AnimatedVisibility(open, enter = revealIn(), exit = revealOut()) {

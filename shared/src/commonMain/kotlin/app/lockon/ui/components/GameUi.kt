@@ -1534,6 +1534,9 @@ class BottomItem(
  */
 val LocalNavClearance = compositionLocalOf { 0.dp }
 
+/** Whether a toast is showing, so a floating button near the bottom can rise above it instead of under it. */
+val LocalToastShowing = compositionLocalOf { false }
+
 /** The nav bar's height, without its margin and the system's gesture area. */
 val PillNavHeight = 60.dp
 

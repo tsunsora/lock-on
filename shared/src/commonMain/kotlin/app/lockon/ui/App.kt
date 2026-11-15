@@ -413,7 +413,7 @@ fun LockOnApp(
             ) { padding ->
                 Row(Modifier.fillMaxSize().padding(padding)) {
                     Box(Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance()) {
+                    CompositionLocalProvider(LocalTopBand provides if (wide) band else TopBand(end = if (chrome != null) controlsWidth else 0.dp), LocalNavClearance provides if (wide) 0.dp else navClearance(), app.lockon.ui.components.LocalToastShowing provides (app.lockon.ui.components.LocalToastShowing.current || snackbars.currentSnackbarData != null)) {
                         // Tabs are built once and kept: switching only shows a screen that's already laid
                         // out, with its cards drawn. They fade through each other (UX rule V5).
                         KeptScreens(Tab.entries, if (state.current == null) state.tab else null, state.booted, warmed, warmSettled) { tab ->
