@@ -822,7 +822,7 @@ private fun DeckRow(
         DeckCoverCrop(colors, art, glassColors().fill, Modifier.width(72.dp).fillMaxHeight())
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(deck.snapshot.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = scheme.onSurface)
+                Text(deck.snapshot.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, color = scheme.onSurface)
                 ColorPips(colors)
                 Box {
                     Icon(
@@ -907,7 +907,12 @@ private fun BoxScope.DeckActionsButton(actions: List<DeckAction>) {
 fun NoDecks(onNew: () -> Unit, onPaste: () -> Unit, onFromDevice: () -> Unit) {
     // One line says what goes here and New deck fills it, with no filler picture (UX rule E3). The words
     // sit on a solid panel, not on the sky (V3).
-    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), contentAlignment = Alignment.TopCenter) {
+    // On phones it sits at the bottom, above the bar, so New deck is in thumb reach (R3); wide windows keep it at the top.
+    val phone = LocalNavClearance.current > 0.dp
+    Box(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + LocalNavClearance.current),
+        contentAlignment = if (phone) Alignment.BottomCenter else Alignment.TopCenter,
+    ) {
         SoftTile(Modifier.widthIn(max = 420.dp).fillMaxWidth(), solid = true, padding = 24.dp) {
             Text("No decks yet", style = MaterialTheme.typography.titleLarge)
             Text("Decks you build, paste or get from another device show here.", Modifier.padding(top = 8.dp, bottom = 16.dp),
@@ -954,7 +959,7 @@ private fun DeckTile(
         DeckCoverCrop(colors, art, panel, Modifier.width(72.dp).fillMaxHeight(), shield = true)
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(deck.snapshot.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     color = scheme.onSurface, modifier = Modifier.weight(1f))
                 ColorPips(colors)
                 Box {
