@@ -1057,7 +1057,7 @@ private fun deckArtFill(colors: Set<CardColor>, panel: Color): Brush {
 private val CompactDeckBoxHeight = 120.dp
 
 /** Room for "50/50" after a deck's gauge, so every row's gauge ends at the same x. */
-private val DeckCountSlot = 56.dp
+private val DeckCountSlot = 88.dp
 
 /**
  * A deck's cover: a crop of its main card's art inset in the row, with one hairline instead of a shadow

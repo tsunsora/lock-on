@@ -578,8 +578,12 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     val error = scheme.error
     // By day a slightly deeper track, so a full gold bar still reads as a shape on white (UX rule V3).
     val track = if (isTwilight()) scheme.onSurface.copy(alpha = 0.12f) else Color(0xFFD3DEEA)
+    // Inline gauges carry no label row, so the number names what it counts: "Main 42/50" (UX rule I1).
+    val short = if (label.startsWith("Main")) "Main" else label
     @Composable
     fun Number() {
+        if (inline) Text(short, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, maxLines = 1,
+            modifier = Modifier.padding(end = 4.dp, bottom = 3.dp))
         RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
             numberColor, Modifier.bumpOnIncrease(count))
         Text("/$limit", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant,
