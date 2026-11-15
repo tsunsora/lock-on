@@ -76,19 +76,19 @@ private val DarkColors = darkColorScheme(
     onTertiary = Color(0xFF402A00),
     tertiaryContainer = Color(0xFF5C4100),
     onTertiaryContainer = Color(0xFFFFE6B0),
-    background = Color(0xFF151C36),
-    onBackground = Color(0xFFEEF3FF),
-    surface = Color(0xFF1B2342),
-    onSurface = Color(0xFFEEF3FF),
-    surfaceVariant = Color(0xFF2C365C),
-    onSurfaceVariant = Color(0xFFB4BFD8),
-    surfaceContainerLowest = Color(0xFF10162C),
-    surfaceContainerLow = Color(0xFF19213E),
-    surfaceContainer = Color(0xFF1F2849),
-    surfaceContainerHigh = Color(0xFF263056),
-    surfaceContainerHighest = Color(0xFF2E3963),
-    outline = Color(0xFF8290B0),
-    outlineVariant = Color(0xFF3A4672),
+    background = Color(0xFF181E33),
+    onBackground = Color(0xFFEEF2FB),
+    surface = Color(0xFF20273D),
+    onSurface = Color(0xFFEEF2FB),
+    surfaceVariant = Color(0xFF343D5A),
+    onSurfaceVariant = Color(0xFFB4BDD2),
+    surfaceContainerLowest = Color(0xFF151A2E),
+    surfaceContainerLow = Color(0xFF1B2238),
+    surfaceContainer = Color(0xFF20273D),
+    surfaceContainerHigh = Color(0xFF20273D),
+    surfaceContainerHighest = Color(0xFF29314A),
+    outline = Color(0xFF9EA9C3),
+    outlineVariant = Color(0xFF343D5A),
     error = Color(0xFFFF8E97),
     errorContainer = Color(0xFF6E1222),
     onErrorContainer = Color(0xFFFFDDE0),
@@ -126,7 +126,16 @@ object LockOnShapes {
 
 /** Charts are one slate ramp (UX rule V3), so a bar never reads as a card colour or an action. */
 val ChartSlate = Color(0xFF3F5585)
-val ChartSlateTwilight = Color(0xFF97A5CF)
+val ChartSlateTwilight = Color(0xFF66739C)
+/** The lighter slate for wins in a win/loss bar at twilight, so wins read against the red of losses. */
+val WinSlateTwilight = Color(0xFF97A5CF)
+
+/**
+ * Quiet text: a count of 0, Max in a card's name strip, separators in a status line. At twilight it clears
+ * 4.5:1 on the highest surface step (#343D5A); by day it clears 4.5:1 on white.
+ */
+val MutedInkTwilight = Color(0xFF9EA9C3)
+val MutedInkDay = Color(0xFF5F6B84)
 
 private val MaterialShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),

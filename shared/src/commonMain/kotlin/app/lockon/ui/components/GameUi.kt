@@ -185,6 +185,11 @@ import kotlin.math.roundToInt
 @ReadOnlyComposable
 fun isTwilight(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
+/** Quiet text, a step below [androidx.compose.material3.ColorScheme.onSurfaceVariant]: a count of 0, Max, separators. */
+@Composable
+@ReadOnlyComposable
+fun mutedInk(): Color = if (isTwilight()) app.lockon.ui.theme.MutedInkTwilight else app.lockon.ui.theme.MutedInkDay
+
 /** The action and selection colour: teal. Lit pills use it with [OnAccent] text. */
 val Accent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 val OnAccent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onPrimary
@@ -203,7 +208,7 @@ data class GlassColors(val fill: Color, val strong: Color, val line: Color, val 
 @Composable
 @ReadOnlyComposable
 fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color(0xFF232A58).copy(alpha = 0.92f), Color(0xFF343C72), Color.White.copy(alpha = 0.1f), Color(0xFF060B1E))
+    GlassColors(Color(0xFF20273D).copy(alpha = 0.96f), Color(0xFF29314A), Color(0xFFDCE6FF).copy(alpha = 0.1f), Color(0xFF070A16))
 } else {
     GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color(0xFF1C2742).copy(alpha = 0.1f), Color(0xFF1C2742).copy(alpha = 0.5f))
 }
@@ -1373,7 +1378,7 @@ fun PillSwitch(
 /** The thumb of a single-choice control: white by day and a raised indigo at twilight, so solid teal is left for navigation and main actions. */
 @Composable
 @ReadOnlyComposable
-fun softThumb(): Color = if (isTwilight()) Color(0xFF454F9A) else Color.White
+fun softThumb(): Color = if (isTwilight()) Color(0xFF3E4868) else Color.White
 
 /** The chosen option's text on a [softThumb]. */
 @Composable
@@ -1606,8 +1611,8 @@ fun PillNavBar(
             .clip(shape)
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
-            .background(if (twilight) Color(0xFF343C72) else Color.White)
-            .border(BorderStroke(1.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
+            // Elevation is said once: it floats, so it has a shadow and no border (UX rule V1).
+            .background(if (twilight) Color(0xFF29314A) else Color.White)
             .height(height)
             .padding(horizontal = if (height < PillNavHeight) 4.dp else 8.dp, vertical = 4.dp)
             .drawBehind {
