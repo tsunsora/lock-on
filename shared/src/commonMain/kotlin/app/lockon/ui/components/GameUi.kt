@@ -209,7 +209,7 @@ data class GlassColors(val fill: Color, val strong: Color, val line: Color, val 
 @Composable
 @ReadOnlyComposable
 fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color(0xFF20273D).copy(alpha = 0.96f), Color(0xFF29314A), Color(0xFFDCE6FF).copy(alpha = 0.1f), Color(0xFF070A16))
+    GlassColors(Color(0xFF232836).copy(alpha = 0.96f), Color(0xFF2D3241), Color(0xFFDCE6FF).copy(alpha = 0.1f), Color(0xFF070A16))
 } else {
     GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color(0xFF1C2742).copy(alpha = 0.1f), Color(0xFF1C2742).copy(alpha = 0.5f))
 }

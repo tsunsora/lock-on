@@ -28,7 +28,8 @@ import org.jetbrains.compose.resources.Font
 
 /**
  * Sky and Twilight (UX rule V3): a bright palette after Nintendo's recent menus. Light mode is a pale, quiet
- * sky under calm, solid white panels; dark mode is a deep twilight, never black. Primary is teal, for actions and the selected
+ * sky under calm, solid white panels; dark mode is a deep twilight, never black. The neutrals lean toward the
+ * dusk's hue but stay low in colour: at most 0.03 OKLCH chroma at twilight and 0.015 by day. Primary is teal, for actions and the selected
  * state. Secondary is sky blue, for information and charts. Tertiary is soft gold, for celebration:
  * a legal deck, a full gauge, the Lock On moment.
  */
@@ -45,19 +46,19 @@ private val LightColors = lightColorScheme(
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFFFE6B0),
     onTertiaryContainer = Color(0xFF3A2500),
-    background = Color(0xFFE6F2FA),
+    background = Color(0xFFE9F1F7),
     onBackground = Color(0xFF1C2742),
     surface = Color(0xFFF7FBFF),
     onSurface = Color(0xFF1C2742),
-    surfaceVariant = Color(0xFFE2EBF5),
+    surfaceVariant = Color(0xFFE4EBF2),
     onSurfaceVariant = Color(0xFF4F5B74),
     surfaceContainerLowest = Color.White,
     surfaceContainerLow = Color(0xFFF4F9FE),
     surfaceContainer = Color(0xFFEDF4FB),
-    surfaceContainerHigh = Color(0xFFE6EEF8),
-    surfaceContainerHighest = Color(0xFFDDE7F3),
+    surfaceContainerHigh = Color(0xFFE8EEF5),
+    surfaceContainerHighest = Color(0xFFE0E7EE),
     outline = Color(0xFF7D8BA5),
-    outlineVariant = Color(0xFFC9D6E6),
+    outlineVariant = Color(0xFFCFD5DD),
     error = Color(0xFFC62E3D),
     errorContainer = Color(0xFFFFDDE0),
     onErrorContainer = Color(0xFF5A0011),
@@ -76,19 +77,19 @@ private val DarkColors = darkColorScheme(
     onTertiary = Color(0xFF402A00),
     tertiaryContainer = Color(0xFF5C4100),
     onTertiaryContainer = Color(0xFFFFE6B0),
-    background = Color(0xFF181E33),
+    background = Color(0xFF1A1F2D),
     onBackground = Color(0xFFEEF2FB),
-    surface = Color(0xFF20273D),
+    surface = Color(0xFF232836),
     onSurface = Color(0xFFEEF2FB),
-    surfaceVariant = Color(0xFF343D5A),
+    surfaceVariant = Color(0xFF393E4D),
     onSurfaceVariant = Color(0xFFB4BDD2),
-    surfaceContainerLowest = Color(0xFF151A2E),
-    surfaceContainerLow = Color(0xFF1B2238),
-    surfaceContainer = Color(0xFF20273D),
-    surfaceContainerHigh = Color(0xFF20273D),
-    surfaceContainerHighest = Color(0xFF29314A),
+    surfaceContainerLowest = Color(0xFF171B28),
+    surfaceContainerLow = Color(0xFF1E2331),
+    surfaceContainer = Color(0xFF232836),
+    surfaceContainerHigh = Color(0xFF232836),
+    surfaceContainerHighest = Color(0xFF2D3241),
     outline = Color(0xFF9EA9C3),
-    outlineVariant = Color(0xFF343D5A),
+    outlineVariant = Color(0xFF393E4D),
     error = Color(0xFFFF8E97),
     errorContainer = Color(0xFF6E1222),
     onErrorContainer = Color(0xFFFFDDE0),
@@ -131,7 +132,7 @@ val WinSlateTwilight = Color(0xFF97A5CF)
 
 /**
  * Quiet text: a count of 0, Max in a card's name strip, separators in a status line. At twilight it clears
- * 4.5:1 on the highest surface step (#343D5A); by day it clears 4.5:1 on white.
+ * 4.5:1 on the highest surface step (#393E4D); by day it clears 4.5:1 on white.
  */
 val MutedInkTwilight = Color(0xFF9EA9C3)
 val MutedInkDay = Color(0xFF5F6B84)
