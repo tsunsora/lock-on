@@ -140,7 +140,6 @@ import app.lockon.ui.components.LocalArtworkStore
 import app.lockon.data.ArtworkStore
 import coil3.compose.setSingletonImageLoaderFactory
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.scaleOut
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.animation.core.Animatable
@@ -150,7 +149,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.animation.ExitTransition
-import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -275,17 +273,8 @@ fun LockOnApp(
         // Syncs that moved changes, auto-sync included, say so wherever you are (C1).
         LaunchedEffect(sync) { sync.notices.collect { state.notify(it) } }
         LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
-        // The boot screen stays up until the decks are in and the screens under it, tabs and recent
+        // The launch screen stays up until the decks are in and the screens under it, tabs and recent
         // decks' editors, have drawn their cards, so the first look at each doesn't stutter.
-        var bootStep by remember { mutableStateOf(BootStep.DECKS) }
-        // Desktop plays the boot screen in a window of its own (BootCover), which shares this clock.
-        val bootCover = state.bootCover
-        val bootClock = bootCover?.clock ?: state.bootClock
-        val coverShowing by (bootCover?.showing ?: remember { MutableStateFlow(false) }).collectAsState()
-        LaunchedEffect(bootStep) { bootCover?.step(bootStep) }
-        val bootReduce = LocalReduceMotion.current
-        // Reduced motion holds the boot screen still; a cover that started before Settings could say so steps aside.
-        LaunchedEffect(bootReduce) { if (bootReduce) bootCover?.lift() }
         // Deck editors kept built, so opening one of these decks shows it at once; [recentDecks] is
         // most recently opened first and decides which editor goes when there are too many.
         val keptDecks = remember { mutableStateListOf<Screen.DeckEditor>() }
@@ -298,14 +287,14 @@ fun LockOnApp(
             if (keptDecks.none { it.deckId == open.deckId }) keptDecks += open
             while (keptDecks.size > KeptDeckLimit) keptDecks.remove(keptDecks.maxBy { recentDecks.indexOf(it.deckId) })
         }
-        // Screens built under the boot screen so far. All of them at once took the first frame well over
-        // a second, with the window up but frozen, so they build one a frame while the boot screen plays.
+        // Screens built under the launch screen so far. All of them at once took the first frame well over
+        // a second, so they build one a frame; the launch screen doesn't move, so no held-up frame shows.
         val warmed = remember { mutableStateListOf<Any>() }
         // Read in each screen's layer only, so switching it redraws without recomposing or relaying out.
         val warmSettled = remember { mutableStateOf(false) }
         if (!state.booted) LaunchedEffect(Unit) {
             withTimeoutOrNull(BootLimit) {
-                // The boot screen draws first, so the window opens on it.
+                // The launch screen draws first, so the window opens on it.
                 repeat(2) { withFrameNanos { } }
                 // The decks changed most recently are the likeliest to be opened: build their editors too.
                 val recent = container.decks.liveDecks.first().filterNot { it.snapshot.deleted }
@@ -314,13 +303,11 @@ fun LockOnApp(
                 val fresh = recent.filter { id -> keptDecks.none { it.deckId == id } }
                 recentDecks += fresh
                 keptDecks += fresh.map { Screen.DeckEditor(it) }
-                bootStep = BootStep.CARDS
                 // The tab that opens first goes first. Each screen starts loading its card images as it builds.
                 for (tab in listOf(state.tab) + (Tab.entries - state.tab)) {
                     warmed += tab
                     withFrameNanos { }
                 }
-                bootStep = BootStep.EDITOR
                 for (id in recent) {
                     warmed += id
                     withFrameNanos { }
@@ -331,15 +318,12 @@ fun LockOnApp(
                     if (withTimeoutOrNull(BootQuietTime) { ArtworkLoads.inFlight.first { it > 0 } } == null) break
                 }
             }
-            // Ready: it goes now, with no minimum. A seeker still hunting jumps to its lock, so it fades out
-            // locked on, as it always has, rather than holding finished screens back for the animation.
-            if (!bootClock.locked) bootClock.skipToLock()
+            // Ready: it goes now, with no minimum.
             // A last frame or two with every screen as it looks once it has arrived: fully opaque, not
             // sliding. A first open draws that too, after its fade, and paid for it the first time.
             warmSettled.value = true
             repeat(2) { withFrameNanos { } }
             state.booted = true
-            bootCover?.lift()
         }
         // At most weekly, only for people on the official card list, and only while checks are on.
         LaunchedEffect(Unit) {
@@ -501,7 +485,7 @@ fun LockOnApp(
                     }
                 }
             }
-            // A fresh install gets the welcome tour once the boot screen has gone.
+            // A fresh install gets the welcome tour once the launch screen has gone.
             val welcomed by settings.welcomed.collectAsState()
             LaunchedEffect(state.booted) { if (state.booted && !welcomed) state.touring = true }
             AnimatedVisibility(state.touring, enter = fadeIn(motion()), exit = fadeOut(motion(Motion.SHORT))) {
@@ -512,13 +496,14 @@ fun LockOnApp(
                 }
             }
             AnimatedVisibility(
-                !state.booted,
-                // A cover fades out over the app itself, so this one goes at once beneath it.
-                exit = if (coverShowing) ExitTransition.None
+                // Where the system's own splash is still up over the app (Android), that one covers it instead.
+                !state.booted && !state.systemSplash,
+                // Under the system's splash it goes at once, unseen; otherwise it fades quickly into the app.
+                exit = if (state.systemSplash) ExitTransition.None
                     else if (LocalReduceMotion.current) fadeOut(tween(90))
-                    else fadeOut(tween(Motion.SIGNATURE, easing = Motion.emphasizedAccelerate)) + scaleOut(tween(Motion.SIGNATURE), targetScale = 1.06f),
+                    else fadeOut(tween(Motion.LONG, easing = Motion.emphasizedAccelerate)),
             ) {
-                BootScreen(bootStep, bootClock, playing = !coverShowing, trailing = chrome?.controls)
+                LaunchSplash(trailing = chrome?.controls)
             }
             }
         }
@@ -531,7 +516,7 @@ fun LockOnApp(
 }
 }
 
-/** The boot screen never shows longer than this, whatever is still loading. */
+/** The launch screen never shows longer than this, whatever is still loading. */
 private val BootLimit = 8.seconds
 private val BootQuietTime = 250.milliseconds
 
@@ -542,7 +527,7 @@ private const val KeptDeckLimit = 4
  * Screens composed once and kept: the tabs, and the editors of recently opened decks. Only [shown]
  * (and a screen still fading out) is measured, placed and drawn, so a kept screen costs nothing per
  * frame; showing it again needs no new composition, which is what made a first look at Cards or a
- * deck stutter. While not [booted], each screen in [warmed] lays out and draws under the opaque boot
+ * deck stutter. While not [booted], each screen in [warmed] lays out and draws under the opaque launch
  * screen, so its cards fill in and their images are decoded and on the GPU before anyone looks. They draw at
  * half opacity, and sliding screens part way through their slide, the way a crossfade draws them,
  * and for their last frames fully shown ([warmSettled]), since the GPU sets each of those up slowly
@@ -578,7 +563,7 @@ private fun <K : Any> KeptScreens(keys: List<K>, shown: K?, booted: Boolean, war
         content = {
             keys.forEachIndexed { i, k ->
                 key(k) {
-                    // Under the boot screen: half way through a show, then as it ends (see [warmSettled]).
+                    // Under the launch screen: half way through a show, then as it ends (see [warmSettled]).
                     fun shownBy() = if (booted) shows[i].value else if (warmSettled.value) 1f else 0.5f
                     Box(Modifier.fillMaxSize().graphicsLayer { alpha = shownBy() }.then(
                         // The slide moves the screen's picture as it is drawn, inside the fade. Moving the

@@ -218,9 +218,9 @@ val HairlineWidth = 1.dp
 private class SkyPaint(val width: Int, val height: Int, val image: ImageBitmap, val stops: List<Color>)
 
 /**
- * The sky painted last, or being painted. Skies the same size share it: the boot screen, the app
- * behind it and a boot cover's picture of it would each otherwise paint their own, side by side,
- * which on a phone just starting up takes long enough to notice. Racing it only paints one twice.
+ * The sky painted last, or being painted. Skies the same size share it: screens shown side by side
+ * would each otherwise paint their own, which on a phone just starting up takes long enough to
+ * notice. Racing it only paints one twice.
  */
 @Volatile private var lastSky: Deferred<SkyPaint>? = null
 @Volatile private var lastSkyKey: List<Any>? = null
@@ -240,15 +240,12 @@ private suspend fun paintedSky(width: Int, height: Int, stops: List<Color>): Sky
 /**
  * The sky behind every screen: one quiet gradient from top to bottom, with nothing glowing or
  * floating in it (UX rule V7). It is painted per pixel by [paintSky] so it never bands; [onPainted]
- * hears when the painted sky first draws. With [boot] it is the launch screen's sky.
+ * hears when the painted sky first draws.
  */
 @Composable
-fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, boot: Boolean = false, content: @Composable BoxScope.() -> Unit) {
-    val twilight = isTwilight()
-    // The theme's own sky, or the launch screen's; Material You colours tint both (UX rule V3a).
-    val seed = app.lockon.ui.theme.LocalThemeSeed.current
-    val bootStops = remember(twilight, seed) { bootSkyStops(twilight, seed) }
-    val stops = if (boot) bootStops else LocalTones.current.sky
+fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, content: @Composable BoxScope.() -> Unit) {
+    // The theme's sky, which Material You colours tint (UX rule V3a).
+    val stops = LocalTones.current.sky
     var area by remember { mutableStateOf(IntSize.Zero) }
     // Painting takes a few dozen milliseconds, so it runs off the main thread. While a window is being
     // resized the last sky stretches to fit, and the sky repaints once the size settles.
@@ -261,7 +258,7 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
         value = paintedSky(pw, ph, stops)
     }
     Box(
-        modifier.background(if (boot) bootStops[1] else MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
+        modifier.background(MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
             val painted = sky?.takeIf { it.stops == stops }
             if (painted != null) {
                 drawImage(painted.image, dstSize = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt()), filterQuality = FilterQuality.Low)

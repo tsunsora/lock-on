@@ -95,12 +95,6 @@ compose.desktop {
         providers.gradleProperty("lockon.jvmArgs").orNull?.let { jvmArgs(*it.split(" ").filter(String::isNotBlank).toTypedArray()) }
         providers.gradleProperty("lockon.probeQuiet").orNull?.let { jvmArgs("-Dlockon.probeQuiet=$it") }
         providers.gradleProperty("lockon.dividerProbe").orNull?.let { jvmArgs("-Dlockon.dividerProbe=$it") }
-        // `-Plockon.bootProbe=<file>` times the boot screen's frames and closes the app (BootProbe.kt).
-        // `-Plockon.bootProbe.shots=true` also takes pictures of the screen at a few moments, and
-        // `-Plockon.bootProbe.resize=<w>x<h>` or `max` resizes the window while it boots.
-        listOf("lockon.bootProbe", "lockon.bootProbe.shots", "lockon.bootProbe.resize").forEach { key ->
-            providers.gradleProperty(key).orNull?.let { jvmArgs("-D$key=$it") }
-        }
         // `-Plockon.idleProbe=<file>` counts the frames drawn and collections run while the app sits on each
         // tab untouched, and closes the app (IdleProbe.kt); `-Plockon.idleProbe.seconds` sets how long.
         listOf("lockon.idleProbe", "lockon.idleProbe.seconds").forEach { key ->

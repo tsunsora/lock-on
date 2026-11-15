@@ -175,7 +175,7 @@ class ArtworkTimers(private val scope: CoroutineScope) {
 /** The app's [ArtworkTimers]; null outside the app, as in previews, where each card keeps a timer of its own. */
 val LocalArtworkTimers = staticCompositionLocalOf<ArtworkTimers?> { null }
 
-/** Counts artwork images loading right now, so the boot screen can stay up until the screens under it have theirs. */
+/** Counts artwork images loading right now, so the launch screen can stay up until the screens under it have theirs. */
 object ArtworkLoads : EventListener() {
     private val count = MutableStateFlow(0)
     val inFlight: StateFlow<Int> = count.asStateFlow()

@@ -161,7 +161,7 @@ class UnslopScreenshotTest {
 
     /** The whole app on one screen: 1980×1290 for a computer window, 600×1260 for a phone, both at 1.5 px per dp. */
     private fun app(name: String, phone: Boolean, dark: Boolean, controller: SyncController = if (phone) client else host, setup: AppState.() -> Unit) {
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup).apply { bootClock.skipToLock() }
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
         app.lockon.ui.components.previewPhoneControls = phone
         try {
             ImageComposeScene(if (phone) 600 else 1980, if (phone) 1260 else 1290, Density(1.5f)) {
@@ -273,12 +273,13 @@ class UnslopScreenshotTest {
             }
         }
         alone("phone-launch-light", phone = true, dark = false) {
-            app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock())
+            app.lockon.ui.LaunchSplash()
         }
         alone("desktop-launch-dark", phone = false, dark = true) {
             androidx.compose.foundation.layout.Column {
-                TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
-                app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock())
+                // The real window's title bar takes the launch screen's colour while it is up (Main.kt).
+                TitleBar(maximized = false, background = app.lockon.ui.launchSplashColor(), onMinimize = {}, onToggleMaximize = {}, onClose = {})
+                app.lockon.ui.LaunchSplash()
             }
         }
 

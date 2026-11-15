@@ -11,23 +11,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import app.lockon.data.MotionChoice
 import app.lockon.data.ThemeChoice
-import kotlinx.coroutines.delay
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalFocusManager
@@ -38,18 +31,14 @@ import app.lockon.platform.FileBridge
 import app.lockon.ui.AppState
 import android.provider.MediaStore
 import android.provider.Settings
+import app.lockon.ui.LaunchSplash
 import app.lockon.ui.LockOnApp
-import app.lockon.ui.BootPictureTaker
-import app.lockon.ui.BootScreen
-import app.lockon.ui.BootStep
-import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.theme.LockOnTheme
 import app.lockon.ui.theme.themeSeed
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -57,7 +46,11 @@ class MainActivity : ComponentActivity() {
     private var pendingSave: Pair<ByteArray, CompletableDeferred<Boolean>>? = null
     private var pendingOpen: CompletableDeferred<String?>? = null
     private var syncController: AndroidSyncController? = null
-    private var bootCover: AndroidBootCover? = null
+    private lateinit var state: AppState
+    /** The system's splash screen, held up over the app until it has booted (Android 12 and later). */
+    private var heldSplash: android.view.View? = null
+    private var systemReduceMotion = false
+    private var appContainer: AppContainer? = null
 
     private val createDocument = registerForActivityResult(CreateTextDocument()) { uri -> finishSave(uri) }
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> finishOpen(uri) }
@@ -112,6 +105,9 @@ class MainActivity : ComponentActivity() {
         readSystemAccent()
         // Card images used to sit in the cache folder; they now live in files for offline use.
         kotlin.concurrent.thread(isDaemon = true) { cacheDir.resolve("artwork").deleteRecursively() }
+        systemReduceMotion = Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        state = AppState(app.appScope)
+        if (android.os.Build.VERSION.SDK_INT >= 31) holdSystemSplash()
         setContent {
             // Leaving for another app lets go of the search field, or coming back would bring the keyboard up again.
             val focusManager = LocalFocusManager.current
@@ -122,7 +118,7 @@ class MainActivity : ComponentActivity() {
                 lifecycle.addObserver(observer)
                 onDispose { lifecycle.removeObserver(observer) }
             }
-            val container by produceState<AppContainer?>(null) { value = app.container.await() }
+            val container by produceState<AppContainer?>(null) { value = app.container.await().also { appContainer = it } }
             val sync by produceState<AndroidSyncController?>(null) {
                 value = app.sync.await().also {
                     it.scanner = ::launchScanner
@@ -131,24 +127,13 @@ class MainActivity : ComponentActivity() {
                     if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) it.setForeground(true)
                 }
             }
-            val reduceMotion = remember { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
-            // The boot screen plays on a surface of its own, so the screens building under it can't make it
-            // stutter. Reduced motion holds it still, so then there is nothing to play.
-            val state = remember {
-                AppState(app.appScope).also { s ->
-                    if (!reduceMotion) s.bootCover = AndroidBootCover(this@MainActivity, s.bootClock).also { bootCover = it }
-                }
-            }
             val c = container
             val s = sync
-            val coverSettled by (bootCover?.settled ?: remember { MutableStateFlow(true) }).collectAsState()
-            // Should the cover take too long, the app starts anyway and its own boot screen plays.
-            var coverLate by remember { mutableStateOf(false) }
-            LaunchedEffect(c != null) { if (c != null) { delay(3_000); coverLate = true } }
-            if (c == null || s == null || !(coverSettled || coverLate)) {
-                // Until the cover is up, the window holds the boot screen's first frame, which the cover's
-                // matches. Taking its pictures holds this thread up, so nothing here moves yet, and the app
-                // starts building only once the cover plays over it.
+            // The system's splash comes down once the screens underneath have filled in.
+            LaunchedEffect(state.booted) { if (state.booted) releaseSystemSplash() }
+            if (c == null || s == null) {
+                // Until the app can start, its own launch screen, in the theme and size Settings chose once
+                // they are in. The system's splash is usually up over it anyway.
                 val choice = c?.settings
                 val systemDark = isSystemInDarkTheme()
                 val dark = when (choice?.theme?.value) {
@@ -158,30 +143,53 @@ class MainActivity : ComponentActivity() {
                 }
                 val base = LocalDensity.current
                 val density = Density(base.density * (choice?.size?.value?.scale ?: 1f), base.fontScale)
-                val reduce = reduceMotion || choice?.motion?.value == MotionChoice.REDUCED
-                CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density) {
+                CompositionLocalProvider(LocalDensity provides density) {
                     // Material You colours unless Settings turned them off (UX rule V3a); the accent is read in onCreate.
-                    LockOnTheme(dark = dark, seed = themeSeed(choice)) {
-                        // Once Settings can say which theme and size, so they are taken only once, and right.
-                        val cover = bootCover
-                        if (choice != null && cover != null) {
-                            if (reduce) LaunchedEffect(Unit) { cover.lift() }
-                            else BootPictureTaker(state.bootClock, cover::pictures)
-                        }
-                        BootScreen(BootStep.DECKS, state.bootClock, playing = false)
-                    }
+                    LockOnTheme(dark = dark, seed = themeSeed(choice)) { LaunchSplash() }
                 }
             } else {
                 BackHandler(enabled = state.canGoBack) { state.goBack() }
                 LockOnApp(
                     c, state, s, files,
                     artworkDir = filesDir.resolve("artwork").absolutePath,
-                    reduceMotion = reduceMotion,
+                    reduceMotion = systemReduceMotion,
                     // From here the window behind the app is the app's colour, not the launch screen's.
                     windowBackground = { window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(it.toArgb())) },
                 )
             }
         }
+    }
+
+    /**
+     * Keeps the system's splash screen up over the app, rather than letting it go at the app's first
+     * frame, until the tabs and recent decks have built and drawn their cards underneath (App.kt). The
+     * app's own launch screen then has nothing to cover and goes at once, unseen.
+     */
+    @androidx.annotation.RequiresApi(31)
+    private fun holdSystemSplash() {
+        splashScreen.setOnExitAnimationListener { view ->
+            heldSplash = view
+            state.systemSplash = true
+            if (state.booted) releaseSystemSplash()
+        }
+    }
+
+    /** Fades the system's splash into the app and lets it go, if it is still held. */
+    private fun releaseSystemSplash() {
+        val view = heldSplash ?: return
+        heldSplash = null
+        val reduce = systemReduceMotion || appContainer?.settings?.motion?.value == MotionChoice.REDUCED
+        view.animate().alpha(0f)
+            // As quick as the app's own launch screen fades on desktop (Motion.LONG).
+            .setDuration(if (reduce) 90L else 280L)
+            .setInterpolator(android.view.animation.PathInterpolator(0.3f, 0f, 0.8f, 0.15f))
+            .withEndAction { removeSystemSplash(view) }
+            .start()
+    }
+
+    private fun removeSystemSplash(view: android.view.View) {
+        if (android.os.Build.VERSION.SDK_INT >= 31) (view as android.window.SplashScreenView).remove()
+        state.systemSplash = false
     }
 
     // Discovery and auto-sync run only while Lock On is on screen.
@@ -207,7 +215,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        bootCover?.close()
+        heldSplash?.let { heldSplash = null; removeSystemSplash(it) }
         syncController?.scanner = null
         super.onDestroy()
     }

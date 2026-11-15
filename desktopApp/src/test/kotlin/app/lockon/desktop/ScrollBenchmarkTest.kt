@@ -57,7 +57,7 @@ class ScrollBenchmarkTest {
             override suspend fun openText(mimeTypes: List<String>): String? = null
         }
         // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { select(Tab.CARDS); bootClock.skipToLock() }
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { select(Tab.CARDS) }
         val artwork = File("build/artwork-cache").absolutePath
         // LOCKON_BENCH_SCALE shrinks the pixels but keeps the layout, so drawing costs little and the
         // timings show composition and layout, the main-thread work that drops frames on a GPU.
