@@ -255,7 +255,7 @@ fun BootScreen(
                     }
                     Box(
                         Modifier.size(124.dp).shadow(8.dp, CircleShape, ambientColor = look.shade, spotColor = look.shade)
-                            .clip(CircleShape).background(Brush.linearGradient(look.tile)),
+                            .clip(CircleShape).background(look.tile),
                         contentAlignment = Alignment.Center,
                     ) { LockOnMark(size = 84.dp, reticleColor = look.mark) }
                 }
@@ -298,7 +298,7 @@ fun BootScreen(
 private class BootLook(
     val scan: Color,
     val ink: Color,
-    val tile: List<Color>,
+    val tile: Color,
     val mark: Color,
     val shade: Color,
     val panel: Color,

@@ -1,22 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher icon's flat tile: violet with a soft diagonal gradient, lighter at the top right. Matches the
-     desktop icon drawn by scripts/make_icons.py. -->
+<!-- The launcher icon's flat tile: one violet, no gradient or shading (UX rule V7). Matches the
+     desktop icon drawn by scripts/make_icons.py and the in-app logo tile. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M0,0h108v108h-108z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="108"
-                android:startY="0"
-                android:endX="0"
-                android:endY="108"
-                android:startColor="#FF9A68E6"
-                android:endColor="#FF7A55DC" />
-        </aapt:attr>
-    </path>
+    <path
+        android:fillColor="#FF8A5EE1"
+        android:pathData="M0,0h108v108h-108z" />
 </vector>

@@ -776,10 +776,10 @@ private fun PlayerCard(back: String?, onBack: () -> Unit, style: HeaderStyle, br
 
 private val NamePlate = RoundedCornerShape(18.dp)
 
-/** The logo tile's gradient by day: violet, a colour nothing else in the header uses. */
-internal val LogoTileDay = listOf(Color(0xFF9A68E6), Color(0xFF7A55DC))
-/** At twilight: pale lilac. */
-internal val LogoTileTwilight = listOf(Color(0xFFD2BEFF), Color(0xFFB8A2F8))
+/** The logo tile by day: one flat violet, a colour nothing else in the header uses (UX rule V7: no gradient or shading). */
+internal val LogoTileDay = Color(0xFF8A5EE1)
+/** At twilight: one flat pale lilac. */
+internal val LogoTileTwilight = Color(0xFFC5B0FC)
 /** The mark on the tile at twilight: deep violet-navy. By day it is white. */
 internal val LogoInkTwilight = Color(0xFF231A52)
 
@@ -789,8 +789,7 @@ internal fun BrandTile(size: Dp) {
     val twilight = isTwilight()
     val shape = RoundedCornerShape(size * 0.3f)
     Box(
-        Modifier.size(size).shadow(8.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
-            .clip(shape).background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay)),
+        Modifier.size(size).clip(shape).background(if (twilight) LogoTileTwilight else LogoTileDay),
         contentAlignment = Alignment.Center,
     ) { LockOnMark(size = size * 0.6f, reticleColor = if (twilight) LogoInkTwilight else Color.White) }
 }
@@ -809,12 +808,12 @@ private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Bool
     Box(
         Modifier.size(size).shadow(4.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
             .clip(shape)
-            // Going back, the tile turns to a plain button. Each layer goes once the other has fully
-            // taken over: a gradient left under the fill would tint the fill's anti-aliased corners.
+            // Going back, the flat tile turns to a plain button. Each layer goes once the other has fully
+            // taken over: a tile left under the fill would tint the fill's anti-aliased corners.
             .then(if (turn > 0f || !brand) Modifier.background(plain) else Modifier)
-            .then(if (turn < 1f && brand) Modifier.background(Brush.linearGradient(if (twilight) LogoTileTwilight else LogoTileDay), alpha = 1f - turn) else Modifier)
-            // The logo's rim fades with it on desktop, so the back button has no outline its neighbours lack.
-            .border(1.5.dp, if (ring == Color.Transparent) Color.White.copy(alpha = if (desktop) 0.4f * (1f - turn) else 0.4f) else ring, shape),
+            .then(if (turn < 1f && brand) Modifier.background((if (twilight) LogoTileTwilight else LogoTileDay).copy(alpha = 1f - turn)) else Modifier)
+            // The logo is flat, with no rim; only a state's ring outlines it.
+            .then(if (ring == Color.Transparent) Modifier else Modifier.border(1.5.dp, ring, shape)),
         contentAlignment = Alignment.Center,
     ) {
         if (brand) LockOnMark(

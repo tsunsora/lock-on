@@ -209,7 +209,7 @@ Each line names what a guide asks, what Lock On does, and why. Where the guides 
 - **More than one accent (V3).** unslop allows one accent in the chrome. Teal is that accent. Gold appears only for celebration and sky blue only for information, each rare and tied to one meaning, so neither competes with teal.
 - **Icon sizes (I6).** unslop wants one icon size everywhere. Lock On ties each size to the control it sits in, with one stroke and one set, which keeps the same consistency across very different control heights on phone and desktop.
 - **Caution stripes (V7, K8). Retired.** Both guides argue against them: impeccable bans coloured side stripes on banners and notices and patterned backgrounds a world didn't choose, and unslop removes decoration that isn't the product. They were the last piece of the cockpit look dropped on 2026-10-26, a 10 dp stripe down the side of the conflict banner and the failed-sync status, and went on 2026-11-15. The error tint, icon and words say it.
-- **Gradient app icon (V7). Changed to flat.** unslop names the gradient tile as one of the first things that reads as generated, even in a logo. The tile becomes one solid violet.
+- **Gradient app icon (V7). Changed to flat.** unslop names the gradient tile as one of the first things that reads as generated, even in a logo. The tile is one solid violet, #8A5EE1, in the launcher, the desktop icon and the header (pale lilac #C5B0FC at twilight).
 - **The "frosted" banner (V8). Reworded.** impeccable and unslop both reject glass as decoration. The banner never used blur; it is now described as what it is, a solid strip with a scrim.
 - **The glint (V5).** unslop removes shimmer, and impeccable asks for one authored moment. The glint stays because it is that moment: it plays once, on the change to legal, and nowhere else.
 - **Hover lift (V5).** Both guides warn against things moving on hover. Cards rise a few pixels, which unslop allows, and impeccable's condition is now in the rule: the drawing moves, not the hit area.
@@ -218,7 +218,6 @@ Each line names what a guide asks, what Lock On does, and why. Where the guides 
 
 The rules above are ahead of the app in these places. Each is a follow-up change, reviewed in pictures (K7).
 
-- **Launcher icon (V7).** The icon tile still runs from #9A68E6 to #7A55DC.
 - **Theme on platform surfaces (K9).** Text selection, the cursor and scrollbars have not been checked against the palette.
 
 ## Research behind the rules
