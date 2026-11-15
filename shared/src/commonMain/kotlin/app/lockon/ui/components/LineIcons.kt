@@ -65,7 +65,7 @@ object LineIcons {
     val Link: ImageVector by lazy { icon("Link", "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1", "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1") }
     // The card types, drawn from the game's world rather than stock symbols: a mobile suit's head with
     // its V-fin, a pilot in a helmet, two chevrons for an order, a hangar, and a resource block.
-    private val UnitLines = arrayOf("M12 8.5 6 3.5M12 8.5l6-5", "M6 11.5h12v4.5l-3.5 4.5h-5L6 16z", "M8.5 14h7", "M10.5 17.5h3")
+    private val UnitLines = arrayOf("M12 9.5 5.5 4M12 9.5 18.5 4M12 9.5v2", "M6 11.5h12v4.5l-3.5 4.5h-5L6 16z", "M8.5 14.2l2.5.8M15.5 14.2l-2.5.8", "M10.5 17.8h3")
     private val PilotLines = arrayOf("M7.5 8a4.5 4.5 0 0 1 9 0v2a4.5 4.5 0 0 1-9 0z", "M7.5 9h9", "M4.5 21a7.5 7.5 0 0 1 15 0")
     private val CommandLines = arrayOf("M5.5 12.5 12 6l6.5 6.5", "M5.5 18.5 12 12l6.5 6.5")
     private val BaseLines = arrayOf("M3 20.5h18", "M5 20.5V12a7 7 0 0 1 14 0v8.5", "M9 20.5v-6h6v6M12 14.5v6")
