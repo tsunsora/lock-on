@@ -8,12 +8,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import app.lockon.model.CardType
 
 /** The app's outline icons, on a 24-unit grid with a 1.9-unit round stroke, tinted like any other icon. */
 object LineIcons {
-    private fun icon(name: String, vararg lines: String, solid: String = ""): ImageVector =
+    private fun icon(name: String, vararg lines: String, solid: String = "", stroke: Float = 1.9f): ImageVector =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
-            lines.forEach { addPath(addPathNodes(it), stroke = SolidColor(Color.Black), strokeLineWidth = 1.9f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
+            lines.forEach { addPath(addPathNodes(it), stroke = SolidColor(Color.Black), strokeLineWidth = stroke, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
             if (solid.isNotEmpty()) addPath(addPathNodes(solid), fill = SolidColor(Color.Black))
         }.build()
 
@@ -62,10 +63,43 @@ object LineIcons {
     val Shield: ImageVector by lazy { icon("Shield", "M12 3.5 19 6v5.5c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z") }
     val Burst: ImageVector by lazy { icon("Burst", "M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8") }
     val Link: ImageVector by lazy { icon("Link", "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1", "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1") }
-    val Unit: ImageVector by lazy { icon("Unit", "M12 3 5 7v6l7 8 7-8V7z") }
-    val Pilot: ImageVector by lazy { icon("Pilot", "M8 8A4 4 0 1 1 16 8A4 4 0 1 1 8 8Z", "M4.5 20.5a7.5 7.5 0 0 1 15 0") }
-    val Command: ImageVector by lazy { icon("Command", "M13 3 5 13.5h6L10 21l8-10.5h-6z") }
-    val Base: ImageVector by lazy { icon("Base", "M4 20.5h16M6 20.5V10l6-5.5 6 5.5v10.5M10 20.5v-5h4v5") }
+    // The card types are Lucide's (ISC, licenses/Lucide-ISC.txt), paths unchanged: shield for a unit,
+    // user-round for a pilot, zap for a command, castle for a base and box (a cube) for a resource.
+    private val UnitLines = arrayOf("M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z")
+    private val PilotLines = arrayOf("M7 8a5 5 0 1 0 10 0a5 5 0 1 0-10 0", "M20 21a8 8 0 0 0-16 0")
+    private val CommandLines = arrayOf("M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z")
+    private val BaseLines = arrayOf("M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z", "M18 11V4H6v7", "M15 22v-4a3 3 0 0 0-3-3a3 3 0 0 0-3 3v4", "M22 11V9", "M2 11V9", "M6 4V2", "M18 4V2", "M10 4V2", "M14 4V2")
+    private val ResourceLines = arrayOf("M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z", "m3.3 7 8.7 5 8.7-5", "M12 22V12")
+    val Unit: ImageVector by lazy { icon("Unit", *UnitLines, stroke = 2.2f) }
+    val Pilot: ImageVector by lazy { icon("Pilot", *PilotLines, stroke = 2.2f) }
+    val Command: ImageVector by lazy { icon("Command", *CommandLines, stroke = 2.2f) }
+    val Base: ImageVector by lazy { icon("Base", *BaseLines, stroke = 2.2f) }
+    val Resource: ImageVector by lazy { icon("Resource", *ResourceLines, stroke = 2.2f) }
+
+    /** A card type's icon for chips and lists, a little bolder than the other line icons so it reads at chip size. */
+    fun forType(type: CardType?): ImageVector = when (type) {
+        CardType.PILOT -> Pilot
+        CardType.COMMAND -> Command
+        CardType.BASE, CardType.BASE_TOKEN, CardType.EX_BASE -> Base
+        CardType.RESOURCE, CardType.EX_RESOURCE -> Resource
+        else -> Unit
+    }
+
+    // The same icons for the larger symbol on a drawn card face, at a stroke that suits that size.
+    private val faceUnit by lazy { icon("FaceUnit", *UnitLines, stroke = 2f) }
+    private val facePilot by lazy { icon("FacePilot", *PilotLines, stroke = 2f) }
+    private val faceCommand by lazy { icon("FaceCommand", *CommandLines, stroke = 2f) }
+    private val faceBase by lazy { icon("FaceBase", *BaseLines, stroke = 2f) }
+    private val faceResource by lazy { icon("FaceResource", *ResourceLines, stroke = 2f) }
+
+    /** A card type's icon at the drawn card face's stroke. */
+    fun faceForType(type: CardType?): ImageVector = when (type) {
+        CardType.PILOT -> facePilot
+        CardType.COMMAND -> faceCommand
+        CardType.BASE, CardType.BASE_TOKEN, CardType.EX_BASE -> faceBase
+        CardType.RESOURCE, CardType.EX_RESOURCE -> faceResource
+        else -> faceUnit
+    }
     val Mark: ImageVector by lazy { icon("Mark", "M5.6 12A6.4 6.4 0 1 1 18.4 12A6.4 6.4 0 1 1 5.6 12Z", "M12 3v4M12 17v4M3 12h4M17 12h4", solid = "M9.9 12A2.1 2.1 0 1 1 14.1 12A2.1 2.1 0 1 1 9.9 12Z") }
     val Min: ImageVector by lazy { icon("Min", "M6 12h12") }
     val Max: ImageVector by lazy { icon("Max", "M8.5 6H15.5A2.5 2.5 0 0 1 18 8.5V15.5A2.5 2.5 0 0 1 15.5 18H8.5A2.5 2.5 0 0 1 6 15.5V8.5A2.5 2.5 0 0 1 8.5 6Z") }

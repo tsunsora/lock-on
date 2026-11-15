@@ -161,7 +161,7 @@ fun CardHoverPreview(card: Card, printingId: String?, hovered: Boolean) {
     Popup(popupPositionProvider = remember(gap) { BesideAnchor(gap) }, properties = PopupProperties(focusable = false)) {
         // As large as fits the window, up to a size where the effect text reads easily.
         Box(Modifier.widthIn(max = 300.dp).padding(vertical = 8.dp).arrive(arrival.asState(), from = 0.97f).clearAndSetSemantics {}) {
-            // The drawn placeholder face is partly see-through, so it gets a solid backing out here.
+            // A solid backing under the face, so its hairline edge never shows the window through it.
             CardImage(card, Modifier.shadow(18.dp, CardShape).background(MaterialTheme.colorScheme.surface, CardShape), printingId)
         }
     }
@@ -183,88 +183,99 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
 }
 
 /**
- * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
- * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
- * Below 96 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
- * The disc sits in the exact middle of the card at every size. With [max], the plate's AP / HP line starts
- * with "Max" in quiet text: the card is at its copy limit (UX rule S3).
+ * A drawn stand-in card for a card without artwork, laid out like a printed card so it reads as one
+ * at a glance: a flat face in the card's colour, a corner tab holding the cost with the level under
+ * it, the type symbol as a line drawing where the art would be, and a deep band along the bottom with
+ * the name on up to two lines, the colour and type in words, and AP / HP. Every word sits on the deep
+ * tone, never on the bright face, so it stays readable on every colour (UX rules V4, I4).
+ * Below 96 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour
+ * and the symbol, so small faces never crowd. With [max], the band's last line ends with "Max" in
+ * quiet text: the card is at its copy limit (UX rule S3).
  */
 @Composable
 fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = false) {
-    val cardColor = card?.colors?.firstOrNull()
-    val color = cardColor(cardColor)
-    val white = cardColor == app.lockon.model.CardColor.WHITE
-    val glyphInk = if (white) darken(color, 0.55f) else Color.White
-    val type = card?.type
-    BoxWithConstraints(
-        modifier.background(color)
-            .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
-    ) {
+    val lead = card?.colors?.firstOrNull()
+    val face = cardColor(lead)
+    val deep = placeholderDeep(face)
+    val white = lead == app.lockon.model.CardColor.WHITE
+    // The symbol stands on the bright face: white, or the deep tone on a white card.
+    val glyphInk = if (white) deep else Color.White.copy(alpha = 0.92f)
+    BoxWithConstraints(modifier.background(face).border(BorderStroke(1.dp, PlaceholderEdge), CardShape)) {
         val u = maxWidth.value / 63f // one card millimetre in dp
         val full = maxWidth >= 96.dp
         val roomForCost = maxWidth >= 48.dp
-        // The type symbol on a soft disc, with the same margin all round it whichever symbol it is.
-        Canvas(Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val c = Offset(w * 0.5f, h * 0.5f)
-            val r = w * (if (full) 0.222f else 0.27f)
-            drawCircle(Color.White.copy(alpha = if (white) 0.55f else 0.18f), r, c)
-            val glyph = r * 0.72f
-            drawTypeGlyph(type, c, glyph, glyphInk, stroke = glyph * 0.16f)
+        val cost = card?.cost
+        val tab = cost != null && roomForCost
+        Column(Modifier.fillMaxSize()) {
+            // The art area: the symbol in the middle of what is left between the corner tab and the band. A card
+            // without a cost (a resource) keeps the same space, so its symbol sits level with the others in a row.
+            Box(Modifier.fillMaxWidth().weight(1f).padding(top = if (full) (u * 20f).dp else 0.dp)) {
+                Icon(
+                    LineIcons.faceForType(card?.type), contentDescription = null, tint = glyphInk,
+                    modifier = Modifier.align(Alignment.Center).size((u * 63f).dp * (if (full) 0.32f else if (roomForCost) 0.4f else 0.5f)),
+                )
+            }
+            if (full) PlaceholderBand(card, max, deep, u)
         }
-        Column(
-            Modifier.align(Alignment.TopStart).padding(start = (u * 3.6f).dp, top = (u * 3.6f).dp),
-            verticalArrangement = Arrangement.spacedBy((u * 2.4f).dp),
+        // The cost tab: flush in the top-left corner like a printed card's, the level under the cost.
+        if (tab && cost != null) Column(
+            Modifier.align(Alignment.TopStart).width((u * 16f).dp)
+                .background(deep, RoundedCornerShape(bottomEnd = (u * 4f).dp))
+                .padding(top = (u * 2f).dp, bottom = (u * (if (full) 2f else 1.6f)).dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy((u * 0.6f).dp),
         ) {
-            // Cost on a white-rimmed disc in the card's colour; a deck row's thumbnail is too small for one, and its cost sits beside it.
-            val cost = card?.cost
-            if (cost != null && roomForCost) Box(
-                Modifier.size((u * 15).dp)
-                    .clip(CircleShape)
-                    .background(color)
-                    .border(BorderStroke((u * 0.9f).dp, Color.White.copy(alpha = 0.9f)), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                CenteredGlyph(cost.toString(), if (white) Color(0xFF1D2742) else Color.White, (u * 8.6f).sp)
+            Box(Modifier.fillMaxWidth().height((u * 9f).dp)) {
+                CenteredGlyph(cost.toString(), Color.White, (u * 9f).sp)
             }
             val level = card?.level
             if (level != null && full) Text(
-                "Lv $level", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp),
+                "Lv $level", color = PlaceholderQuiet, fontSize = (u * 4.2f).sp, lineHeight = (u * 4.8f).sp,
+                maxLines = 1, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
             )
-        }
-        // The colour's initial on the same dark tag as the level, so colour is never the only signal (UX rule I4).
-        val initials = card?.colors?.sortedBy { it.ordinal }?.joinToString("") { it.label.take(1) }.orEmpty()
-        if (initials.isNotEmpty() && roomForCost) Text(
-            initials, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (u * 4.6f).sp, lineHeight = (u * 5.4f).sp,
-            modifier = Modifier.align(Alignment.TopEnd).padding(end = (u * 3.6f).dp, top = (u * 3.6f).dp)
-                .clip(RoundedCornerShape(50)).background(Color(0xB80A102A)).padding(horizontal = (u * 2.6f).dp, vertical = (u * 0.4f).dp)
-                .semantics { contentDescription = card?.colors?.joinToString(" and ") { it.label }.orEmpty() },
-        )
-        if (!full) return@BoxWithConstraints
-        Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = (u * 1.9f).dp, vertical = (u * 2.6f).dp)
-                .clip(RoundedCornerShape((u * 3.6f).dp)).background(Color(0xCC0A1028))
-                .padding(horizontal = (u * 3f).dp, vertical = (u * 2.4f).dp),
-            verticalArrangement = Arrangement.spacedBy((u * 1.2f).dp),
-        ) {
-            Text(card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.6f).sp, lineHeight = (u * 6.4f).sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
-            Row(Modifier.fillMaxWidth().heightIn(min = (u * 6.4f).dp), verticalAlignment = Alignment.CenterVertically) {
-                if (max) Text("Max", color = MaxInk, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp, style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.weight(1f))
-                if (card?.ap != null || card?.hp != null) {
-                    Text(
-                        "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.clip(RoundedCornerShape((u * 1.4f).dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = (u * 1.6f).dp),
-                    )
-                }
-            }
         }
     }
 }
+
+/** The band along the bottom of a full-size drawn face: the name, then colour and type, Max and AP / HP. */
+@Composable
+private fun PlaceholderBand(card: Card?, max: Boolean, deep: Color, u: Float) {
+    Column(
+        // One height for every card, room for two lines of name, so the symbols and bands line up across a grid.
+        Modifier.fillMaxWidth().height((u * 25f).dp).background(deep).padding(horizontal = (u * 3.4f).dp, vertical = (u * 2.6f).dp),
+    ) {
+        Text(
+            card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.4f).sp, lineHeight = (u * 6.4f).sp,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge,
+        )
+        Spacer(Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // Colour in words as well as on the face, so colour is never the only signal (UX rule I4).
+            val kind = listOfNotNull(
+                card?.colors?.sortedBy { it.ordinal }?.joinToString(" ") { it.label }?.takeIf { it.isNotEmpty() },
+                card?.type?.label?.let { if (card.colors.isEmpty()) it else it.lowercase() },
+            ).joinToString(" ")
+            val small = MaterialTheme.typography.labelMedium
+            Text(kind, color = PlaceholderQuiet, fontSize = (u * 4.2f).sp, lineHeight = (u * 5f).sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, style = small, modifier = Modifier.weight(1f, fill = true))
+            if (max) Text("Max", color = MaxInk, fontSize = (u * 4.2f).sp, lineHeight = (u * 5f).sp, style = small,
+                modifier = Modifier.padding(start = (u * 1.6f).dp))
+            if (card?.ap != null || card?.hp != null) Text(
+                "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.6f).sp, lineHeight = (u * 5f).sp,
+                maxLines = 1, style = small.merge(TabularNumbers), modifier = Modifier.padding(start = (u * 2f).dp),
+            )
+        }
+    }
+}
+
+/** The deep tone of a drawn face's tab and band: its colour taken well toward the night ink, so white text reads on every colour. */
+private fun placeholderDeep(face: Color): Color = androidx.compose.ui.graphics.lerp(face, Color(0xFF0A1028), 0.55f)
+
+/** A drawn face's edge: one ink hairline, so a white card still has an edge on a day panel (UX rule V1). */
+private val PlaceholderEdge = Color(0xFF0A1028).copy(alpha = 0.14f)
+
+/** Secondary words on a drawn face's deep tone: the level, and the colour and type. */
+private val PlaceholderQuiet = Color.White.copy(alpha = 0.74f)
 
 /** Max in a card's name strip: quiet text on the strip's dark plate, the same in both themes. */
 private val MaxInk = Color(0xFFA9B3CC)
@@ -273,45 +284,6 @@ private val MaxInk = Color(0xFFA9B3CC)
 val CardTagFill = Color(0xFF1C2235)
 val CardTagInk = Color(0xFFEEF0F5)
 val CardTagLine = Color.White.copy(alpha = 0.14f)
-
-/** The card type's symbol drawn as strokes, filling a circle of radius [r] around [c]: shield, pilot, bolt, base or diamond. */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTypeGlyph(type: app.lockon.model.CardType?, c: Offset, r: Float, ink: Color, stroke: Float) {
-    // The glyphs are drawn on a 24-unit grid. These are the centre and radius of the smallest circle
-    // around each shape, so it sits evenly in a round disc: a house's middle is lower than its box's.
-    val (cx, cy, reach) = when (type) {
-        app.lockon.model.CardType.PILOT -> Triple(12f, 13.95f, 9.95f)
-        app.lockon.model.CardType.COMMAND -> Triple(11.5f, 12f, 9.12f)
-        app.lockon.model.CardType.BASE, app.lockon.model.CardType.BASE_TOKEN, app.lockon.model.CardType.EX_BASE -> Triple(12f, 14.5f, 10f)
-        app.lockon.model.CardType.RESOURCE, app.lockon.model.CardType.EX_RESOURCE -> Triple(12f, 12f, 8f)
-        else -> Triple(12f, 12f, 9f)
-    }
-    val s = r / reach
-    fun p(x: Float, y: Float) = Offset(c.x + (x - cx) * s, c.y + (y - cy) * s)
-    val line = Stroke(stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-    when (type) {
-        app.lockon.model.CardType.PILOT -> {
-            drawCircle(ink, 4f * s, p(12f, 8f), style = line)
-            drawPath(Path().apply { moveTo(p(4.5f, 20.5f).x, p(4.5f, 20.5f).y); cubicTo(p(4.5f, 16f).x, p(4.5f, 16f).y, p(8f, 13f).x, p(8f, 13f).y, p(12f, 13f).x, p(12f, 13f).y)
-                cubicTo(p(16f, 13f).x, p(16f, 13f).y, p(19.5f, 16f).x, p(19.5f, 16f).y, p(19.5f, 20.5f).x, p(19.5f, 20.5f).y) }, ink, style = line)
-        }
-        app.lockon.model.CardType.COMMAND -> drawPath(Path().apply {
-            listOf(p(13f, 3f), p(5f, 13.5f), p(11f, 13.5f), p(10f, 21f), p(18f, 10.5f), p(12f, 10.5f)).forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) }
-            close()
-        }, ink, style = line)
-        app.lockon.model.CardType.BASE, app.lockon.model.CardType.BASE_TOKEN, app.lockon.model.CardType.EX_BASE -> drawPath(Path().apply {
-            moveTo(p(4f, 20.5f).x, p(4f, 20.5f).y); lineTo(p(20f, 20.5f).x, p(20f, 20.5f).y)
-            moveTo(p(6f, 20.5f).x, p(6f, 20.5f).y); lineTo(p(6f, 10f).x, p(6f, 10f).y); lineTo(p(12f, 4.5f).x, p(12f, 4.5f).y); lineTo(p(18f, 10f).x, p(18f, 10f).y); lineTo(p(18f, 20.5f).x, p(18f, 20.5f).y)
-            moveTo(p(10f, 20.5f).x, p(10f, 20.5f).y); lineTo(p(10f, 15.5f).x, p(10f, 15.5f).y); lineTo(p(14f, 15.5f).x, p(14f, 15.5f).y); lineTo(p(14f, 20.5f).x, p(14f, 20.5f).y)
-        }, ink, style = line)
-        app.lockon.model.CardType.RESOURCE, app.lockon.model.CardType.EX_RESOURCE -> drawPath(Path().apply {
-            moveTo(p(12f, 4f).x, p(12f, 4f).y); lineTo(p(19f, 12f).x, p(19f, 12f).y); lineTo(p(12f, 20f).x, p(12f, 20f).y); lineTo(p(5f, 12f).x, p(5f, 12f).y); close()
-        }, ink, style = line)
-        else -> drawPath(Path().apply {
-            moveTo(p(12f, 3f).x, p(12f, 3f).y); lineTo(p(19f, 7f).x, p(19f, 7f).y); lineTo(p(19f, 13f).x, p(19f, 13f).y); lineTo(p(12f, 21f).x, p(12f, 21f).y)
-            lineTo(p(5f, 13f).x, p(5f, 13f).y); lineTo(p(5f, 7f).x, p(5f, 7f).y); close()
-        }, ink, style = line)
-    }
-}
 
 /** The back of a card, for face-down shields. */
 @Composable
