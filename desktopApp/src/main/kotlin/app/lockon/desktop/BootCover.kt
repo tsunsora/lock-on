@@ -20,6 +20,7 @@ import app.lockon.ui.BootStep
 import app.lockon.ui.BootTargeting
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.theme.LockOnTheme
+import app.lockon.ui.theme.themeSeed
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -262,7 +263,9 @@ class DesktopBootCover(private val settings: SettingsRepository) : BootCover {
             ThemeChoice.LIGHT -> false
             ThemeChoice.DARK -> true
         }
-        CompositionLocalProvider(LocalReduceMotion provides false) { LockOnTheme(dark) { content() } }
+        // In the app's colours, Material You's when Settings has them on (UX rule V3a): Main reads the
+        // accent before the cover is made.
+        CompositionLocalProvider(LocalReduceMotion provides false) { LockOnTheme(dark, themeSeed(settings)) { content() } }
     }
 
     private companion object {

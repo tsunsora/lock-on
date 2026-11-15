@@ -102,10 +102,7 @@ fun systemColorScheme(seed: Color, dark: Boolean, base: ColorScheme): Pair<Color
     // Strong enough to read as an action colour, never louder than a card face.
     val pc = s.c.coerceIn(0.08f, 0.14f)
     fun tone(l: Float, c: Float) = Oklch(l, c, h).toColor()
-    // Reds, pinks, oranges and yellows read as far more colourful than blues at the same chroma, and a
-    // maroon or olive sky stops being quiet, so warm hues tint the neutrals at a little over half as much.
-    val degrees = ((h * 180f / PI.toFloat()) + 360f) % 360f
-    val warmth = if (degrees < 125f || degrees > 330f) 0.55f else 1f
+    val warmth = warmth(h)
     fun neutral(l: Float, c: Float) = tone(l, c * warmth)
     return if (dark) {
         val onPrimary = tone(0.27f, pc * 0.5f)
@@ -161,6 +158,29 @@ fun systemColorScheme(seed: Color, dark: Boolean, base: ColorScheme): Pair<Color
             track = neutral(0.895f, 0.02f),
         )
     }
+}
+
+/**
+ * Reds, pinks, oranges and yellows read as far more colourful than blues at the same chroma, and a maroon
+ * or olive sky stops being quiet, so warm hues [h] (OKLCH radians) tint at a little over half as much.
+ */
+private fun warmth(h: Float): Float {
+    val degrees = ((h * 180f / PI.toFloat()) + 360f) % 360f
+    return if (degrees < 125f || degrees > 330f) 0.55f else 1f
+}
+
+/** The seed [LockOnTheme] made the app's colours from, or null when Sky and Twilight's own colours show. */
+val LocalThemeSeed = staticCompositionLocalOf<Color?> { null }
+
+/**
+ * One of the launch screen's own colours with Material You colours (UX rule V3a): [color] keeps its
+ * lightness and its chroma (less for a warm seed, as the neutrals do) and takes the [seed]'s hue, so the
+ * launch screen leans toward the accent as much as Sky and Twilight's leans toward violet.
+ */
+fun towardSeed(color: Color, seed: Color): Color {
+    val h = Oklch.of(seed).h
+    val c = Oklch.of(color)
+    return Oklch(c.l, c.c * warmth(h), h).toColor().copy(alpha = color.alpha)
 }
 
 /**
