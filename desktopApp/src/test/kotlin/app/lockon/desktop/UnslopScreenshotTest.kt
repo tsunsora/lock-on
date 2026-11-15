@@ -277,7 +277,8 @@ class UnslopScreenshotTest {
         }
         alone("desktop-launch-dark", phone = false, dark = true) {
             androidx.compose.foundation.layout.Column {
-                TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
+                // The real window's title bar takes the launch screen's colour while it is up (Main.kt).
+                TitleBar(maximized = false, background = app.lockon.ui.launchSplashColor(), onMinimize = {}, onToggleMaximize = {}, onClose = {})
                 app.lockon.ui.LaunchSplash()
             }
         }
