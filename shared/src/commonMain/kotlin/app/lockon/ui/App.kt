@@ -152,12 +152,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.animation.ExitTransition
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.runtime.withFrameNanos
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
 import app.lockon.ui.decks.ConflictScreen
 import app.lockon.ui.decks.DeckEditorScreen
 import app.lockon.ui.decks.DeckLibraryScreen
@@ -303,7 +301,6 @@ fun LockOnApp(
         // Read in each screen's layer only, so switching it redraws without recomposing or relaying out.
         val warmSettled = remember { mutableStateOf(false) }
         if (!state.booted) LaunchedEffect(Unit) {
-            val started = TimeSource.Monotonic.markNow()
             withTimeoutOrNull(BootLimit) {
                 // The boot screen draws first, so the window opens on it.
                 repeat(2) { withFrameNanos { } }
@@ -330,19 +327,10 @@ fun LockOnApp(
                     ArtworkLoads.inFlight.first { it == 0 }
                     if (withTimeoutOrNull(BootQuietTime) { ArtworkLoads.inFlight.first { it > 0 } } == null) break
                 }
-                // Polled rather than per frame, so nothing redraws for it.
-                if (bootCover?.showing?.value == true) {
-                    // A cover plays in real time from before the app started building, so the lock alone
-                    // says when: a further minimum would only hold finished screens back.
-                    while (!bootClock.locked) delay(16)
-                } else {
-                    val shown = started.elapsedNow()
-                    if (shown < BootMinimum) delay(BootMinimum - shown)
-                    // It waits for the seeker to lock, so it seldom fades out mid-hunt, but not past
-                    // [BootLockGrace]: here its own frames keep stalling, and it can fall well behind.
-                    withTimeoutOrNull(BootLockGrace) { while (!bootReduce && !bootClock.locked) delay(16) }
-                }
             }
+            // Ready: it goes now, with no minimum. A seeker still hunting jumps to its lock, so it fades out
+            // locked on, as it always has, rather than holding finished screens back for the animation.
+            if (!bootClock.locked) bootClock.skipToLock()
             // A last frame or two with every screen as it looks once it has arrived: fully opaque, not
             // sliding. A first open draws that too, after its fade, and paid for it the first time.
             warmSettled.value = true
@@ -540,10 +528,7 @@ fun LockOnApp(
 }
 }
 
-/** The boot screen shows at least this long, and then until its first lock has landed, for at most [BootLockGrace] more. */
-private val BootMinimum = 1.9.seconds
-private val BootLockGrace = 0.6.seconds
-/** And never longer than this, whatever is still loading or however far its seeker has got. */
+/** The boot screen never shows longer than this, whatever is still loading. */
 private val BootLimit = 8.seconds
 private val BootQuietTime = 250.milliseconds
 

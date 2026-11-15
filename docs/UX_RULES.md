@@ -106,7 +106,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era) inside 
 - **V2a. Type.**
   - Headings, titles, labels and buttons use Quicksand (SIL Open Font License), a rounded face that carries the world's friendliness, at one weight, 600. Quicksand is drawn light, so its 600 sits where other faces' 500 does. Body text stays the platform sans at 400 for readability. Figures that change while you work use the platform sans with tabular figures (I1).
   - Hierarchy comes from size and colour, never from a heavier weight. Nothing is above 600.
-  - Sentence case everywhere. Nothing is set in capitals with wide tracking: the launch screen's readouts are *Searching*, *Tracking* and *Locked*. Small text never gets negative tracking; labels may open slightly (0.2 sp).
+  - Sentence case everywhere. Nothing is set in capitals with wide tracking. Small text never gets negative tracking; labels may open slightly (0.2 sp).
   - No italic for emphasis in the interface.
   - Text sizes come from the Material type roles (`MaterialTheme.typography`), never hand-picked per screen, and are in sp, so they follow the system's font size.
   - (Everything in Quicksand was 700 until 2026-11-10; with every word bold, none stood out, and the chrome competed with the cards.)
