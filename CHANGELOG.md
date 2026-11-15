@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.11.28 (2026-11-15)
+
+The test hand is held in a fan again, and the deck list and Analysis look as calm as the rest of the app.
+
+- **Test hand:** the hand is a fan again, like a hand at the table. The card under the pointer comes to the front and a tap shows any card whole. Keep, Redraw and Restart stay at the bottom, and the six shields stay in one row.
+- **Deck list:** rows lie flat like the card list's, with no coloured bar or rim, and the − count + control is the same quiet plate in both lists.
+- **View toggles:** every one shows cards first and the list second.
+- **Analysis:** the card types bar has no outline round its darkest part, and every part stands out from the tile on its own.
+
 ## 26.11.27 (2026-11-15)
 
 Clearer and calmer everywhere: a test hand you can read on a phone, labels on every button in the phone's bar, sync errors that say what to do, and a quieter dusk palette.
