@@ -70,7 +70,7 @@ class DeckDragTest {
 
     /** A theme change takes a picture of the real app's layers. Drawn from inside them, that picture would never finish, and the crash is native. */
     @Test fun themeChangeFadesAcrossTheWholeApp() {
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { select(Tab.DECKS); bootClock.skipToLock() }
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { select(Tab.DECKS) }
         val dark = androidx.compose.runtime.mutableStateOf(false)
         ImageComposeScene(1980, 1290, Density(1.5f)) {
             LockOnApp(container, state, noSync, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark.value)
@@ -89,7 +89,7 @@ class DeckDragTest {
 
     @Test fun dragDeckOntoFolder() {
         // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { select(Tab.DECKS); bootClock.skipToLock() }
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { select(Tab.DECKS) }
         ImageComposeScene(1980, 1290, Density(1.5f)) {
             LockOnApp(container, state, noSync, files, artworkDir = File("build/artwork-cache").absolutePath, dark = false)
         }.use { scene ->

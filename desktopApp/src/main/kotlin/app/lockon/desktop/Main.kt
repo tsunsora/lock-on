@@ -37,7 +37,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jetbrains.skiko.SkiaLayer
@@ -81,13 +80,8 @@ fun main() {
     val sync = DesktopSyncController(container, appScope).also { if (!training) it.start() }
     if (!training) container.updater?.start(appScope)
     val state = AppState(appScope)
-    // For timing the app without the boot screen (TabSwitchProbe.kt).
+    // For timing the app without the launch screen (TabSwitchProbe.kt).
     if (System.getProperty("lockon.skipBoot") == "true") state.booted = true
-    // On Windows the boot screen plays in a window of its own, so the screens building under it can't
-    // make it stutter. Reduced motion holds the boot screen still, so it has nothing to play there.
-    val bootCover = if (!training && !state.booted && System.getProperty("os.name").startsWith("Windows") &&
-        container.settings.motion.value != app.lockon.data.MotionChoice.REDUCED
-    ) DesktopBootCover(container.settings).also { state.bootCover = it } else null
 
     // `-Plockon.probeSize=<w>x<h>` (dp) opens the window at that size, so probes can time a wide window.
     val saved = WindowMemory.load().let { saved ->
@@ -115,7 +109,6 @@ fun main() {
             // DirectComposition instead, that strip shows the window's background (windowBackground below).
             // The app paints an opaque sky over the whole window, so nothing else shows through.
             remember { components(window).filterIsInstance<SkiaLayer>().firstOrNull()?.transparency = true }
-            remember { bootCover?.attach(window) }
             // Which graphics API draws the window, for reports of slow scrolling: SOFTWARE means no GPU.
             LaunchedEffect(Unit) {
                 org.slf4j.LoggerFactory.getLogger("LockOn").info("Rendering with ${window.renderApi}")
@@ -133,22 +126,12 @@ fun main() {
                     override fun windowGainedFocus(e: java.awt.event.WindowEvent?) = SystemAccentReader.refresh()
                 })
                 ownTitleBar = WindowsFrame.install(window)
-                // The boot cover covers only the app, below the title bar.
-                if (ownTitleBar) bootCover?.topInset = TitleBarHeight.value.toInt()
                 // The window opens floating even when told to open maximised (its state still claims
                 // maximised, then gives in), so it is maximised once it shows.
                 if (saved.placement == WindowPlacement.Maximized) window.extendedState = Frame.MAXIMIZED_BOTH
             }
-            // The theme's background, heard from the app once it shows; until then the boot screen's theme.
+            // The theme's background, heard from the app once it shows; until then the theme Settings chose.
             var appBackground by remember { mutableStateOf<Color?>(null) }
-            // Until the boot cover is up, the window shows only the boot screen's first frame, which the
-            // cover's matches. The cover takes its pictures on this thread, where they must wait for
-            // nothing else to be composing, so the app starts building only once the cover plays over it.
-            var coverSettled by remember { mutableStateOf(bootCover == null) }
-            if (bootCover != null) LaunchedEffect(Unit) {
-                withTimeoutOrNull(3_000) { bootCover.settled.first { it } }
-                coverSettled = true
-            }
             val textContextMenu = remember { AppTextContextMenu(window) }
             CompositionLocalProvider(LocalContextMenuRepresentation provides AppContextMenu, LocalTextContextMenu provides textContextMenu) {
                 Box(Modifier.fillMaxSize()) {
@@ -157,7 +140,12 @@ fun main() {
                         // buttons floating among the app's own (UX rule N5).
                         if (ownTitleBar) {
                             app.lockon.ui.theme.LockOnTheme(appBackground?.let { it.luminance() < 0.5f } ?: bootDark(container), app.lockon.ui.theme.themeSeed(container.settings)) {
-                                TitleBar(window, windowState, appBackground ?: MaterialTheme.colorScheme.background, exit)
+                                // While the launch screen is up the bar takes its colour, and turns to the app's as it fades.
+                                val bar by androidx.compose.animation.animateColorAsState(
+                                    if (state.booted) appBackground ?: MaterialTheme.colorScheme.background else app.lockon.ui.launchSplashColor(),
+                                    androidx.compose.animation.core.tween(app.lockon.ui.components.Motion.LONG),
+                                )
+                                TitleBar(window, windowState, bar, exit)
                             }
                         }
                         Box(Modifier.fillMaxWidth().weight(1f)) {
@@ -165,7 +153,7 @@ fun main() {
                             // theme's colour arrives, or the window is maximised) looked like a change to every
                             // screen that saves or opens files, and each built itself again.
                             val files = remember(window) { DesktopFileBridge(window) }
-                            if (!coverSettled) BootFirstFrame(container, bootCover?.clock ?: state.bootClock) { bootCover?.windowSkyPainted() } else LockOnApp(
+                            LockOnApp(
                                 container, state, sync, files,
                                 artworkDir = File(AppDirs.data, "artwork").absolutePath,
                                 titleBar = ownTitleBar,
@@ -187,7 +175,6 @@ fun main() {
             System.getProperty("lockon.deckOpenProbe")?.let { DeckOpenProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.tabProbe")?.let { TabSwitchProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.dividerProbe")?.let { DividerProbe(window, container, state, File(it), exit) }
-            System.getProperty("lockon.bootProbe")?.let { BootProbe(window, state, bootCover, File(it), exit) }
             System.getProperty("lockon.idleProbe")?.let { IdleProbe(window, state, File(it), exit) }
             System.getProperty("lockon.actProbe")?.let { InteractionProbe(window, container, state, File(it), exit) }
             System.getProperty("lockon.motionProbe")?.let { MotionProbe(window, container, state, File(it), exit) }
@@ -206,21 +193,6 @@ private fun bootDark(container: AppContainer): Boolean = when (container.setting
     app.lockon.data.ThemeChoice.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
     app.lockon.data.ThemeChoice.LIGHT -> false
     app.lockon.data.ThemeChoice.DARK -> true
-}
-
-/**
- * The boot screen standing at its first frame, in the theme and size Settings chose, as the window
- * shows it while the boot cover gets ready. It doesn't move: the cover starts moving it.
- */
-@Composable
-private fun BootFirstFrame(container: AppContainer, clock: app.lockon.ui.BootClock, onSkyPainted: () -> Unit) {
-    val settings = container.settings
-    val dark = bootDark(container)
-    val base = androidx.compose.ui.platform.LocalDensity.current
-    val density = androidx.compose.ui.unit.Density(base.density * settings.size.value.scale, base.fontScale)
-    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) {
-        app.lockon.ui.theme.LockOnTheme(dark, app.lockon.ui.theme.themeSeed(settings)) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.DECKS, clock, playing = false, onSkyPainted = onSkyPainted) }
-    }
 }
 
 private class DesktopFileBridge(private val owner: Frame) : FileBridge {

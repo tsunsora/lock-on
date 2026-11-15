@@ -133,7 +133,7 @@ val LocalScreenShown = compositionLocalOf { true }
  * holds the value it has and takes the newest when it shows again. A hidden screen that follows its
  * data builds itself again on every change, inside a frame of whatever is on screen: the deck library
  * and Sync did after every save in a deck editor. The first value always arrives, so a screen built
- * ahead of time, under the boot screen, has its content.
+ * ahead of time, under the launch screen, has its content.
  */
 @Composable
 fun <T> Flow<T>.collectWhileShown(initial: T): State<T> {

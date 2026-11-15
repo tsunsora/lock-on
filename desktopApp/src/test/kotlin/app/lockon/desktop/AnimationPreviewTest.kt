@@ -67,45 +67,20 @@ class AnimationPreviewTest {
         }
     }
 
-    @Test fun bootScreen() {
-        for (dark in listOf(false, true)) for (phone in listOf(false, true)) {
-            val name = "boot-${if (dark) "dark" else "light"}${if (phone) "-phone" else ""}"
-            val dir = File("build/animation-frames/$name").apply { deleteRecursively(); mkdirs() }
-            ImageComposeScene(if (phone) 412 else 1100, if (phone) 892 else 700, Density(if (phone) 1f else 1.25f)) {
-                LockOnTheme(dark = dark) {
-                    app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, app.lockon.ui.BootClock())
-                }
-            }.use { scene ->
-                // Every frame at 30 fps: the boot clock moves at most 40 ms a frame, so sparser frames would lag.
-                for (i in 0 until 90) {
-                    val image = scene.render(i * frameNanos)
-                    Thread.sleep(20)
-                    File(dir, "frame-%03d.png".format(i)).writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
-                }
-            }
-        }
-    }
-
     /**
-     * The boot screen just after the lock, in Sky and Twilight's own colours and in Material You colours (UX
-     * rule V3a) from Windows' default blue, a pink wallpaper and a yellow one, which tests the steps' contrast.
+     * The launch screen in Sky and Twilight's own colours and in Material You colours (UX rule V3a) from
+     * Windows' default blue, a pink wallpaper and a yellow one. It holds still, so one picture each.
      */
-    @Test fun bootScreenColours() {
-        val dir = File("build/boot-colours").apply { deleteRecursively(); mkdirs() }
+    @Test fun launchSplashColours() {
+        val dir = File("build/launch-colours").apply { deleteRecursively(); mkdirs() }
         val seeds = listOf("own" to null, "blue" to androidx.compose.ui.graphics.Color(0xFF0078D4),
             "pink" to androidx.compose.ui.graphics.Color(0xFFD0507A), "yellow" to androidx.compose.ui.graphics.Color(0xFFE0B000))
         for ((name, seed) in seeds) for (dark in listOf(false, true)) for (phone in listOf(false, true)) {
-            // The lock has just landed: the ring is gold and its one pulse is on its way out.
-            val clock = app.lockon.ui.BootClock().apply { played = 1_090f }
             ImageComposeScene(if (phone) 412 else 1100, if (phone) 892 else 700, Density(if (phone) 1f else 1.25f)) {
-                LockOnTheme(dark = dark, seed = seed) {
-                    app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, clock, playing = false)
-                }
+                LockOnTheme(dark = dark, seed = seed) { app.lockon.ui.LaunchSplash() }
             }.use { scene ->
-                // The sky paints off the main thread, so a few frames until it is in.
-                var image = scene.render(0)
-                for (i in 1..6) { Thread.sleep(60); image = scene.render(i * frameNanos) }
-                val file = "boot-$name-${if (dark) "dark" else "light"}${if (phone) "-phone" else ""}.png"
+                val image = scene.render(0)
+                val file = "launch-$name-${if (dark) "dark" else "light"}${if (phone) "-phone" else ""}.png"
                 File(dir, file).writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
             }
         }

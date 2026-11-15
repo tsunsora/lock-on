@@ -165,7 +165,7 @@ class ScreenshotTest {
         setup: AppState.() -> Unit,
     ) {
         // Frames here step 50-100 ms, faster than the boot clock follows, so it starts past its first lock.
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup).apply { bootClock.skipToLock() }
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
         ImageComposeScene(width, height, Density(1.5f)) {
             androidx.compose.foundation.layout.Column {
                 if (titleBar) app.lockon.ui.theme.LockOnTheme(dark, app.lockon.ui.theme.themeSeed(container.settings)) {
@@ -1052,7 +1052,7 @@ class ScreenshotTest {
      * list opens it to the right.
      */
     @Test fun renderHoverPreview() {
-        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { open(Screen.DeckEditor(deckId)); bootClock.skipToLock() }
+        val state = AppState(CoroutineScope(Dispatchers.Default)).apply { open(Screen.DeckEditor(deckId)) }
         ImageComposeScene(1980, 1290, Density(1.5f)) { LockOnApp(container, state, sync, files, artworkDir = File("build/artwork-cache").absolutePath, dark = true) }.use { scene ->
             var time = 0L
             fun frames(n: Int) = repeat(n) { Thread.sleep(40); time += 16_000_000L; scene.render(time) }

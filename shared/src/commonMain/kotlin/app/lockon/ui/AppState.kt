@@ -28,12 +28,13 @@ class AppState(val appScope: CoroutineScope) {
     var notice by mutableStateOf<Notice?>(null)
     /** Sync shows Send decks, or Sync devices when false. */
     var syncSending by mutableStateOf(false)
-    /** False while the boot screen covers the app and its screens fill in underneath. */
+    /** False while the launch screen covers the app and its screens fill in underneath. */
     var booted by mutableStateOf(false)
-    /** Plays the boot screen off the app's own frames, where the platform has one (desktop); set before the app starts. */
-    var bootCover: BootCover? = null
-    /** How far the boot screen has played, kept here so a boot screen shown before the app (on phones) hands over to the app's own mid-hunt. */
-    val bootClock = BootClock()
+    /**
+     * True while the system's own splash screen is held up over the app (Android 12 and later), so the
+     * app draws no launch screen of its own beneath it; the platform takes that splash down once [booted].
+     */
+    var systemSplash by mutableStateOf(false)
     /** True while the welcome tour shows over the app: on a fresh install, or replayed from Settings. */
     var touring by mutableStateOf(false)
     /** Which of the tour's stops is showing. */
