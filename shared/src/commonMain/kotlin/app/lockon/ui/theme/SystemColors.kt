@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import app.lockon.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cbrt
 import kotlin.math.cos
@@ -101,30 +102,35 @@ fun systemColorScheme(seed: Color, dark: Boolean, base: ColorScheme): Pair<Color
     // Strong enough to read as an action colour, never louder than a card face.
     val pc = s.c.coerceIn(0.08f, 0.14f)
     fun tone(l: Float, c: Float) = Oklch(l, c, h).toColor()
+    // Reds, pinks, oranges and yellows read as far more colourful than blues at the same chroma, and a
+    // maroon or olive sky stops being quiet, so warm hues tint the neutrals at a little over half as much.
+    val degrees = ((h * 180f / PI.toFloat()) + 360f) % 360f
+    val warmth = if (degrees < 125f || degrees > 330f) 0.55f else 1f
+    fun neutral(l: Float, c: Float) = tone(l, c * warmth)
     return if (dark) {
         val onPrimary = tone(0.27f, pc * 0.5f)
         val primary = readable(h, pc, from = 0.82f, step = 0.01f, against = onPrimary)
-        val background = tone(0.235f, 0.024f)
-        val surface = tone(0.27f, 0.024f)
-        val highest = tone(0.315f, 0.024f)
-        val onSurface = tone(0.96f, 0.008f)
+        val background = neutral(0.235f, 0.024f)
+        val surface = neutral(0.27f, 0.024f)
+        val highest = neutral(0.315f, 0.024f)
+        val onSurface = neutral(0.96f, 0.008f)
         val outline = tone(0.74f, 0.03f)
         base.copy(
             primary = primary, onPrimary = onPrimary,
             primaryContainer = tone(0.38f, pc * 0.6f), onPrimaryContainer = tone(0.93f, 0.045f),
             background = background, onBackground = onSurface,
             surface = surface, onSurface = onSurface,
-            surfaceVariant = tone(0.355f, 0.024f), onSurfaceVariant = tone(0.80f, 0.028f),
-            surfaceContainerLowest = tone(0.215f, 0.022f), surfaceContainerLow = tone(0.25f, 0.024f),
+            surfaceVariant = neutral(0.355f, 0.024f), onSurfaceVariant = tone(0.80f, 0.028f),
+            surfaceContainerLowest = neutral(0.215f, 0.022f), surfaceContainerLow = neutral(0.25f, 0.024f),
             surfaceContainer = surface, surfaceContainerHigh = surface, surfaceContainerHighest = highest,
-            outline = outline, outlineVariant = tone(0.355f, 0.024f),
+            outline = outline, outlineVariant = neutral(0.355f, 0.024f),
             inversePrimary = tone(0.5f, pc), surfaceTint = primary,
         ) to LockOnTones(
-            sky = listOf(tone(0.25f, 0.024f), background, tone(0.215f, 0.022f)),
+            sky = listOf(neutral(0.25f, 0.024f), background, neutral(0.215f, 0.022f)),
             panelFill = surface.copy(alpha = 0.96f),
             panelStrong = highest,
-            line = tone(0.93f, 0.02f).copy(alpha = 0.1f),
-            shade = tone(0.12f, 0.02f),
+            line = neutral(0.93f, 0.02f).copy(alpha = 0.1f),
+            shade = neutral(0.12f, 0.02f),
             mutedInk = outline,
             softThumb = tone(0.40f, 0.045f),
             track = onSurface.copy(alpha = 0.12f),
@@ -132,27 +138,27 @@ fun systemColorScheme(seed: Color, dark: Boolean, base: ColorScheme): Pair<Color
     } else {
         val primary = readable(h, pc, from = 0.52f, step = -0.01f, against = Color.White)
         val ink = tone(0.27f, 0.04f)
-        val surface = tone(0.985f, 0.005f)
+        val surface = neutral(0.985f, 0.005f)
         base.copy(
             primary = primary, onPrimary = Color.White,
             primaryContainer = tone(0.93f, 0.045f), onPrimaryContainer = tone(0.30f, pc * 0.6f),
-            background = tone(0.953f, 0.012f), onBackground = ink,
+            background = neutral(0.953f, 0.012f), onBackground = ink,
             surface = surface, onSurface = ink,
-            surfaceVariant = tone(0.935f, 0.01f), onSurfaceVariant = tone(0.46f, 0.04f),
-            surfaceContainerLowest = Color.White, surfaceContainerLow = tone(0.978f, 0.007f),
-            surfaceContainer = tone(0.962f, 0.009f), surfaceContainerHigh = tone(0.945f, 0.01f),
-            surfaceContainerHighest = tone(0.92f, 0.012f),
-            outline = tone(0.63f, 0.04f), outlineVariant = tone(0.87f, 0.012f),
+            surfaceVariant = neutral(0.935f, 0.01f), onSurfaceVariant = tone(0.46f, 0.04f),
+            surfaceContainerLowest = Color.White, surfaceContainerLow = neutral(0.978f, 0.007f),
+            surfaceContainer = neutral(0.962f, 0.009f), surfaceContainerHigh = neutral(0.945f, 0.01f),
+            surfaceContainerHighest = neutral(0.92f, 0.012f),
+            outline = tone(0.63f, 0.04f), outlineVariant = neutral(0.87f, 0.012f),
             inversePrimary = tone(0.82f, pc), surfaceTint = primary,
         ) to LockOnTones(
-            sky = listOf(tone(0.905f, 0.012f), tone(0.927f, 0.012f), tone(0.948f, 0.011f)),
+            sky = listOf(neutral(0.905f, 0.012f), neutral(0.927f, 0.012f), neutral(0.948f, 0.011f)),
             panelFill = Color.White.copy(alpha = 0.96f),
             panelStrong = Color.White,
             line = ink.copy(alpha = 0.1f),
             shade = ink.copy(alpha = 0.5f),
             mutedInk = tone(0.52f, 0.04f),
             softThumb = Color.White,
-            track = tone(0.895f, 0.02f),
+            track = neutral(0.895f, 0.02f),
         )
     }
 }
