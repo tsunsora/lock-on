@@ -1073,7 +1073,9 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
     // A frosted strip the full width of the window, so the sky shows through it and the floating
     // navigation sits over its ends. The cover art fades in from the right through an alpha mask.
     // On phones it reaches up under the status bar; only the header clears it.
-    Box(Modifier.fillMaxWidth().clipToBounds().shineSweep(locked)) {
+    // By day a phone's header is a flat white surface, so the full deck's gold count (#9A6200) reads on white (UX rule V3).
+    val surface = if (!wide && !app.lockon.ui.components.isTwilight()) Modifier.background(Color.White) else Modifier
+    Box(Modifier.fillMaxWidth().then(surface).clipToBounds().shineSweep(locked)) {
         Column(Modifier.windowInsetsPadding(ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top))) { content() }
     }
 }
