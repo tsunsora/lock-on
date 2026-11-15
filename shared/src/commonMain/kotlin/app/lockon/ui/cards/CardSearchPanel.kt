@@ -116,6 +116,7 @@ import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.cardColor
 import app.lockon.ui.theme.onCardColor
 import app.lockon.ui.components.ColorOrbToggle
+import app.lockon.ui.components.HoverTooltip
 import app.lockon.ui.components.PillSearchField
 import app.lockon.ui.components.VerticalScrollBar
 import androidx.compose.foundation.layout.width
@@ -248,10 +249,13 @@ fun CardSearchPanel(
 
     @Composable
     fun ViewControls() {
-        PillChip(
-            selected = showMore, onClick = { showMore = !showMore }, label = { Text("Filters") }, tall = true,
-            leadingIcon = { Icon(LineIcons.Sliders, contentDescription = null, Modifier.size(16.dp)) },
-        )
+        // Icon only: the sliders are a known mark, and the name is its tooltip and what a screen reader says (UX rule I5).
+        HoverTooltip("Filters") {
+            PillChip(
+                selected = showMore, onClick = { showMore = !showMore }, tall = true,
+                label = { Icon(LineIcons.Sliders, contentDescription = "Filters", Modifier.size(18.dp)) },
+            )
+        }
         Box {
             PillChip(
                 selected = false, onClick = { sortMenu = true }, tall = true,
@@ -361,6 +365,7 @@ fun CardSearchPanel(
                     selected = deckColorsOnly,
                     onClick = { toggleDeckColors() },
                     label = { Text("Deck colors") },
+                    leadingIcon = if (deckColorsOnly) ({ Icon(LineIcons.Check, contentDescription = null, Modifier.size(16.dp)) }) else null,
                 )
             }
         }

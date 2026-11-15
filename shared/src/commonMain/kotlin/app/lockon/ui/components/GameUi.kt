@@ -3,6 +3,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -422,6 +423,21 @@ fun GlassIconButton(
     ) {
         Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(if (compact) 18.dp else if (desktopControls) 20.dp else 22.dp))
     }
+}
+
+/**
+ * The name of an icon-only control as a small tooltip while the pointer rests on it (UX rule I5). Touch
+ * screens never hover, so on phones it shows only on a long press, where the control has none of its own.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun HoverTooltip(label: String, content: @Composable () -> Unit) {
+    androidx.compose.material3.TooltipBox(
+        positionProvider = androidx.compose.material3.TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = androidx.compose.material3.rememberTooltipState(),
+        content = content,
+    )
 }
 
 /** The one height for buttons, fields and icon buttons that share a row. A pointer needs less than a thumb. */
@@ -1134,14 +1150,15 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.graphicsLayer { alpha = lit }) {
-            ColorDot(color, onColor, label.take(1), size = 28.dp, outlined = outlined)
+            // 24 dp on desktop and 28 on phones, fixed so a narrow toolbar wraps the row rather than shrinking them.
+            ColorDot(color, onColor, label.take(1), size = if (desktopControls) 24.dp else 28.dp, outlined = outlined)
         }
         if (on > 0f) {
             Canvas(Modifier.fillMaxSize()) {
                 // On desktop the ring sits right on the dot's edge; phones keep it a little clear.
                 val mobile = app.lockon.platform.isMobile
                 val stroke = if (mobile) 2.5.dp.toPx() else SelectionEdgeWidth.toPx()
-                val rest = if (mobile) 18.dp.toPx() else 14.dp.toPx() + stroke / 2
+                val rest = if (mobile) 18.dp.toPx() else 12.dp.toPx() + stroke / 2
                 drawCircle(ring.copy(alpha = ring.alpha * on), radius = rest + 4.dp.toPx() * (1f - on), style = Stroke(stroke))
             }
         }
