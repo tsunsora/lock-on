@@ -855,7 +855,7 @@ private fun DeckList(
         }
         for ((label, entries) in groups) {
             item(key = "header-$label", contentType = "header") {
-                SectionHeader(label, Modifier.animateItem().padding(start = 8.dp, end = 8.dp, top = if (!compact && label == groups.first().first) 0.dp else 8.dp, bottom = 4.dp),
+                SectionHeader(label, Modifier.animateItem().padding(start = if (compact) 8.dp else 0.dp, end = if (compact) 8.dp else 0.dp, top = if (!compact && label == groups.first().first) 0.dp else 8.dp, bottom = 4.dp).solidOnPhone(!compact),
                     readout = "${entries.sumOf { it.quantity }}") {
                     if (compact && label == groups.first().first) ViewToggle(
                         cardView, onCardView, small = true,
@@ -907,7 +907,7 @@ private fun DeckList(
         item(key = "side-header", contentType = "side-header") {
             Column(Modifier.animateItem()) {
             SectionHeader(
-                "Side deck", Modifier.padding(start = 8.dp, end = 8.dp, top = 24.dp),
+                "Side deck", Modifier.padding(start = if (compact) 8.dp else 0.dp, end = if (compact) 8.dp else 0.dp, top = 24.dp).solidOnPhone(!compact),
                 readout = "${side.sumOf { it.quantity }}",
             )
             Text(
@@ -1286,3 +1286,8 @@ private fun MoreTile(item: EditorMoreItem, selected: Boolean, modifier: Modifier
 
 /** The editor's bar holds only three items, so it stays short enough to cross with one thumb. */
 private val EDITOR_NAV_WIDTH = 480.dp
+
+/** On phones a label over the deck's cards sits on a solid plate, so only cards lie on the sky (UX rules N4, V3). */
+@Composable
+private fun Modifier.solidOnPhone(phone: Boolean): Modifier =
+    if (!phone) this else clip(LockOnShapes.button).background(app.lockon.ui.components.glassColors().strong).padding(horizontal = 12.dp, vertical = 8.dp)
