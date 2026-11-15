@@ -64,19 +64,19 @@ object LineIcons {
     val Burst: ImageVector by lazy { icon("Burst", "M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8") }
     val Link: ImageVector by lazy { icon("Link", "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1", "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1") }
     // The card types are Lucide's (ISC, licenses/Lucide-ISC.txt), paths unchanged: shield for a unit,
-    // user-round for a pilot, zap for a command, castle for a base and gem for a resource.
+    // user-round for a pilot, zap for a command, castle for a base and box (a cube) for a resource.
     private val UnitLines = arrayOf("M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z")
     private val PilotLines = arrayOf("M7 8a5 5 0 1 0 10 0a5 5 0 1 0-10 0", "M20 21a8 8 0 0 0-16 0")
     private val CommandLines = arrayOf("M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z")
     private val BaseLines = arrayOf("M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z", "M18 11V4H6v7", "M15 22v-4a3 3 0 0 0-3-3a3 3 0 0 0-3 3v4", "M22 11V9", "M2 11V9", "M6 4V2", "M18 4V2", "M10 4V2", "M14 4V2")
-    private val ResourceLines = arrayOf("M6 3h12l4 6-10 13L2 9Z", "M11 3 8 9l4 13 4-13-3-6", "M2 9h20")
-    val Unit: ImageVector by lazy { icon("Unit", *UnitLines) }
-    val Pilot: ImageVector by lazy { icon("Pilot", *PilotLines) }
-    val Command: ImageVector by lazy { icon("Command", *CommandLines) }
-    val Base: ImageVector by lazy { icon("Base", *BaseLines) }
-    val Resource: ImageVector by lazy { icon("Resource", *ResourceLines) }
+    private val ResourceLines = arrayOf("M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z", "m3.3 7 8.7 5 8.7-5", "M12 22V12")
+    val Unit: ImageVector by lazy { icon("Unit", *UnitLines, stroke = 2.2f) }
+    val Pilot: ImageVector by lazy { icon("Pilot", *PilotLines, stroke = 2.2f) }
+    val Command: ImageVector by lazy { icon("Command", *CommandLines, stroke = 2.2f) }
+    val Base: ImageVector by lazy { icon("Base", *BaseLines, stroke = 2.2f) }
+    val Resource: ImageVector by lazy { icon("Resource", *ResourceLines, stroke = 2.2f) }
 
-    /** A card type's icon, at the usual stroke for chips and lists. */
+    /** A card type's icon for chips and lists, a little bolder than the other line icons so it reads at chip size. */
     fun forType(type: CardType?): ImageVector = when (type) {
         CardType.PILOT -> Pilot
         CardType.COMMAND -> Command
@@ -85,14 +85,14 @@ object LineIcons {
         else -> Unit
     }
 
-    // The same icons at a finer stroke, for the large symbol on a drawn card face, where 1.9 reads heavy.
-    private val faceUnit by lazy { icon("FaceUnit", *UnitLines, stroke = 1.4f) }
-    private val facePilot by lazy { icon("FacePilot", *PilotLines, stroke = 1.4f) }
-    private val faceCommand by lazy { icon("FaceCommand", *CommandLines, stroke = 1.4f) }
-    private val faceBase by lazy { icon("FaceBase", *BaseLines, stroke = 1.4f) }
-    private val faceResource by lazy { icon("FaceResource", *ResourceLines, stroke = 1.4f) }
+    // The same icons for the larger symbol on a drawn card face, at a stroke that suits that size.
+    private val faceUnit by lazy { icon("FaceUnit", *UnitLines, stroke = 2f) }
+    private val facePilot by lazy { icon("FacePilot", *PilotLines, stroke = 2f) }
+    private val faceCommand by lazy { icon("FaceCommand", *CommandLines, stroke = 2f) }
+    private val faceBase by lazy { icon("FaceBase", *BaseLines, stroke = 2f) }
+    private val faceResource by lazy { icon("FaceResource", *ResourceLines, stroke = 2f) }
 
-    /** A card type's icon at the drawn card face's finer stroke. */
+    /** A card type's icon at the drawn card face's stroke. */
     fun faceForType(type: CardType?): ImageVector = when (type) {
         CardType.PILOT -> facePilot
         CardType.COMMAND -> faceCommand
