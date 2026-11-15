@@ -18,7 +18,7 @@ import kotlinx.coroutines.selects.select
 
 enum class AutoSyncState(val label: String) {
     SYNCING("Merging…"),
-    LIVE("Merging automatically"),
+    LIVE("Live"),
     WAITING("Waiting for the desktop"),
 }
 
