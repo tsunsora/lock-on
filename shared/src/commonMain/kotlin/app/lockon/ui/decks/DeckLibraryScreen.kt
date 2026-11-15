@@ -56,7 +56,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import app.lockon.ui.components.CardBack
 import app.lockon.ui.components.CardImage
-import app.lockon.ui.components.CardFan
+import app.lockon.ui.components.SoftTile
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.pressWash
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -341,24 +341,26 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
                         }
                         if (wide) actions()
                     }
-                    // Phones' folders (desktop has the rail). They pick a folder from one chip's menu, flanked
-                    // by New folder and the open folder's actions; while a deck is held the folders spread out
-                    // as chips again, so it can be dropped on one.
-                    if (!wide && !list.isNullOrEmpty()) Row(
-                        Modifier.fillMaxWidth().padding(bottom = 8.dp).fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FadeSwap(drag.deck == null, contentAlignment = Alignment.CenterStart) { resting ->
-                            if (resting) {
-                                FolderTabs(list.size, folders, unfiled, showUnfiled, folderFilter) { folderFilter = it }
-                            } else {
+                    // Phones' folders (desktop has the rail). They pick a folder from one chip naming the open
+                    // folder, whose menu lists every folder with its count, New folder, and Rename and Remove for
+                    // the open one (UX rule N4). While a deck is held the folders spread out as chips, so it can be
+                    // dropped on one.
+                    if (!wide && !list.isNullOrEmpty()) FadeSwap(drag.deck == null, Modifier.padding(bottom = 8.dp), contentAlignment = Alignment.CenterStart) { resting ->
+                        if (resting) {
+                            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                FolderMenuChip(list.size, folders, unfiled, showUnfiled, folderFilter, onSelect = { folderFilter = it },
+                                    onNewFolder = { dialog = LibraryDialog.NewFolder() }, onRename = renameFolder, onRemove = removeFolder)
+                            }
+                        } else Row(
+                            Modifier.fillMaxWidth().fadeEnd().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 40.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                                 FolderChips(
                                     folders = folders, unfiled = unfiled, showUnfiled = showUnfiled, selected = folderFilter, drag = drag,
                                     onSelect = { folderFilter = it }, onNewFolder = { dialog = LibraryDialog.NewFolder() },
                                     onRename = renameFolder, onRemove = removeFolder,
                                 )
-                            }
                         }
                     }
                     // The folder's own actions live on the folder (its menu in the rail, or right-click) and in
@@ -449,17 +451,14 @@ fun DeckLibraryScreen(container: AppContainer, state: AppState, files: FileBridg
             }
         }
         }
-                if (!wide) {
-                    val named = (folderFilter as? FolderFilter.Named)?.name
+                // The empty library offers New deck itself, so the + joins only once there are decks (UX rule E3).
+                // Folder actions live in the folder chip's menu.
+                if (!wide && !list.isNullOrEmpty()) {
                     DeckActionsButton(
-                        buildList {
-                            add(DeckAction("New deck", LineIcons.Plus, primary = true) { dialog = LibraryDialog.New })
-                            add(DeckAction("New folder", LineIcons.Folderplus) { dialog = LibraryDialog.NewFolder() })
-                            if (named != null) {
-                                add(DeckAction("Rename folder", LineIcons.Edit) { renameFolder(named) })
-                                add(DeckAction("Remove folder", LineIcons.Trash) { removeFolder(named) })
-                            }
-                        },
+                        listOf(
+                            DeckAction("New deck", LineIcons.Plus, primary = true) { dialog = LibraryDialog.New },
+                            DeckAction("Paste a list", LineIcons.Paste) { dialog = LibraryDialog.Paste },
+                        ),
                     )
                 }
         DeckDragGhost(drag, { deckCover(it.snapshot, cards) }, Modifier.matchParentSize())
@@ -665,15 +664,15 @@ private fun FolderContextMenu(name: String, onRename: (String) -> Unit, onRemove
 }
 
 /**
- * Phones' folder picker: one chip naming the open folder, whose menu lists them all with their counts.
- * New folder sits before it, and the open folder's Rename and Remove after it, as round buttons, so
- * the menu only picks.
+ * Phones' folder picker (UX rule N4): one chip naming the open folder, whose menu lists every folder with
+ * its count, then New folder, and Rename and Remove for the open one.
  */
 @Composable
 private fun FolderMenuChip(
     total: Int,
     folders: List<Pair<String, Int>>,
     unfiled: Int,
+    showUnfiled: Boolean,
     selected: FolderFilter,
     onSelect: (FolderFilter) -> Unit,
     onNewFolder: () -> Unit,
@@ -681,23 +680,24 @@ private fun FolderMenuChip(
     onRemove: (String) -> Unit,
 ) {
     val label = when (selected) {
-        FolderFilter.All -> "All decks"
+        FolderFilter.All -> "All decks · $total"
         FolderFilter.Unfiled -> "No folder · $unfiled"
         is FolderFilter.Named -> "${selected.name} · ${folders.firstOrNull { it.first == selected.name }?.second ?: 0}"
     }
-    GlassIconButton(LineIcons.Plus, "New folder", onNewFolder, compact = true)
-    MenuChip(selected = selected != FolderFilter.All, label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) }) { close ->
+    MenuChip(selected = false, tall = true, label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 240.dp)) }) { close ->
         GameMenuItem("All decks · $total", onClick = { onSelect(FolderFilter.All); close() }, selected = selected == FolderFilter.All)
         folders.forEach { (name, count) ->
             GameMenuItem("$name · $count", onClick = { onSelect(FolderFilter.Named(name)); close() }, selected = selected == FolderFilter.Named(name))
         }
-        if (unfiled > 0 && folders.isNotEmpty()) {
+        if (showUnfiled && folders.isNotEmpty()) {
             GameMenuItem("No folder · $unfiled", onClick = { onSelect(FolderFilter.Unfiled); close() }, selected = selected == FolderFilter.Unfiled)
         }
-    }
-    (selected as? FolderFilter.Named)?.let { open ->
-        GlassIconButton(LineIcons.Edit, "Rename ${open.name}", { onRename(open.name) }, compact = true)
-        GlassIconButton(LineIcons.Trash, "Remove ${open.name}", { onRemove(open.name) }, tint = MaterialTheme.colorScheme.error, compact = true)
+        GameMenuDivider()
+        GameMenuItem("New folder", onClick = { close(); onNewFolder() }, icon = LineIcons.Folderplus)
+        (selected as? FolderFilter.Named)?.let { open ->
+            GameMenuItem("Rename ${open.name}", onClick = { close(); onRename(open.name) }, icon = LineIcons.Edit)
+            GameMenuItem("Remove ${open.name}", onClick = { close(); onRemove(open.name) }, icon = LineIcons.Trash, danger = true)
+        }
     }
 }
 
@@ -851,27 +851,6 @@ private fun DeckRow(
     }
 }
 
-/** Phones' folders as a strip of tabs on a soft track; the open one is a white thumb. */
-@Composable
-private fun FolderTabs(total: Int, folders: List<Pair<String, Int>>, unfiled: Int, showUnfiled: Boolean, selected: FolderFilter, onSelect: (FolderFilter) -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Row(Modifier.height(44.dp).clip(LockOnShapes.button).background(scheme.onSurface.copy(alpha = 0.09f)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        val tabs = listOf(Triple("All", total, FolderFilter.All as FolderFilter)) + folders.map { (name, count) -> Triple(name, count, FolderFilter.Named(name) as FolderFilter) } +
-            if (folders.isNotEmpty() && showUnfiled) listOf(Triple("No folder", unfiled, FolderFilter.Unfiled as FolderFilter)) else emptyList()
-        tabs.forEach { (label, count, filter) ->
-            val on = selected == filter
-            Row(
-                Modifier.fillMaxHeight().clip(LockOnShapes.inset).background(softThumbFill(on))
-                    .selectable(on, role = Role.Tab) { onSelect(filter) }.padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, color = softThumbTone(on), maxLines = 1)
-                Text("$count", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = scheme.onSurfaceVariant, maxLines = 1)
-            }
-        }
-    }
-}
-
 /** One choice in the phone's + menu. */
 private class DeckAction(val label: String, val icon: ImageVector, val primary: Boolean = false, val onClick: () -> Unit)
 
@@ -923,16 +902,22 @@ private fun BoxScope.DeckActionsButton(actions: List<DeckAction>) {
     }
 }
 
-/** Before the first deck: three card backs and the ways to get one. */
+/** Before the first deck: what goes here and the ways to get one. */
 @Composable
 fun NoDecks(onNew: () -> Unit, onPaste: () -> Unit, onFromDevice: () -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
-        CardFan(emptyList(), cardWidth = 92.dp, spread = 0.72f, tilt = 12f, sideDrop = 12.dp)
-        Text("No decks yet", Modifier.padding(top = 12.dp, bottom = 12.dp), style = MaterialTheme.typography.headlineSmall)
-        val width = Modifier.widthIn(max = 340.dp).fillMaxWidth()
-        GameButton("New deck", onClick = onNew, width, icon = LineIcons.Plus)
-        GameButton("Paste a list", onClick = onPaste, width, style = GameButtonStyle.SECONDARY, icon = LineIcons.Paste)
-        GameButton("Get decks from a device", onClick = onFromDevice, width, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync)
+    // One line says what goes here and New deck fills it, with no filler picture (UX rule E3). The words
+    // sit on a solid panel, not on the sky (V3).
+    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), contentAlignment = Alignment.TopCenter) {
+        SoftTile(Modifier.widthIn(max = 420.dp).fillMaxWidth(), solid = true, padding = 24.dp) {
+            Text("No decks yet", style = MaterialTheme.typography.titleLarge)
+            Text("Decks you build, paste or get from another device show here.", Modifier.padding(top = 8.dp, bottom = 16.dp),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GameButton("New deck", onClick = onNew, Modifier.fillMaxWidth(), icon = LineIcons.Plus)
+                GameButton("Paste a list", onClick = onPaste, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY, icon = LineIcons.Paste)
+                GameButton("Get decks from a device", onClick = onFromDevice, Modifier.fillMaxWidth(), style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync)
+            }
+        }
     }
 }
 
