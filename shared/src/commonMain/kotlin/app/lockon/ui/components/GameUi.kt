@@ -1717,7 +1717,8 @@ fun floatingPillWidth(screen: Dp, widest: Dp = 440.dp): Dp = minOf(screen - 24.d
 @Composable
 fun CenteredGlyph(text: String, color: Color, fontSize: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)
+    // One Quicksand glyph, measured by Quicksand's own cap height below, so no tabular sans here.
+    val style = MaterialTheme.typography.labelLarge
         .copy(fontSize = fontSize * GlyphLayoutScale, color = color, lineHeight = fontSize * GlyphLayoutScale, letterSpacing = 0.sp, baselineShift = androidx.compose.ui.text.style.BaselineShift.None)
     Canvas(modifier.fillMaxSize()) {
         val layout = measurer.measure(text, style)

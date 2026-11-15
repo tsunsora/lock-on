@@ -249,7 +249,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
                 if (card?.ap != null || card?.hp != null) {
                     Text(
                         "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp,
-                        style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                        style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.clip(RoundedCornerShape((u * 1.4f).dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = (u * 1.6f).dp),
                     )
                 }

@@ -57,7 +57,7 @@ Lock On is a working tool first. In impeccable's terms every screen is an **Oper
 
 ## 3. Information and feedback
 
-- **I1. Numbers read like instruments.** Counts and limits are written `current/limit` (`Main 42/50`) in one format across the app, with tabular figures, so totals don't jump around while you edit. A number that changes while you work is set in a face that has tabular figures; Quicksand has none, so `"tnum"` on a Quicksand style does nothing (see [Known gaps](#known-gaps)).
+- **I1. Numbers read like instruments.** Counts and limits are written `current/limit` (`Main 42/50`) in one format across the app, with tabular figures, so totals don't jump around while you edit. A number that changes while you work is set in a face that has tabular figures; Quicksand has none, so `TabularNumbers` sets those numbers in the platform sans with `"tnum"`, keeping the size and weight of the style it is merged into.
 - **I2. Deck health in one line.** Every deck header shows its legal or draft state, its main-deck count, and its colors, with no scrolling needed.
 - **I3. Explain the rule with the problem.** A legality message names the card, the count and the limit (*"Inferno Lancer has 5 copies; the limit is 4"*), never just *"Invalid deck."*
 - **I4. Color is never the only signal.** Card colors always come with their name or initial, and status tags always include a word. Charts tell series apart by position or label as well as colour.
@@ -218,7 +218,6 @@ Each line names what a guide asks, what Lock On does, and why. Where the guides 
 
 The rules above are ahead of the app in these places. Each is a follow-up change, reviewed in pictures (K7).
 
-- **Tabular figures (I1, V2a).** `TabularNumbers` is merged into Quicksand styles across the app, and Quicksand has no `tnum` feature and proportional digits, so counts and gauges still shift as they change.
 - **Launcher icon (V7).** The icon tile still runs from #9A68E6 to #7A55DC.
 - **Theme on platform surfaces (K9).** Text selection, the cursor and scrollbars have not been checked against the palette.
 

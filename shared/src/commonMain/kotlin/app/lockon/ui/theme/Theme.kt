@@ -145,8 +145,12 @@ private val MaterialShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp),
 )
 
-/** Counts use tabular figures so totals don't jitter while editing (UX rule I1). */
-val TabularNumbers = TextStyle(fontFeatureSettings = "tnum")
+/**
+ * Numbers that change while you work (counts, gauges, steppers, analysis figures) use the platform sans with
+ * tabular figures, so totals don't jitter while editing (UX rules I1, V2a). Quicksand has no `tnum`, so the
+ * family changes too; merged into a Quicksand style it keeps that style's size and weight.
+ */
+val TabularNumbers = TextStyle(fontFamily = FontFamily.SansSerif, fontFeatureSettings = "tnum")
 
 /**
  * Friendly rounded type in mixed case, like a game's menus (UX rule V2a). Quicksand (SIL OFL,

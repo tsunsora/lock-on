@@ -706,7 +706,7 @@ private fun <T> ChoiceStrip(label: String?, values: List<T>, selected: Set<T>, t
                             .semantics { contentDescription = if (label == null) text(value) else "$label ${text(value)}" },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(text(value), style = MaterialTheme.typography.labelLarge.merge(TabularNumbers),
+                        Text(text(value), style = MaterialTheme.typography.labelLarge,
                             color = lerp(ink, onAccent, picked[i]), maxLines = 1)
                     }
                 }

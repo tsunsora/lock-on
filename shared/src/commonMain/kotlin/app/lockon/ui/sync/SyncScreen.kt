@@ -1021,7 +1021,7 @@ private fun SelectionCard(selected: List<DeckSummary>, onEdit: () -> Unit) {
                     // A selection with no folders at all needs no "No folder" heading.
                     if (folder != null || groups.size > 1) {
                         Text(
-                            "${folder ?: "No folder"} · ${inGroup.size}", style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
+                            "${folder ?: "No folder"} · ${inGroup.size}", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
