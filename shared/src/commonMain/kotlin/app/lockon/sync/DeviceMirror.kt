@@ -62,13 +62,11 @@ class DeviceMirror(
 
 /** How a finished match reads: what changed on the device that was made to match. */
 fun matchedMessage(target: String, source: String, summary: MirrorSummary): String {
-    fun decks(n: Int) = if (n == 1) "1 deck" else "$n decks"
-    val changes = listOfNotNull(
-        summary.added.takeIf { it > 0 }?.let { "${decks(it)} added" },
-        summary.updated.takeIf { it > 0 }?.let { "${decks(it)} updated" },
-        summary.removed.takeIf { it > 0 }?.let { "${decks(it)} removed" },
-        "settings".takeIf { summary.settings },
-        "card list".takeIf { summary.catalog },
-    )
-    return "$target now matches $source" + (if (changes.isEmpty()) ": nothing needed changing." else ": ${changes.joinToString(", ")}.")
+    // One sentence about decks, as the Sync screen promises (UX rule T2): "2 decks added, 3 updated and 1 removed."
+    // Settings and the card list come along quietly; naming them tacked nouns onto a list of verbs.
+    val counts = listOf(summary.added to "added", summary.updated to "updated", summary.removed to "removed").filter { it.first > 0 }
+    if (counts.isEmpty()) return "$target now matches $source: no decks needed changing."
+    val parts = counts.mapIndexed { i, (n, verb) -> if (i == 0) "$n ${if (n == 1) "deck" else "decks"} $verb" else "$n $verb" }
+    val sentence = if (parts.size == 1) parts[0] else parts.dropLast(1).joinToString(", ") + " and " + parts.last()
+    return "$target now matches $source: $sentence."
 }

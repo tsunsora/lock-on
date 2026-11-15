@@ -3,6 +3,12 @@ import androidx.compose.foundation.layout.ColumnScope
 import app.lockon.ui.components.LocalTopBand
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.sp
+import app.lockon.ui.components.PillSegmented
+import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -91,39 +97,47 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
                 }
             }
         }
-        if (stats.levelCurve.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
-            Text("Level", style = MaterialTheme.typography.titleSmall)
-            MiniCurve(stats.levelCurve, Modifier.fillMaxWidth(), height = 112.dp, caption = false, prefix = "")
-        }
-        if (stats.costCurve.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
-            Text("Cost", style = MaterialTheme.typography.titleSmall)
+        // One main chart, the tallest thing on the screen, switching between the cost and level curves, so
+        // neither loses its numbers and two equal charts don't compete. Every bar is the same slate (V3).
+        if (stats.costCurve.isNotEmpty() || stats.levelCurve.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
+            var byLevel by rememberSaveable { mutableStateOf(false) }
             // Few cards cost more than 5, so they share a bar.
             val high = stats.costCurve.filter { it.first >= 5 }.sumOf { it.second }
             val costs = stats.costCurve.filter { it.first < 5 } + if (high > 0) listOf(5 to high) else emptyList()
-            MiniCurve(costs, Modifier.fillMaxWidth(), height = 112.dp, caption = false, prefix = "", suffixLast = if (high > 0) "+" else "")
+            val curve = if (byLevel) stats.levelCurve else stats.costCurve
+            val average = curve.sumOf { it.first * it.second }.toFloat() / curve.sumOf { it.second }.coerceAtLeast(1)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                PillSegmented(listOf("Cost", "Level"), if (byLevel) 1 else 0, { byLevel = it == 1 }, Modifier.width(168.dp))
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "Average ${if (byLevel) "level" else "cost"} ${(average * 10).roundToInt() / 10f}",
+                    style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                )
+            }
+            androidx.compose.animation.Crossfade(byLevel, animationSpec = app.lockon.ui.components.motion(), label = "curve") { level ->
+                if (level) MiniCurve(stats.levelCurve, Modifier.fillMaxWidth().padding(top = 8.dp), height = 176.dp, caption = false, prefix = "", axis = true)
+                else MiniCurve(costs, Modifier.fillMaxWidth().padding(top = 8.dp), height = 176.dp, caption = false, prefix = "", suffixLast = if (high > 0) "+" else "", axis = true)
+            }
         }
         val slate = if (isTwilight()) ChartSlateTwilight else ChartSlate
         // Tokens only show when a deck has one by mistake, which legality already flags.
         val types = CardType.entries.filter { !it.isResource }.mapNotNull { type -> stats.typeCounts[type]?.takeIf { it > 0 }?.let { type to it } }
-        if (types.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
-            // Evenly spaced steps, and each square under the bar is its segment's exact colour.
-            val ramp = listOf(1f, 0.62f, 0.36f, 0.18f)
-            val under = if (isTwilight()) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest
-            val shades = types.indices.map { i -> slate.copy(alpha = ramp.getOrElse(i) { 0.18f }).compositeOver(under) }
-            SplitBar(types.mapIndexed { i, (_, count) -> Segment("$count", count, shades[i], if (i == 0) (if (isTwilight()) Color(0xFF1B2147) else Color.White) else MaterialTheme.colorScheme.onSurface) })
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                types.forEachIndexed { i, (type, _) ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(4.dp)).background(shades[i]))
-                        Text("${type.label}s", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
+        if (types.isNotEmpty() || stats.colorCounts.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
+            if (types.isNotEmpty()) {
+                Text("Card types", style = MaterialTheme.typography.titleSmall)
+                // Four distinct slate steps; the darkest gets an ink line so it holds on the panel. No text sits on a fill.
+                val shades = if (isTwilight()) TwilightTypeShades
+                    else listOf(1f, 0.62f, 0.36f, 0.18f).map { slate.copy(alpha = it).compositeOver(MaterialTheme.colorScheme.surfaceContainerLowest) }
+                val line = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                SplitBar(types.mapIndexed { i, (_, count) -> Segment(count, shades.getOrElse(i) { shades.last() }, line.takeIf { i == 3 }) })
+                Legend(types.mapIndexed { i, (type, count) -> Triple("$count ${type.label}s", shades.getOrElse(i) { shades.last() }, line.takeIf { i == 3 }) })
             }
-        }
-        if (stats.colorCounts.isNotEmpty()) AnalysisTile(Modifier.fillMaxWidth()) {
-            SplitBar(stats.colorCounts.entries.sortedBy { it.key.ordinal }.map { (color, count) ->
-                Segment("${color.label.take(1)} $count", count, cardColor(color), onCardColor(color))
-            })
+            if (stats.colorCounts.isNotEmpty()) {
+                Text("Colors", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = if (types.isNotEmpty()) 8.dp else 0.dp))
+                val colors = stats.colorCounts.entries.sortedBy { it.key.ordinal }
+                SplitBar(colors.map { (color, count) -> Segment(count, cardColor(color)) })
+                Legend(colors.map { (color, count) -> Triple("${color.label} $count", cardColor(color), null) })
+            }
         }
     }
     VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
@@ -135,26 +149,48 @@ fun DeckAnalysisPanel(deck: DeckSnapshot, cards: Map<String, Card>, legality: De
 private fun AnalysisTile(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
     SoftTile(modifier, solid = LocalTopBand.current.height == 0.dp, content = content)
 
-/** A label over a big number, and nothing else: an icon beside each label only filled the tile. */
+/** A muted label over a big number, flat with no rim, and nothing else: an icon beside each label only filled the tile. */
 @Composable
 private fun StatTile(label: String, value: Int, modifier: Modifier, onClick: (() -> Unit)? = null) {
     AnalysisTile(modifier.clip(LockOnShapes.tile).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-        app.lockon.ui.components.RollingNumber(value, MaterialTheme.typography.headlineSmall.merge(TabularNumbers))
+        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = app.lockon.ui.components.mutedInk(), maxLines = 1)
+        app.lockon.ui.components.RollingNumber(value, MaterialTheme.typography.titleLarge.copy(fontSize = 21.sp).merge(TabularNumbers))
     }
 }
 
-private class Segment(val text: String, val size: Int, val color: Color, val ink: Color)
+/** The card type split's slate steps at twilight, lightest first. */
+private val TwilightTypeShades = listOf(Color(0xFFB4BEE0), Color(0xFF8090BF), Color(0xFF56639A), Color(0xFF3A4672))
 
-/** One bar split by share, with each part's number on it. */
+private class Segment(val size: Int, val color: Color, val line: Color? = null)
+
+/** One 12 dp bar split by share with 2 dp gaps. The legend under it names each part, so no text sits on a fill. */
 @Composable
 private fun SplitBar(segments: List<Segment>) {
-    Row(Modifier.fillMaxWidth().height(24.dp).clip(RoundedCornerShape(8.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(12.dp).clip(RoundedCornerShape(6.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         segments.forEach { segment ->
             // A new share moves the bar's split rather than redrawing it.
             val share by androidx.compose.animation.core.animateFloatAsState(segment.size.toFloat(), app.lockon.ui.components.motion(app.lockon.ui.components.Motion.LONG), label = "split")
-            Box(Modifier.weight(share.coerceAtLeast(0.01f)).fillMaxHeight().background(segment.color), contentAlignment = Alignment.Center) {
-                Text(segment.text, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), color = segment.ink, maxLines = 1)
+            Box(
+                Modifier.weight(share.coerceAtLeast(0.01f)).fillMaxHeight().background(segment.color)
+                    .then(if (segment.line != null) Modifier.border(1.dp, segment.line) else Modifier),
+            )
+        }
+    }
+}
+
+/** A split bar's legend, two to a row: a swatch in the part's exact colour, then its words and count. */
+@Composable
+private fun Legend(entries: List<Triple<String, Color, Color?>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        entries.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth()) {
+                row.forEach { (text, color, line) ->
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(4.dp)).background(color).then(if (line != null) Modifier.border(1.dp, line, RoundedCornerShape(4.dp)) else Modifier))
+                        Text(text, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers), maxLines = 1)
+                    }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }

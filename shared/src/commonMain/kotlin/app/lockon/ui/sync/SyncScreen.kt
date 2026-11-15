@@ -1,5 +1,9 @@
 package app.lockon.ui.sync
 
+import app.lockon.ui.components.HairlineWidth
+import app.lockon.ui.components.glassColors
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.horizontalScroll
 import app.lockon.ui.components.Reveal
@@ -169,23 +173,29 @@ fun SyncScreen(
 ) {
     // The chosen decks stay chosen while flipping to Sync devices and back.
     var chosen by remember { mutableStateOf(emptyList<String>()) }
+    val status by controller.status.collectAsState()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val grouped = maxWidth >= SideBySide || (maxWidth >= 640.dp && maxHeight < 520.dp)
         androidx.compose.runtime.CompositionLocalProvider(LocalGrouped provides grouped) {
-            Crossfade(sending, Modifier.fillMaxSize(), animationSpec = motion(), label = "sync-page") { send ->
-                if (send) SendPage(controller, decks, cards, chosen) { chosen = it }
-                else DevicesPage(controller, deviceName)
+            // Read top to bottom: this device, the switch for what the page shows, then the page (UX rule R3:
+            // a switch for a screen's own content sits directly above it; Sync now stays low on the page).
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Column(
+                        Modifier.widthIn(max = if (grouped) GroupedWidth else Dp.Unspecified).fillMaxWidth()
+                            .padding(start = TrayInset, end = TrayInset, top = if (grouped) GroupedTabsTop else 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ThisDevice(deviceName, status)
+                        PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, Modifier, fill = true, soft = true, itemHeight = ControlSize, bare = true)
+                    }
+                }
+                Crossfade(sending, Modifier.weight(1f).fillMaxWidth(), animationSpec = motion(), label = "sync-page") { send ->
+                    if (send) SendPage(controller, decks, cards, chosen) { chosen = it }
+                    else DevicesPage(controller)
+                }
             }
         }
-        // Over the pages, in the room each leaves, so the thumb slides rather than fading with them.
-        val tabs: @Composable (Modifier, Dp) -> Unit = { modifier, height ->
-            PillTabs(listOf("Devices", "Send decks"), if (sending) 1 else 0, { onSendingChange(it == 1) }, modifier, fill = true, soft = true, itemHeight = height, bare = true)
-        }
-        if (grouped) tabs(Modifier.align(Alignment.TopCenter).padding(top = GroupedTabsTop).width(GroupedTabsWidth), ControlSize)
-        else tabs(
-            Modifier.align(Alignment.BottomCenter).padding(start = TrayInset * 2, end = TrayInset * 2, bottom = LocalNavClearance.current + TrayInset),
-            TrayTabs,
-        )
     }
 }
 
@@ -211,9 +221,8 @@ private val PanelPad = 18.dp
 private val SectionGap = 28.dp
 private val RowGap = 12.dp
 
-/** The phone's tray: inset and tabs. A thumb gets 48 dp on everything in it. */
+/** The phone's screen padding. A thumb gets 48 dp on everything here. */
 private val TrayInset = 16.dp
-private val TrayTabs = 48.dp
 
 /** Under this, two buttons side by side give up their icons so the labels stay on one line. */
 private val TwoButtonsWithIcons = 320.dp
@@ -228,11 +237,10 @@ private fun thumbSized(): Modifier =
 private fun deviceShape(): androidx.compose.ui.graphics.Shape = if (LocalGrouped.current) RoundedCornerShape(12.dp) else LockOnShapes.tile
 
 @Composable
-private fun Modifier.deviceRow(): Modifier = clip(deviceShape()).background(
-    when {
-        !LocalGrouped.current -> panelFill()
-        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = if (isTwilight()) 0.06f else 0.045f)
-    },
+private fun Modifier.deviceRow(): Modifier = clip(deviceShape()).then(
+    // On phones a row lies straight on its section's panel; grouped, it is a quiet tile on it.
+    if (!LocalGrouped.current) Modifier
+    else Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = if (isTwilight()) 0.06f else 0.045f)),
 )
 
 /** The line under a device's name: a size up where a grouped row has the room. */
@@ -241,30 +249,31 @@ private fun statusStyle(): androidx.compose.ui.text.TextStyle =
     if (LocalGrouped.current) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall
 
 /**
- * Where a page's parts go. Grouped, one centred column under the tabs: the page's [controls] on a panel,
- * then each section on its own. Otherwise the list fills from the bottom and the controls sit in a solid
- * tray over the tabs, in thumb reach just above the bottom bar. [SyncScreen] draws the tabs in the space
- * left here for them, so they stay put while the pages fade across.
+ * Where a page's parts go: [top] (a panel of what to send), then the [list], then [bottom], the page's
+ * actions. Grouped, one centred column. On phones the list scrolls, and [bottom] is pinned 24 dp above the
+ * bottom bar in thumb reach (UX rule R3), so the free space falls between the list and it; [bottomPanel]
+ * puts it on a solid panel.
  */
 @Composable
 private fun SyncFrame(
-    controls: (@Composable ColumnScope.() -> Unit)?,
-    footer: @Composable () -> Unit,
+    top: (@Composable ColumnScope.() -> Unit)? = null,
+    bottom: (@Composable ColumnScope.() -> Unit)? = null,
+    bottomPanel: Boolean = false,
     list: @Composable ColumnScope.() -> Unit,
 ) {
     val clearance = LocalNavClearance.current
     if (LocalGrouped.current) {
-        Box(Modifier.fillMaxSize().padding(top = GroupedTabsTop + ControlSize + RowGap)) {
+        Box(Modifier.fillMaxSize()) {
             val scrollState = rememberScrollState()
             Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
                 Column(Modifier.widthIn(max = GroupedWidth).fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp + clearance)) {
-                    if (controls != null) Column(
-                        Modifier.fillMaxWidth().dealIn("sync-controls", 0).clip(LockOnShapes.tile).background(panelFill())
+                    if (top != null) Column(
+                        Modifier.fillMaxWidth().padding(top = 16.dp).dealIn("sync-controls", 0).clip(LockOnShapes.tile).background(panelFill())
                             .animateContentSize(glide()).padding(PanelPad),
-                        content = controls,
+                        content = top,
                     )
                     list()
-                    Box(Modifier.fillMaxWidth().padding(top = 20.dp), contentAlignment = Alignment.Center) { footer() }
+                    if (bottom != null) Column(Modifier.fillMaxWidth().padding(top = PanelGap), content = bottom)
                 }
             }
             VerticalScrollBar(scrollState, Modifier.align(Alignment.TopEnd))
@@ -272,22 +281,22 @@ private fun SyncFrame(
         return
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        // A window too short for both: only the tabs stay down here.
-        val roomy = maxHeight >= 520.dp
-        val trayLimit = maxHeight * 0.4f
+        // A window too short to pin the actions: they scroll with the list instead.
+        val roomy = maxHeight >= 420.dp
         Column(Modifier.fillMaxSize()) {
-            DeviceList(Modifier.weight(1f).fillMaxWidth(), PaddingValues(start = TrayInset, end = TrayInset, top = 8.dp, bottom = RowGap), fromBottom = roomy) {
-                if (!roomy && controls != null) Column(Modifier.fillMaxWidth().padding(bottom = SectionGap).clip(LockOnShapes.panel).background(panelFill()).padding(TrayInset), content = controls)
+            DeviceList(Modifier.weight(1f).fillMaxWidth(), PaddingValues(start = TrayInset, end = TrayInset, top = 16.dp, bottom = RowGap), fromBottom = false) {
+                if (top != null && !roomy) Column(Modifier.fillMaxWidth().padding(bottom = SectionGap).clip(LockOnShapes.tile).background(panelFill()).padding(TrayInset), content = top)
                 list()
-                Box(Modifier.fillMaxWidth().padding(top = RowGap), contentAlignment = Alignment.Center) { footer() }
+                if (bottom != null && !roomy) Column(Modifier.fillMaxWidth().padding(top = SectionGap), content = bottom)
             }
-            Column(
-                Modifier.fillMaxWidth().padding(start = TrayInset, end = TrayInset, bottom = clearance).dealIn("sync-controls", 0)
-                    .clip(LockOnShapes.panel).background(panelFill()).animateContentSize(glide()).padding(TrayInset),
-                verticalArrangement = Arrangement.spacedBy(TrayInset),
+            if (roomy && (bottom != null || top != null)) Column(
+                Modifier.fillMaxWidth().padding(start = TrayInset, end = TrayInset, top = 8.dp, bottom = clearance + 12.dp).dealIn("sync-controls", 0)
+                    .then(if (bottomPanel) Modifier.clip(LockOnShapes.tile).background(panelFill()).padding(TrayInset) else Modifier)
+                    .animateContentSize(glide()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (roomy && controls != null) Column(Modifier.fillMaxWidth().heightIn(max = trayLimit).verticalScroll(rememberScrollState()), content = controls)
-                Spacer(Modifier.height(TrayTabs))
+                top?.let { Column(Modifier.fillMaxWidth(), content = it) }
+                bottom?.let { Column(Modifier.fillMaxWidth(), content = it) }
             }
         }
     }
@@ -329,61 +338,83 @@ private fun SyncSection(title: String, count: Int, first: Boolean, dealKey: Stri
         }
     } else Column(Modifier.fillMaxWidth().padding(top = if (first) 0.dp else SectionGap)) {
         SectionHeader(title, readout = "$count")
-        content()
+        Column(
+            Modifier.padding(top = 8.dp).fillMaxWidth().dealIn(dealKey, 1).clip(LockOnShapes.tile).background(panelFill())
+                .border(HairlineWidth, glassColors().line, LockOnShapes.tile).animateContentSize(glide()).padding(bottom = 4.dp),
+            content = content,
+        )
     }
 }
 
-/** Help when a device doesn't show. Teal text would call it a main action; it's in plain ink. */
+/**
+ * Help when a device doesn't show, as the last row of Nearby: a 44 dp row in plain ink under a hairline.
+ * Teal would call it a main action.
+ */
 @Composable
-private fun TroubleshootButton(onClick: () -> Unit) {
-    GameButton(
-        "Troubleshoot", onClick = onClick, style = GameButtonStyle.GHOST, icon = LineIcons.Info, compact = true,
-        tone = MaterialTheme.colorScheme.onSurfaceVariant, modifier = thumbSized(),
-    )
-}
-
-/** This device: its name, that it's on Wi-Fi, how a sync that needs attention is going, and the other ways to pair. */
-@Composable
-private fun ThisDevice(deviceName: String, status: SyncStatus, onOtherWays: () -> Unit, qrLabel: String) {
-    val scheme = MaterialTheme.colorScheme
-    val grouped = LocalGrouped.current
-    // A non-breaking hyphen, so "Wi-Fi" never splits over two lines.
-    val caption = "On Wi‑Fi"
-    val wifi: @Composable () -> Unit = {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(LineIcons.Wifi, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
-            Text(caption, style = statusStyle(), color = scheme.onSurfaceVariant, maxLines = 1)
+private fun TroubleshootRow(onClick: () -> Unit) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    Column(Modifier.fillMaxWidth().padding(top = RowGap)) {
+        Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(HairlineWidth).background(glassColors().line))
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).heightIn(min = 44.dp).clip(LockOnShapes.button)
+                .clickable(role = Role.Button, onClick = onClick),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(LineIcons.Info, contentDescription = null, Modifier.size(18.dp), tint = ink)
+            Text("Troubleshoot", style = MaterialTheme.typography.labelLarge, color = ink)
         }
     }
-    val qr: @Composable (Modifier, Boolean) -> Unit = { modifier, withIcon ->
-        GameButton(qrLabel, onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Qr.takeIf { withIcon }, compact = true, modifier = thumbSized().then(modifier))
-    }
-    val address: @Composable (Modifier, Boolean) -> Unit = { modifier, withIcon ->
-        GameButton("Address", onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Text.takeIf { withIcon }, compact = true, modifier = thumbSized().then(modifier))
-    }
-    Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (grouped) 16.dp else 12.dp)) {
+}
+
+/**
+ * This device, at the top of the screen on its own panel: its mark, its name, that it's on Wi-Fi, and that
+ * only decks sync with no account or server (UX rule T2). A sync that needs attention shows under it.
+ */
+@Composable
+private fun ThisDevice(deviceName: String, status: SyncStatus) {
+    val scheme = MaterialTheme.colorScheme
+    val grouped = LocalGrouped.current
+    Column(
+        Modifier.fillMaxWidth().dealIn("sync-device", 0).clip(LockOnShapes.tile).background(panelFill())
+            .border(HairlineWidth, glassColors().line, LockOnShapes.tile).animateContentSize(glide())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             app.lockon.ui.BrandTile(if (grouped) 56.dp else 48.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (grouped) 4.dp else 2.dp)) {
-                Text(deviceName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                wifi()
-            }
-            if (grouped) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                qr(Modifier, true)
-                address(Modifier, false)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(deviceName, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(LineIcons.Wifi, contentDescription = null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
+                    // A non-breaking hyphen, so "Wi-Fi" never splits over two lines.
+                    Text("On Wi‑Fi", style = statusStyle(), color = scheme.onSurfaceVariant, maxLines = 1)
+                }
+                Text("Decks only · no account, no server", style = MaterialTheme.typography.bodySmall, color = app.lockon.ui.components.mutedInk(), maxLines = 2)
             }
         }
         // Only what needs attention: a ready device says so by being here.
-        RevealValue(status.takeIf { it.message != null && (it.isError || it.working) }) { StatusStrip(it, Modifier.fillMaxWidth().padding(top = 16.dp)) }
-        if (!grouped) {
-            Spacer(Modifier.height(12.dp))
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val iconRoom = maxWidth >= TwoButtonsWithIcons
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    qr(Modifier.weight(1f), iconRoom)
-                    address(Modifier.weight(1f), iconRoom)
-                }
-            }
+        RevealValue(status.takeIf { it.message != null && (it.isError || it.working) }) { StatusStrip(it, Modifier.fillMaxWidth().padding(top = 12.dp)) }
+    }
+}
+
+/** The Devices page's actions: Sync now, the one solid action, over the other ways to pair. */
+@Composable
+private fun SyncActions(syncNow: (() -> Unit)?, qrLabel: String, onOtherWays: () -> Unit) {
+    val grouped = LocalGrouped.current
+    val qr: @Composable (Modifier) -> Unit = { m ->
+        GameButton(qrLabel, onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Qr, compact = true, modifier = m.heightIn(min = 44.dp))
+    }
+    val address: @Composable (Modifier) -> Unit = { m ->
+        GameButton("Address", onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Text, compact = true, modifier = m.heightIn(min = 44.dp))
+    }
+    if (grouped) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (syncNow != null) GameButton("Sync now", onClick = syncNow, icon = LineIcons.Sync, modifier = Modifier.weight(1f))
+        qr(Modifier.weight(1f))
+        address(Modifier.weight(1f))
+    } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (syncNow != null) GameButton("Sync now", onClick = syncNow, icon = LineIcons.Sync, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            qr(Modifier.weight(1f))
+            address(Modifier.weight(1f))
         }
     }
 }
@@ -393,8 +424,7 @@ private fun ThisDevice(deviceName: String, status: SyncStatus, onOtherWays: () -
  * nearby that aren't paired yet, where a tap pairs and then asks the same question.
  */
 @Composable
-private fun DevicesPage(controller: SyncController, deviceName: String) {
-    val status by controller.status.collectAsState()
+private fun DevicesPage(controller: SyncController) {
     val paired by controller.pairedDevices.collectAsState(initial = emptyList())
     val transfers by controller.transfers.collectAsState()
     val nearby by when (controller) {
@@ -428,34 +458,37 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
 
     val devices: @Composable () -> Unit = {
         SyncSection("Your devices", paired.size, first = true, dealKey = "paired") {
-            Reveal(paired.isEmpty() && unpaired.isEmpty()) { Box(Modifier.padding(top = RowGap)) { SearchingCard() } }
+            Reveal(paired.isEmpty() && unpaired.isEmpty()) { Box(Modifier.padding(top = rowTop())) { SearchingCard() } }
             RevealItems(paired, { it.deviceId }) { device ->
                 val i = paired.indexOf(device).coerceAtLeast(0)
-                Box(Modifier.padding(top = RowGap)) {
+                Box(Modifier.padding(top = rowTop())) {
                     PairedTile(
                         device = device,
                         transfer = transfers[device.deviceId],
                         live = when (controller) {
                             is ClientSyncController -> autoStates[device.deviceId]?.let { it.label to (it == AutoSyncState.LIVE) }
-                            is HostSyncController -> if (device.deviceId in liveClients) "Merging automatically" to true else null
+                            is HostSyncController -> if (device.deviceId in liveClients) "Live" to true else null
                         },
                         index = i + 1,
+                        // With one device, Sync now below is its button.
+                        rowSync = paired.size > 1,
                         onTap = { choosing = device.deviceId },
                         onClear = { controller.clearTransfer(device.deviceId) },
                     )
                 }
             }
         }
-        Reveal(unpaired.isNotEmpty()) {
+        run {
             SyncSection("Nearby", unpaired.size, first = false, dealKey = "nearby") {
                 RevealItems(unpaired, { it.deviceId }) { device ->
-                    Box(Modifier.padding(top = RowGap)) {
+                    Box(Modifier.padding(top = rowTop())) {
                         DeviceTile(
                             device = device,
                             send = null,
                             inviting = device.deviceId in invited,
                             hint = "Not paired",
                             action = "Pair",
+                            washed = true,
                             actionIcon = app.lockon.ui.components.Glyphs.Link,
                             index = paired.size + unpaired.indexOf(device).coerceAtLeast(0) + 1,
                             onTap = { if (device.compatible) pair(device) },
@@ -463,13 +496,15 @@ private fun DevicesPage(controller: SyncController, deviceName: String) {
                         )
                     }
                 }
+                TroubleshootRow { troubleshoot = true }
             }
         }
     }
 
+    // Sync now opens the choice for the device synced most recently: the only one, nearly always.
+    val syncNow = paired.maxByOrNull { it.lastSyncAt ?: 0L }?.let { device -> { choosing = device.deviceId } }
     SyncFrame(
-        controls = { ThisDevice(deviceName, status, onOtherWays = { showOther = true }, qrLabel = if (isHost) "QR code" else "Scan QR code") },
-        footer = { TroubleshootButton { troubleshoot = true } },
+        bottom = { SyncActions(syncNow, qrLabel = if (isHost) "QR code" else "Scan QR code", onOtherWays = { showOther = true }) },
     ) { devices() }
 
     paired.firstOrNull { it.deviceId == choosing }?.let { device ->
@@ -509,6 +544,17 @@ private fun TroubleshootDialog(isHost: Boolean, onDismiss: () -> Unit, onOtherWa
     )
 }
 
+/** When a device last synced, in words: "Last synced 3 min ago". */
+private fun lastSynced(epochMillis: Long): String {
+    val minutes = (kotlin.time.Clock.System.now().toEpochMilliseconds() - epochMillis) / 60_000
+    return when {
+        minutes < 1 -> "Last synced just now"
+        minutes < 60 -> "Last synced $minutes min ago"
+        minutes < 24 * 60 -> "Last synced ${minutes / 60} h ago"
+        else -> "Last synced " + app.lockon.platform.dayLabel(epochMillis)
+    }
+}
+
 /** What a sync's line under the device name says while it runs and once it's done. */
 private fun SyncTransfer.label(): String = message ?: when (state) {
     SyncTransfer.State.WAITING -> "Waiting for $deviceName…"
@@ -528,6 +574,7 @@ private fun PairedTile(
     transfer: SyncTransfer?,
     live: Pair<String, Boolean>?,
     index: Int,
+    rowSync: Boolean,
     onTap: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -555,13 +602,16 @@ private fun PairedTile(
                         color = if (shownTransfer.state == SyncTransfer.State.FAILED) scheme.error else scheme.onSurfaceVariant,
                     )
                 } else {
-                    // One line: how it's connected or what went wrong, and when it last synced.
+                    // How it's connected or what went wrong (Live, or Waiting for the desktop, T5), then when it last synced.
                     val problem = device.lastError
-                    val line = listOfNotNull(problem ?: live?.first ?: "Paired", device.lastSyncAt?.let { app.lockon.platform.ageLabel(it) } ?: "not synced yet").joinToString(" · ")
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (problem != null) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = scheme.error)
-                        else if (live != null) Box(Modifier.size(8.dp).clip(CircleShape).background(if (live.second) scheme.secondary else scheme.outline))
-                        Text(line, style = statusStyle(), color = if (problem != null) scheme.error else scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (problem != null) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = scheme.error)
+                            else if (live != null) Box(Modifier.size(6.dp).clip(CircleShape).background(if (live.second) scheme.onSurface else scheme.outline))
+                            Text(problem ?: live?.first ?: "Paired", style = statusStyle(), color = when { problem != null -> scheme.error; live?.second == true -> scheme.onSurface; else -> scheme.onSurfaceVariant },
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        Text(device.lastSyncAt?.let { lastSynced(it) } ?: "Not synced yet", style = statusStyle(), color = scheme.onSurfaceVariant, maxLines = 1)
                     }
                 }
                 }
@@ -571,7 +621,8 @@ private fun PairedTile(
                 busy -> "working"
                 transfer != null -> "ok"
                 device.lastError != null -> "retry"
-                else -> "sync"
+                rowSync -> "sync"
+                else -> "none"
             }
             FadeSwap(trailing, contentAlignment = Alignment.CenterEnd) { action ->
                 when (action) {
@@ -579,7 +630,8 @@ private fun PairedTile(
                     "working" -> ReticleSpinner(size = 20.dp, modifier = Modifier.padding(end = 12.dp))
                     "ok" -> GameButton("OK", onClick = onClear, style = GameButtonStyle.SECONDARY, compact = true, modifier = thumbSized())
                     "retry" -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync, compact = true, onTone = scheme.error, modifier = thumbSized())
-                    else -> GameButton("Sync", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync.takeIf { grouped }, compact = true, modifier = thumbSized())
+                    "sync" -> GameButton("Sync", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync.takeIf { grouped }, compact = true, modifier = thumbSized())
+                    else -> Spacer(Modifier.size(0.dp))
                 }
             }
         }
@@ -732,7 +784,7 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
                 modifier = Modifier.fillMaxWidth().padding(top = if (LocalGrouped.current) PanelGap else 0.dp).deviceRow().padding(16.dp),
             )
         } else if (targets.isEmpty()) {
-            SyncSection("Your devices", 0, first = true, dealKey = "send-searching") { Box(Modifier.padding(top = RowGap)) { SearchingCard() } }
+            SyncSection("Your devices", 0, first = true, dealKey = "send-searching") { Box(Modifier.padding(top = rowTop())) { SearchingCard() } }
         }
         val pairedIds = paired.map { it.deviceId }.toSet()
         val (yours, nearby) = targets.partition { it.deviceId in pairedIds }
@@ -741,7 +793,7 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
             if (group.isEmpty()) return@forEach
             SyncSection(title, group.size, first, dealKey = "send-$title") {
                 group.forEachIndexed { i, device ->
-                    Box(Modifier.padding(top = RowGap)) {
+                    Box(Modifier.padding(top = rowTop())) {
                         DeviceTile(
                             device = device,
                             send = outgoing[device.deviceId],
@@ -768,13 +820,14 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
 
     val grouped = LocalGrouped.current
     SyncFrame(
-        controls = if (sharing == null) null else ({ WhatToSend(decks, selected, cards, onChoose = { choosing = true }, onChosen = onChosen) }),
-        footer = { TroubleshootButton { troubleshoot = true } },
+        top = if (sharing == null) null else ({ WhatToSend(decks, selected, cards, onChoose = { choosing = true }, onChosen = onChosen) }),
+        bottomPanel = true,
     ) {
-        RevealValue(status.takeIf { it.isError || it.working }) {
-            StatusStrip(it, Modifier.fillMaxWidth().padding(top = if (grouped) PanelGap else 0.dp, bottom = if (grouped) 0.dp else RowGap))
-        }
         where()
+        Box(Modifier.fillMaxWidth().padding(top = RowGap), contentAlignment = Alignment.Center) {
+            GameButton("Troubleshoot", onClick = { troubleshoot = true }, style = GameButtonStyle.GHOST, icon = LineIcons.Info, compact = true,
+                tone = MaterialTheme.colorScheme.onSurface, modifier = thumbSized())
+        }
     }
 
     if (choosing) {
@@ -1018,6 +1071,7 @@ private fun DeviceTile(
     index: Int,
     onTap: () -> Unit,
     onCancel: () -> Unit,
+    washed: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
@@ -1051,7 +1105,10 @@ private fun DeviceTile(
                 if (working) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (inviting) ReticleSpinner(size = 20.dp)
                     GameButton("Cancel", onClick = onCancel, style = GameButtonStyle.SECONDARY, compact = true, modifier = thumbSized())
-                } else GameButton(action, onClick = onTap, enabled = device.compatible, icon = actionIcon, compact = true, modifier = thumbSized())
+                // Pair is a teal wash with teal text, so Sync now stays the screen's one solid action.
+                } else if (washed) GameButton(action, onClick = onTap, enabled = device.compatible, icon = actionIcon, compact = true, style = GameButtonStyle.GHOST,
+                    modifier = thumbSized().clip(LockOnShapes.button).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)))
+                else GameButton(action, onClick = onTap, enabled = device.compatible, icon = actionIcon, compact = true, modifier = thumbSized())
             }
         }
         // The tile already eases its own height, so the bar only fades.
@@ -1525,3 +1582,7 @@ internal fun DeviceGlyph(desktop: Boolean, size: Int = 44) {
         contentAlignment = Alignment.Center,
     ) { Icon(if (desktop) LineIcons.Desktop else LineIcons.Phone, contentDescription = null, Modifier.size((size * 0.5f).dp), tint = MaterialTheme.colorScheme.onSurface) }
 }
+
+/** The gap above a device row: between tiles when grouped; on a phone the rows share one panel and pad themselves. */
+@Composable
+private fun rowTop(): Dp = if (LocalGrouped.current) RowGap else 0.dp

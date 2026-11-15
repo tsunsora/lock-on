@@ -40,6 +40,8 @@ import app.lockon.ui.components.softThumb
 import app.lockon.ui.components.softThumbInk
 import app.lockon.ui.theme.ChartSlate
 import app.lockon.ui.theme.ChartSlateTwilight
+import app.lockon.ui.theme.WinSlateTwilight
+import app.lockon.ui.components.HoverTooltip
 import app.lockon.ui.components.LocalTopBand
 import app.lockon.ui.components.isTwilight
 import app.lockon.ui.components.panelFill
@@ -61,6 +63,7 @@ import app.lockon.ui.components.GameButtonStyle
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -123,8 +126,8 @@ fun MatchLogPanel(
     var opponent by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var noting by rememberSaveable { mutableStateOf(false) }
-    // 0 = not recorded, 1 = went first, 2 = went second.
-    var turn by rememberSaveable { mutableStateOf(0) }
+    // 0 = not recorded, 1 = went first, 2 = went second. It starts on 1st, the switch's default, and tapping the lit one clears it.
+    var turn by rememberSaveable { mutableStateOf(1) }
     val scheme = MaterialTheme.colorScheme
     // The game being edited, by id, so an edit that syncs in meanwhile shows rather than a stale copy.
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -157,12 +160,15 @@ fun MatchLogPanel(
         }
     }
     val logPanel = @Composable { panelModifier: Modifier ->
-        SoftTile(panelModifier.fillMaxWidth(), solid = phone, padding = if (phone) 12.dp else 16.dp) {
+        val form: @Composable ColumnScope.() -> Unit = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillTextField(opponent, { opponent = it }, "Opponent", Modifier.weight(1f))
                 TurnChoice(turn) { turn = it }
-                // Lit while a note is open or written, so a note waiting to be logged isn't missed.
-                PillChip(selected = noting || notes.isNotBlank(), onClick = { noting = !noting }, label = { Text("Note") }, tall = true)
+                // Lit while a note is open or written, so a note waiting to be logged isn't missed. Icon only, named by its tooltip (I5).
+                HoverTooltip("Add note") {
+                    PillChip(selected = noting || notes.isNotBlank(), onClick = { noting = !noting }, tall = true,
+                        label = { Icon(LineIcons.Edit, contentDescription = "Add note", Modifier.size(18.dp)) })
+                }
             }
             // Earlier opponents to pick from instead of typing (UX rule C4).
             val picks = opponentSuggestions.filter { opponent.isNotBlank() && it.contains(opponent.trim(), ignoreCase = true) && !it.equals(opponent.trim(), ignoreCase = true) }.take(6)
@@ -179,13 +185,19 @@ fun MatchLogPanel(
                 val big = phone && !short
                 fun log(result: MatchResult) {
                     onLog(result, opponent.trim(), when (turn) { 1 -> true; 2 -> false; else -> null }, notes.trim())
-                    opponent = ""; notes = ""; noting = false; turn = 0; logged = result
+                    opponent = ""; notes = ""; noting = false; turn = 1; logged = result
                 }
-                GameButton(if (logged == MatchResult.WIN) "Logged" else "Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f).then(if (big) Modifier.heightIn(min = 52.dp) else Modifier))
-                GameButton(if (logged == MatchResult.LOSS) "Logged" else "Loss", onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f).then(if (big) Modifier.heightIn(min = 52.dp) else Modifier), tone = scheme.error, onTone = scheme.onError)
-                GameButton(if (logged == MatchResult.DRAW) "Logged" else "Draw", onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f).then(if (big) Modifier.heightIn(min = 52.dp) else Modifier), tone = drawTone(), onTone = onDrawTone())
+                // Three equal neutral plates: Win in teal as the one most taken, Loss and Draw in ink, so red
+                // stays for the losses in the data above.
+                val size = Modifier.then(if (big) Modifier.heightIn(min = 48.dp) else Modifier)
+                GameButton(if (logged == MatchResult.WIN) "Logged" else "Win", onClick = { log(MatchResult.WIN) }, modifier = Modifier.weight(1f).then(size), style = GameButtonStyle.SECONDARY, ink = scheme.primary)
+                GameButton(if (logged == MatchResult.LOSS) "Logged" else "Loss", onClick = { log(MatchResult.LOSS) }, modifier = Modifier.weight(1f).then(size), style = GameButtonStyle.SECONDARY)
+                GameButton(if (logged == MatchResult.DRAW) "Logged" else "Draw", onClick = { log(MatchResult.DRAW) }, modifier = Modifier.weight(1f).then(size), style = GameButtonStyle.SECONDARY)
             }
         }
+        // A solid panel on a phone; bare on desktop, where its plates sit on the deck panel like the record above.
+        if (phone) SoftTile(panelModifier.fillMaxWidth(), solid = true, padding = 12.dp, content = form)
+        else Column(panelModifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), content = form)
     }
     val fill = panelFill()
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -198,11 +210,17 @@ fun MatchLogPanel(
     ) {
         item(key = "record") {
             val record = @Composable {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    WinRing(stats.overall.winRate, if (short) 52.dp else if (phone) 68.dp else 84.dp)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (phone) 2.dp else 8.dp)) {
-                        FadeSwap(if (stats.overall.games == 0) "0–0" else stats.overall.score) {
-                            Text(it, style = (if (phone) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge).merge(TabularNumbers))
+                // The record at title size with the rate beside it in words; no ring drawing the rate a second time.
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (phone) 4.dp else 8.dp)) {
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            FadeSwap(if (stats.overall.games == 0) "0–0" else stats.overall.score) {
+                                Text(it, style = (if (phone) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium).merge(TabularNumbers))
+                            }
+                            stats.overall.winRate?.let { rate ->
+                                FadeSwap("$rate% won") {
+                                    Text(it, Modifier.padding(bottom = 2.dp), style = MaterialTheme.typography.titleSmall.merge(TabularNumbers), color = scheme.onSurfaceVariant)
+                                }
+                            }
                         }
                         RecordRow("1st", stats.goingFirst, nameWidth = 36.dp)
                         RecordRow("2nd", stats.goingSecond, nameWidth = 36.dp)
@@ -210,12 +228,24 @@ fun MatchLogPanel(
                         val o = stats.overall; val a = stats.goingFirst; val b = stats.goingSecond
                         val unsided = Record(o.wins - a.wins - b.wins, o.losses - a.losses - b.losses, o.draws - a.draws - b.draws)
                         if (unsided.games > 0) RecordRow("—", unsided, nameWidth = 36.dp)
-                    }
                 }
             }
             if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true, padding = if (short) 12.dp else 16.dp) { record() } else record()
         }
         if (!phone) item(key = "log") { logPanel(Modifier) }
+        // Above the games, as a summary of them.
+        if (stats.byOpponent.isNotEmpty()) {
+            item(key = "opponents") {
+                val opponents = @Composable {
+                    SectionHeader("By opponent", readout = "${stats.byOpponent.size}")
+                    Column(verticalArrangement = Arrangement.spacedBy(if (phone) 8.dp else 12.dp)) {
+                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 152.dp) }
+                    }
+                }
+                if (phone) SoftTile(Modifier.animateItem().padding(bottom = gap).fillMaxWidth(), solid = true) { opponents() }
+                else Column(Modifier.animateItem(), verticalArrangement = Arrangement.spacedBy(12.dp)) { opponents() }
+            }
+        }
         // A phone's games read as one panel: the header rounds its top and the last game its bottom.
         val tile = LockOnShapes.tileRadius
         item(key = "games-header") {
@@ -230,18 +260,19 @@ fun MatchLogPanel(
             val last = index == matches.lastIndex
             val rowShape = RoundedCornerShape(bottomStart = if (last) tile else 0.dp, bottomEnd = if (last) tile else 0.dp)
             val glow by animateFloatAsState(if (match.id == fresh) 1f else 0f, if (match.id == fresh) snap() else motion(Motion.LONG * 3), label = "fresh-game")
-            Box(Modifier.animateItem().then(if (phone) Modifier.background(fill, rowShape).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = if (last) 16.dp else 4.dp) else Modifier)) {
+            Box(Modifier.animateItem().then(if (phone) Modifier.background(fill, rowShape).padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = if (last) 12.dp else 2.dp) else Modifier)) {
                 Row(
                     Modifier.fillMaxWidth().clip(LockOnShapes.button).background(scheme.primary.copy(alpha = 0.24f * glow))
                         .clickable(onClickLabel = "Edit this game") { editingId = match.id }.padding(vertical = 4.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    // A neutral badge for wins and draws and a red tint for losses: the word is the letter (I4).
                     val (letter, tone, ink) = when (match.result) {
-                        MatchResult.WIN -> Triple("W", scheme.primary, scheme.onPrimary)
-                        MatchResult.LOSS -> Triple("L", scheme.error, scheme.onError)
-                        MatchResult.DRAW -> Triple("D", drawTone(), onDrawTone())
+                        MatchResult.WIN -> Triple("W", scheme.onSurface.copy(alpha = 0.08f), scheme.onSurface)
+                        MatchResult.LOSS -> Triple("L", scheme.error.copy(alpha = 0.16f), scheme.error)
+                        MatchResult.DRAW -> Triple("D", scheme.onSurface.copy(alpha = 0.08f), scheme.onSurfaceVariant)
                     }
-                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(tone), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(tone), contentAlignment = Alignment.Center) {
                         Text(letter, style = MaterialTheme.typography.labelLarge, color = ink)
                     }
                     Column(Modifier.weight(1f)) {
@@ -257,21 +288,7 @@ fun MatchLogPanel(
                         )
                     }
                     Text(dayLabel(match.playedAt), Modifier.widthIn(min = 56.dp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, textAlign = TextAlign.End, maxLines = 1)
-                    Icon(LineIcons.Chev, null, Modifier.size(16.dp), tint = scheme.onSurfaceVariant.copy(alpha = 0.7f))
                 }
-            }
-        }
-        // Under the games, which matter more right after a game.
-        if (stats.byOpponent.isNotEmpty()) {
-            item(key = "opponents") {
-                val opponents = @Composable {
-                    SectionHeader("By opponent")
-                    Column(verticalArrangement = Arrangement.spacedBy(if (phone) 12.dp else 20.dp)) {
-                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 152.dp) }
-                    }
-                }
-                if (phone) SoftTile(Modifier.animateItem().padding(top = gap).fillMaxWidth(), solid = true) { opponents() }
-                else Column(Modifier.animateItem(), verticalArrangement = Arrangement.spacedBy(20.dp)) { opponents() }
             }
         }
     }
@@ -348,33 +365,16 @@ private fun EditMatchDialog(
     )
 }
 
-/** Draw's colour: the deep slate reads as disabled on twilight's navy, so there it takes the lighter one. */
+/** Wins in a record's bar: the light slate at twilight, the chart slate by day. */
 @Composable
-private fun drawTone(): Color = if (isTwilight()) ChartSlateTwilight else ChartSlate
+private fun winTone(): Color = if (isTwilight()) WinSlateTwilight else ChartSlate
+
+/** Draws in a record's bar: a step quieter than wins. */
+@Composable
+private fun drawTone(): Color = if (isTwilight()) ChartSlateTwilight else ChartSlate.copy(alpha = 0.5f)
 
 @Composable
 private fun onDrawTone(): Color = if (isTwilight()) Color(0xFF1B2147) else Color.White
-
-/** The win rate as a ring, with a dash before any games. */
-@Composable
-private fun WinRing(rate: Int?, diameter: Dp) {
-    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-    val fill = Accent
-    val sweep by animateFloatAsState((rate ?: 0) / 100f * 360f, motion(Motion.LONG), label = "win-ring")
-    Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.matchParentSize()) {
-            val thick = if (diameter < 60.dp) 6.dp else 8.dp
-            val stroke = Stroke(thick.toPx(), cap = StrokeCap.Round)
-            val inset = thick.toPx() / 2
-            val box = Size(size.width - inset * 2, size.height - inset * 2)
-            drawArc(track, 0f, 360f, false, Offset(inset, inset), box, style = stroke)
-            if (sweep > 0f) drawArc(fill, -90f, sweep, false, Offset(inset, inset), box, style = stroke)
-        }
-        FadeSwap(rate?.let { "$it%" } ?: "—", contentAlignment = Alignment.Center) {
-            Text(it, style = (if (diameter < 60.dp) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleMedium).merge(TabularNumbers))
-        }
-    }
-}
 
 /** A name, wins against losses as one bar, and the score. */
 @Composable
@@ -388,9 +388,10 @@ private fun RecordRow(name: String, record: Record, nameWidth: Dp) {
             val draws by animateFloatAsState(record.draws.toFloat(), motion(Motion.LONG), label = "record-draws")
             val losses by animateFloatAsState(record.losses.toFloat(), motion(Motion.LONG), label = "record-losses")
             if (record.games == 0 && wins + draws + losses < 0.01f) Box(Modifier.fillMaxSize().background(scheme.onSurface.copy(alpha = 0.1f)))
-            if (wins > 0.01f) Box(Modifier.weight(wins).fillMaxHeight().background(scheme.primary))
+            // Wins in the light slate and losses in red, so teal isn't spent on data; one result is one unbroken fill.
+            if (wins > 0.01f) Box(Modifier.weight(wins).fillMaxHeight().background(winTone()))
             if (draws > 0.01f) Box(Modifier.weight(draws).fillMaxHeight().background(drawTone()))
-            if (losses > 0.01f) Box(Modifier.weight(losses).fillMaxHeight().background(scheme.error.copy(alpha = 0.7f)))
+            if (losses > 0.01f) Box(Modifier.weight(losses).fillMaxHeight().background(scheme.error))
         }
         FadeSwap(if (record.games == 0) "—" else record.score, Modifier.widthIn(min = 40.dp), contentAlignment = Alignment.CenterEnd) {
             Text(it, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), textAlign = TextAlign.End, maxLines = 1)

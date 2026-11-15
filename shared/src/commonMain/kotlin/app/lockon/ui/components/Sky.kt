@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.Color
 // Cards lie directly on the sky, so it stays quiet: little colour, and a brightness well away from the
 // card faces', lighter by day and darker at twilight, so the cards are the most colourful thing on screen.
 internal val DaySky = listOf(Color(0xFFCFE2F0), Color(0xFFDCE8F2), Color(0xFFE6EDF4))
-internal val TwilightSky = listOf(Color(0xFF141A3C), Color(0xFF181E44), Color(0xFF1E214A))
+internal val TwilightSky = listOf(Color(0xFF1B2238), Color(0xFF181E33), Color(0xFF151A2E))
 
 // The launch screen's sky: the app's own, leaning violet, so it fades into the app as a slight turn of hue.
 internal val DayBootSky = listOf(Color(0xFFC9B9F7), Color(0xFFD5C9F9), Color(0xFFE1D9FB))

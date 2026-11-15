@@ -55,6 +55,8 @@ tasks.register<Test>("previews") {
     classpath = tasks.test.get().classpath
     useJUnit()
     include(imageTests)
+    // -Ppolish.only=<part of a name> renders only some of the polish set.
+    (project.findProperty("polish.only") as String?)?.let { systemProperty("polish.only", it) }
 }
 
 tasks.test {

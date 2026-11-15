@@ -88,9 +88,9 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - Cards without artwork get a drawn placeholder in the same shape, so grids never shift when images load.
 - **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its colour band, level and type initial. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank.
 - **V8. Game deck-builder patterns.**
-  - **Deck cards:** the deck list shows each card small and whole, at its real shape, grouped by type. − ×count + and copy pips sit underneath. Desktop fits as many 104 dp cards as the panel holds, with 40 dp targets. Phones show cards three across from about 390 dp, with 48 dp targets (R1).
+  - **Deck cards:** the deck list shows each card small and whole, at its real shape, grouped by type. A − count + plate sits underneath. Desktop fits as many 104 dp cards as the panel holds, with 40 dp targets. Phones show cards three across from about 390 dp, with 48 dp targets (R1).
   - **Deck strips** are the default view; **Card view** under More in the deck panel shows small whole cards instead. Each row has a cost orb in the card's colour, a small crop of the art, the name and − / +. The side deck always uses strips, since its rows need the **To deck** action.
-  - **Copy pips** (as in Runeterra): copies show as dots up to the copy limit, under the count, which is always a number too (I4). They're teal, and red past the limit.
+  - **Counts:** the plate shows one number, teal in the deck, muted at 0, red past the limit; the card list shows Max as quiet text in the card's name strip. (Copy pips, as in Runeterra, drew every count a second time as dots and went in the UI polish pass of 2026-11-15.)
   - **Gauges:** `Main 42/50` is a rounded bar. They're teal while filling, gold when exactly full, and red when over. Nothing is drawn on the bar itself (K3).
   - **Level curve** (as in MTG Arena): a compact curve sits at the top of the deck list.
   - **Deck tiles:** phones and wide windows share one layout: the cover card at the side, then the name and colors, the state and record, and the gauge. The card is zoomed in on its illustration, a little less on wide windows. Wide windows fit as many 320 dp tiles to a row as they can and add the age, and the record is first to give way if that line runs out of room. Without art, the card's space shows the deck's colors in a calm flat tint, split evenly if it has two, and on wide windows a shield.
@@ -106,7 +106,7 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era): simple
   - **States warm, never switch:** a gauge warms from teal to gold to red, and a picked item's light moves to it.
   - **Lists:** rows glide when cards are added, removed or regrouped.
   - **Numbers:** they roll up a short way when they grow and down when they shrink. A count that grows also nudges up in size by a few percent.
-  - **Adding and removing:** the card or strip wears a solid 2 dp line, the same as selection, for about a third of a second: teal when a copy is added, red when one is removed. The count and pips say the rest.
+  - **Adding and removing:** the card or strip wears a solid 2 dp line, the same as selection, for about a third of a second: teal when a copy is added, red when one is removed. The count says the rest.
   - **Hover (desktop):** cards rise a few pixels and wear the selection line, with no shadow and no change of size. Strips ease into their art. Buttons brighten a touch, and rows and tiles take a 4% ink wash. Resting on a card for a moment opens the whole card beside it, never over it.
   - **Charts:** bars grow into place.
   - **Test hand:** cards fade in and settle up a short way, and shields flip over when revealed.
@@ -138,7 +138,7 @@ These came from a UI review on 2026-10-28, where a sparkle on full gauges, an ed
 
 - **R1. 48 dp touch targets** on Android, including quantity buttons, even when they look smaller.
 - **R2. Keyboard first on desktop.** `Ctrl+F` focuses search, `Esc` goes back, and `+` / `−` change the focused card's count. Every action also works with a mouse.
-- **R3. Thumb zone on phones.** Navigation, including the editor's sections, and primary actions (New deck, Keep / Draw, Sync now) sit in the lower half of the screen.
+- **R3. Thumb zone on phones.** Navigation, including the editor's sections, and primary actions (New deck, Keep / Draw, Sync now) sit in the lower half of the screen. A switch for a screen's own content (Sync's Devices / Send decks) sits directly above that content; navigation and the primary action stay in the lower half.
 - **R4. Offline always.** Nothing needs a network connection except syncing, and a failed sync never blocks editing.
 
 ## 7. Trust (sync and data)

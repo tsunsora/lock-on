@@ -3,6 +3,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -185,6 +186,11 @@ import kotlin.math.roundToInt
 @ReadOnlyComposable
 fun isTwilight(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
+/** Quiet text, a step below [androidx.compose.material3.ColorScheme.onSurfaceVariant]: a count of 0, Max, separators. */
+@Composable
+@ReadOnlyComposable
+fun mutedInk(): Color = if (isTwilight()) app.lockon.ui.theme.MutedInkTwilight else app.lockon.ui.theme.MutedInkDay
+
 /** The action and selection colour: teal. Lit pills use it with [OnAccent] text. */
 val Accent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 val OnAccent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.onPrimary
@@ -203,7 +209,7 @@ data class GlassColors(val fill: Color, val strong: Color, val line: Color, val 
 @Composable
 @ReadOnlyComposable
 fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color(0xFF232A58).copy(alpha = 0.92f), Color(0xFF343C72), Color.White.copy(alpha = 0.1f), Color(0xFF060B1E))
+    GlassColors(Color(0xFF20273D).copy(alpha = 0.96f), Color(0xFF29314A), Color(0xFFDCE6FF).copy(alpha = 0.1f), Color(0xFF070A16))
 } else {
     GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color(0xFF1C2742).copy(alpha = 0.1f), Color(0xFF1C2742).copy(alpha = 0.5f))
 }
@@ -315,6 +321,7 @@ fun GameButton(
     onTone: Color? = null,
     trailingIcon: ImageVector? = null,
     outline: Color? = null,
+    ink: Color? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val g = glassColors()
@@ -336,7 +343,7 @@ fun GameButton(
         // A soft fill in the ink colour; hover deepens it.
         style == GameButtonStyle.SECONDARY -> {
             fillTarget = if (desktopControls) neutralFill(hovered, pressed) else scheme.onSurface.copy(alpha = if (on) 0.12f else 0.07f)
-            contentTarget = scheme.onSurface
+            contentTarget = ink ?: scheme.onSurface
         }
         else -> { fillTarget = accent.copy(alpha = if (on) 0.10f else 0f); contentTarget = accent }
     }
@@ -396,11 +403,9 @@ fun GlassIconButton(
     val pressed by interaction.collectIsPressedHeld()
     val squish by animateFloatAsState(if (pressed) (if (desktopControls) PressScale else 0.94f) else 1f, motion(Motion.SHORT), label = "icon-press")
     // Hover eases in rather than switching, like the buttons beside it.
-    val disc by animateColorAsState(
-        if (desktopControls) neutralFill(hovered, pressed) else if (hovered) lighten(g.strong, 0.08f) else g.strong,
-        motion(Motion.SHORT), label = "icon-disc",
-    )
-    val ring by animateColorAsState(if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.6f) else g.line, motion(Motion.SHORT), label = "icon-ring")
+    // One flat wash with no rim on every device (UX rule K3), so back, sort and filter read as one family.
+    val disc by animateColorAsState(neutralFill(hovered, pressed), motion(Motion.SHORT), label = "icon-disc")
+    val ring = Color.Transparent
     val glyph by animateColorAsState(if (hovered && !desktopControls) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
     val small = if (desktopControls) SmallControlShape else RoundedCornerShape(10.dp)
     Box(
@@ -417,6 +422,21 @@ fun GlassIconButton(
     ) {
         Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(if (compact) 18.dp else if (desktopControls) 20.dp else 22.dp))
     }
+}
+
+/**
+ * The name of an icon-only control as a small tooltip while the pointer rests on it (UX rule I5). Touch
+ * screens never hover, so on phones it shows only on a long press, where the control has none of its own.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun HoverTooltip(label: String, content: @Composable () -> Unit) {
+    androidx.compose.material3.TooltipBox(
+        positionProvider = androidx.compose.material3.TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = androidx.compose.material3.rememberTooltipState(),
+        content = content,
+    )
 }
 
 /** The one height for buttons, fields and icon buttons that share a row. A pointer needs less than a thumb. */
@@ -540,7 +560,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
  * when exactly full, red when over. The colour and the number say it; nothing is drawn on the bar.
  */
 @Composable
-fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false, numberLast: Boolean = false) {
+fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Modifier, compact: Boolean = false, hold: Boolean = false, inline: Boolean = false, numberLast: Boolean = false, numberSlot: Dp? = null) {
     val scheme = MaterialTheme.colorScheme
     val fraction by animateFloatAsState((count.toFloat() / limit.coerceAtLeast(1)).coerceIn(0f, 1f), motion(Motion.LONG), label = "gauge")
     // One value for the gauge's state, 0 filling, 1 exactly full, 2 over, so the teal warms to gold
@@ -556,7 +576,8 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     val fillingBrush = SolidColor(if (hold) slate else accent)
     val fullBrush = SolidColor(Gold)
     val error = scheme.error
-    val track = scheme.onSurface.copy(alpha = if (isTwilight()) 0.12f else 0.1f)
+    // By day a slightly deeper track, so a full gold bar still reads as a shape on white (UX rule V3).
+    val track = if (isTwilight()) scheme.onSurface.copy(alpha = 0.12f) else Color(0xFFD3DEEA)
     @Composable
     fun Number() {
         RollingNumber(count, (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).merge(TabularNumbers),
@@ -593,7 +614,8 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     ) {
         if (!numberLast) { Row(verticalAlignment = Alignment.Bottom) { Number() }; Spacer(Modifier.width(8.dp)) }
         Bar(Modifier.weight(1f))
-        if (numberLast) { Spacer(Modifier.width(8.dp)); Row(verticalAlignment = Alignment.Bottom) { Number() } }
+        // A fixed slot, when given, keeps every row's gauge ending at the same x whatever its count.
+        if (numberLast) { Spacer(Modifier.width(8.dp)); Box(if (numberSlot != null) Modifier.width(numberSlot) else Modifier, contentAlignment = Alignment.CenterEnd) { Row(verticalAlignment = Alignment.Bottom) { Number() } } }
     } else Column(modifier.widthIn(min = 112.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
@@ -611,34 +633,6 @@ fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modi
     Box(modifier.size(size).clip(CircleShape).background(color).then(if (outlined) Modifier.border(1.dp, line, CircleShape) else Modifier)) {
         CenteredGlyph(text ?: value?.toString() ?: "–", onColor, (size.value * 0.46f).sp)
     }
-}
-
-/**
- * Copies as dots (Runeterra-style pips): teal for each copy, gold when the limit is reached, red
- * beyond it. The count itself is always shown beside them as a number (UX rule I4).
- */
-@Composable
-fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.dp) {
-    val scheme = MaterialTheme.colorScheme
-    val total = maxOf(limit, count).coerceAtMost(6)
-    val lit = Accent
-    val over = scheme.error
-    val unlit = scheme.onSurface.copy(alpha = if (desktopControls) 0.38f else 0.22f)
-    // One drawing with one moving number, rather than a Canvas and an animation per dot: each tile has
-    // these. As the count eases past a dot, that dot fills and its ring fades.
-    Spacer(
-        modifier.size(pip * total + 3.dp * (total - 1).coerceAtLeast(0), pip).drawSettled(count.toFloat()) { shown ->
-            drawContent()
-            val step = (pip + 3.dp).toPx()
-            val r = pip.toPx() / 2
-            repeat(total) { i ->
-                val fill = (shown - i).coerceIn(0f, 1f)
-                val c = Offset(r + step * i, r)
-                if (fill < 1f) drawCircle(if (i >= limit) over else unlit, r - 0.5.dp.toPx(), c, alpha = 1f - fill, style = Stroke(1.dp.toPx()))
-                if (fill > 0f) drawCircle(if (i >= limit) over else lit, r * (0.6f + 0.4f * fill), c, alpha = fill)
-            }
-        },
-    )
 }
 
 /**
@@ -1127,14 +1121,15 @@ fun ColorOrbToggle(label: String, color: Color, onColor: Color, selected: Boolea
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.graphicsLayer { alpha = lit }) {
-            ColorDot(color, onColor, label.take(1), size = 28.dp, outlined = outlined)
+            // 24 dp on desktop and 28 on phones, fixed so a narrow toolbar wraps the row rather than shrinking them.
+            ColorDot(color, onColor, label.take(1), size = if (desktopControls) 24.dp else 28.dp, outlined = outlined)
         }
         if (on > 0f) {
             Canvas(Modifier.fillMaxSize()) {
                 // On desktop the ring sits right on the dot's edge; phones keep it a little clear.
                 val mobile = app.lockon.platform.isMobile
                 val stroke = if (mobile) 2.5.dp.toPx() else SelectionEdgeWidth.toPx()
-                val rest = if (mobile) 18.dp.toPx() else 14.dp.toPx() + stroke / 2
+                val rest = if (mobile) 18.dp.toPx() else 12.dp.toPx() + stroke / 2
                 drawCircle(ring.copy(alpha = ring.alpha * on), radius = rest + 4.dp.toPx() * (1f - on), style = Stroke(stroke))
             }
         }
@@ -1373,7 +1368,7 @@ fun PillSwitch(
 /** The thumb of a single-choice control: white by day and a raised indigo at twilight, so solid teal is left for navigation and main actions. */
 @Composable
 @ReadOnlyComposable
-fun softThumb(): Color = if (isTwilight()) Color(0xFF454F9A) else Color.White
+fun softThumb(): Color = if (isTwilight()) Color(0xFF3E4868) else Color.White
 
 /** The chosen option's text on a [softThumb]. */
 @Composable
@@ -1606,8 +1601,8 @@ fun PillNavBar(
             .clip(shape)
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
-            .background(if (twilight) Color(0xFF343C72) else Color.White)
-            .border(BorderStroke(1.dp, scheme.onSurface.copy(alpha = 0.12f)), shape)
+            // Elevation is said once: it floats, so it has a shadow and no border (UX rule V1).
+            .background(if (twilight) Color(0xFF29314A) else Color.White)
             .height(height)
             .padding(horizontal = if (height < PillNavHeight) 4.dp else 8.dp, vertical = 4.dp)
             .drawBehind {
