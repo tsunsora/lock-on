@@ -63,14 +63,13 @@ object LineIcons {
     val Shield: ImageVector by lazy { icon("Shield", "M12 3.5 19 6v5.5c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z") }
     val Burst: ImageVector by lazy { icon("Burst", "M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8") }
     val Link: ImageVector by lazy { icon("Link", "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1", "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1") }
-    // The card types come from Tabler Icons (MIT, licenses/Tabler-Icons-MIT.txt), outline set, paths
-    // unchanged: robot for a unit, helmet for a pilot, military-rank for a command, building-fortress
-    // for a base and cube for a resource.
-    private val UnitLines = arrayOf("M6 4m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z", "M12 2v2", "M9 12v9", "M15 12v9", "M5 16l4 -2", "M15 14l4 2", "M9 18h6", "M10 8v.01", "M14 8v.01")
-    private val PilotLines = arrayOf("M12 4a9 9 0 0 1 5.656 16h-11.312a9 9 0 0 1 5.656 -16z", "M20 9h-8.8a1 1 0 0 0 -.968 1.246c.507 2 1.596 3.418 3.268 4.254c2 1 4.333 1.5 7 1.5")
-    private val CommandLines = arrayOf("M18 7v12a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-12l6 -4z", "M10 13l2 -1l2 1", "M10 17l2 -1l2 1", "M10 9l2 -1l2 1")
-    private val BaseLines = arrayOf("M7 21h1a1 1 0 0 0 1 -1v-1h0a3 3 0 0 1 6 0m3 2h1a1 1 0 0 0 1 -1v-15l-3 -2l-3 2v6h-4v-6l-3 -2l-3 2v15a1 1 0 0 0 1 1h2m8 -2v1a1 1 0 0 0 1 1h2", "M7 7h0v.01", "M7 10h0v.01", "M7 13h0v.01", "M17 7h0v.01", "M17 10h0v.01", "M17 13h0v.01")
-    private val ResourceLines = arrayOf("M21 16.008v-8.018a1.98 1.98 0 0 0 -1 -1.717l-7 -4.008a2.016 2.016 0 0 0 -2 0l-7 4.008c-.619 .355 -1 1.01 -1 1.718v8.018c0 .709 .381 1.363 1 1.717l7 4.008a2.016 2.016 0 0 0 2 0l7 -4.008c.619 -.355 1 -1.01 1 -1.718z", "M12 22v-10", "M12 12l8.73 -5.04", "M3.27 6.96l8.73 5.04")
+    // The card types are Lucide's (ISC, licenses/Lucide-ISC.txt), paths unchanged: shield for a unit,
+    // user-round for a pilot, zap for a command, castle for a base and gem for a resource.
+    private val UnitLines = arrayOf("M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z")
+    private val PilotLines = arrayOf("M7 8a5 5 0 1 0 10 0a5 5 0 1 0-10 0", "M20 21a8 8 0 0 0-16 0")
+    private val CommandLines = arrayOf("M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z")
+    private val BaseLines = arrayOf("M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z", "M18 11V4H6v7", "M15 22v-4a3 3 0 0 0-3-3a3 3 0 0 0-3 3v4", "M22 11V9", "M2 11V9", "M6 4V2", "M18 4V2", "M10 4V2", "M14 4V2")
+    private val ResourceLines = arrayOf("M6 3h12l4 6-10 13L2 9Z", "M11 3 8 9l4 13 4-13-3-6", "M2 9h20")
     val Unit: ImageVector by lazy { icon("Unit", *UnitLines) }
     val Pilot: ImageVector by lazy { icon("Pilot", *PilotLines) }
     val Command: ImageVector by lazy { icon("Command", *CommandLines) }

@@ -328,7 +328,7 @@ An unofficial fan project, unaffiliated with Bandai. Gundam, card text and card 
 
 Card data comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai. Alt arts not yet in gcg-api are read from Bandai's official card list on each device.
 
-The Quicksand font by the Quicksand Project Authors uses the SIL Open Font License 1.1; see the [font notice](licenses/Quicksand-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license, and the card type icons are from [Tabler Icons](https://tabler.io/icons) under the MIT license; see the [icon notice](licenses/Tabler-Icons-MIT.txt). The Lock On mark and other decorations are original drawings.
+The Quicksand font by the Quicksand Project Authors uses the SIL Open Font License 1.1; see the [font notice](licenses/Quicksand-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license, and the card type icons are from [Lucide](https://lucide.dev) under the ISC license; see the [icon notice](licenses/Lucide-ISC.txt). The Lock On mark and other decorations are original drawings.
 
 ## 👀 Visitors
 
