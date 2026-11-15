@@ -226,11 +226,13 @@ fun MatchLogPanel(
                             ResultKey(Modifier.padding(bottom = 4.dp), draws = stats.overall.draws > 0)
                         }
                         // Play order in words, and games logged without one, so the rows add up to the record (C5).
-                        RecordRow("Went 1st", stats.goingFirst, nameWidth = OrderWidth)
-                        RecordRow("Went 2nd", stats.goingSecond, nameWidth = OrderWidth)
+                        // The order rows share one count scale, so a bar's length is its number of games.
                         val o = stats.overall; val a = stats.goingFirst; val b = stats.goingSecond
                         val unsided = Record(o.wins - a.wins - b.wins, o.losses - a.losses - b.losses, o.draws - a.draws - b.draws)
-                        if (unsided.games > 0) RecordRow("Order not logged", unsided, nameWidth = OrderWidth)
+                        val most = maxOf(a.games, b.games, unsided.games)
+                        RecordRow("Went 1st", a, nameWidth = OrderWidth, most = most)
+                        RecordRow("Went 2nd", b, nameWidth = OrderWidth, most = most)
+                        if (unsided.games > 0) RecordRow("Order not logged", unsided, nameWidth = OrderWidth, most = most)
                 }
             }
             if (phone) SoftTile(Modifier.padding(bottom = gap).fillMaxWidth(), solid = true, padding = if (short) 12.dp else 16.dp) { record() } else record()
@@ -242,7 +244,8 @@ fun MatchLogPanel(
                 val opponents = @Composable {
                     SectionHeader("By opponent", readout = "${stats.byOpponent.size}")
                     Column(verticalArrangement = Arrangement.spacedBy(if (phone) 8.dp else 12.dp)) {
-                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 152.dp) }
+                        val most = stats.byOpponent.maxOf { it.second.games }
+                        stats.byOpponent.forEach { (name, record) -> RecordRow(name, record, nameWidth = 152.dp, most = most) }
                     }
                 }
                 if (phone) SoftTile(Modifier.animateItem().padding(bottom = gap).fillMaxWidth(), solid = true) { opponents() }
@@ -279,7 +282,7 @@ fun MatchLogPanel(
                         Text(word, style = MaterialTheme.typography.labelMedium, color = ink, maxLines = 1)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(match.opponent.ifBlank { "Opponent not noted" }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        Text(match.opponent.ifBlank { "Opponent not noted" }, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
                             color = if (match.opponent.isBlank()) scheme.onSurfaceVariant else scheme.onSurface)
                         if (match.notes.isNotBlank()) Text(match.notes, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
@@ -398,10 +401,11 @@ private fun ResultKey(modifier: Modifier = Modifier, draws: Boolean) {
 }
 
 @Composable
-private fun RecordRow(name: String, record: Record, nameWidth: Dp) {
+/** A name, its results as one bar on a scale of [most] games, and the score. */
+private fun RecordRow(name: String, record: Record, nameWidth: Dp, most: Int = record.games) {
     val scheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(name, Modifier.width(nameWidth), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(name, Modifier.width(nameWidth), style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Row(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             // Logging a game moves the split instead of redrawing it.
             val wins by animateFloatAsState(record.wins.toFloat(), motion(Motion.LONG), label = "record-wins")
@@ -412,6 +416,9 @@ private fun RecordRow(name: String, record: Record, nameWidth: Dp) {
             if (wins > 0.01f) Box(Modifier.weight(wins).fillMaxHeight().background(winTone()))
             if (draws > 0.01f) Box(Modifier.weight(draws).fillMaxHeight().background(drawTone()))
             if (losses > 0.01f) Box(Modifier.weight(losses).fillMaxHeight().background(scheme.error))
+            // The rest of the scale stays empty, so fewer games make a shorter bar.
+            val rest = most - record.games
+            if (rest > 0) Box(Modifier.weight(rest.toFloat()).fillMaxHeight())
         }
         FadeSwap(if (record.games == 0) "—" else record.score, Modifier.widthIn(min = 40.dp), contentAlignment = Alignment.CenterEnd) {
             Text(it, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers), textAlign = TextAlign.End, maxLines = 1)
