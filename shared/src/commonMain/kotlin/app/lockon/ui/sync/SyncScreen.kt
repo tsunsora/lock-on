@@ -400,20 +400,21 @@ private fun ThisDevice(deviceName: String, status: SyncStatus) {
 private fun SyncActions(syncNow: (() -> Unit)?, qrLabel: String, onOtherWays: () -> Unit) {
     val grouped = LocalGrouped.current
     val qr: @Composable (Modifier) -> Unit = { m ->
-        GameButton(qrLabel, onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Qr, compact = true, modifier = m.heightIn(min = 44.dp))
+        GameButton(qrLabel, onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Qr, compact = true, modifier = m)
     }
     val address: @Composable (Modifier) -> Unit = { m ->
-        GameButton("Address", onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Text, compact = true, modifier = m.heightIn(min = 44.dp))
+        GameButton("Address", onClick = onOtherWays, style = GameButtonStyle.SECONDARY, icon = LineIcons.Text, compact = true, modifier = m)
     }
-    if (grouped) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (syncNow != null) GameButton("Sync now", onClick = syncNow, icon = LineIcons.Sync, modifier = Modifier.weight(1f))
-        qr(Modifier.weight(1f))
-        address(Modifier.weight(1f))
+    // Side by side, the three share one height (UX rule K1); stacked on phones, the pair below keeps a thumb's 44 dp.
+    if (grouped) Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (syncNow != null) GameButton("Sync now", onClick = syncNow, icon = LineIcons.Sync, modifier = Modifier.weight(1f).fillMaxHeight())
+        qr(Modifier.weight(1f).fillMaxHeight())
+        address(Modifier.weight(1f).fillMaxHeight())
     } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (syncNow != null) GameButton("Sync now", onClick = syncNow, icon = LineIcons.Sync, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            qr(Modifier.weight(1f))
-            address(Modifier.weight(1f))
+            qr(Modifier.weight(1f).heightIn(min = 44.dp))
+            address(Modifier.weight(1f).heightIn(min = 44.dp))
         }
     }
 }
