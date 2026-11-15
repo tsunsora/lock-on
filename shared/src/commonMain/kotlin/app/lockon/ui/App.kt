@@ -243,17 +243,20 @@ fun LockOnApp(
     val stage = remember { if (app.lockon.platform.isMobile) null else DialogStage() }
     // A change of theme keeps the window's last frame in the old one, to fade away over the new. Waits for
     // that frame at most briefly, since a minimised window draws none.
+    // Material You colours (UX rule V3a) turn the same way when the accent or the setting changes.
+    val seed = app.lockon.ui.theme.themeSeed(settings)
     var shownDark by remember { mutableStateOf(useDark) }
-    LaunchedEffect(useDark) {
-        if (useDark == shownDark) return@LaunchedEffect
+    var shownSeed by remember { mutableStateOf(seed) }
+    LaunchedEffect(useDark, seed) {
+        if (useDark == shownDark && seed == shownSeed) return@LaunchedEffect
         if (stage != null && !reduce) {
             stage.takeThemeFrame()
-            stage.turnTheme { shownDark = useDark }
-        } else shownDark = useDark
+            stage.turnTheme { shownDark = useDark; shownSeed = seed }
+        } else { shownDark = useDark; shownSeed = seed }
     }
     CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density, LocalDialogStage provides stage) {
     ArtworkProvider(container, artworkDir) {
-    LockOnTheme(shownDark) {
+    LockOnTheme(shownDark, shownSeed) {
         val background = MaterialTheme.colorScheme.background
         SideEffect { windowBackground(background) }
         val snackbars = remember { SnackbarHostState() }

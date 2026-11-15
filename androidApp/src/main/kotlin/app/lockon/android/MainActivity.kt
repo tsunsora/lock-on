@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val app = application as LockOnApplication
+        readSystemAccent()
         // Card images used to sit in the cache folder; they now live in files for offline use.
         kotlin.concurrent.thread(isDaemon = true) { cacheDir.resolve("artwork").deleteRecursively() }
         setContent {
@@ -184,7 +185,18 @@ class MainActivity : ComponentActivity() {
     // Discovery and auto-sync run only while Lock On is on screen.
     override fun onStart() {
         super.onStart()
+        readSystemAccent()
         syncController?.setForeground(true)
+    }
+
+    /**
+     * The wallpaper's accent for Material You colours (UX rule V3a), on Android 12 and later; older
+     * versions have none, and Lock On's own Sky and Twilight show. Read on every start, since the
+     * wallpaper may have changed while Lock On was away.
+     */
+    private fun readSystemAccent() {
+        app.lockon.ui.theme.SystemAccent.color.value =
+            if (android.os.Build.VERSION.SDK_INT >= 31) Color(getColor(android.R.color.system_accent1_500)) else null
     }
 
     override fun onStop() {

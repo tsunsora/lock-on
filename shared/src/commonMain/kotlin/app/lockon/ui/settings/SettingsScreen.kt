@@ -102,6 +102,8 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val settings = container.settings
     val scope = rememberCoroutineScope()
     val theme by settings.theme.collectAsState()
+    val systemColors by settings.systemColors.collectAsState()
+    val accent by app.lockon.ui.theme.SystemAccent.color.collectAsState()
     val size by settings.size.collectAsState()
     val motion by settings.motion.collectAsState()
     val start by settings.start.collectAsState()
@@ -152,6 +154,17 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 SettingRow("Theme", wideControl = true) {
                     Segmented(ThemeChoice.entries, theme, { it.label }) { scope.launch { settings.setTheme(it) } }
                 }
+                // Says where the colours come from, or why Lock On's own show while it's on (UX rule V3a).
+                val usable = accent?.let { app.lockon.ui.theme.usableSeed(it) } == true
+                Toggle(
+                    "Material You colors", systemColors,
+                    detail = when {
+                        !systemColors -> null
+                        usable -> app.lockon.platform.systemColorsSource
+                        accent != null -> "Your accent color is gray, so Lock On's own colors show"
+                        else -> "Not available on this device, so Lock On's own colors show"
+                    },
+                ) { scope.launch { settings.setSystemColors(it) } }
                 SettingRow("Interface size", wideControl = true) {
                     Segmented(InterfaceSize.entries, size, { it.label }) { scope.launch { settings.setSize(it) } }
                 }
@@ -320,11 +333,12 @@ internal fun SettingRow(
 
 /** A switch whose whole row toggles it, so the target is the row and not only the switch (UX rule R1). */
 @Composable
-private fun Toggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun Toggle(title: String, checked: Boolean, detail: String? = null, onChange: (Boolean) -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     SettingRow(
         title,
-        Modifier.hoverable(interaction).toggleable(checked, interaction, indication = null, role = Role.Switch, onValueChange = onChange),
+        detail = detail,
+        modifier = Modifier.hoverable(interaction).toggleable(checked, interaction, indication = null, role = Role.Switch, onValueChange = onChange),
     ) {
         PillSwitch(checked = checked, onCheckedChange = null, interactionSource = interaction)
     }

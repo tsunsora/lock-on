@@ -124,6 +124,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lockon.ui.theme.LockOnShapes
+import app.lockon.ui.theme.LocalTones
 import app.lockon.ui.theme.SuitColors
 import app.lockon.ui.theme.TabularNumbers
 import app.lockon.ui.theme.ChartSlate
@@ -189,7 +190,7 @@ fun isTwilight(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0
 /** Quiet text, a step below [androidx.compose.material3.ColorScheme.onSurfaceVariant]: a count of 0, Max, separators. */
 @Composable
 @ReadOnlyComposable
-fun mutedInk(): Color = if (isTwilight()) app.lockon.ui.theme.MutedInkTwilight else app.lockon.ui.theme.MutedInkDay
+fun mutedInk(): Color = LocalTones.current.mutedInk
 
 /** The action and selection colour: teal. Lit pills use it with [OnAccent] text. */
 val Accent: Color @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
@@ -208,17 +209,13 @@ data class GlassColors(val fill: Color, val strong: Color, val line: Color, val 
 
 @Composable
 @ReadOnlyComposable
-fun glassColors(): GlassColors = if (isTwilight()) {
-    GlassColors(Color(0xFF232836).copy(alpha = 0.96f), Color(0xFF2D3241), Color(0xFFDCE6FF).copy(alpha = 0.1f), Color(0xFF070A16))
-} else {
-    GlassColors(Color.White.copy(alpha = 0.96f), Color.White, Color(0xFF1C2742).copy(alpha = 0.1f), Color(0xFF1C2742).copy(alpha = 0.5f))
-}
+fun glassColors(): GlassColors = LocalTones.current.let { GlassColors(it.panelFill, it.panelStrong, it.line, it.shade) }
 
 /** How thick a panel's hairline is. */
 val HairlineWidth = 1.dp
 
 /** A painted sky and the theme it was painted for. */
-private class SkyPaint(val width: Int, val height: Int, val image: ImageBitmap, val twilight: Boolean)
+private class SkyPaint(val width: Int, val height: Int, val image: ImageBitmap, val stops: List<Color>)
 
 /**
  * The sky painted last, or being painted. Skies the same size share it: the boot screen, the app
@@ -229,12 +226,12 @@ private class SkyPaint(val width: Int, val height: Int, val image: ImageBitmap, 
 @Volatile private var lastSkyKey: List<Any>? = null
 
 @OptIn(DelicateCoroutinesApi::class)
-private suspend fun paintedSky(width: Int, height: Int, twilight: Boolean, boot: Boolean): SkyPaint {
-    val key = listOf(width, height, twilight, boot)
+private suspend fun paintedSky(width: Int, height: Int, stops: List<Color>): SkyPaint {
+    val key = listOf(width, height, stops)
     val shared = lastSky?.takeIf { lastSkyKey == key }
     if (shared != null) return shared.await()
     // Not tied to whichever screen asked first, since others may be waiting for it when that one goes.
-    val painting = GlobalScope.async(Dispatchers.Default) { SkyPaint(width, height, imageBitmapOf(paintSky(width, height, twilight, boot), width, height), twilight) }
+    val painting = GlobalScope.async(Dispatchers.Default) { SkyPaint(width, height, imageBitmapOf(paintSky(width, height, stops), width, height), stops) }
     lastSkyKey = key
     lastSky = painting
     return painting.await()
@@ -248,25 +245,27 @@ private suspend fun paintedSky(width: Int, height: Int, twilight: Boolean, boot:
 @Composable
 fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, boot: Boolean = false, content: @Composable BoxScope.() -> Unit) {
     val twilight = isTwilight()
+    // The theme's own sky, or the launch screen's; Material You colours tint the app's (UX rule V3a).
+    val stops = if (boot) skyStops(twilight, true) else LocalTones.current.sky
     var area by remember { mutableStateOf(IntSize.Zero) }
     // Painting takes a few dozen milliseconds, so it runs off the main thread. While a window is being
     // resized the last sky stretches to fit, and the sky repaints once the size settles.
-    val sky by produceState<SkyPaint?>(null, area, twilight, boot) {
+    val sky by produceState<SkyPaint?>(null, area, stops) {
         if (area.width <= 0 || area.height <= 0) return@produceState
-        if (value?.twilight == twilight) delay(80)
+        if (value?.stops == stops) delay(80)
         val scale = minOf(1f, 4096f / maxOf(area.width, area.height))
         val pw = (area.width * scale).roundToInt().coerceAtLeast(1)
         val ph = (area.height * scale).roundToInt().coerceAtLeast(1)
-        value = paintedSky(pw, ph, twilight, boot)
+        value = paintedSky(pw, ph, stops)
     }
     Box(
         modifier.background(if (boot) skyStops(twilight, true)[1] else MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
-            val painted = sky?.takeIf { it.twilight == twilight }
+            val painted = sky?.takeIf { it.stops == stops }
             if (painted != null) {
                 drawImage(painted.image, dstSize = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt()), filterQuality = FilterQuality.Low)
                 onPainted?.invoke()
             } else {
-                drawRect(Brush.verticalGradient(skyStops(twilight, boot)))
+                drawRect(Brush.verticalGradient(stops))
             }
         },
         content = content,
@@ -577,7 +576,7 @@ fun ProgressGauge(label: String, count: Int, limit: Int, modifier: Modifier = Mo
     val fullBrush = SolidColor(Gold)
     val error = scheme.error
     // By day a slightly deeper track, so a full gold bar still reads as a shape on white (UX rule V3).
-    val track = if (isTwilight()) scheme.onSurface.copy(alpha = 0.12f) else Color(0xFFD3DEEA)
+    val track = LocalTones.current.track
     // Inline gauges carry no label row, so the number names what it counts: "Main 42/50" (UX rule I1).
     val short = if (label.startsWith("Main")) "Main" else label
     @Composable
@@ -1372,7 +1371,7 @@ fun PillSwitch(
 /** The thumb of a single-choice control: white by day and a raised indigo at twilight, so solid teal is left for navigation and main actions. */
 @Composable
 @ReadOnlyComposable
-fun softThumb(): Color = if (isTwilight()) Color(0xFF3E4868) else Color.White
+fun softThumb(): Color = LocalTones.current.softThumb
 
 /** The chosen option's text on a [softThumb]. */
 @Composable
@@ -1586,7 +1585,6 @@ fun PillNavBar(
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
     val onAccent = OnAccent
-    val twilight = isTwilight()
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(36.dp)
     val reduce = LocalReduceMotion.current
     // With every label showing (wide windows), one teal pill slides between the destinations, as the
@@ -1610,7 +1608,7 @@ fun PillNavBar(
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
             // Elevation is said once: it floats, so it has a shadow and no border (UX rule V1).
-            .background(if (twilight) Color(0xFF2D3241) else Color.White)
+            .background(glassColors().strong)
             .height(height)
             .padding(horizontal = if (height < PillNavHeight || stacked) 4.dp else 8.dp, vertical = 4.dp)
             .drawBehind {
