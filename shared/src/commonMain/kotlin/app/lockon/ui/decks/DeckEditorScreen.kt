@@ -141,7 +141,6 @@ import app.lockon.ui.components.Badge
 import app.lockon.ui.components.DeckGauge
 import app.lockon.ui.components.LockIndicator
 import app.lockon.ui.components.RollingNumber
-import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.ColorPips
 import app.lockon.ui.components.SectionHeader
 import app.lockon.ui.components.CardDetailDialog
@@ -430,8 +429,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
-                Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                    CautionStripes(Modifier.width(10.dp).fillMaxHeight())
+                // The error tint, its icon and the words say it; no stripe runs down its side (UX rules V7, K8).
+                Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(LineIcons.Alert, contentDescription = "Conflict", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
                     Text("This deck was changed on two devices. Both versions are kept.", Modifier.weight(1f).padding(12.dp),
                         color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
                     GameButton("Compare", onClick = { state.open(Screen.Conflict(deckId)) }, style = GameButtonStyle.GHOST, compact = true)

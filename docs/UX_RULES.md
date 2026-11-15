@@ -208,7 +208,7 @@ Each line names what a guide asks, what Lock On does, and why. Where the guides 
 - **Corner sizes (V1).** unslop's panels are 14 to 20 and its cards 12 to 16. Lock On's 22 dp panels and 28 dp dialogs (Material's own) are part of the rounded, Nintendo-like character and keep the nested-radius rule, so they stay.
 - **More than one accent (V3).** unslop allows one accent in the chrome. Teal is that accent. Gold appears only for celebration and sky blue only for information, each rare and tied to one meaning, so neither competes with teal.
 - **Icon sizes (I6).** unslop wants one icon size everywhere. Lock On ties each size to the control it sits in, with one stroke and one set, which keeps the same consistency across very different control heights on phone and desktop.
-- **Caution stripes (V7, K8). Retired.** Both guides argue against them: impeccable bans coloured side stripes on banners and notices and patterned backgrounds a world didn't choose, and unslop removes decoration that isn't the product. They were the last piece of the cockpit look dropped on 2026-10-26, and today they are a 10 dp stripe down the side of the conflict banner and the failed-sync status. The error tint, icon and words already say it.
+- **Caution stripes (V7, K8). Retired.** Both guides argue against them: impeccable bans coloured side stripes on banners and notices and patterned backgrounds a world didn't choose, and unslop removes decoration that isn't the product. They were the last piece of the cockpit look dropped on 2026-10-26, a 10 dp stripe down the side of the conflict banner and the failed-sync status, and went on 2026-11-15. The error tint, icon and words say it.
 - **Gradient app icon (V7). Changed to flat.** unslop names the gradient tile as one of the first things that reads as generated, even in a logo. The tile becomes one solid violet.
 - **The "frosted" banner (V8). Reworded.** impeccable and unslop both reject glass as decoration. The banner never used blur; it is now described as what it is, a solid strip with a scrim.
 - **The glint (V5).** unslop removes shimmer, and impeccable asks for one authored moment. The glint stays because it is that moment: it plays once, on the change to legal, and nowhere else.
@@ -220,7 +220,6 @@ The rules above are ahead of the app in these places. Each is a follow-up change
 
 - **Dusk chroma (V3).** The dark ground `#181E33` and panels `#20273D` are about 0.041 OKLCH chroma; the cap is 0.03. The light ground `#E6F2FA` is about 0.017; the cap is 0.015. The sky gradient and `glassColors()` follow the same values.
 - **Tabular figures (I1, V2a).** `TabularNumbers` is merged into Quicksand styles across the app, and Quicksand has no `tnum` feature and proportional digits, so counts and gauges still shift as they change.
-- **Caution stripes (V7, K8).** `CautionStripes` sits down the side of the conflict banner in `DeckEditorScreen.kt` and the failed-sync status in `SyncScreen.kt`.
 - **Launcher icon (V7).** The icon tile still runs from #9A68E6 to #7A55DC.
 - **Theme on platform surfaces (K9).** Text selection, the cursor and scrollbars have not been checked against the palette.
 

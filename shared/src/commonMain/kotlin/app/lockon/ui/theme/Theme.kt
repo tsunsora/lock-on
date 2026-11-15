@@ -100,7 +100,6 @@ object SuitColors {
     val chestRed = Color(0xFFE5484D)
     /** The one gold, for celebration: a full gauge, a finished sync, the Lock On moment. Text on a day panel uses the darker tertiary. */
     val vFinYellow = Color(0xFFFFC34D)
-    val cautionBlack = Color(0xFF1C2742)
 }
 
 /**

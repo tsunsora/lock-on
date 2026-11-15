@@ -123,7 +123,6 @@ import app.lockon.sync.DeviceRole
 import app.lockon.sync.SyncMode
 import app.lockon.sync.SyncStatus
 import app.lockon.sync.SyncTransfer
-import app.lockon.ui.components.CautionStripes
 import app.lockon.ui.components.GameButton
 import app.lockon.ui.components.GameButtonStyle
 import app.lockon.ui.components.GameDialog
@@ -860,8 +859,8 @@ private fun SendPage(controller: SyncController, decks: List<DeckSummary>, cards
 }
 
 /**
- * How the last sync went, on a tinted strip inside the panel: a spinner while it works, caution
- * stripes when it failed (each with its words, UX rule V7), and a teal dot otherwise.
+ * How the last sync went, on a tinted strip inside the panel: a spinner while it works, the error
+ * icon on the error tint when it failed (with its words, UX rule V7), and a teal dot otherwise.
  */
 @Composable
 private fun StatusStrip(status: SyncStatus, modifier: Modifier = Modifier) {
@@ -870,12 +869,12 @@ private fun StatusStrip(status: SyncStatus, modifier: Modifier = Modifier) {
     val tone by animateColorAsState(if (status.isError) scheme.error else scheme.primary, motion(), label = "status-tone")
     Row(
         modifier.height(IntrinsicSize.Min).clip(LockOnShapes.tile).background(tone.copy(alpha = 0.1f))
-            .padding(end = 12.dp, start = if (status.isError) 0.dp else 12.dp, top = 8.dp, bottom = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when {
-            status.isError -> CautionStripes(Modifier.width(8.dp).fillMaxHeight())
+            status.isError -> Icon(LineIcons.Alert, contentDescription = "Error", Modifier.size(16.dp), tint = scheme.error)
             status.working -> ReticleSpinner(size = 16.dp)
             else -> Box(Modifier.size(8.dp).clip(CircleShape).background(tone))
         }
