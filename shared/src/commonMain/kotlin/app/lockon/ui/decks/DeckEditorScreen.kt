@@ -667,7 +667,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             // The sections float in a pill over the content, which scrolls underneath it.
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 // Pages slide in the bar's order, as Settings sets it.
-                val pages = phonePages(barOrder)
+                val pages = phonePages(barSlots(barOrder, EditorMoreItem.entries - moreHidden))
                 if (stage >= 1) SlidingPages(pages.indexOf(phoneTab), Modifier.fillMaxSize()) { position ->
                     when (pages.getOrElse(position) { 0 }) {
                         0 -> deckList(Modifier.fillMaxSize())
@@ -1035,16 +1035,27 @@ private fun DetailActionCell(label: String, modifier: Modifier, control: @Compos
 }
 
 /**
- * The phone editor's tabs, left to right, in the bottom bar's [order]: Add cards (tab 1), Deck
- * (tab 0) and ⋮'s sections (tabs 7 down to 2), so pages slide the way the bar reads.
+ * The phone editor bar's buttons, left to right, as the editor tab each opens, with null for More (UX
+ * rule N5): Deck, Add and More in the [order] Settings sets, with Analysis and Test just before More
+ * unless Settings leaves them out of [more].
  */
-private fun phonePages(order: EditorBarOrder): List<Int> = order.items.flatMap {
-    when (it) { EditorBarItem.MORE -> (7 downTo 2).toList(); EditorBarItem.ADD -> listOf(1); EditorBarItem.DECK -> listOf(0) }
+private fun barSlots(order: EditorBarOrder, more: List<EditorMoreItem>): List<Int?> = order.items.flatMap {
+    when (it) {
+        EditorBarItem.DECK -> listOf(0)
+        EditorBarItem.ADD -> listOf(1)
+        EditorBarItem.MORE -> listOfNotNull(
+            2.takeIf { EditorMoreItem.ANALYSIS in more }, 3.takeIf { EditorMoreItem.TEST in more },
+        ) + listOf(null)
+    }
 }
 
-/** Which of the bottom bar's buttons a phone editor tab belongs to, counted from the left in [order]. */
-private fun phoneNavItem(tab: Int, order: EditorBarOrder): Int =
-    order.items.indexOf(when (tab) { 0 -> EditorBarItem.DECK; 1 -> EditorBarItem.ADD; else -> EditorBarItem.MORE })
+/** The phone editor's tabs, left to right, in the bar's [slots], with More's sections (7 down to 2) at More, so pages slide the way the bar reads. */
+private fun phonePages(slots: List<Int?>): List<Int> = slots.flatMap { tab ->
+    if (tab != null) listOf(tab) else (7 downTo 2).filter { it !in slots }
+}
+
+/** Which of the bar's buttons a phone editor tab belongs to, counted from the left: its own, or More. */
+private fun phoneNavItem(tab: Int, slots: List<Int?>): Int = slots.indexOf(tab).takeIf { it >= 0 } ?: slots.indexOf(null)
 
 /** The copy limit for a card under [ruleset]: restricted, resource or the normal maximum. */
 private fun copyLimit(card: GameCard, ruleset: Ruleset): Int? =
@@ -1103,11 +1114,10 @@ private fun SplitHandle(onDragStart: () -> Unit, onDrag: (Float) -> Unit, onDrag
 }
 
 /**
- * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3). Building the deck
- * comes first, so by default the bar holds More, Add cards and Deck, left to right, with Deck under
- * the right thumb; Settings can put them in any [order]. More opens a grid of the [more] sections
- * (Analysis, Test, Matches, Versions, Export and Edit as text, less any Settings leaves out), two short
- * rows instead of a tall list, and takes the name and icon of whichever of them is open. Holding Deck switches the deck list between cards and a list.
+ * The editor's sections on phones, at the bottom in thumb reach (UX rules N5, R3): Deck, Add, Analysis,
+ * Test and More by default; Settings can put Deck, Add and More in any [order], and Analysis and Test sit
+ * just before More. More opens a grid of the rest of the [more] sections (Matches, Versions, Export and
+ * Edit as text, less any Settings leaves out), and lights while one of them is open. Holding Deck switches the deck list between cards and a list.
  * Swiping along the bar moves between Add cards and Deck. [tab] and [onSelect] use the editor's tab numbers (0 Deck, 1 Add cards).
  */
 @Composable
@@ -1121,7 +1131,10 @@ private fun BoxScope.EditorNav(
 ) {
     var moreOpen by remember { mutableStateOf(false) }
     val currentTab by rememberUpdatedState(tab)
-    val currentOrder by rememberUpdatedState(order)
+    val slots = remember(order, more) { barSlots(order, more) }
+    val currentSlots by rememberUpdatedState(slots)
+    // Sections with a button of their own leave the More menu.
+    val inMenu = more.filter { it.tab !in slots }
     val select by rememberUpdatedState(onSelect)
     // How far a swipe along the bar must travel before it switches.
     val swipe = with(LocalDensity.current) { 40.dp.toPx() }
@@ -1152,10 +1165,10 @@ private fun BoxScope.EditorNav(
                         travelled > swipe -> -1
                         else -> return@detectHorizontalDragGestures
                     }
-                    val items = currentOrder.items
-                    var slot = phoneNavItem(currentTab, currentOrder) + step
-                    while (items.getOrNull(slot) == EditorBarItem.MORE) slot += step
-                    val target = when (items.getOrNull(slot)) { EditorBarItem.ADD -> 1; EditorBarItem.DECK -> 0; else -> null }
+                    val items = currentSlots
+                    var slot = phoneNavItem(currentTab, items) + step
+                    while (slot in items.indices && items[slot] == null) slot += step
+                    val target = items.getOrNull(slot)
                     if (target != null) { switched = true; select(target) }
                 }
             },
@@ -1176,31 +1189,37 @@ private fun BoxScope.EditorNav(
             ) { Icon(LineIcons.List, contentDescription = null, modifier = Modifier.size(20.dp)) },
         )
         FloatingPillNav(
-            order.items.map { buttons.getValue(it) },
-            // More lights up while its menu is open, and the pill goes back when it closes.
-            selected = if (moreOpen) order.items.indexOf(EditorBarItem.MORE) else phoneNavItem(tab, order),
-            onSelect = {
-                when (order.items[it]) {
-                    EditorBarItem.MORE -> moreOpen = true
-                    EditorBarItem.ADD -> onSelect(1)
-                    EditorBarItem.DECK -> onSelect(0)
+            slots.map { slot ->
+                when (slot) {
+                    null -> buttons.getValue(EditorBarItem.MORE)
+                    0 -> buttons.getValue(EditorBarItem.DECK)
+                    1 -> buttons.getValue(EditorBarItem.ADD)
+                    2 -> BottomItem("Analysis") { MoreIcon(2) }
+                    else -> BottomItem("Test") { MoreIcon(3) }
                 }
             },
+            // More lights up while its menu is open, and the pill goes back when it closes.
+            selected = if (moreOpen) slots.indexOf(null) else phoneNavItem(tab, slots),
+            onSelect = {
+                val slot = slots[it]
+                if (slot == null) moreOpen = true else onSelect(slot)
+            },
             widest = EDITOR_NAV_WIDTH,
-            labels = true,
+            // Three buttons all have room for their names; with five, the open one shows its name (N5).
+            labels = slots.size <= 3,
         )
         // As wide as the pill and opening 8 dp above it, so every section is a short thumb move away.
         val pillWidth = floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH)
         Box(Modifier.align(Alignment.BottomCenter).padding(bottom = navClearance() + 1.dp).width(pillWidth)) {
             GameMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }, modifier = Modifier.width(pillWidth)) {
                 Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    more.chunked(MORE_COLUMNS).forEach { row ->
+                    inMenu.chunked(MORE_COLUMNS).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             row.forEach { item ->
                                 MoreTile(item, selected = tab == item.tab, Modifier.weight(1f)) { moreOpen = false; onSelect(item.tab) }
                             }
                             // A short last row keeps its tiles the same size as the rows above.
-                            repeat(if (more.size > MORE_COLUMNS) MORE_COLUMNS - row.size else 0) { Spacer(Modifier.weight(1f)) }
+                            repeat(if (inMenu.size > MORE_COLUMNS) MORE_COLUMNS - row.size else 0) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }
@@ -1209,7 +1228,7 @@ private fun BoxScope.EditorNav(
     }
 }
 
-/** A section of the phone editor under its name, since the bar always reads Deck, Add and More. */
+/** A section of the phone editor under its name, since the bar shows only the open section's name. */
 @Composable
 private fun Titled(title: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize()) {
