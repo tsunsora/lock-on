@@ -81,9 +81,13 @@ import app.lockon.ui.theme.TabularNumbers
 private val MAX_HAND_CARD = 200.dp
 /** Below this a card face drops its name and AP / HP (see PlaceholderCard), so the hand scrolls instead. */
 private val MIN_HAND_CARD = 96.dp
-/** The test hand is always three cards across (UX rule N4), so the opening five take two rows. */
-private const val HAND_COLUMNS = 3
-private const val OPENING_ROWS = 2
+/** Past this many cards a fan can't show each one, so later draws start a new fan under it. */
+private const val FAN_SIZE = 10
+/** How far apart neighbouring cards tilt, in degrees, and sit lower toward the ends. */
+private const val FAN_TILT = 4f
+/** A phone's fan tilts less, so its end cards swing out less and every card shows more of itself. */
+private const val PHONE_FAN_TILT = 3f
+private val FAN_STEP_DROP = 6.dp
 private val PAGE = 16.dp
 private val PAGE_TOP = 8.dp
 private val HEADER_HEIGHT = 32.dp
@@ -126,38 +130,38 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
 
     Column(modifier) {
     BoxWithConstraints(Modifier.weight(1f)) {
-    // A phone's panel sits 8 dp out from its cards, so three whole cards keep their names even at 360 dp.
     val panelPad = if (phone) 8.dp else 0.dp
     val inner = maxWidth - PAGE * 2 - panelPad * 2
-    val byWidth = (inner - GAP * (HAND_COLUMNS - 1)) / HAND_COLUMNS
     // All six shields share one row under the hand, like the shield zone on the board.
     val shieldsAcross = { row: Dp -> (row - GAP * (SampleHand.SHIELDS - 1)) / SampleHand.SHIELDS }
-    val firstShield = if (phone) shieldsAcross(inner) else minOf(MAX_SHIELD, shieldsAcross(inner))
-    // Everything on the page but the hand's two rows, so the opening hand and the shields fit without scrolling.
+    val shieldWidth = if (phone) shieldsAcross(inner) else minOf(MAX_SHIELD, shieldsAcross(inner))
+    // Everything on the page but the fan, so the opening hand and the shields fit without scrolling.
     val around = (if (phone) PAGE_TOP + 8.dp + panelPad * 2 else PAGE * 2) + HEADER_HEIGHT * 2 + GAP * 2 + 12.dp +
-        GAP * (OPENING_ROWS - 1) + firstShield / CARD_ASPECT
-    val byHeight = (maxHeight - around) / OPENING_ROWS * CARD_ASPECT
-    val cardWidth = minOf(byWidth, byHeight, MAX_HAND_CARD).coerceAtLeast(MIN_HAND_CARD)
-    val gridWidth = cardWidth * HAND_COLUMNS + GAP * (HAND_COLUMNS - 1)
-    val shieldWidth = if (phone) shieldsAcross(inner) else minOf(MAX_SHIELD, shieldsAcross(gridWidth))
+        shieldWidth / CARD_ASPECT
+    // The opening fan is a card's height, plus its drop toward the ends and its end cards' tilted corners.
+    val tilt = if (phone) PHONE_FAN_TILT else FAN_TILT
+    val openingMiddle = (SampleHand.HAND_SIZE - 1) / 2f
+    val swing = sin(minOf(tilt, 16f / openingMiddle) * openingMiddle * PI.toFloat() / 180f)
+    val byHeight = (maxHeight - around - FAN_STEP_DROP * openingMiddle) / (1f / CARD_ASPECT + swing)
+    // Cards take about a third of the width (more on a phone), but no taller than lets the fan and shields fit.
+    val cardWidth = minOf(inner * (if (phone) 0.4f else 0.3f), byHeight, MAX_HAND_CARD).coerceAtLeast(MIN_HAND_CARD)
     val scroll = rememberScrollState()
     val newest = remember { BringIntoViewRequester() }
     // A drawn card lands at the end of the hand, which may be below the fold: bring it into view.
     LaunchedEffect(game.drawsTaken) { if (game.drawsTaken > 0) newest.bringIntoView() }
     val hand = @Composable {
-        Column(Modifier.width(gridWidth), verticalArrangement = Arrangement.spacedBy(GAP)) {
-            handCards.withIndex().chunked(HAND_COLUMNS).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(GAP)) {
-                    row.forEach { (i, card) ->
-                        val drawn = i - SampleHand.HAND_SIZE + 1
-                        val stagger = if (drawn <= 0) i else 0
-                        val last = i == handCards.lastIndex && drawn > 0
-                        Box(Modifier.width(cardWidth).then(if (last) Modifier.bringIntoViewRequester(newest) else Modifier).dealIn("$dealId-$i", stagger)) {
-                            CardFace(card, Modifier.fillMaxWidth().clickable(enabled = card != null) { detail = card })
-                            // Cards drawn after the opening hand say which draw brought them, in the corner opposite the cost.
-                            if (drawn > 0) {
-                                Badge("Draw $drawn", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, Modifier.align(Alignment.TopEnd).padding(6.dp))
-                            }
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(GAP)) {
+            handCards.withIndex().chunked(FAN_SIZE).forEach { fan ->
+                HandFan(fan.size, cardWidth, inner, tilt) { at, place ->
+                    val (i, card) = fan[at]
+                    val drawn = i - SampleHand.HAND_SIZE + 1
+                    val stagger = if (drawn <= 0) i else 0
+                    val last = i == handCards.lastIndex && drawn > 0
+                    Box(place.then(if (last) Modifier.bringIntoViewRequester(newest) else Modifier).dealIn("$dealId-$i", stagger)) {
+                        CardFace(card, Modifier.fillMaxWidth().clickable(enabled = card != null) { detail = card })
+                        // Cards drawn after the opening hand say which draw brought them; the corner stays in view under the next card.
+                        if (drawn > 0) {
+                            Badge("Draw $drawn", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, Modifier.align(Alignment.BottomStart).padding(6.dp))
                         }
                     }
                 }
@@ -201,6 +205,43 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     buttons(Modifier.padding(start = PAGE, end = PAGE, top = if (phone) 0.dp else 4.dp, bottom = if (phone) LocalNavClearance.current + 4.dp else PAGE))
     }
     detail?.let { CardDetailDialog(it, emptyList(), onDismiss = { detail = null }) }
+}
+
+/**
+ * A hand held in a fan, centred in [width]: each card overlaps the one before and tilts from a point
+ * below the hand. The card under the pointer comes to the front, and a tap opens any card whole (UX rule V4a).
+ */
+@Composable
+private fun HandFan(count: Int, cardWidth: Dp, width: Dp, maxTilt: Float, card: @Composable (Int, Modifier) -> Unit) {
+    val cardHeight = cardWidth / CARD_ASPECT
+    val middle = (count - 1) / 2f
+    // A card joining the fan makes room: the others ease to their new places rather than jumping there.
+    val easedMiddle by animateFloatAsState(middle, glide(), label = "fan-middle")
+    val tiltTarget = if (count > 1) minOf(maxTilt, 16f / middle) else 0f
+    val tilt by animateFloatAsState(tiltTarget, glide(), label = "fan-tilt")
+    val widest = tiltTarget * middle
+    // The end cards' top corners swing out past their own width.
+    val swing = cardHeight * 1.2f * sin(widest * PI.toFloat() / 180f)
+    val stepTarget = if (count > 1) minOf(cardWidth * 0.62f, (width - cardWidth - swing * 2) / (count - 1)).coerceAtLeast(0.dp) else 0.dp
+    val startTarget = (width - cardWidth - stepTarget * (count - 1)) / 2
+    val rimTarget = cardWidth / 2 * sin(widest * PI.toFloat() / 180f)
+    val step by animateDpAsState(stepTarget, glide(), label = "fan-step")
+    val start by animateDpAsState(startTarget, glide(), label = "fan-start")
+    val rim by animateDpAsState(rimTarget, glide(), label = "fan-rim")
+    Box(Modifier.fillMaxWidth().height(cardHeight + FAN_STEP_DROP * middle + rimTarget * 2)) {
+        repeat(count) { i ->
+            val from = i - easedMiddle
+            val hover = remember { MutableInteractionSource() }
+            val hovered by hover.collectIsHoveredAsState()
+            card(
+                i,
+                Modifier.zIndex(if (hovered) 1f else 0f).width(cardWidth)
+                    .offset(start + step * i, rim + FAN_STEP_DROP * abs(from))
+                    .hoverable(hover)
+                    .graphicsLayer { rotationZ = tilt * from; transformOrigin = TransformOrigin(0.5f, 1.2f) },
+            )
+        }
+    }
 }
 
 /** The game so far: cards left once the shields are set, and which turn it is. */
