@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.30 (2026-11-15)
+
+Lock On takes its colours from your system, and cards without artwork look like real cards.
+
+- **Material You colours:** where your system has an accent colour (the wallpaper on Android 12 and later, the accent colour on Windows, macOS and GNOME), Lock On's palette follows it. Turn it off under Settings › Appearance › Material You colors to get Sky and Twilight's own teal back.
+- **Cards without artwork:** they're laid out like printed cards, with the cost and level in a corner tab, the card's type icon in the middle and a dark band with the name, colour and type, and AP / HP. Long names wrap onto two lines instead of being cut off.
+- **Card type icons:** units, pilots, commands, bases and resources have simpler icons (shield, person, bolt, castle and cube), shared by the cards and the type filters. Resources get their own filter icon.
+
 ## 26.11.29 (2026-11-15)
 
 Lock On opens sooner: the launch screen goes as soon as the app is ready, with a shorter, simpler animation.
