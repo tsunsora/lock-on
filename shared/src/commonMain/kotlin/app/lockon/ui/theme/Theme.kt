@@ -17,6 +17,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -190,14 +191,22 @@ private fun lockOnTypography(): Typography {
     )
 }
 
+/**
+ * Lock On's theme: Sky by day and Twilight in the dark, or with a [seed] from the system's accent,
+ * Material You colours made from it in the same recipe (UX rule V3a, [systemColorScheme]).
+ */
 @Composable
-fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val colors = if (dark) DarkColors else LightColors
+fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), seed: Color? = null, content: @Composable () -> Unit) {
+    val (colors, tones) = remember(dark, seed) {
+        val base = if (dark) DarkColors else LightColors
+        if (seed != null && usableSeed(seed)) systemColorScheme(seed, dark, base) else base to (if (dark) TwilightTones else DayTones)
+    }
     MaterialTheme(colorScheme = colors, shapes = MaterialShapes, typography = lockOnTypography()) {
         // Every plain clickable answers with the flat wash (UX rule V5), and Material's own controls show no ripple.
         // The parts the platform would draw in its own colours take the palette's (UX rule K9): selected text
         // is a teal wash with teal handles, as the cursor is teal; scroll bars (ScrollBars.jvm.kt) use the ink and teal.
         CompositionLocalProvider(
+            LocalTones provides tones,
             LocalIndication provides PressWash(colors.onSurface, colors.primary),
             LocalRippleConfiguration provides null,
             LocalTextSelectionColors provides TextSelectionColors(handleColor = colors.primary, backgroundColor = colors.primary.copy(alpha = if (dark) 0.34f else 0.24f)),
