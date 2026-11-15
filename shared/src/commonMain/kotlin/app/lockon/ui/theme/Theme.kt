@@ -2,6 +2,8 @@ package app.lockon.ui.theme
 
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalRippleConfiguration
@@ -193,9 +195,12 @@ fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -
     val colors = if (dark) DarkColors else LightColors
     MaterialTheme(colorScheme = colors, shapes = MaterialShapes, typography = lockOnTypography()) {
         // Every plain clickable answers with the flat wash (UX rule V5), and Material's own controls show no ripple.
+        // The parts the platform would draw in its own colours take the palette's (UX rule K9): selected text
+        // is a teal wash with teal handles, as the cursor is teal; scroll bars (ScrollBars.jvm.kt) use the ink and teal.
         CompositionLocalProvider(
             LocalIndication provides PressWash(colors.onSurface, colors.primary),
             LocalRippleConfiguration provides null,
+            LocalTextSelectionColors provides TextSelectionColors(handleColor = colors.primary, backgroundColor = colors.primary.copy(alpha = if (dark) 0.34f else 0.24f)),
             content = content,
         )
     }

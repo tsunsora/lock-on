@@ -218,7 +218,7 @@ Each line names what a guide asks, what Lock On does, and why. Where the guides 
 
 The rules above are ahead of the app in these places. Each is a follow-up change, reviewed in pictures (K7).
 
-- **Theme on platform surfaces (K9).** Text selection, the cursor and scrollbars have not been checked against the palette.
+None at the moment. The last six (dusk chroma, tabular figures, caution stripes, phone navigation labels, the launcher icon and the platform surfaces) were closed on 2026-11-15.
 
 ## Research behind the rules
 
