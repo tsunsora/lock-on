@@ -194,7 +194,7 @@ fun CardFace(card: Card?, modifier: Modifier = Modifier, faceDown: Boolean = fal
  * such as the cost curve, in the same style.
  */
 @Composable
-fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true, prefix: String = "Lv", suffixLast: String = "") {
+fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 64.dp, caption: Boolean = true, prefix: String = "Lv", suffixLast: String = "", axis: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     val max = bars.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
     // Bars grow from the floor the first time the curve shows (UX rule V5: charts), then follow changes.
@@ -202,7 +202,9 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
     LaunchedEffect(Unit) { shown = true }
     Column(modifier.fillMaxWidth()) {
         if (caption) Text("Level curve", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+        // With [axis], the bars stand on a 1 dp hairline with their labels under it, as a main chart's do.
+        val baseline = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+        Row(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(if (axis) 0.dp else 8.dp), verticalAlignment = Alignment.Bottom) {
             bars.forEachIndexed { index, (level, count) ->
                 val grow by animateFloatAsState(if (shown) count.toFloat() / max else 0f, motion(Motion.LONG, delayMillis = index * Motion.STAGGER), label = "curve")
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
@@ -210,11 +212,16 @@ fun MiniCurve(bars: List<Pair<Int, Int>>, modifier: Modifier = Modifier, height:
                     else Text("", style = MaterialTheme.typography.labelMedium)
                     Box(
                         // The bar gets the room left after its count and label, so heights compare honestly.
-                        Modifier.widthIn(max = 40.dp).fillMaxWidth(0.72f).weight(1f, fill = false).fillMaxHeight(fraction = grow.coerceAtLeast(0.06f))
+                        Modifier.widthIn(max = if (axis) 64.dp else 40.dp).fillMaxWidth(if (axis) 0.8f else 0.72f).weight(1f, fill = false).fillMaxHeight(fraction = grow.coerceAtLeast(0.06f))
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                             .background(if (isTwilight()) app.lockon.ui.theme.ChartSlateTwilight else app.lockon.ui.theme.ChartSlate),
                     )
-                    Text("$prefix$level${if (index == bars.lastIndex) suffixLast else ""}", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                    if (axis) Box(Modifier.fillMaxWidth().height(1.dp).background(baseline))
+                    Text(
+                        "$prefix$level${if (index == bars.lastIndex) suffixLast else ""}",
+                        Modifier.padding(top = if (axis) 8.dp else 0.dp),
+                        style = if (axis) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant,
+                    )
                 }
             }
         }
