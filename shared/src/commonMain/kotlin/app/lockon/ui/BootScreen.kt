@@ -42,25 +42,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.components.Gold
 import app.lockon.ui.components.LocalReduceMotion
@@ -69,9 +62,6 @@ import app.lockon.ui.components.SkyBackground
 import app.lockon.ui.components.isTwilight
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.concurrent.Volatile
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /** What the boot screen is waiting on, in order; each finished step fills one pip. */
 enum class BootStep(val label: String) {
@@ -94,12 +84,10 @@ class BootClock {
     @Volatile var handedOver: Boolean = false
     /** How far the hunt has got, from 0 to [HOLD_AT]: it plays once, then holds the lock until the boot screen goes. */
     val stage: Float get() = minOf(played / HUNT_MS, HOLD_AT)
-    /** Where the radar sweep is in its loop, from 0 to 1; it keeps turning while the lock holds. */
-    val loop: Float get() = played / SWEEP_MS % 1f
     /** True once the first lock has landed, so the boot screen may go. */
     val locked: Boolean get() = played >= HUNT_MS * (LOCK_AT + 0.04f)
 
-    /** Jumps to just past the first lock, for tests whose frames come in steps too big for this clock to keep up with. */
+    /** Jumps to just past the first lock: when the app is ready before the ring has filled, and for tests whose frames come in steps too big for this clock to keep up with. */
     fun skipToLock() { played = HUNT_MS * (LOCK_AT + 0.04f) }
 }
 
@@ -166,17 +154,18 @@ class BootTargeting(val center: Offset, val reach: Float, val target: Float, val
     fun draw(scope: DrawScope, clock: BootClock, labels: TextMeasurer, rings: Boolean = true) = with(scope) {
         translate(this@BootTargeting.center.x - size.width / 2, this@BootTargeting.center.y - size.height / 2) {
             if (rings) drawRadarRings(reach, scan)
-            drawTargeting(clock.stage, clock.loop, reach, target, scan, ink, casing, lockInk, labels, labelStyle)
+            drawTargeting(clock.stage, reach, target, scan, ink, casing)
         }
     }
 
-    /** Draws the parts of the field that never move: the range rings and the ticks round them. */
+    /** Draws the part of the field that never moves: its faint ring. */
     fun drawRings(scope: DrawScope) = with(scope) {
         translate(this@BootTargeting.center.x - size.width / 2, this@BootTargeting.center.y - size.height / 2) { drawRadarRings(reach, scan) }
     }
 
-    /** Lays out the seeker's readouts ahead of time, so drawing on another thread later only reads them from [labels]' cache. */
-    fun warm(labels: TextMeasurer) = readouts(ink, lockInk).toList().forEach { (word, color) -> labels.measure(word, labelStyle.copy(color = color)) }
+    /** Once laid out the seeker's words ahead of time; the simpler field has none, so there is nothing to do. */
+    @Suppress("UNUSED_PARAMETER")
+    fun warm(labels: TextMeasurer) {}
 
     /**
      * The field on a screen [width]×[height] pixels whose boot screen sits [by] from where it was: the
@@ -186,8 +175,8 @@ class BootTargeting(val center: Offset, val reach: Float, val target: Float, val
 }
 
 /**
- * The launch screen: a targeting system locking on to the Lock On mark. A seeker reticle hunts
- * across a radar field, catches the mark, closes its brackets on it and locks in gold with a pulse, and holds the lock until it fades out. It covers the app while the screens underneath fill in,
+ * The launch screen: the Lock On mark with a ring round it that fills, locks in gold with one pulse,
+ * and holds the lock until it fades out. It covers the app while the screens underneath fill in,
  * so the first look at decks and cards doesn't stutter. With reduced motion it holds the lock.
  * While [playing] is false a [BootCover] plays it, and this one holds still underneath.
  */
@@ -205,9 +194,9 @@ fun BootScreen(
 ) {
     val reduce = LocalReduceMotion.current
     // The hunt, the lock and the letting go are all fractions of one loop. Here the screens building
-    // underneath hold up some frames by a few hundred ms, and on the wall clock the seeker jumped
+    // underneath hold up some frames by a few hundred ms, and on the wall clock the ring jumped
     // across the field each time. So the clock moves at most [MAX_STEP_MS] a frame and makes up the
-    // rest at up to [CATCH_UP] times speed once frames are quick again, and the seeker only glides.
+    // rest at up to [CATCH_UP] times speed once frames are quick again, and the ring only glides.
     val frames = remember { mutableIntStateOf(0) }
     if (playing && !reduce && layers == BootLayers.ALL) LaunchedEffect(clock) {
         var last = withFrameNanos { it }
@@ -223,11 +212,9 @@ fun BootScreen(
         }
     }
     val time = { frames.intValue; if (reduce) HOLD_AT else clock.stage }
-    val sweep = { frames.intValue; if (reduce) HOLD_AT else clock.loop }
     val look = if (isTwilight()) BootLookTwilight else BootLookDay
     val scan = look.scan
     val ink = look.ink
-    val labels = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelMedium
     val density = LocalDensity.current
     val screen = modifier.fillMaxSize()
@@ -250,7 +237,7 @@ fun BootScreen(
                     ) {
                         if (layers == BootLayers.ALL) {
                             drawRadarRings(reach.toPx(), scan)
-                            drawTargeting(time(), sweep(), reach.toPx(), 62.dp.toPx(), scan, ink, look.casing, look.lockInk, labels, labelStyle)
+                            drawTargeting(time(), reach.toPx(), 62.dp.toPx(), scan, ink, look.casing)
                         }
                     }
                     Box(
@@ -322,13 +309,10 @@ private val BootLookTwilight = BootLook(
 )
 
 /**
- * One pass: hunt, close in, lock at [LOCK_AT] and hold from [HOLD_AT] until the boot screen goes, so it
- * fades out locked on rather than hunting again. The lock lands about a second in; should the app be
- * ready sooner, the seeker jumps to it.
+ * One pass: the ring fills, locks at [LOCK_AT] and holds from [HOLD_AT] until the boot screen goes, so it
+ * fades out locked on. The lock lands about a second in; should the app be ready sooner, it jumps there.
  */
 private const val HUNT_MS = 1_800f
-/** One turn of the radar sweep, which keeps its calm pace however short the hunt. */
-private const val SWEEP_MS = 3_400f
 private const val LOCK_AT = 0.52f
 private const val HOLD_AT = 0.8f
 /** The most of the loop one frame moves on, about two frames at 60 Hz, and how fast the clock makes up time lost to slow frames. */
@@ -343,151 +327,33 @@ private fun smooth(from: Float, to: Float, x: Float): Float {
 /** How far the radar field reaches on a screen [width]×[height], in the same units. */
 private fun bootReach(width: Float, height: Float) = minOf(width, height * 1.4f) * 0.34f
 
-/** The seeker's readouts, searching, tracking and locked, each in its colour. */
-private fun readouts(ink: Color, lockInk: Color) = Triple("Searching" to ink.copy(alpha = 0.85f), "Tracking" to ink.copy(alpha = 0.95f), "Locked" to lockInk)
-
-/** Faint contacts on the radar, as (bearing in turns, range as a share of reach); the sweep lights each as it passes. */
-private val Contacts = listOf(0.08f to 0.82f, 0.27f to 1.25f, 0.41f to 0.58f, 0.63f to 1.05f, 0.79f to 1.42f, 0.93f to 0.7f)
-
-/** The radar field's dashed range rings and the ticks round them, around the canvas centre, [reach] out. */
+/** The faint ring the field rests on, around the canvas centre, [reach] out. It never moves. */
 private fun DrawScope.drawRadarRings(reach: Float, scan: Color) {
-    val c = center
-    val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 8.dp.toPx()))
-    listOf(0.55f, 1.05f, 1.55f).forEach { drawCircle(scan.copy(alpha = 0.3f), reach * it, c, style = Stroke(1.dp.toPx(), pathEffect = dash)) }
-    repeat(12) { i ->
-        val a = i / 12f * 2 * PI.toFloat()
-        val d = Offset(cos(a), sin(a))
-        drawLine(scan.copy(alpha = 0.4f), c + d * (reach * 1.55f - 6.dp.toPx()), c + d * (reach * 1.55f + 6.dp.toPx()), 2.dp.toPx())
-    }
+    drawCircle(scan.copy(alpha = 0.25f), reach * 0.75f, center, style = Stroke(1.dp.toPx()))
 }
 
 /**
- * Draws the whole targeting pass around the canvas centre (the mark), [reach] out, at pass time [t],
- * with the radar sweep at [loop] of its own loop. [target] is the mark's radius, where the brackets come to rest.
+ * Draws the lock around the canvas centre (the mark) at pass time [t]: a ring round the mark fills, turns
+ * gold as it locks, and sends one pulse out towards [reach]. [target] is the mark's radius.
  */
-private fun DrawScope.drawTargeting(t: Float, loop: Float, reach: Float, target: Float, scan: Color, ink: Color, casing: Color, lockInk: Color, labels: TextMeasurer, labelStyle: TextStyle) {
+private fun DrawScope.drawTargeting(t: Float, reach: Float, target: Float, scan: Color, ink: Color, casing: Color) {
     val c = center
-    val line = 2.dp.toPx()
-    // Over the rings: a sweeping wedge, and contacts that glow as it passes.
-    // Two sweeps per loop, so the wedge comes round again where it started.
-    val sweep = loop * 2 * 360f
-    rotate(sweep, pivot = c) {
-        val r = reach * 1.6f
-        drawArc(
-            Brush.sweepGradient(0.88f to Color.Transparent, 1f to scan.copy(alpha = 0.1f), center = c),
-            startAngle = -43f, sweepAngle = 43f, useCenter = true, topLeft = c - Offset(r, r), size = Size(r * 2, r * 2),
-        )
-        drawLine(scan.copy(alpha = 0.35f), c, c + Offset(r, 0f), line)
-    }
-    Contacts.forEach { (bearing, range) ->
-        val since = (((sweep / 360f) - bearing) % 1f + 1f) % 1f
-        val glow = (1f - since).let { it * it * it }
-        val a = bearing * 2 * PI.toFloat()
-        val p = c + Offset(cos(a), sin(a)) * (reach * range)
-        val s = 4.dp.toPx()
-        rotate(45f, pivot = p) { drawRect(scan.copy(alpha = 0.3f + 0.5f * glow), p - Offset(s, s), Size(s * 2, s * 2)) }
-    }
-
     val seen = smooth(0f, 0.06f, t)
-    // Catching the mark: the seeker drifts in from its hunt and the brackets close.
-    val catch = smooth(0.18f, LOCK_AT, t)
-    val locked = t >= LOCK_AT
     val sinceLock = if (t >= LOCK_AT) (t - LOCK_AT) / (1f - LOCK_AT) else -1f
-    val hunt = 2 * PI * t
-    val wander = Offset(cos(hunt * 1.3 + 0.6).toFloat() * reach * 0.95f, sin(hunt * 2.1 + 0.2).toFloat() * reach * 0.6f)
-    val at = c + wander * (1f - catch)
-    // The brackets squeeze a hair as they lock.
-    val squeeze = if (sinceLock in 0f..0.12f) 1f - 0.12f * sin(PI.toFloat() * sinceLock / 0.12f) else 1f
-    val half = (target * 1.25f + (1f - catch) * target * 0.9f) * squeeze
-    // How far the seeker has turned gold, and with that how much of its dark casing shows.
-    val gilt = if (locked) smooth(0f, 0.08f, sinceLock) else 0f
+    val gilt = if (sinceLock >= 0f) smooth(0f, 0.08f, sinceLock) else 0f
     val color = lerp(scan, Gold, gilt)
-
-    // The ring round the mark fills as the seeker closes, the lock's progress.
     val ring = target + 7.dp.toPx()
+    // The track, then the lock's progress filling it from the top.
     drawCircle(ink.copy(alpha = 0.18f * seen), ring, c, style = Stroke(3.dp.toPx()))
     if (gilt > 0f) drawCircle(casing.copy(alpha = gilt), ring, c, style = Stroke(6.dp.toPx()))
     drawArc(
-        color.copy(alpha = seen), -90f, 360f * smooth(0.28f, LOCK_AT, t), useCenter = false,
+        color.copy(alpha = seen), -90f, 360f * smooth(0.04f, LOCK_AT, t), useCenter = false,
         topLeft = c - Offset(ring, ring), size = Size(ring * 2, ring * 2), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round),
     )
-
-    // A pulse rolls out from the mark the moment it locks.
+    // One pulse rolls out from the mark the moment it locks.
     if (sinceLock in 0f..0.45f) {
         val k = sinceLock / 0.45f
-        drawCircle(casing.copy(alpha = 0.7f * (1f - k)), ring + k * reach * 1.1f, c, style = Stroke((7f - 3f * k).dp.toPx()))
-        drawCircle(Gold.copy(alpha = 0.7f * (1f - k)), ring + k * reach * 1.1f, c, style = Stroke((4f - 3f * k).dp.toPx()))
+        drawCircle(casing.copy(alpha = 0.6f * (1f - k)), ring + k * reach * 0.8f, c, style = Stroke((6f - 3f * k).dp.toPx()))
+        drawCircle(Gold.copy(alpha = 0.6f * (1f - k)), ring + k * reach * 0.8f, c, style = Stroke((3.5f - 2.5f * k).dp.toPx()))
     }
-
-    // The seeker: four corner brackets, turned while it hunts and square once it holds.
-    rotate((1f - catch) * 35f, pivot = at) {
-        val arm = half * 0.42f
-        val keyline = casing.copy(alpha = gilt * seen)
-        listOf(Offset(-1f, -1f), Offset(1f, -1f), Offset(-1f, 1f), Offset(1f, 1f)).forEach { d ->
-            val corner = at + Offset(d.x * half, d.y * half)
-            val bracket = Path().apply {
-                moveTo(corner.x - d.x * arm, corner.y)
-                lineTo(corner.x, corner.y)
-                lineTo(corner.x, corner.y - d.y * arm)
-            }
-            if (gilt > 0f) drawPath(bracket, keyline, style = Stroke(7.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            drawPath(bracket, color.copy(alpha = seen), style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-        }
-    }
-    // A crosshair rides the seeker while it hunts and gives way to the mark's own reticle as it closes.
-    val cross = seen * (1f - smooth(0.3f, LOCK_AT, t))
-    if (cross > 0f) {
-        listOf(Offset(0f, -1f), Offset(0f, 1f), Offset(-1f, 0f), Offset(1f, 0f)).forEach { d ->
-            drawLine(color.copy(alpha = 0.8f * cross), at + d * (half * 0.2f), at + d * (half * 0.6f), line, StrokeCap.Round)
-        }
-        drawCircle(color.copy(alpha = 0.8f * cross), 3.dp.toPx(), at)
-    }
-    // Chevrons point in on the mark while the lock holds.
-    if (locked) {
-        val show = smooth(0f, 0.06f, sinceLock)
-        val tip = ring + 10.dp.toPx() + 4.dp.toPx() * (1f - show)
-        val s = 6.dp.toPx()
-        repeat(4) { i ->
-            rotate(45f + i * 90f, pivot = c) {
-                val chevron = Path().apply {
-                    moveTo(c.x, c.y - tip)
-                    lineTo(c.x - s, c.y - tip - s * 1.3f)
-                    lineTo(c.x + s, c.y - tip - s * 1.3f)
-                    close()
-                }
-                drawPath(chevron, lockInk.copy(alpha = show))
-            }
-        }
-    }
-    // A readout under the seeker's bottom-right bracket says what it is doing.
-    val (searching, tracking, lockedOn) = readouts(ink, lockInk)
-    val (word, wordColor) = when {
-        locked -> lockedOn
-        catch > 0.35f -> tracking
-        else -> searching
-    }
-    if (seen > 0f) {
-        val laid = labels.measure(word, labelStyle.copy(color = wordColor))
-        // Under the bottom-right bracket's corner as the seeker turns it, centred while that corner is the
-        // lowest point, so the bracket never crosses the word, and ending at the corner's right edge once square.
-        val turn = (1f - catch) * 35f * PI.toFloat() / 180f
-        val corner = at + Offset(cos(turn) - sin(turn), sin(turn) + cos(turn)) * half
-        val width = laid.size.width.toFloat()
-        val topLeft = corner + Offset(-width * (0.5f + 0.5f * catch), 8.dp.toPx())
-        // It comes back in full as the seeker settles, so the lock's word is never dimmed.
-        val clear = maxOf(readoutClear(topLeft - c, width, laid.size.height.toFloat()), smooth(0.85f, 1f, catch))
-        drawText(laid, topLeft = topLeft, alpha = seen * clear)
-    }
-}
-
-/**
- * How visible a readout may be with its corner at [at] from the mark's centre, going by its gap to the
- * title and the progress pill below the mark, which lie over it: gone when it would touch them, full
- * once clear.
- */
-private fun DrawScope.readoutClear(at: Offset, width: Float, height: Float): Float {
-    val across = 112.dp.toPx()
-    val gapX = maxOf(at.x - across, -across - (at.x + width))
-    val gapY = maxOf(at.y - 196.dp.toPx(), 108.dp.toPx() - (at.y + height))
-    return smooth(0f, 10.dp.toPx(), maxOf(gapX, gapY))
 }
