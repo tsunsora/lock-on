@@ -837,7 +837,8 @@ private fun DeckRow(
                 Box {
                     Icon(
                         LineIcons.More, contentDescription = "Deck actions", tint = scheme.onSurfaceVariant,
-                        modifier = Modifier.size(40.dp).clip(LockOnShapes.button).clickable(role = Role.Button) { menu = true }.padding(10.dp),
+                        modifier = Modifier.size(40.dp).clip(LockOnShapes.button).background(app.lockon.ui.components.neutralWash())
+                            .clickable(role = Role.Button) { menu = true }.padding(10.dp),
                     )
                     GameMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         GameMenuItem("Rename", onClick = { menu = false; onRename() })
@@ -982,7 +983,8 @@ private fun DeckTile(
                 Box {
                     Icon(
                         LineIcons.More, contentDescription = "Deck actions", tint = scheme.onSurfaceVariant,
-                        modifier = Modifier.size(32.dp).clip(LockOnShapes.button).clickable(role = Role.Button) { setMenu(true) }.padding(6.dp),
+                        modifier = Modifier.size(32.dp).clip(LockOnShapes.button).background(app.lockon.ui.components.neutralWash())
+                            .clickable(role = Role.Button) { setMenu(true) }.padding(6.dp),
                     )
                     GameMenu(expanded = menu, onDismissRequest = { setMenu(false) }) {
                         GameMenuItem("Rename", onClick = { setMenu(false); onRename() })

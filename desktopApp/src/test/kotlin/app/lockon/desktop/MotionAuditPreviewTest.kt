@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.use
-import app.lockon.ui.components.CopyPips
 import app.lockon.ui.components.DialogStage
 import app.lockon.ui.components.DialogStageHost
 import app.lockon.ui.components.FadeSwap
@@ -102,7 +101,7 @@ class MotionAuditPreviewTest {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 val shape = RoundedCornerShape(12.dp)
                 Box(Modifier.size(120.dp, 160.dp).selectionEdge(shape, MaterialTheme.colorScheme.primary, selected.value).background(MaterialTheme.colorScheme.surfaceVariant, shape))
-                CopyPips(count, 3, pip = 10.dp)
+                app.lockon.ui.components.RollingNumber(count, MaterialTheme.typography.titleMedium, MaterialTheme.colorScheme.primary)
             }
         }
     }

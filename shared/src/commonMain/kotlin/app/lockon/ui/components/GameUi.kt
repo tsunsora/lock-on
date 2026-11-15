@@ -403,11 +403,9 @@ fun GlassIconButton(
     val pressed by interaction.collectIsPressedHeld()
     val squish by animateFloatAsState(if (pressed) (if (desktopControls) PressScale else 0.94f) else 1f, motion(Motion.SHORT), label = "icon-press")
     // Hover eases in rather than switching, like the buttons beside it.
-    val disc by animateColorAsState(
-        if (desktopControls) neutralFill(hovered, pressed) else if (hovered) lighten(g.strong, 0.08f) else g.strong,
-        motion(Motion.SHORT), label = "icon-disc",
-    )
-    val ring by animateColorAsState(if (desktopControls) Color.Transparent else if (hovered) Accent.copy(alpha = 0.6f) else g.line, motion(Motion.SHORT), label = "icon-ring")
+    // One flat wash with no rim on every device (UX rule K3), so back, sort and filter read as one family.
+    val disc by animateColorAsState(neutralFill(hovered, pressed), motion(Motion.SHORT), label = "icon-disc")
+    val ring = Color.Transparent
     val glyph by animateColorAsState(if (hovered && !desktopControls) scheme.primary else tint, motion(Motion.SHORT), label = "icon-tint")
     val small = if (desktopControls) SmallControlShape else RoundedCornerShape(10.dp)
     Box(
@@ -635,34 +633,6 @@ fun CostOrb(value: Int?, color: Color, onColor: Color, modifier: Modifier = Modi
     Box(modifier.size(size).clip(CircleShape).background(color).then(if (outlined) Modifier.border(1.dp, line, CircleShape) else Modifier)) {
         CenteredGlyph(text ?: value?.toString() ?: "–", onColor, (size.value * 0.46f).sp)
     }
-}
-
-/**
- * Copies as dots (Runeterra-style pips): teal for each copy, gold when the limit is reached, red
- * beyond it. The count itself is always shown beside them as a number (UX rule I4).
- */
-@Composable
-fun CopyPips(count: Int, limit: Int, modifier: Modifier = Modifier, pip: Dp = 7.dp) {
-    val scheme = MaterialTheme.colorScheme
-    val total = maxOf(limit, count).coerceAtMost(6)
-    val lit = Accent
-    val over = scheme.error
-    val unlit = scheme.onSurface.copy(alpha = if (desktopControls) 0.38f else 0.22f)
-    // One drawing with one moving number, rather than a Canvas and an animation per dot: each tile has
-    // these. As the count eases past a dot, that dot fills and its ring fades.
-    Spacer(
-        modifier.size(pip * total + 3.dp * (total - 1).coerceAtLeast(0), pip).drawSettled(count.toFloat()) { shown ->
-            drawContent()
-            val step = (pip + 3.dp).toPx()
-            val r = pip.toPx() / 2
-            repeat(total) { i ->
-                val fill = (shown - i).coerceIn(0f, 1f)
-                val c = Offset(r + step * i, r)
-                if (fill < 1f) drawCircle(if (i >= limit) over else unlit, r - 0.5.dp.toPx(), c, alpha = 1f - fill, style = Stroke(1.dp.toPx()))
-                if (fill > 0f) drawCircle(if (i >= limit) over else lit, r * (0.6f + 0.4f * fill), c, alpha = fill)
-            }
-        },
-    )
 }
 
 /**
