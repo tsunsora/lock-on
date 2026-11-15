@@ -78,27 +78,18 @@ import app.lockon.ui.components.motion
 import app.lockon.ui.theme.TabularNumbers
 
 /** Hand cards grow with the panel up to this width. */
-private val MAX_HAND_CARD = 176.dp
-/** Smaller than this, a card face drops its level and name, so the hand scrolls instead. */
+private val MAX_HAND_CARD = 200.dp
+/** Below this a card face drops its name and AP / HP (see PlaceholderCard), so the hand scrolls instead. */
 private val MIN_HAND_CARD = 100.dp
-/** Past this many cards a fan can't show each one, so later draws start a new fan under it. */
-private const val FAN_SIZE = 10
-/** How far apart neighbouring cards tilt, in degrees, and sit lower toward the ends. */
-private const val FAN_TILT = 4f
-/** A phone's fan tilts less, so its end cards swing out less and every card shows more of itself. */
-private const val PHONE_FAN_TILT = 3f
-/** What a fan needs beyond its cards' height, for the drop toward its ends and its tilted corners. */
-private val FAN_ROOM = 32.dp
-private val PANEL_PADDING = 12.dp
+/** The test hand is always three cards across (UX rule N4), so the opening five take two rows. */
+private const val HAND_COLUMNS = 3
+private const val OPENING_ROWS = 2
+private val PAGE = 16.dp
 private val PAGE_TOP = 8.dp
-private val PAGE_BOTTOM = 8.dp
-private val FAN_STEP_DROP = 6.dp
-private val STATS_HEIGHT = 24.dp
 private val HEADER_HEIGHT = 32.dp
 /** Shields are face down most of the time, so on a wide panel they stay small and the hand gets the height. */
 private val MAX_SHIELD = 64.dp
 private val GAP = 8.dp
-private val SHIELD_GAP = 6.dp
 
 /** Practice opening hands with the official redraw and shield rules. */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
@@ -120,134 +111,96 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
     val handCards = game.hand.map { cards[it] }
     val bursts = game.shields.count { cards[it]?.displayText?.contains("Burst】") == true }
 
-    // On a phone the hand and shields sit on solid panels, and the buttons stay above the bar under the thumb.
+    // On a phone the hand and shields share one solid panel; on both, the buttons stay at the bottom under the thumb.
     val phone = LocalTopBand.current.height == 0.dp
     val tall = if (phone) Modifier.height(ControlSize) else Modifier
     val buttons = @Composable { rowModifier: Modifier ->
         Row(rowModifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            // The first draw keeps the hand and sets the shields, as the rules go.
+            // Until the hand is kept the choice is Keep or Redraw, as the rules go; after that it is Draw.
             GameButton("Redraw", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f).then(tall), style = GameButtonStyle.SECONDARY, enabled = game.canRedraw, icon = if (phone) null else LineIcons.Hand, compact = true)
-            GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f).then(tall), enabled = game.canDraw, icon = LineIcons.Draw, compact = true)
+            if (!game.shieldsPlaced) GameButton("Keep", onClick = { game = game.keep() }, Modifier.weight(1f).then(tall), compact = true)
+            else GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f).then(tall), enabled = game.canDraw, icon = LineIcons.Draw, compact = true)
             GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, Modifier.weight(1f).then(tall), style = GameButtonStyle.SECONDARY, icon = if (phone) null else LineIcons.Shuffle, compact = true)
         }
     }
 
     Column(modifier) {
     BoxWithConstraints(Modifier.weight(1f)) {
-    val inner = maxWidth - 32.dp
+    // A phone's panel sits 8 dp out from its cards, so three whole cards keep their names even at 360 dp.
+    val panelPad = if (phone) 8.dp else 0.dp
+    val inner = maxWidth - PAGE * 2 - panelPad * 2
+    val byWidth = (inner - GAP * (HAND_COLUMNS - 1)) / HAND_COLUMNS
     // All six shields share one row under the hand, like the shield zone on the board.
-    val shieldSpace = if (phone) inner - PANEL_PADDING * 2 else inner
-    val shieldWidth = minOf(MAX_SHIELD, (shieldSpace - SHIELD_GAP * (SampleHand.SHIELDS - 1)) / SampleHand.SHIELDS)
-    // A phone's panel gives the fan its whole width and every spare bit of height, the fan centred in it.
-    val shieldPanel = PANEL_PADDING * 2 + HEADER_HEIGHT + GAP + shieldWidth / CARD_ASPECT
-    val handHeader = PANEL_PADDING * 2 + HEADER_HEIGHT + GAP
-    val fanArea = (maxHeight - PAGE_TOP - PAGE_BOTTOM - 12.dp - shieldPanel - handHeader).coerceAtLeast(0.dp)
-    // Cards take about a third of the width, but no taller than lets the opening hand's fan and the
-    // shields fit without scrolling.
-    val besideHand = 32.dp + STATS_HEIGHT + HEADER_HEIGHT * 2 + 12.dp * 5 + shieldWidth / CARD_ASPECT + 36.dp + 44.dp
-    val fitWidth = (if (phone) fanArea - FAN_ROOM else maxHeight - besideHand) * CARD_ASPECT
-    val handWidth = minOf(inner * (if (phone) 0.4f else 0.3f), MAX_HAND_CARD, fitWidth.coerceAtLeast(MIN_HAND_CARD))
+    val shieldsAcross = { row: Dp -> (row - GAP * (SampleHand.SHIELDS - 1)) / SampleHand.SHIELDS }
+    val firstShield = if (phone) shieldsAcross(inner) else minOf(MAX_SHIELD, shieldsAcross(inner))
+    // Everything on the page but the hand's two rows, so the opening hand and the shields fit without scrolling.
+    val around = (if (phone) PAGE_TOP + 8.dp + panelPad * 2 else PAGE * 2) + HEADER_HEIGHT * 2 + GAP * 2 + 12.dp +
+        GAP * (OPENING_ROWS - 1) + firstShield / CARD_ASPECT
+    val byHeight = (maxHeight - around) / OPENING_ROWS * CARD_ASPECT
+    val cardWidth = minOf(byWidth, byHeight, MAX_HAND_CARD).coerceAtLeast(MIN_HAND_CARD)
+    val gridWidth = cardWidth * HAND_COLUMNS + GAP * (HAND_COLUMNS - 1)
+    val shieldWidth = if (phone) shieldsAcross(inner) else minOf(MAX_SHIELD, shieldsAcross(gridWidth))
     val scroll = rememberScrollState()
     val newest = remember { BringIntoViewRequester() }
     // A drawn card lands at the end of the hand, which may be below the fold: bring it into view.
     LaunchedEffect(game.drawsTaken) { if (game.drawsTaken > 0) newest.bringIntoView() }
-    val fans = @Composable {
-        handCards.withIndex().chunked(FAN_SIZE).forEach { fan ->
-            HandFan(fan.size, handWidth, inner, if (phone) PHONE_FAN_TILT else FAN_TILT) { at, place ->
-                val (i, card) = fan[at]
-                val drawn = i - SampleHand.HAND_SIZE + 1
-                val stagger = if (drawn <= 0) i else 0
-                val last = i == handCards.lastIndex && drawn > 0
-                Box(place.then(if (last) Modifier.bringIntoViewRequester(newest) else Modifier).dealIn("$dealId-$i", stagger)) {
-                    CardFace(card, Modifier.fillMaxWidth().clickable(enabled = card != null) { detail = card })
-                    // Cards drawn after the opening hand say which draw brought them; the corner stays in view under the next card.
-                    if (drawn > 0) {
-                        Badge("Draw $drawn", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, Modifier.align(Alignment.BottomStart).padding(6.dp))
+    val hand = @Composable {
+        Column(Modifier.width(gridWidth), verticalArrangement = Arrangement.spacedBy(GAP)) {
+            handCards.withIndex().chunked(HAND_COLUMNS).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(GAP)) {
+                    row.forEach { (i, card) ->
+                        val drawn = i - SampleHand.HAND_SIZE + 1
+                        val stagger = if (drawn <= 0) i else 0
+                        val last = i == handCards.lastIndex && drawn > 0
+                        Box(Modifier.width(cardWidth).then(if (last) Modifier.bringIntoViewRequester(newest) else Modifier).dealIn("$dealId-$i", stagger)) {
+                            CardFace(card, Modifier.fillMaxWidth().clickable(enabled = card != null) { detail = card })
+                            // Cards drawn after the opening hand say which draw brought them, in the corner opposite the cost.
+                            if (drawn > 0) {
+                                Badge("Draw $drawn", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, Modifier.align(Alignment.TopEnd).padding(6.dp))
+                            }
+                        }
                     }
                 }
             }
         }
     }
     val shields = @Composable {
-        SectionHeader("Shields", readout = "${SampleHand.SHIELDS}") {
+        SectionHeader("Shields", Modifier.height(HEADER_HEIGHT), readout = "${SampleHand.SHIELDS}") {
             app.lockon.ui.components.Reveal(revealShields, sideways = true) {
                 Badge("Burst $bursts", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Modifier.padding(start = 8.dp))
             }
             // Revealing keeps the hand, since that is when the shields are set.
             GameButton(if (revealShields) "Hide" else "Reveal", onClick = { game = game.keep(); revealShields = !revealShields }, style = GameButtonStyle.GHOST, compact = true)
         }
-        // Sharing the row keeps them equal: fixed widths round to whole pixels, which left the last one short.
-        val share = shieldWidth < MAX_SHIELD
-        Row(if (share) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.spacedBy(SHIELD_GAP)) {
+        Row(Modifier.padding(top = GAP), horizontalArrangement = Arrangement.spacedBy(GAP)) {
             repeat(SampleHand.SHIELDS) { i ->
                 val card = game.shields.getOrNull(i)?.let { cards[it] }
                 FlippingShield(
                     card, revealed = revealShields, index = i,
-                    modifier = (if (share) Modifier.weight(1f) else Modifier.width(shieldWidth)).dealIn("$dealId-shield-$i", i).clickable(enabled = revealShields && card != null) { detail = card },
+                    modifier = Modifier.width(shieldWidth).dealIn("$dealId-shield-$i", i).clickable(enabled = revealShields && card != null) { detail = card },
                 )
             }
         }
     }
-    if (phone) Column(
-        Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = PAGE_TOP, bottom = PAGE_BOTTOM),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        SoftTile(Modifier.fillMaxWidth(), solid = true, padding = 0.dp) {
-            SectionHeader("Hand", Modifier.padding(start = PANEL_PADDING, end = PANEL_PADDING, top = PANEL_PADDING), readout = "${game.hand.size}") { HandStats(game) }
-            Box(Modifier.fillMaxWidth().heightIn(min = fanArea).padding(bottom = PANEL_PADDING), contentAlignment = Alignment.Center) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { fans() }
-            }
+    val handHeader = @Composable { m: Modifier ->
+        SectionHeader("Hand", m.height(HEADER_HEIGHT), readout = "${game.hand.size}") { HandStats(game) }
+    }
+    if (phone) Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = PAGE, end = PAGE, top = PAGE_TOP, bottom = 8.dp)) {
+        SoftTile(Modifier.fillMaxWidth(), solid = true, padding = panelPad) {
+            handHeader(Modifier.padding(horizontal = 4.dp))
+            Box(Modifier.padding(top = GAP)) { hand() }
+            Column(Modifier.padding(top = 12.dp)) { shields() }
         }
-        SoftTile(Modifier.fillMaxWidth(), solid = true, padding = PANEL_PADDING) { shields() }
-    } else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HandStats(game)
-        SectionHeader("Hand", readout = "${game.hand.size}")
-        fans()
-        shields()
-        buttons(Modifier.padding(top = 4.dp, bottom = LocalNavClearance.current))
+    } else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(PAGE)) {
+        handHeader(Modifier)
+        Box(Modifier.padding(top = GAP)) { hand() }
+        Column(Modifier.padding(top = 12.dp)) { shields() }
     }
     VerticalScrollBar(scroll, Modifier.align(Alignment.TopEnd))
     }
-    if (phone) buttons(Modifier.padding(start = 16.dp, end = 16.dp, bottom = LocalNavClearance.current + 4.dp))
+    buttons(Modifier.padding(start = PAGE, end = PAGE, top = if (phone) 0.dp else 4.dp, bottom = if (phone) LocalNavClearance.current + 4.dp else PAGE))
     }
     detail?.let { CardDetailDialog(it, emptyList(), onDismiss = { detail = null }) }
-}
-
-/**
- * A hand held in a fan, centred in [width]: each card overlaps the one before and tilts from a point
- * below the hand. The card under the pointer comes to the front, so a covered card can be read.
- */
-@Composable
-private fun HandFan(count: Int, cardWidth: Dp, width: Dp, maxTilt: Float, card: @Composable (Int, Modifier) -> Unit) {
-    val cardHeight = cardWidth / CARD_ASPECT
-    val middle = (count - 1) / 2f
-    // A card joining the fan makes room: the others ease to their new places rather than jumping there.
-    val easedMiddle by animateFloatAsState(middle, glide(), label = "fan-middle")
-    val tiltTarget = if (count > 1) minOf(maxTilt, 16f / middle) else 0f
-    val tilt by animateFloatAsState(tiltTarget, glide(), label = "fan-tilt")
-    val widest = tiltTarget * middle
-    // The end cards' top corners swing out past their own width.
-    val swing = cardHeight * 1.2f * sin(widest * PI.toFloat() / 180f)
-    val stepTarget = if (count > 1) minOf(cardWidth * 0.62f, (width - cardWidth - swing * 2) / (count - 1)).coerceAtLeast(0.dp) else 0.dp
-    val startTarget = (width - cardWidth - stepTarget * (count - 1)) / 2
-    val rimTarget = cardWidth / 2 * sin(widest * PI.toFloat() / 180f)
-    val step by animateDpAsState(stepTarget, glide(), label = "fan-step")
-    val start by animateDpAsState(startTarget, glide(), label = "fan-start")
-    val rim by animateDpAsState(rimTarget, glide(), label = "fan-rim")
-    Box(Modifier.fillMaxWidth().height(cardHeight + FAN_STEP_DROP * middle + rimTarget * 2)) {
-        repeat(count) { i ->
-            val from = i - easedMiddle
-            val hover = remember { MutableInteractionSource() }
-            val hovered by hover.collectIsHoveredAsState()
-            card(
-                i,
-                Modifier.zIndex(if (hovered) 1f else 0f).width(cardWidth)
-                    .offset(start + step * i, rim + FAN_STEP_DROP * abs(from))
-                    .hoverable(hover)
-                    .graphicsLayer { rotationZ = tilt * from; transformOrigin = TransformOrigin(0.5f, 1.2f) },
-            )
-        }
-    }
 }
 
 /** The game so far: cards left once the shields are set, and which turn it is. */
