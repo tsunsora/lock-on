@@ -100,6 +100,24 @@ object LineIcons {
         CardType.RESOURCE, CardType.EX_RESOURCE -> faceResource
         else -> faceUnit
     }
+    val Mark: ImageVector by lazy { icon("Mark", "M5.6 12A6.4 6.4 0 1 1 18.4 12A6.4 6.4 0 1 1 5.6 12Z", "M12 3v4M12 17v4M3 12h4M17 12h4", solid = "M9.9 12A2.1 2.1 0 1 1 14.1 12A2.1 2.1 0 1 1 9.9 12Z") }
+    val Min: ImageVector by lazy { icon("Min", "M6 12h12") }
+    val Max: ImageVector by lazy { icon("Max", "M8.5 6H15.5A2.5 2.5 0 0 1 18 8.5V15.5A2.5 2.5 0 0 1 15.5 18H8.5A2.5 2.5 0 0 1 6 15.5V8.5A2.5 2.5 0 0 1 8.5 6Z") }
+    val Swap: ImageVector by lazy { icon("Swap", "M7 4 3.5 7.5 7 11M3.5 7.5H17M17 13l3.5 3.5L17 20M20.5 16.5H7") }
+    val Trophy: ImageVector by lazy { icon("Trophy", "M8 4h8v5a4 4 0 0 1-8 0zM8 6H4.5v1.5A3.5 3.5 0 0 0 8 11M16 6h3.5v1.5A3.5 3.5 0 0 1 16 11M12 13v4M8.5 20.5h7M10 17h4v3.5h-4z") }
+    val Eye: ImageVector by lazy { icon("Eye", "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z", "M9.2 12A2.8 2.8 0 1 1 14.8 12A2.8 2.8 0 1 1 9.2 12Z") }
+    val Palette: ImageVector by lazy { icon("Palette", "M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 1.8-1.1 1.2-2.1-.7-1.1 0-2.4 1.3-2.4H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.8-9-8.5-9z", "M6.5 11A1 1 0 1 1 8.5 11A1 1 0 1 1 6.5 11Z", "M9 7.5A1 1 0 1 1 11 7.5A1 1 0 1 1 9 7.5Z", "M13.5 7.5A1 1 0 1 1 15.5 7.5A1 1 0 1 1 13.5 7.5Z") }
+    val Sliders: ImageVector by lazy { icon("Sliders", "M4 7h9M17 7h3M4 17h3M11 17h9", "M13 7A2 2 0 1 1 17 7A2 2 0 1 1 13 7Z", "M7 17A2 2 0 1 1 11 17A2 2 0 1 1 7 17Z") }
+    val Database: ImageVector by lazy { icon("Database", "M4.5 6A7.5 2.8 0 1 1 19.5 6A7.5 2.8 0 1 1 4.5 6Z", "M4.5 6v12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8") }
+    val Alert: ImageVector by lazy { icon("Alert", "M10.3 4.5 2.9 17.5A2 2 0 0 0 4.6 20.5h14.8a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0Z", "M12 9.5v4.5M12 17.2v.2") }
+    val Info: ImageVector by lazy { icon("Info", "M3.5 12A8.5 8.5 0 1 1 20.5 12A8.5 8.5 0 1 1 3.5 12Z", "M12 11v5.5M12 7.8v.2") }
+    val Home: ImageVector by lazy { icon("Home", "M4 11 12 4l8 7v8.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z") }
+    val Download: ImageVector by lazy { icon("Download", "M12 4v11M7.5 10.5 12 15l4.5-4.5", "M5 19.5h14") }
+    val Paste: ImageVector by lazy { icon("Paste", "M7.5 4.5H16.5A2 2 0 0 1 18.5 6.5V18.5A2 2 0 0 1 16.5 20.5H7.5A2 2 0 0 1 5.5 18.5V6.5A2 2 0 0 1 7.5 4.5Z", "M9 4.5V3h6v1.5M9 10h6M9 14h6") }
+    val Send: ImageVector by lazy { icon("Send", "m4 12 16-8-6 16-2.5-6.5z", "m11.5 13.5 3.5-3.5") }
+    val Play: ImageVector by lazy { icon("Play", "M3.5 12A8.5 8.5 0 1 1 20.5 12A8.5 8.5 0 1 1 3.5 12Z", solid = "M10.2 8.6v6.8l5.4-3.4z") }
+    val Flag: ImageVector by lazy { icon("Flag", "M5.5 21V4M5.5 4.5h11l-2.2 4 2.2 4h-11") }
+    val Side: ImageVector by lazy { icon("Side", "M8 3.5H16A2 2 0 0 1 18 5.5V18.5A2 2 0 0 1 16 20.5H8A2 2 0 0 1 6 18.5V5.5A2 2 0 0 1 8 3.5Z", solid = "M12 3.5h4a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-4z") }
     val Hand: ImageVector by lazy { icon("Hand", "M1.84 8.963L9.665 7.299L12.16 19.037L4.335 20.701Z", "M14.335 7.299L22.16 8.963L19.665 20.701L11.84 19.037Z", "M9.6 5H14.4A1.6 1.6 0 0 1 16 6.6V15.4A1.6 1.6 0 0 1 14.4 17H9.6A1.6 1.6 0 0 1 8 15.4V6.6A1.6 1.6 0 0 1 9.6 5Z") }
     val Chart: ImageVector by lazy { icon("Chart", "M5 20V12M10 20V6M15 20v-9M20 20V9") }
     val Versions: ImageVector by lazy { icon("Versions", "M3.5 12A8.5 8.5 0 1 1 20.5 12A8.5 8.5 0 1 1 3.5 12Z", "M12 7.5V12l3 2", "M3.5 12H2") }

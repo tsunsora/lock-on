@@ -211,7 +211,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
             Box(Modifier.fillMaxWidth().weight(1f).padding(top = if (tab && full) (u * 20f).dp else 0.dp)) {
                 Icon(
                     LineIcons.faceForType(card?.type), contentDescription = null, tint = glyphInk,
-                    modifier = Modifier.align(Alignment.Center).size(maxWidth * (if (full) 0.4f else if (roomForCost) 0.48f else 0.6f)),
+                    modifier = Modifier.align(Alignment.Center).size((u * 63f).dp * (if (full) 0.4f else if (roomForCost) 0.48f else 0.6f)),
                 )
             }
             if (full) PlaceholderBand(card, max, deep, u)
