@@ -474,6 +474,7 @@ private fun DevicesPage(controller: SyncController) {
                         rowSync = paired.size > 1,
                         onTap = { choosing = device.deviceId },
                         onClear = { controller.clearTransfer(device.deviceId) },
+                        onRetry = { mode -> controller.sync(device.deviceId, mode) },
                     )
                 }
             }
@@ -577,13 +578,17 @@ private fun PairedTile(
     rowSync: Boolean,
     onTap: () -> Unit,
     onClear: () -> Unit,
+    onRetry: (SyncMode) -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
     val busy = transfer?.active == true
     val grouped = LocalGrouped.current
+    val failed = transfer?.state == SyncTransfer.State.FAILED
+    // A failed sync tints its row in the error role and says what to do next (UX rules V7, T3); no bar or stripe marks it (K8).
+    val tint by animateColorAsState(if (failed) scheme.error.copy(alpha = if (isTwilight()) 0.14f else 0.08f) else Color.Transparent, motion(), label = "failed-tint")
     Column(
-        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).deviceRow()
+        Modifier.fillMaxWidth().dealIn(device.deviceId, index).pressScale(interaction).deviceRow().background(tint)
             .clickable(interaction, indication = pressWash(deviceShape()), enabled = !busy, role = Role.Button, onClick = onTap)
             .animateContentSize(glide())
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -596,11 +601,16 @@ private fun PairedTile(
                 Text(device.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // Fades across as a transfer changes state; its rising count stays in the one line.
                 FadeSwap(transfer, contentKey = { it?.state }) { shownTransfer ->
-                if (shownTransfer != null) {
-                    DoneLine(
-                        shownTransfer.label(), done = shownTransfer.state == SyncTransfer.State.DONE,
-                        color = if (shownTransfer.state == SyncTransfer.State.FAILED) scheme.error else scheme.onSurfaceVariant,
-                    )
+                if (shownTransfer?.state == SyncTransfer.State.FAILED) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(LineIcons.Alert, contentDescription = "Error", Modifier.padding(top = if (grouped) 2.dp else 0.dp).size(16.dp), tint = scheme.error)
+                            Text(shownTransfer.label(), style = statusStyle(), color = scheme.error)
+                        }
+                        Text("Check that Lock On is open on ${device.name} and that both are on the same Wi-Fi.", style = statusStyle(), color = scheme.onSurfaceVariant)
+                    }
+                } else if (shownTransfer != null) {
+                    DoneLine(shownTransfer.label(), done = shownTransfer.state == SyncTransfer.State.DONE, color = scheme.onSurfaceVariant)
                 } else {
                     // How it's connected or what went wrong (Live, or Waiting for the desktop, T5), then when it last synced.
                     val problem = device.lastError
@@ -619,6 +629,7 @@ private fun PairedTile(
             val trailing = when {
                 transfer?.state == SyncTransfer.State.WAITING -> "cancel"
                 busy -> "working"
+                failed -> "none"
                 transfer != null -> "ok"
                 device.lastError != null -> "retry"
                 rowSync -> "sync"
@@ -628,15 +639,22 @@ private fun PairedTile(
                 when (action) {
                     "cancel" -> GameButton("Cancel", onClick = onClear, style = GameButtonStyle.SECONDARY, compact = true, modifier = thumbSized())
                     "working" -> ReticleSpinner(size = 20.dp, modifier = Modifier.padding(end = 12.dp))
-                    "ok" -> GameButton("OK", onClick = onClear, style = GameButtonStyle.SECONDARY, compact = true, modifier = thumbSized())
+                    "ok" -> GameButton("Done", onClick = onClear, style = GameButtonStyle.SECONDARY, compact = true, modifier = thumbSized())
                     "retry" -> GameButton("Retry", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync, compact = true, onTone = scheme.error, modifier = thumbSized())
                     "sync" -> GameButton("Sync", onClick = onTap, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync.takeIf { grouped }, compact = true, modifier = thumbSized())
                     else -> Spacer(Modifier.size(0.dp))
                 }
             }
         }
-        // The tile already eases its own height, so the bar only fades.
-        RevealValue(transfer?.takeIf { busy || it.state != SyncTransfer.State.DONE }, fadeOnly = true) { shownTransfer ->
+        // A failed sync gets its two ways on: try again the same way, or put it away.
+        Reveal(failed) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                GameButton("Dismiss", onClick = onClear, style = GameButtonStyle.GHOST, compact = true, modifier = thumbSized())
+                GameButton("Retry", onClick = { transfer?.let { onRetry(it.mode) } }, style = GameButtonStyle.SECONDARY, icon = LineIcons.Sync, compact = true, modifier = thumbSized())
+            }
+        }
+        // The tile already eases its own height, so the bar only fades. A failed sync has no bar: its words and tint say it.
+        RevealValue(transfer?.takeIf { busy || it.state == SyncTransfer.State.DECLINED }, fadeOnly = true) { shownTransfer ->
             TransferBar(
                 fraction = if (shownTransfer.active) null else 1f,
                 tone = when (shownTransfer.state) {
