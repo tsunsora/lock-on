@@ -1556,11 +1556,10 @@ private val PillSpring = spring<Float>(dampingRatio = 1f, stiffness = 500f)
 
 /**
  * Navigation as a floating pill (UX rules N5, V9), after AnymeX's "Dynamic Pill" bar: a
- * translucent glass capsule with a hairline rim and soft shadow, floating above the bottom edge on
- * phones. The selected destination expands into a teal pill with its icon and label; the others
- * shrink to icons, which still carry their label for screen readers (I5).
+ * translucent capsule with a soft shadow, floating above the bottom edge on phones. With [stacked]
+ * (phones) every item shows its label under its icon and the chosen one's icon sits on a teal pill (I5).
  *
- * With [labels] every item shows its label, for wide windows where there is room.
+ * With [labels] every item shows its label beside its icon, for wide windows where there is room.
  */
 @Composable
 fun PillNavBar(
@@ -1574,6 +1573,8 @@ fun PillNavBar(
     height: Dp = PillNavHeight,
     itemHeight: Dp = 42.dp,
     iconSize: Dp = 22.dp,
+    /** Labels under icons, every item an equal share: the phone's floating bar. */
+    stacked: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val accent = Accent
@@ -1602,9 +1603,9 @@ fun PillNavBar(
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
             // Elevation is said once: it floats, so it has a shadow and no border (UX rule V1).
-            .background(if (twilight) Color(0xFF29314A) else Color.White)
+            .background(if (twilight) Color(0xFF2D3241) else Color.White)
             .height(height)
-            .padding(horizontal = if (height < PillNavHeight) 4.dp else 8.dp, vertical = 4.dp)
+            .padding(horizontal = if (height < PillNavHeight || stacked) 4.dp else 8.dp, vertical = 4.dp)
             .drawBehind {
                 // As tall as an item's own pill.
                 val h = minOf(size.height, itemHeight.toPx())
@@ -1612,7 +1613,36 @@ fun PillNavBar(
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        items.forEachIndexed { i, item ->
+        if (stacked) items.forEachIndexed { i, item ->
+            // On phones every item shows its label under its icon, as Material's navigation bar does,
+            // so nobody has to guess what an icon means (UX rules N5, I5). The chosen one is a teal plate.
+            val isSelected = i == selected
+            val fill by animateColorAsState(if (isSelected) accent else Color.Transparent, motion(Motion.SHORT), label = "pill-fill")
+            val content by animateColorAsState(if (isSelected) onAccent else scheme.onSurface.copy(alpha = 0.85f), motion(Motion.LONG), label = "pill-content")
+            val labelInk = if (isSelected) scheme.onSurface else scheme.onSurfaceVariant
+            Box(
+                Modifier.weight(1f).fillMaxHeight()
+                    .then(
+                        if (item.onLongClick == null) Modifier.selectable(isSelected, role = Role.Tab, interactionSource = null, indication = null) { onSelect(i) }
+                        else Modifier.combinedClickable(
+                            interactionSource = null, indication = null, role = Role.Tab,
+                            onLongClickLabel = item.onLongClickLabel, onLongClick = item.onLongClick,
+                        ) { onSelect(i) }.semantics { this.selected = isSelected },
+                    )
+                    .semantics { contentDescription = item.label },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Box(Modifier.clip(LockOnShapes.pill).background(fill).size(48.dp, 28.dp), contentAlignment = Alignment.Center) {
+                        CompositionLocalProvider(LocalContentColor provides content) {
+                            Box(Modifier.size(iconSize), contentAlignment = Alignment.Center) { item.icon() }
+                        }
+                    }
+                    Text(item.label, style = MaterialTheme.typography.labelSmall, color = labelInk, maxLines = 1, softWrap = false,
+                        overflow = TextOverflow.Visible, modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics {})
+                }
+            }
+        } else items.forEachIndexed { i, item ->
             val isSelected = i == selected
             // The selected item takes more of the bar, so its label has room (AnymeX's 2.4 : 1).
             val share by animateFloatAsState(if (labels || !isSelected) 1f else 2.4f, if (reduce) snap() else PillSpring, label = "pill-share")
@@ -1666,9 +1696,9 @@ fun PillNavBar(
  * at most [widest] across (see [floatingPillWidth]).
  */
 @Composable
-fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp = 440.dp, labels: Boolean = false, onSelect: (Int) -> Unit) {
+fun BoxScope.FloatingPillNav(items: List<BottomItem>, selected: Int, widest: Dp = 440.dp, onSelect: (Int) -> Unit) {
     BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)) {
-        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(floatingPillWidth(maxWidth, widest)), labels = labels, spread = labels)
+        PillNavBar(items, selected, onSelect, Modifier.align(Alignment.BottomCenter).width(floatingPillWidth(maxWidth, widest)), stacked = true)
     }
 }
 

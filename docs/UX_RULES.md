@@ -221,7 +221,6 @@ The rules above are ahead of the app in these places. Each is a follow-up change
 - **Dusk chroma (V3).** The dark ground `#181E33` and panels `#20273D` are about 0.041 OKLCH chroma; the cap is 0.03. The light ground `#E6F2FA` is about 0.017; the cap is 0.015. The sky gradient and `glassColors()` follow the same values.
 - **Tabular figures (I1, V2a).** `TabularNumbers` is merged into Quicksand styles across the app, and Quicksand has no `tnum` feature and proportional digits, so counts and gauges still shift as they change.
 - **Caution stripes (V7, K8).** `CautionStripes` sits down the side of the conflict banner in `DeckEditorScreen.kt` and the failed-sync status in `SyncScreen.kt`.
-- **Phone navigation labels (N5).** The phone pill shows only the selected destination's label at the top level.
 - **Launcher icon (V7).** The icon tile still runs from #9A68E6 to #7A55DC.
 - **Theme on platform surfaces (K9).** Text selection, the cursor and scrollbars have not been checked against the palette.
 

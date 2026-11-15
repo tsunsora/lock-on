@@ -1207,8 +1207,6 @@ private fun BoxScope.EditorNav(
                 if (slot == null) moreOpen = true else onSelect(slot)
             },
             widest = EDITOR_NAV_WIDTH,
-            // Three buttons all have room for their names; with five, the open one shows its name (N5).
-            labels = slots.size <= 3,
         )
         // As wide as the pill and opening 8 dp above it, so every section is a short thumb move away.
         val pillWidth = floatingPillWidth(maxWidth, EDITOR_NAV_WIDTH)
