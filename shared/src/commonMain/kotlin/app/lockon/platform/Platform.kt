@@ -65,6 +65,9 @@ expect val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIco
 /** Whether Lock On runs on a phone or tablet, for settings that only apply there. */
 expect val isMobile: Boolean
 
+/** Where Material You colours come from here, as Settings names it (UX rule V3a). */
+expect val systemColorsSource: String
+
 /**
  * A dialog that fills the window. On phones it reaches under the status and navigation bars, so the
  * dim it paints darkens them too; the system adds no dim of its own there, and the dialog's content

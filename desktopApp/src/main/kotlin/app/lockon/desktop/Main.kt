@@ -63,6 +63,8 @@ fun main() {
     val database = LockOnDatabase.build(
         Room.databaseBuilder<LockOnDatabase>(name = File(AppDirs.data, LockOnDatabase.FILE_NAME).absolutePath),
     )
+    // Material You colours (UX rule V3a) start from the system's accent.
+    SystemAccentReader.refresh()
     // Card images used to sit in a cache; they now live in "artwork" for offline use.
     kotlin.concurrent.thread(isDaemon = true) { File(AppDirs.data, "artwork-cache").deleteRecursively() }
     val hostName = runCatching { InetAddress.getLocalHost().hostName }.getOrNull()?.takeIf { it.isNotBlank() } ?: "Desktop"
@@ -126,6 +128,10 @@ fun main() {
             var ownTitleBar by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 while (!window.isDisplayable) delay(16)
+                // The accent may change while Lock On is in the background, so it is read again as the window comes forward.
+                window.addWindowFocusListener(object : java.awt.event.WindowAdapter() {
+                    override fun windowGainedFocus(e: java.awt.event.WindowEvent?) = SystemAccentReader.refresh()
+                })
                 ownTitleBar = WindowsFrame.install(window)
                 // The boot cover covers only the app, below the title bar.
                 if (ownTitleBar) bootCover?.topInset = TitleBarHeight.value.toInt()
@@ -150,7 +156,7 @@ fun main() {
                         // A strip of its own above the app, as other Windows apps have, rather than
                         // buttons floating among the app's own (UX rule N5).
                         if (ownTitleBar) {
-                            app.lockon.ui.theme.LockOnTheme(appBackground?.let { it.luminance() < 0.5f } ?: bootDark(container)) {
+                            app.lockon.ui.theme.LockOnTheme(appBackground?.let { it.luminance() < 0.5f } ?: bootDark(container), app.lockon.ui.theme.themeSeed(container.settings)) {
                                 TitleBar(window, windowState, appBackground ?: MaterialTheme.colorScheme.background, exit)
                             }
                         }

@@ -9,8 +9,8 @@ import androidx.compose.ui.graphics.Color
 
 // Cards lie directly on the sky, so it stays quiet: little colour, and a brightness well away from the
 // card faces', lighter by day and darker at twilight, so the cards are the most colourful thing on screen.
-internal val DaySky = listOf(Color(0xFFD8E0E7), Color(0xFFDFE7EE), Color(0xFFE6EDF4))
-internal val TwilightSky = listOf(Color(0xFF1E2331), Color(0xFF1A1F2D), Color(0xFF171B28))
+internal val DaySky = app.lockon.ui.theme.DayTones.sky
+internal val TwilightSky = app.lockon.ui.theme.TwilightTones.sky
 
 // The launch screen's sky: the app's own, leaning violet, so it fades into the app as a slight turn of hue.
 internal val DayBootSky = listOf(Color(0xFFC9B9F7), Color(0xFFD5C9F9), Color(0xFFE1D9FB))
@@ -21,9 +21,12 @@ internal val TwilightBootSky = listOf(Color(0xFF181546), Color(0xFF1C1850), Colo
  * bottom and nothing else. No glow, beam or shape sits in it (UX rule V7). With [boot] it paints the
  * launch screen's sky.
  */
-internal fun paintSky(width: Int, height: Int, twilight: Boolean, boot: Boolean = false): IntArray {
+internal fun paintSky(width: Int, height: Int, twilight: Boolean, boot: Boolean = false): IntArray =
+    paintSky(width, height, skyStops(twilight, boot))
+
+/** The sky's gradient through any three [stops], top to bottom, such as a Material You sky's (UX rule V3a). */
+internal fun paintSky(width: Int, height: Int, stops: List<Color>): IntArray {
     val h = height.toFloat()
-    val stops = skyStops(twilight, boot)
     val out = IntArray(width * height)
     for (y in 0 until height) {
         val t = (y + 0.5f) / h

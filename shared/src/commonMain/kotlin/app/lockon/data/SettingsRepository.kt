@@ -59,6 +59,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _moreHidden = MutableStateFlow<Set<EditorMoreItem>>(emptySet())
     private val _cardSort = MutableStateFlow(CardSort.NUMBER)
     private val _deckAsCards = MutableStateFlow(true)
+    private val _systemColors = MutableStateFlow(true)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -81,6 +82,8 @@ class SettingsRepository(private val meta: MetaDao) {
     val cardSort: StateFlow<CardSort> = _cardSort.asStateFlow()
     /** Whether the editor opens decks as whole card images instead of a list. */
     val deckAsCards: StateFlow<Boolean> = _deckAsCards.asStateFlow()
+    /** Whether the palette comes from the system's accent (Material You colours) where it has one. On unless turned off. */
+    val systemColors: StateFlow<Boolean> = _systemColors.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -94,6 +97,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _editorBar.value = enumOr(meta.get(KEY_EDITOR_BAR), EditorBarOrder.DECK_ADD_MORE)
         _cardSort.value = enumOr(meta.get(KEY_CARD_SORT), CardSort.NUMBER)
         _deckAsCards.value = meta.get(KEY_DECK_AS_CARDS) != "false"
+        _systemColors.value = meta.get(KEY_SYSTEM_COLORS) != "false"
         _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')
             .mapNotNull { name -> EditorMoreItem.entries.firstOrNull { it.name == name } }.toSet()
             .takeIf { it.size < EditorMoreItem.entries.size }.orEmpty()
@@ -127,11 +131,13 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setEditorSplit(split: Float?) { _editorSplit.value = split; meta.put(MetaEntity(KEY_EDITOR_SPLIT, split?.toString().orEmpty())) }
     suspend fun setDeckAsCards(on: Boolean) { _deckAsCards.value = on; meta.put(MetaEntity(KEY_DECK_AS_CARDS, on.toString())) }
     suspend fun setCardSort(sort: CardSort) { _cardSort.value = sort; meta.put(MetaEntity(KEY_CARD_SORT, sort.name)) }
+    suspend fun setSystemColors(on: Boolean) { _systemColors.value = on; meta.put(MetaEntity(KEY_SYSTEM_COLORS, on.toString())) }
     suspend fun setAutoDeckColors(on: Boolean) { _autoDeckColors.value = on; meta.put(MetaEntity(KEY_AUTO_DECK_COLORS, on.toString())) }
 
     /** The preferences a device takes on when it's made to match this one. Where Lock On was left and the welcome tour stay per device. */
     fun synced(): Map<String, String> = mapOf(
         KEY_THEME to _theme.value.name,
+        KEY_SYSTEM_COLORS to _systemColors.value.toString(),
         KEY_MOTION to _motion.value.name,
         KEY_START to _start.value.name,
         KEY_SIZE to _size.value.name,
@@ -143,6 +149,7 @@ class SettingsRepository(private val meta: MetaDao) {
     /** Takes on another device's [synced] preferences; keys this version doesn't know are skipped. */
     suspend fun applySynced(values: Map<String, String>) {
         values[KEY_THEME]?.let { setTheme(enumOr(it, _theme.value)) }
+        values[KEY_SYSTEM_COLORS]?.toBooleanStrictOrNull()?.let { setSystemColors(it) }
         values[KEY_MOTION]?.let { setMotion(enumOr(it, _motion.value)) }
         values[KEY_START]?.let { setStart(enumOr(it, _start.value)) }
         values[KEY_SIZE]?.let { setSize(enumOr(it, _size.value)) }
@@ -169,5 +176,6 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_MORE_HIDDEN = "settings.editorMoreHidden"
         const val KEY_CARD_SORT = "settings.cardSort"
         const val KEY_DECK_AS_CARDS = "settings.deckAsCards"
+        const val KEY_SYSTEM_COLORS = "settings.systemColors"
     }
 }

@@ -45,6 +45,8 @@ actual val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIco
 
 actual val isMobile: Boolean = true
 
+actual val systemColorsSource: String = "From your wallpaper"
+
 actual fun localDay(epochMillis: Long): Long =
     java.time.Instant.ofEpochMilli(epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
 

@@ -54,6 +54,14 @@ actual val resizeHorizontalPointer: androidx.compose.ui.input.pointer.PointerIco
 
 actual val isMobile: Boolean = false
 
+actual val systemColorsSource: String = System.getProperty("os.name").orEmpty().let { os ->
+    when {
+        os.startsWith("Windows") -> "From your Windows accent color"
+        os.startsWith("Mac") -> "From your macOS accent color"
+        else -> "From your system's accent color"
+    }
+}
+
 actual fun localDay(epochMillis: Long): Long =
     java.time.Instant.ofEpochMilli(epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
 
