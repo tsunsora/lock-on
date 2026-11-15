@@ -44,6 +44,7 @@ import app.lockon.ui.BootScreen
 import app.lockon.ui.BootStep
 import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.theme.LockOnTheme
+import app.lockon.ui.theme.themeSeed
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.CompletableDeferred
@@ -159,7 +160,8 @@ class MainActivity : ComponentActivity() {
                 val density = Density(base.density * (choice?.size?.value?.scale ?: 1f), base.fontScale)
                 val reduce = reduceMotion || choice?.motion?.value == MotionChoice.REDUCED
                 CompositionLocalProvider(LocalReduceMotion provides reduce, LocalDensity provides density) {
-                    LockOnTheme(dark = dark) {
+                    // Material You colours unless Settings turned them off (UX rule V3a); the accent is read in onCreate.
+                    LockOnTheme(dark = dark, seed = themeSeed(choice)) {
                         // Once Settings can say which theme and size, so they are taken only once, and right.
                         val cover = bootCover
                         if (choice != null && cover != null) {

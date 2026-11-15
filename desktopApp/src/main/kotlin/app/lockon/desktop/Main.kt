@@ -219,7 +219,7 @@ private fun BootFirstFrame(container: AppContainer, clock: app.lockon.ui.BootClo
     val base = androidx.compose.ui.platform.LocalDensity.current
     val density = androidx.compose.ui.unit.Density(base.density * settings.size.value.scale, base.fontScale)
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) {
-        app.lockon.ui.theme.LockOnTheme(dark) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.DECKS, clock, playing = false, onSkyPainted = onSkyPainted) }
+        app.lockon.ui.theme.LockOnTheme(dark, app.lockon.ui.theme.themeSeed(settings)) { app.lockon.ui.BootScreen(app.lockon.ui.BootStep.DECKS, clock, playing = false, onSkyPainted = onSkyPainted) }
     }
 }
 

@@ -207,6 +207,7 @@ fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), seed: Color? = null, cont
         // is a teal wash with teal handles, as the cursor is teal; scroll bars (ScrollBars.jvm.kt) use the ink and teal.
         CompositionLocalProvider(
             LocalTones provides tones,
+            LocalThemeSeed provides seed?.takeIf { usableSeed(it) },
             LocalIndication provides PressWash(colors.onSurface, colors.primary),
             LocalRippleConfiguration provides null,
             LocalTextSelectionColors provides TextSelectionColors(handleColor = colors.primary, backgroundColor = colors.primary.copy(alpha = if (dark) 0.34f else 0.24f)),

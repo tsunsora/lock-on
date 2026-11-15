@@ -245,8 +245,10 @@ private suspend fun paintedSky(width: Int, height: Int, stops: List<Color>): Sky
 @Composable
 fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null, boot: Boolean = false, content: @Composable BoxScope.() -> Unit) {
     val twilight = isTwilight()
-    // The theme's own sky, or the launch screen's; Material You colours tint the app's (UX rule V3a).
-    val stops = if (boot) skyStops(twilight, true) else LocalTones.current.sky
+    // The theme's own sky, or the launch screen's; Material You colours tint both (UX rule V3a).
+    val seed = app.lockon.ui.theme.LocalThemeSeed.current
+    val bootStops = remember(twilight, seed) { bootSkyStops(twilight, seed) }
+    val stops = if (boot) bootStops else LocalTones.current.sky
     var area by remember { mutableStateOf(IntSize.Zero) }
     // Painting takes a few dozen milliseconds, so it runs off the main thread. While a window is being
     // resized the last sky stretches to fit, and the sky repaints once the size settles.
@@ -259,7 +261,7 @@ fun SkyBackground(modifier: Modifier = Modifier, onPainted: (() -> Unit)? = null
         value = paintedSky(pw, ph, stops)
     }
     Box(
-        modifier.background(if (boot) skyStops(twilight, true)[1] else MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
+        modifier.background(if (boot) bootStops[1] else MaterialTheme.colorScheme.background).onSizeChanged { area = it }.drawBehind {
             val painted = sky?.takeIf { it.stops == stops }
             if (painted != null) {
                 drawImage(painted.image, dstSize = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt()), filterQuality = FilterQuality.Low)

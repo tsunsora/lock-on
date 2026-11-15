@@ -86,6 +86,31 @@ class AnimationPreviewTest {
         }
     }
 
+    /**
+     * The boot screen just after the lock, in Sky and Twilight's own colours and in Material You colours (UX
+     * rule V3a) from Windows' default blue, a pink wallpaper and a yellow one, which tests the steps' contrast.
+     */
+    @Test fun bootScreenColours() {
+        val dir = File("build/boot-colours").apply { deleteRecursively(); mkdirs() }
+        val seeds = listOf("own" to null, "blue" to androidx.compose.ui.graphics.Color(0xFF0078D4),
+            "pink" to androidx.compose.ui.graphics.Color(0xFFD0507A), "yellow" to androidx.compose.ui.graphics.Color(0xFFE0B000))
+        for ((name, seed) in seeds) for (dark in listOf(false, true)) for (phone in listOf(false, true)) {
+            // The lock has just landed: the ring is gold and its one pulse is on its way out.
+            val clock = app.lockon.ui.BootClock().apply { played = 1_090f }
+            ImageComposeScene(if (phone) 412 else 1100, if (phone) 892 else 700, Density(if (phone) 1f else 1.25f)) {
+                LockOnTheme(dark = dark, seed = seed) {
+                    app.lockon.ui.BootScreen(app.lockon.ui.BootStep.CARDS, clock, playing = false)
+                }
+            }.use { scene ->
+                // The sky paints off the main thread, so a few frames until it is in.
+                var image = scene.render(0)
+                for (i in 1..6) { Thread.sleep(60); image = scene.render(i * frameNanos) }
+                val file = "boot-$name-${if (dark) "dark" else "light"}${if (phone) "-phone" else ""}.png"
+                File(dir, file).writeBytes(image.encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            }
+        }
+    }
+
     @Test fun segmentSlide() {
         val choice = mutableStateOf(0)
         record("segment-slide", 520, 140, frames = 14, onFrame = { i -> if (i == 2) choice.value = 2 }) {

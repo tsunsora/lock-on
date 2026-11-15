@@ -47,6 +47,10 @@ internal fun paintSky(width: Int, height: Int, stops: List<Color>): IntArray {
 internal fun skyStops(twilight: Boolean, boot: Boolean): List<Color> =
     if (boot) (if (twilight) TwilightBootSky else DayBootSky) else if (twilight) TwilightSky else DaySky
 
+/** The launch screen's sky, turned to the [seed]'s hue with Material You colours (UX rule V3a). */
+internal fun bootSkyStops(twilight: Boolean, seed: Color?): List<Color> =
+    skyStops(twilight, true).let { stops -> if (seed == null) stops else stops.map { app.lockon.ui.theme.towardSeed(it, seed) } }
+
 /** The quadratic through [a] at 0, [b] at ½ and [c] at 1. */
 private fun through(a: Float, b: Float, c: Float, t: Float): Float =
     a + (4 * b - 3 * a - c) * t + (2 * a + 2 * c - 4 * b) * t * t

@@ -60,6 +60,8 @@ import app.lockon.ui.components.LocalReduceMotion
 import app.lockon.ui.components.LockOnMark
 import app.lockon.ui.components.SkyBackground
 import app.lockon.ui.components.isTwilight
+import app.lockon.ui.theme.LocalThemeSeed
+import app.lockon.ui.theme.towardSeed
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.concurrent.Volatile
 
@@ -212,7 +214,13 @@ fun BootScreen(
         }
     }
     val time = { frames.intValue; if (reduce) HOLD_AT else clock.stage }
-    val look = if (isTwilight()) BootLookTwilight else BootLookDay
+    val twilight = isTwilight()
+    val seed = LocalThemeSeed.current
+    val primary = MaterialTheme.colorScheme.primary
+    val look = remember(twilight, seed, primary) {
+        val own = if (twilight) BootLookTwilight else BootLookDay
+        if (seed == null) own else own.leaningToward(seed, primary)
+    }
     val scan = look.scan
     val ink = look.ink
     val labelStyle = MaterialTheme.typography.labelMedium
@@ -267,7 +275,7 @@ fun BootScreen(
                 }
             }
         }
-        // The window's controls sit on the violet here, so they take its ink.
+        // The window's controls sit on the launch screen's sky here, so they take its ink.
         trailing?.let {
             MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(onSurface = ink, onSurfaceVariant = ink)) {
                 Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { it() }
@@ -279,8 +287,10 @@ fun BootScreen(
 }
 
 /**
- * The launch screen's colours: the logo as it looks in that theme's header, on a sky leaning violet.
- * Gold is kept for the lock; on the pale day sky it needs a dark [casing] to show at all.
+ * The launch screen's colours: the logo as it looks in that theme's header, on a sky leaning violet, or
+ * with Material You colours leaning toward the accent ([towardSeed]). The logo keeps its violet and the
+ * lock its gold either way, since those say something (UX rule V3a); on the pale day sky gold needs a dark
+ * [casing] to show at all.
  */
 private class BootLook(
     val scan: Color,
@@ -293,7 +303,15 @@ private class BootLook(
     val pip: Color,
     val casing: Color,
     val lockInk: Color,
-)
+) {
+    /** This look leaning toward [seed]'s hue, with the app's own action colour, [primary], for the steps done. */
+    fun leaningToward(seed: Color, primary: Color) = BootLook(
+        scan = towardSeed(scan, seed), ink = towardSeed(ink, seed),
+        tile = tile, mark = mark, shade = towardSeed(shade, seed),
+        panel = towardSeed(panel, seed), panelText = towardSeed(panelText, seed), pip = primary,
+        casing = towardSeed(casing, seed), lockInk = if (lockInk == Gold) Gold else towardSeed(lockInk, seed),
+    )
+}
 
 private val BootLookDay = BootLook(
     scan = Color(0xFF5A3CC8), ink = Color(0xFF2A1C6B),
