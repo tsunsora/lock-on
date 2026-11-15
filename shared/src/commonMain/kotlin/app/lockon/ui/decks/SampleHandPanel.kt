@@ -80,7 +80,7 @@ import app.lockon.ui.theme.TabularNumbers
 /** Hand cards grow with the panel up to this width. */
 private val MAX_HAND_CARD = 200.dp
 /** Below this a card face drops its name and AP / HP (see PlaceholderCard), so the hand scrolls instead. */
-private val MIN_HAND_CARD = 100.dp
+private val MIN_HAND_CARD = 96.dp
 /** The test hand is always three cards across (UX rule N4), so the opening five take two rows. */
 private const val HAND_COLUMNS = 3
 private const val OPENING_ROWS = 2
@@ -120,7 +120,7 @@ fun SampleHandPanel(deck: DeckSnapshot, cards: Map<String, Card>, modifier: Modi
             GameButton("Redraw", onClick = { game = game.redraw(); dealId++ }, Modifier.weight(1f).then(tall), style = GameButtonStyle.SECONDARY, enabled = game.canRedraw, icon = if (phone) null else LineIcons.Hand, compact = true)
             if (!game.shieldsPlaced) GameButton("Keep", onClick = { game = game.keep() }, Modifier.weight(1f).then(tall), compact = true)
             else GameButton(if (game.canDraw) "Draw" else "Deck empty", onClick = { game = game.draw() }, Modifier.weight(1f).then(tall), enabled = game.canDraw, icon = LineIcons.Draw, compact = true)
-            GameButton("New game", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, Modifier.weight(1f).then(tall), style = GameButtonStyle.SECONDARY, icon = if (phone) null else LineIcons.Shuffle, compact = true)
+            GameButton("Restart", onClick = { game = SampleHand.deal(deck); revealShields = false; dealId++ }, Modifier.weight(1f).then(tall), style = GameButtonStyle.SECONDARY, icon = if (phone) null else LineIcons.Shuffle, compact = true)
         }
     }
 

@@ -185,7 +185,7 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
 /**
  * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
  * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
- * Below 100 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
+ * Below 96 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
  * The disc sits in the exact middle of the card at every size. With [max], the plate's AP / HP line starts
  * with "Max" in quiet text: the card is at its copy limit (UX rule S3).
  */
@@ -201,7 +201,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
             .border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.45f)), CardShape),
     ) {
         val u = maxWidth.value / 63f // one card millimetre in dp
-        val full = maxWidth >= 100.dp
+        val full = maxWidth >= 96.dp
         val roomForCost = maxWidth >= 48.dp
         // The type symbol on a soft disc, with the same margin all round it whichever symbol it is.
         Canvas(Modifier.fillMaxSize()) {

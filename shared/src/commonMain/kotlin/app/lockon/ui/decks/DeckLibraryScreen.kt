@@ -846,7 +846,7 @@ private fun DeckRow(
                 DeckStatusLine(isLegal, review = review, extras = facts)
             }
             ProgressGauge("Main deck", deck.snapshot.count(DeckSection.MAIN), ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp),
-                compact = true, hold = deck.hasConflict, inline = true, numberLast = true, numberSlot = DeckCountSlot)
+                compact = true, hold = deck.hasConflict, inline = true, numberLast = true, numberSlot = DeckCountSlot * LocalDensity.current.fontScale)
         }
     }
 }
@@ -987,7 +987,7 @@ private fun DeckTile(
                 record = record.winRate?.let { rate -> "${record.score}" to "$rate%" },
             )
             ProgressGauge("Main deck", count, ruleset.mainDeckSize, Modifier.fillMaxWidth().padding(end = 8.dp),
-                compact = true, hold = deck.hasConflict, inline = true, numberLast = true, numberSlot = DeckCountSlot)
+                compact = true, hold = deck.hasConflict, inline = true, numberLast = true, numberSlot = DeckCountSlot * LocalDensity.current.fontScale)
         }
     }
 }
@@ -1057,6 +1057,7 @@ private fun deckArtFill(colors: Set<CardColor>, panel: Color): Brush {
 private val CompactDeckBoxHeight = 120.dp
 
 /** Room for "50/50" after a deck's gauge, so every row's gauge ends at the same x. */
+/** Room for "Main 50/50" at the default font size; it grows with the system font so the count never wraps. */
 private val DeckCountSlot = 88.dp
 
 /**
