@@ -314,7 +314,7 @@ Tests cover the construction rules, deck-list parsing, the revision graph, end-t
 | [`desktopApp/`](desktopApp/) | Desktop entry point, HTTPS sync server, TLS identity, pairing confirmation, and update installer |
 | [`docs/`](docs/) | [Architecture](docs/ARCHITECTURE.md), [UX map](docs/UX_MAP.md), [UX rules](docs/UX_RULES.md), the [catalog format](docs/CATALOG_FORMAT.md) and README screenshots |
 | [`scripts/`](scripts/) | Catalog converter, icon and GIF helpers |
-| [`licenses/`](licenses/) | Bundled font notice |
+| [`licenses/`](licenses/) | Bundled font and icon notices |
 
 Kotlin **2.3.21**, Compose Multiplatform **1.10.3**, AGP **8.13.2** and Gradle **8.14.3** are pinned.
 
@@ -328,7 +328,7 @@ An unofficial fan project, unaffiliated with Bandai. Gundam, card text and card 
 
 Card data comes from [gcg-api](https://gcgapi.com) under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/). Each device downloads it directly; Lock On doesn't host or redistribute it. gcg-api isn't affiliated with Bandai. Alt arts not yet in gcg-api are read from Bandai's official card list on each device.
 
-The Quicksand font by the Quicksand Project Authors uses the SIL Open Font License 1.1; see the [font notice](licenses/Quicksand-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license. The Lock On mark and other decorations are original drawings.
+The Quicksand font by the Quicksand Project Authors uses the SIL Open Font License 1.1; see the [font notice](licenses/Quicksand-OFL.txt). Interface icons are Google's Material icons under the Apache 2.0 license, and the card type icons are from [Tabler Icons](https://tabler.io/icons) under the MIT license; see the [icon notice](licenses/Tabler-Icons-MIT.txt). The Lock On mark and other decorations are original drawings.
 
 ## 👀 Visitors
 
