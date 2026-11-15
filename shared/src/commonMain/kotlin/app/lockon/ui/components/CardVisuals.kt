@@ -86,6 +86,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -124,11 +125,11 @@ private val BackShape = RoundedCornerShape(percent = 9)
  * turn off [shadow]: a shadow is a drawing layer of its own, and their hover lift casts one.
  */
 @Composable
-fun CardImage(card: Card?, modifier: Modifier = Modifier, printingId: String? = null, shadow: Boolean = true) {
+fun CardImage(card: Card?, modifier: Modifier = Modifier, printingId: String? = null, shadow: Boolean = true, max: Boolean = false) {
     val art = card?.let { LocalArtwork.current.urlFor(it.cardNumber, printingId) }
     Box(modifier.aspectRatio(CARD_ASPECT).then(if (shadow) Modifier.shadow(3.dp, CardShape) else Modifier).clip(CardShape)) {
         CardArtwork(art, contentDescription = card?.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) {
-            PlaceholderCard(card, Modifier.fillMaxSize())
+            PlaceholderCard(card, Modifier.fillMaxSize(), max = max)
         }
     }
 }
@@ -185,10 +186,11 @@ private class BesideAnchor(private val gap: Int) : PopupPositionProvider {
  * A drawn stand-in card for a card without artwork: a flat face in the card's colour with one soft
  * disc holding its type symbol, the cost, the level, and a dark plate with a one-line name and AP / HP.
  * Below 100 dp wide it keeps only the colour, the cost and the symbol, and below 48 dp only the colour and the symbol, so small faces never crowd.
- * The disc sits in the exact middle of the card at every size.
+ * The disc sits in the exact middle of the card at every size. With [max], the plate's AP / HP line starts
+ * with "Max" in quiet text: the card is at its copy limit (UX rule S3).
  */
 @Composable
-fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
+fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = false) {
     val cardColor = card?.colors?.firstOrNull()
     val color = cardColor(cardColor)
     val white = cardColor == app.lockon.model.CardColor.WHITE
@@ -242,6 +244,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
             Text(card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.6f).sp, lineHeight = (u * 6.4f).sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
             Row(Modifier.fillMaxWidth().heightIn(min = (u * 6.4f).dp), verticalAlignment = Alignment.CenterVertically) {
+                if (max) Text("Max", color = MaxInk, fontSize = (u * 4.8f).sp, lineHeight = (u * 6.4f).sp, style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.weight(1f))
                 if (card?.ap != null || card?.hp != null) {
                     Text(
@@ -254,6 +257,14 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** Max in a card's name strip: quiet text on the strip's dark plate, the same in both themes. */
+private val MaxInk = Color(0xFFA9B3CC)
+
+/** The small solid tag in a card's corner (Side 2, Deck 3): the same dark plate and light text in both themes. */
+val CardTagFill = Color(0xFF1C2235)
+val CardTagInk = Color(0xFFEEF0F5)
+val CardTagLine = Color.White.copy(alpha = 0.14f)
 
 /** The card type's symbol drawn as strokes, filling a circle of radius [r] around [c]: shield, pilot, bolt, base or diamond. */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTypeGlyph(type: app.lockon.model.CardType?, c: Offset, r: Float, ink: Color, stroke: Float) {
@@ -318,10 +329,11 @@ fun CardBack(modifier: Modifier = Modifier) {
 }
 
 /**
- * A card in a grid: the whole card, never covered, so cost and AP/HP stay readable. Cards in the
- * deck get a lit outline; a rule tag sits top-centre (S3). On desktop the card
- * lifts toward you on hover, and adding or removing a copy flashes it. With controls, the deck's own
- * − ×count + sits under the card, with copy pips (S1); [target] is the buttons' hit size on phones (R1).
+ * A card in a grid: the whole card, never covered, so cost and AP/HP stay readable. A rule tag sits in
+ * the top corner, and a card at its copy [limit] says Max in its name strip (S3), or in that corner when
+ * artwork covers the strip. On desktop the card lifts toward you on hover, and adding or removing a copy
+ * flashes it. With controls, the deck's own − count + plate sits under the card (S1); [target] is the
+ * buttons' hit size on phones (R1).
  */
 @Composable
 fun CardTile(
@@ -341,6 +353,8 @@ fun CardTile(
     val hovered = hover.hovered
     val scheme = MaterialTheme.colorScheme
     val count = quantity ?: 0
+    val max = limit != null && count == limit
+    val art = LocalArtwork.current.urlFor(card.cardNumber, null)
     Column(modifier) {
         Box(
             Modifier.fillMaxWidth()
@@ -352,8 +366,14 @@ fun CardTile(
                 .clip(CardShape)
                 .clickable(interactionSource = press, indication = pressWash(CardShape, hover = false), onClickLabel = "Card details", onClick = onClick),
         ) {
-            CardImage(card, Modifier.fillMaxWidth(), shadow = false)
-            Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)) { tag() }
+            CardImage(card, Modifier.fillMaxWidth(), shadow = false, max = max)
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)) {
+                // Artwork covers the drawn name strip, so there Max takes a small tag in the corner instead.
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (max && art != null) Badge("Max", CardTagFill, CardTagInk, outline = CardTagLine)
+                    tag()
+                }
+            }
             CardHoverPreview(card, null, hovered)
         }
         if (onMinus != null && onPlus != null) CardCountBar(count, card.name, limit, target, onMinus, onPlus)
@@ -363,32 +383,38 @@ fun CardTile(
 private val SmallPlate = RoundedCornerShape(14.dp)
 
 /**
- * − ×count + under a card, the same in the deck and in Add cards on every device: no plate, so the card
- * stays the thing you look at; the count in teal once a copy is in, with copy pips under it; and each
- * button's visible 32 dp just inside the card's edge. Stacked rather than a Row, so a narrow phone column
- * can't squeeze the + against the edge. [target] is the buttons' hit size on phones.
+ * The colour of a card's count: teal while it is in the deck (UX rule V3), quiet at 0, and red past the
+ * limit, where the problem bar names the card and the limit (I3).
+ */
+@Composable
+@ReadOnlyComposable
+internal fun countInk(count: Int, limit: Int?): Color = when {
+    limit != null && count > limit -> MaterialTheme.colorScheme.error
+    count > 0 -> MaterialTheme.colorScheme.primary
+    else -> mutedInk()
+}
+
+/**
+ * − count + under a card, the same in the deck and in Add cards on every device (UX rule K3): one plate
+ * the height of a control holding one centred number in [countInk]. + is always teal and never dims, and
+ * − keeps full ink at 0 (S4). [target] is the buttons' hit size on phones (R1), which reaches past the plate.
  */
 @Composable
 private fun CardCountBar(count: Int, name: String, limit: Int?, target: Dp, onMinus: () -> Unit, onPlus: () -> Unit) {
     val haptics = LocalHapticFeedback.current
-    val scheme = MaterialTheme.colorScheme
-    Box(Modifier.fillMaxWidth().padding(top = if (desktopControls) 4.dp else 0.dp), contentAlignment = Alignment.Center) {
-        Column(Modifier.centredOverPips(MaterialTheme.typography.titleMedium, limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("×", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 1.dp))
-                RollingNumber(count, MaterialTheme.typography.titleMedium.merge(TabularNumbers), if (count > 0) scheme.primary else scheme.onSurfaceVariant, Modifier.bumpOnIncrease(count))
-            }
-            if (limit != null) CopyPips(count, limit, pip = 5.dp)
-        }
-        val hit = if (desktopControls) ControlSize else target
-        val toEdge = ((hit - 32.dp) / 2 - 4.dp).coerceAtLeast(0.dp)
-        Box(Modifier.align(Alignment.CenterStart).offset(x = -toEdge)) {
-            TileButton("−", "Remove one $name", enabled = count > 0, target = target) {
+    val hit = if (desktopControls) ControlSize else target
+    val plate = if (desktopControls) ControlSize else 40.dp
+    val fill = neutralFill()
+    Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(hit), contentAlignment = Alignment.Center) {
+        Spacer(Modifier.fillMaxWidth().height(plate).clip(LockOnShapes.button).background(fill))
+        RollingNumber(count, MaterialTheme.typography.titleMedium.merge(TabularNumbers), countInk(count, limit), Modifier.bumpOnIncrease(count))
+        Box(Modifier.align(Alignment.CenterStart)) {
+            TileButton("−", "Remove one $name", enabled = count > 0, target = hit) {
                 haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus()
             }
         }
-        Box(Modifier.align(Alignment.CenterEnd).offset(x = toEdge)) {
-            TileButton("+", "Add one $name", primary = limit == null || count < limit, target = target) {
+        Box(Modifier.align(Alignment.CenterEnd)) {
+            TileButton("+", "Add one $name", target = hit) {
                 haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
             }
         }
@@ -396,58 +422,32 @@ private fun CardCountBar(count: Int, name: String, limit: Int?, target: Dp, onMi
 }
 
 /**
- * Lifts a count with copy pips under it, so what you see sits in the middle: the number's line has
- * empty space above the figure and the pips have none below them, which left the pair low on its plate.
+ * A plate's − or +: a drawn glyph, teal for + and full ink for −, in a 32 dp face that takes the neutral
+ * wash on hover and press, with a hit area of [target] (48 dp on phones, the control height on desktop).
+ * A − at 0 has nothing to remove, so it ignores taps but keeps its ink: the quiet 0 beside it says why.
  */
 @Composable
-private fun Modifier.centredOverPips(number: TextStyle, pips: Boolean): Modifier {
-    if (!pips) return this
-    // Half the space above the figure (Quicksand's figures stand 0.70 em tall), plus half a dp for how low they sit in their line.
-    val lift = with(LocalDensity.current) { (number.lineHeight.toDp() - number.fontSize.toDp() * 0.70f) / 4 } + 0.5.dp
-    return offset(y = -lift)
-}
-
-/** A chamfered tile button: 32 dp to look at, 48 dp to hit. Plus glows V-fin yellow. */
-@Composable
-// "+" is teal only while another copy fits: in a full deck every card is at its limit, and thirty lit
-// buttons would say nothing. At the limit it turns plain, beside the gold pips that say why.
-private fun TileButton(symbol: String, description: String, primary: Boolean = false, enabled: Boolean = true, target: Dp = 48.dp, onClick: () -> Unit) {
+private fun TileButton(symbol: String, description: String, enabled: Boolean = true, target: Dp = 48.dp, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
     val hover = remember { HoverState() }
-    val hovered = hover.hovered
+    val hovered = hover.hovered && enabled
     val pressed by interaction.collectIsPressedHeld()
     Box(
-        // On desktop the hit area is the plate's height, which leaves the button 4 dp inside it all round.
         Modifier.size(if (desktopControls) ControlSize else target).semantics { contentDescription = description }
             .hoverable(interaction).hoverState(hover)
             .clickable(interaction, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        val top: Color
-        val bottom: Color
-        when {
-            // A faint tile keeps a spent − the same shape as its neighbours.
-            !enabled -> { top = scheme.onSurface.copy(alpha = 0.05f); bottom = top }
-            primary -> { top = lighten(Accent, if (hovered) (if (desktopControls) 0.08f else 0.15f) else 0f); bottom = top }
-            desktopControls -> { top = neutralWash(hovered, pressed); bottom = top }
-            else -> { top = scheme.onSurface.copy(alpha = if (hovered) 0.22f else 0.12f); bottom = scheme.onSurface.copy(alpha = 0.06f) }
-        }
-        val ink = when {
-            !enabled && desktopControls -> scheme.onSurface.copy(alpha = 0.38f)
-            !enabled -> scheme.outline.copy(alpha = 0.6f)
-            primary -> OnAccent
-            // Past the copy limit + still works, for formats that allow it, but it steps back.
-            symbol == "+" && !desktopControls -> scheme.onSurface.copy(alpha = 0.4f)
-            else -> scheme.onSurface
-        }
+        val wash = if (hovered || pressed) neutralWash(hovered, pressed) else Color.Transparent
+        val ink = if (symbol == "+") Accent else scheme.onSurface
         val glyph = rememberVectorPainter(if (symbol == "+") LineIcons.Plus else LineIcons.Minus)
-        // Everything is drawn here, so a tile's two buttons ease their colours with no state of their own
+        // Everything is drawn here, so a plate's two buttons ease their colours with no state of their own
         // at rest. The glyph is drawn too, so it sits in the exact middle of its button; a font's − and + don't.
         Spacer(
-            Modifier.size(32.dp).pressScale(interaction).clip(if (desktopControls) InsetControlShape else RoundedCornerShape(10.dp))
-                .drawTones(top, bottom, ink) { fillTop, fillBottom, tone ->
-                    if (fillTop == fillBottom) drawRect(fillTop) else drawRect(Brush.verticalGradient(listOf(fillTop, fillBottom)))
+            Modifier.size(32.dp).pressScale(interaction).clip(InsetControlShape)
+                .drawTones(wash, wash, ink) { fillTop, _, tone ->
+                    drawRect(fillTop)
                     val s = 18.dp.toPx()
                     translate((size.width - s) / 2, (size.height - s) / 2) {
                         with(glyph) { draw(Size(s, s), colorFilter = ColorFilter.tint(tone)) }
@@ -959,29 +959,24 @@ private fun effectText(text: String): AnnotatedString {
 private val EffectMarker = Regex("【[^】]*】|<[^>]*>")
 
 /**
- * − ×count + on a dark plate, for deck strips and the details dialog: 48 dp targets, a rolling
- * count and, with a [limit], copy pips under it.
+ * − count + for deck strips, list rows and the details dialog: 48 dp targets and one rolling number in
+ * [countInk], teal in the deck, quiet at 0 and red past [limit]. + never dims (UX rule S4).
  */
 @Composable
-fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () -> Unit, limit: Int? = null, pips: Boolean = false) {
+fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () -> Unit, limit: Int? = null) {
     val haptics = LocalHapticFeedback.current
-    val scheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically) {
         TileButton("−", "Remove one $name", enabled = quantity > 0) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onMinus() }
-        Column(Modifier.widthIn(min = 30.dp).centredOverPips(MaterialTheme.typography.titleMedium, pips && limit != null), horizontalAlignment = Alignment.CenterHorizontally) {
-            RollingNumber(
-                quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers),
-                if (limit != null && quantity > limit) scheme.error else scheme.onSurface, Modifier.bumpOnIncrease(quantity),
-            )
-            if (pips && limit != null) CopyPips(quantity, limit, pip = 5.dp)
+        Box(Modifier.widthIn(min = 30.dp), contentAlignment = Alignment.Center) {
+            RollingNumber(quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers), countInk(quantity, limit), Modifier.bumpOnIncrease(quantity))
         }
-        TileButton("+", "Add one $name", primary = limit == null || quantity < limit) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
+        TileButton("+", "Add one $name") { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
     }
 }
 
 /**
  * A deck card shown small: the whole card at its real shape (UX rule V4a), so cost and AP/HP stay
- * readable, with − ×count + and copy pips underneath (S1). It lifts on hover and flashes when its
+ * readable, with its − count + plate underneath (S1). It lifts on hover and flashes when its
  * count changes, like the card list's tiles. [target] is the buttons' hit size: 48 dp on phones (R1).
  */
 @Composable

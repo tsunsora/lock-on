@@ -1,4 +1,7 @@
 package app.lockon.ui.decks
+import app.lockon.ui.components.CardTagFill
+import app.lockon.ui.components.CardTagInk
+import app.lockon.ui.components.CardTagLine
 import app.lockon.ui.components.Reveal
 import app.lockon.ui.components.FadeSwap
 import app.lockon.ui.components.fadeOnChange
@@ -711,7 +714,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                 // Desktop's dialog: both steppers on one row, each beside its name.
                 val sideBySide = maxWidth >= 440.dp
                 val deckStepper: @Composable () -> Unit = {
-                    PlateStepper(inDeck, "copy", onMinus = { change(card, -1) }, onPlus = { change(card, 1) }, limit = copyLimit(card, ruleset), pips = true)
+                    PlateStepper(inDeck, "copy", onMinus = { change(card, -1) }, onPlus = { change(card, 1) }, limit = copyLimit(card, ruleset))
                 }
                 // The side deck sits beside the deck; moving keeps the total and never checks rules (UX rule S4).
                 val sideStepper: @Composable () -> Unit = {
@@ -986,7 +989,7 @@ private fun DeckProblemLine(errors: List<LegalityMessage>, onOpenAnalysis: () ->
 /**
  * "Off-color" when a card would add a third color (UX rule S3), and the
  * count in whichever of the deck and side deck the card list isn't adding to. The copy limit has no
- * badge: the gold pips and the plain "+" under the card say it.
+ * tag here: the card says Max in its name strip (see [CardTile]).
  */
 @Composable
 private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Boolean, deckColors: Set<CardColor>, ruleset: Ruleset) {
@@ -1005,9 +1008,9 @@ private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Bool
     Box(Modifier.fadeOnChange(kind)) {
         when (kind) {
             1 -> Badge("Banned", c.errorContainer, c.onErrorContainer)
-            2 -> Badge("Deck $quantity", Color(0xE61A2036), Color.White)
+            2 -> Badge("Deck $quantity", CardTagFill, CardTagInk, outline = CardTagLine)
             3 -> Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
-            else -> Badge("Side $side", Color(0xE61A2036), Color.White)
+            else -> Badge("Side $side", CardTagFill, CardTagInk, outline = CardTagLine)
         }
     }
 }

@@ -107,14 +107,16 @@ fun QrCodeView(matrix: QrMatrix, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Badge(text: String, background: Color, foreground: Color, modifier: Modifier = Modifier) {
+fun Badge(text: String, background: Color, foreground: Color, modifier: Modifier = Modifier, outline: Color? = null) {
     Text(
         text,
         style = MaterialTheme.typography.labelMedium,
         color = foreground,
         maxLines = 1,
         softWrap = false,
-        modifier = modifier.clip(PillShape).background(background).padding(horizontal = 8.dp, vertical = 4.dp),
+        modifier = modifier.clip(PillShape).background(background)
+            .then(if (outline != null) Modifier.border(1.dp, outline, PillShape) else Modifier)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
     )
 }
 
