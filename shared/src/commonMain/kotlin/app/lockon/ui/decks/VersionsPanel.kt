@@ -133,7 +133,8 @@ fun VersionsPanel(
                     // Under the time, one line says what the version holds and what changed against the one before
                     // it, in words: "50 cards · +1 −1 vs previous" (UX rule C5).
                     Column(Modifier.weight(1f)) {
-                        Text(dayAndTimeLabel(version.createdAt), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        // A stable number, oldest first, so two versions saved the same minute still read apart.
+                        Text("Version ${versions.size - 1 - index} · ${dayAndTimeLabel(version.createdAt)}", style = MaterialTheme.typography.titleSmall, maxLines = 1)
                         Changes(older, version.snapshot, note)
                     }
                     Icon(LineIcons.Chev, contentDescription = null, Modifier.size(20.dp).rotate(90f * opening), tint = MaterialTheme.colorScheme.onSurfaceVariant)
