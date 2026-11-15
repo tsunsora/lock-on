@@ -209,10 +209,10 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
         Column(Modifier.fillMaxSize()) {
             // The art area: the symbol in the middle of what is left between the corner tab and the band.
             Box(Modifier.fillMaxWidth().weight(1f).padding(top = if (tab && full) (u * 20f).dp else 0.dp)) {
-                Canvas(Modifier.fillMaxSize()) {
-                    val r = size.width * (if (full) 0.17f else if (roomForCost) 0.2f else 0.26f)
-                    drawTypeGlyph(card?.type, Offset(size.width / 2f, size.height / 2f), r, glyphInk, stroke = r * 0.12f)
-                }
+                Icon(
+                    LineIcons.faceForType(card?.type), contentDescription = null, tint = glyphInk,
+                    modifier = Modifier.align(Alignment.Center).size(maxWidth * (if (full) 0.4f else if (roomForCost) 0.48f else 0.6f)),
+                )
             }
             if (full) PlaceholderBand(card, max, deep, u)
         }
@@ -283,45 +283,6 @@ private val MaxInk = Color(0xFFA9B3CC)
 val CardTagFill = Color(0xFF1C2235)
 val CardTagInk = Color(0xFFEEF0F5)
 val CardTagLine = Color.White.copy(alpha = 0.14f)
-
-/** The card type's symbol drawn as strokes, filling a circle of radius [r] around [c]: shield, pilot, bolt, base or diamond. */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTypeGlyph(type: app.lockon.model.CardType?, c: Offset, r: Float, ink: Color, stroke: Float) {
-    // The glyphs are drawn on a 24-unit grid. These are the centre and radius of the smallest circle
-    // around each shape, so it sits evenly in a round disc: a house's middle is lower than its box's.
-    val (cx, cy, reach) = when (type) {
-        app.lockon.model.CardType.PILOT -> Triple(12f, 13.95f, 9.95f)
-        app.lockon.model.CardType.COMMAND -> Triple(11.5f, 12f, 9.12f)
-        app.lockon.model.CardType.BASE, app.lockon.model.CardType.BASE_TOKEN, app.lockon.model.CardType.EX_BASE -> Triple(12f, 14.5f, 10f)
-        app.lockon.model.CardType.RESOURCE, app.lockon.model.CardType.EX_RESOURCE -> Triple(12f, 12f, 8f)
-        else -> Triple(12f, 12f, 9f)
-    }
-    val s = r / reach
-    fun p(x: Float, y: Float) = Offset(c.x + (x - cx) * s, c.y + (y - cy) * s)
-    val line = Stroke(stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-    when (type) {
-        app.lockon.model.CardType.PILOT -> {
-            drawCircle(ink, 4f * s, p(12f, 8f), style = line)
-            drawPath(Path().apply { moveTo(p(4.5f, 20.5f).x, p(4.5f, 20.5f).y); cubicTo(p(4.5f, 16f).x, p(4.5f, 16f).y, p(8f, 13f).x, p(8f, 13f).y, p(12f, 13f).x, p(12f, 13f).y)
-                cubicTo(p(16f, 13f).x, p(16f, 13f).y, p(19.5f, 16f).x, p(19.5f, 16f).y, p(19.5f, 20.5f).x, p(19.5f, 20.5f).y) }, ink, style = line)
-        }
-        app.lockon.model.CardType.COMMAND -> drawPath(Path().apply {
-            listOf(p(13f, 3f), p(5f, 13.5f), p(11f, 13.5f), p(10f, 21f), p(18f, 10.5f), p(12f, 10.5f)).forEachIndexed { i, o -> if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) }
-            close()
-        }, ink, style = line)
-        app.lockon.model.CardType.BASE, app.lockon.model.CardType.BASE_TOKEN, app.lockon.model.CardType.EX_BASE -> drawPath(Path().apply {
-            moveTo(p(4f, 20.5f).x, p(4f, 20.5f).y); lineTo(p(20f, 20.5f).x, p(20f, 20.5f).y)
-            moveTo(p(6f, 20.5f).x, p(6f, 20.5f).y); lineTo(p(6f, 10f).x, p(6f, 10f).y); lineTo(p(12f, 4.5f).x, p(12f, 4.5f).y); lineTo(p(18f, 10f).x, p(18f, 10f).y); lineTo(p(18f, 20.5f).x, p(18f, 20.5f).y)
-            moveTo(p(10f, 20.5f).x, p(10f, 20.5f).y); lineTo(p(10f, 15.5f).x, p(10f, 15.5f).y); lineTo(p(14f, 15.5f).x, p(14f, 15.5f).y); lineTo(p(14f, 20.5f).x, p(14f, 20.5f).y)
-        }, ink, style = line)
-        app.lockon.model.CardType.RESOURCE, app.lockon.model.CardType.EX_RESOURCE -> drawPath(Path().apply {
-            moveTo(p(12f, 4f).x, p(12f, 4f).y); lineTo(p(19f, 12f).x, p(19f, 12f).y); lineTo(p(12f, 20f).x, p(12f, 20f).y); lineTo(p(5f, 12f).x, p(5f, 12f).y); close()
-        }, ink, style = line)
-        else -> drawPath(Path().apply {
-            moveTo(p(12f, 3f).x, p(12f, 3f).y); lineTo(p(19f, 7f).x, p(19f, 7f).y); lineTo(p(19f, 13f).x, p(19f, 13f).y); lineTo(p(12f, 21f).x, p(12f, 21f).y)
-            lineTo(p(5f, 13f).x, p(5f, 13f).y); lineTo(p(5f, 7f).x, p(5f, 7f).y); close()
-        }, ink, style = line)
-    }
-}
 
 /** The back of a card, for face-down shields. */
 @Composable

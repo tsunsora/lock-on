@@ -8,12 +8,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import app.lockon.model.CardType
 
 /** The app's outline icons, on a 24-unit grid with a 1.9-unit round stroke, tinted like any other icon. */
 object LineIcons {
-    private fun icon(name: String, vararg lines: String, solid: String = ""): ImageVector =
+    private fun icon(name: String, vararg lines: String, solid: String = "", stroke: Float = 1.9f): ImageVector =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
-            lines.forEach { addPath(addPathNodes(it), stroke = SolidColor(Color.Black), strokeLineWidth = 1.9f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
+            lines.forEach { addPath(addPathNodes(it), stroke = SolidColor(Color.Black), strokeLineWidth = stroke, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
             if (solid.isNotEmpty()) addPath(addPathNodes(solid), fill = SolidColor(Color.Black))
         }.build()
 
@@ -62,28 +63,43 @@ object LineIcons {
     val Shield: ImageVector by lazy { icon("Shield", "M12 3.5 19 6v5.5c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z") }
     val Burst: ImageVector by lazy { icon("Burst", "M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8") }
     val Link: ImageVector by lazy { icon("Link", "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1", "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1") }
-    val Unit: ImageVector by lazy { icon("Unit", "M12 3 5 7v6l7 8 7-8V7z") }
-    val Pilot: ImageVector by lazy { icon("Pilot", "M8 8A4 4 0 1 1 16 8A4 4 0 1 1 8 8Z", "M4.5 20.5a7.5 7.5 0 0 1 15 0") }
-    val Command: ImageVector by lazy { icon("Command", "M13 3 5 13.5h6L10 21l8-10.5h-6z") }
-    val Base: ImageVector by lazy { icon("Base", "M4 20.5h16M6 20.5V10l6-5.5 6 5.5v10.5M10 20.5v-5h4v5") }
-    val Mark: ImageVector by lazy { icon("Mark", "M5.6 12A6.4 6.4 0 1 1 18.4 12A6.4 6.4 0 1 1 5.6 12Z", "M12 3v4M12 17v4M3 12h4M17 12h4", solid = "M9.9 12A2.1 2.1 0 1 1 14.1 12A2.1 2.1 0 1 1 9.9 12Z") }
-    val Min: ImageVector by lazy { icon("Min", "M6 12h12") }
-    val Max: ImageVector by lazy { icon("Max", "M8.5 6H15.5A2.5 2.5 0 0 1 18 8.5V15.5A2.5 2.5 0 0 1 15.5 18H8.5A2.5 2.5 0 0 1 6 15.5V8.5A2.5 2.5 0 0 1 8.5 6Z") }
-    val Swap: ImageVector by lazy { icon("Swap", "M7 4 3.5 7.5 7 11M3.5 7.5H17M17 13l3.5 3.5L17 20M20.5 16.5H7") }
-    val Trophy: ImageVector by lazy { icon("Trophy", "M8 4h8v5a4 4 0 0 1-8 0zM8 6H4.5v1.5A3.5 3.5 0 0 0 8 11M16 6h3.5v1.5A3.5 3.5 0 0 1 16 11M12 13v4M8.5 20.5h7M10 17h4v3.5h-4z") }
-    val Eye: ImageVector by lazy { icon("Eye", "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z", "M9.2 12A2.8 2.8 0 1 1 14.8 12A2.8 2.8 0 1 1 9.2 12Z") }
-    val Palette: ImageVector by lazy { icon("Palette", "M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 1.8-1.1 1.2-2.1-.7-1.1 0-2.4 1.3-2.4H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.8-9-8.5-9z", "M6.5 11A1 1 0 1 1 8.5 11A1 1 0 1 1 6.5 11Z", "M9 7.5A1 1 0 1 1 11 7.5A1 1 0 1 1 9 7.5Z", "M13.5 7.5A1 1 0 1 1 15.5 7.5A1 1 0 1 1 13.5 7.5Z") }
-    val Sliders: ImageVector by lazy { icon("Sliders", "M4 7h9M17 7h3M4 17h3M11 17h9", "M13 7A2 2 0 1 1 17 7A2 2 0 1 1 13 7Z", "M7 17A2 2 0 1 1 11 17A2 2 0 1 1 7 17Z") }
-    val Database: ImageVector by lazy { icon("Database", "M4.5 6A7.5 2.8 0 1 1 19.5 6A7.5 2.8 0 1 1 4.5 6Z", "M4.5 6v12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8") }
-    val Alert: ImageVector by lazy { icon("Alert", "M10.3 4.5 2.9 17.5A2 2 0 0 0 4.6 20.5h14.8a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0Z", "M12 9.5v4.5M12 17.2v.2") }
-    val Info: ImageVector by lazy { icon("Info", "M3.5 12A8.5 8.5 0 1 1 20.5 12A8.5 8.5 0 1 1 3.5 12Z", "M12 11v5.5M12 7.8v.2") }
-    val Home: ImageVector by lazy { icon("Home", "M4 11 12 4l8 7v8.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z") }
-    val Download: ImageVector by lazy { icon("Download", "M12 4v11M7.5 10.5 12 15l4.5-4.5", "M5 19.5h14") }
-    val Paste: ImageVector by lazy { icon("Paste", "M7.5 4.5H16.5A2 2 0 0 1 18.5 6.5V18.5A2 2 0 0 1 16.5 20.5H7.5A2 2 0 0 1 5.5 18.5V6.5A2 2 0 0 1 7.5 4.5Z", "M9 4.5V3h6v1.5M9 10h6M9 14h6") }
-    val Send: ImageVector by lazy { icon("Send", "m4 12 16-8-6 16-2.5-6.5z", "m11.5 13.5 3.5-3.5") }
-    val Play: ImageVector by lazy { icon("Play", "M3.5 12A8.5 8.5 0 1 1 20.5 12A8.5 8.5 0 1 1 3.5 12Z", solid = "M10.2 8.6v6.8l5.4-3.4z") }
-    val Flag: ImageVector by lazy { icon("Flag", "M5.5 21V4M5.5 4.5h11l-2.2 4 2.2 4h-11") }
-    val Side: ImageVector by lazy { icon("Side", "M8 3.5H16A2 2 0 0 1 18 5.5V18.5A2 2 0 0 1 16 20.5H8A2 2 0 0 1 6 18.5V5.5A2 2 0 0 1 8 3.5Z", solid = "M12 3.5h4a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-4z") }
+    // The card types, drawn from the game's world rather than stock symbols: a mobile suit's head with
+    // its V-fin, a pilot in a helmet, two chevrons for an order, a hangar, and a resource block.
+    private val UnitLines = arrayOf("M12 8.5 6 3.5M12 8.5l6-5", "M6 11.5h12v4.5l-3.5 4.5h-5L6 16z", "M8.5 14h7", "M10.5 17.5h3")
+    private val PilotLines = arrayOf("M7.5 8a4.5 4.5 0 0 1 9 0v2a4.5 4.5 0 0 1-9 0z", "M7.5 9h9", "M4.5 21a7.5 7.5 0 0 1 15 0")
+    private val CommandLines = arrayOf("M5.5 12.5 12 6l6.5 6.5", "M5.5 18.5 12 12l6.5 6.5")
+    private val BaseLines = arrayOf("M3 20.5h18", "M5 20.5V12a7 7 0 0 1 14 0v8.5", "M9 20.5v-6h6v6M12 14.5v6")
+    private val ResourceLines = arrayOf("M12 3.5l7.4 4.25v8.5L12 20.5l-7.4-4.25v-8.5z", "M12 12v8.5M12 12l7.4-4.25M12 12 4.6 7.75")
+    val Unit: ImageVector by lazy { icon("Unit", *UnitLines) }
+    val Pilot: ImageVector by lazy { icon("Pilot", *PilotLines) }
+    val Command: ImageVector by lazy { icon("Command", *CommandLines) }
+    val Base: ImageVector by lazy { icon("Base", *BaseLines) }
+    val Resource: ImageVector by lazy { icon("Resource", *ResourceLines) }
+
+    /** A card type's icon, at the usual stroke for chips and lists. */
+    fun forType(type: CardType?): ImageVector = when (type) {
+        CardType.PILOT -> Pilot
+        CardType.COMMAND -> Command
+        CardType.BASE, CardType.BASE_TOKEN, CardType.EX_BASE -> Base
+        CardType.RESOURCE, CardType.EX_RESOURCE -> Resource
+        else -> Unit
+    }
+
+    // The same icons at a finer stroke, for the large symbol on a drawn card face, where 1.9 reads heavy.
+    private val faceUnit by lazy { icon("FaceUnit", *UnitLines, stroke = 1.4f) }
+    private val facePilot by lazy { icon("FacePilot", *PilotLines, stroke = 1.4f) }
+    private val faceCommand by lazy { icon("FaceCommand", *CommandLines, stroke = 1.4f) }
+    private val faceBase by lazy { icon("FaceBase", *BaseLines, stroke = 1.4f) }
+    private val faceResource by lazy { icon("FaceResource", *ResourceLines, stroke = 1.4f) }
+
+    /** A card type's icon at the drawn card face's finer stroke. */
+    fun faceForType(type: CardType?): ImageVector = when (type) {
+        CardType.PILOT -> facePilot
+        CardType.COMMAND -> faceCommand
+        CardType.BASE, CardType.BASE_TOKEN, CardType.EX_BASE -> faceBase
+        CardType.RESOURCE, CardType.EX_RESOURCE -> faceResource
+        else -> faceUnit
+    }
     val Hand: ImageVector by lazy { icon("Hand", "M1.84 8.963L9.665 7.299L12.16 19.037L4.335 20.701Z", "M14.335 7.299L22.16 8.963L19.665 20.701L11.84 19.037Z", "M9.6 5H14.4A1.6 1.6 0 0 1 16 6.6V15.4A1.6 1.6 0 0 1 14.4 17H9.6A1.6 1.6 0 0 1 8 15.4V6.6A1.6 1.6 0 0 1 9.6 5Z") }
     val Chart: ImageVector by lazy { icon("Chart", "M5 20V12M10 20V6M15 20v-9M20 20V9") }
     val Versions: ImageVector by lazy { icon("Versions", "M3.5 12A8.5 8.5 0 1 1 20.5 12A8.5 8.5 0 1 1 3.5 12Z", "M12 7.5V12l3 2", "M3.5 12H2") }

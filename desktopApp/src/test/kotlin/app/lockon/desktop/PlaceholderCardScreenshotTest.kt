@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ImageComposeScene
@@ -19,6 +21,7 @@ import app.lockon.model.CardColor
 import app.lockon.model.CardType
 import app.lockon.ui.components.CardImage
 import app.lockon.ui.components.DeckStrip
+import app.lockon.ui.components.LineIcons
 import app.lockon.ui.theme.LockOnTheme
 import org.jetbrains.skia.EncodedImageFormat
 import java.io.File
@@ -46,7 +49,7 @@ class PlaceholderCardScreenshotTest {
     }
 
     private fun render(dark: Boolean) {
-        ImageComposeScene(1680, 900, Density(1.5f)) {
+        ImageComposeScene(1680, 980, Density(1.5f)) {
             LockOnTheme(dark = dark) {
                 Column(
                     Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp),
@@ -54,6 +57,12 @@ class PlaceholderCardScreenshotTest {
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         cards.forEachIndexed { i, card -> CardImage(card, Modifier.width(118.dp), shadow = false, max = i == 3) }
+                    }
+                    // The type icons at filter chip size, as the card list shows them.
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        listOf(CardType.UNIT, CardType.PILOT, CardType.COMMAND, CardType.BASE, CardType.RESOURCE).forEach {
+                            Icon(LineIcons.forType(it), contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
+                        }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Bottom) {
                         val card = cards.first()

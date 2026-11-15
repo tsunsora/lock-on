@@ -724,12 +724,7 @@ private fun List<Int>.span(): List<Int> = if (isEmpty()) emptyList() else (min()
 private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - value else this + value
 
 /** A small picture for a card type on its filter chip. */
-private fun CardType.chipIcon(): androidx.compose.ui.graphics.vector.ImageVector = when (this) {
-    CardType.PILOT -> LineIcons.Pilot
-    CardType.COMMAND -> LineIcons.Command
-    CardType.BASE -> LineIcons.Base
-    else -> LineIcons.Unit
-}
+private fun CardType.chipIcon(): androidx.compose.ui.graphics.vector.ImageVector = LineIcons.forType(this)
 
 /** On phones, the card list's controls on one solid panel over the sky (UX rules N4, V3); elsewhere they sit as they are. */
 @Composable
