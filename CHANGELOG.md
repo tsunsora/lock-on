@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.11.27 (2026-11-15)
+
+Clearer and calmer everywhere: a test hand you can read on a phone, labels on every button in the phone's bar, sync errors that say what to do, and a quieter dusk palette.
+
+- **Test hand:** three whole cards fit across, the six shields sit in one row, and Keep and Redraw are at the bottom.
+- **Phone bar:** every item has its name under it, on the main screens and inside a deck.
+- **Sync:** when a sync fails, it says what to do next, with Retry and Dismiss. Comparing a conflict names both devices.
+- **Deleting a deck:** it goes at once, with Undo, instead of asking first.
+- **Colors and numbers:** Twilight and Sky carry less dusk tint, and numbers that change as you work keep a steady width so they don't jiggle.
+- **App icon:** a flat violet icon and logo tile, with no gradient or shading.
+- **Caution stripes:** gone from the conflict banner and the sync status.
+- **Decks on phones:** one folder chip with a menu picks the folder, and deck names get two lines.
+- **Matches and Versions:** play order and results read in words, record bars have a key and share one scale, and each version says how many cards it has and what changed from the one before.
+
 ## 26.11.26 (2026-11-15)
 
 A calmer look that lets the cards lead: one count on each card instead of a number and dots, simpler Analysis, Matches and Sync screens, and a clearer gold full-deck count on phones by day.
