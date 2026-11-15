@@ -161,7 +161,7 @@ fun CardHoverPreview(card: Card, printingId: String?, hovered: Boolean) {
     Popup(popupPositionProvider = remember(gap) { BesideAnchor(gap) }, properties = PopupProperties(focusable = false)) {
         // As large as fits the window, up to a size where the effect text reads easily.
         Box(Modifier.widthIn(max = 300.dp).padding(vertical = 8.dp).arrive(arrival.asState(), from = 0.97f).clearAndSetSemantics {}) {
-            // The drawn placeholder face is partly see-through, so it gets a solid backing out here.
+            // A solid backing under the face, so its hairline edge never shows the window through it.
             CardImage(card, Modifier.shadow(18.dp, CardShape).background(MaterialTheme.colorScheme.surface, CardShape), printingId)
         }
     }
@@ -218,7 +218,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
         }
         // The cost tab: flush in the top-left corner like a printed card's, the level under the cost.
         if (tab && cost != null) Column(
-            Modifier.align(Alignment.TopStart).width((u * 15f).dp)
+            Modifier.align(Alignment.TopStart).width((u * 16f).dp)
                 .background(deep, RoundedCornerShape(bottomEnd = (u * 4f).dp))
                 .padding(top = (u * 2f).dp, bottom = (u * (if (full) 2f else 1.6f)).dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -229,7 +229,7 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
             }
             val level = card?.level
             if (level != null && full) Text(
-                "Lv $level", color = PlaceholderQuiet, fontSize = (u * 3.8f).sp, lineHeight = (u * 4.4f).sp,
+                "Lv $level", color = PlaceholderQuiet, fontSize = (u * 4.2f).sp, lineHeight = (u * 4.8f).sp,
                 maxLines = 1, style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
             )
         }
@@ -240,13 +240,14 @@ fun PlaceholderCard(card: Card?, modifier: Modifier = Modifier, max: Boolean = f
 @Composable
 private fun PlaceholderBand(card: Card?, max: Boolean, deep: Color, u: Float) {
     Column(
-        Modifier.fillMaxWidth().background(deep).padding(horizontal = (u * 3.4f).dp, vertical = (u * 2.6f).dp),
-        verticalArrangement = Arrangement.spacedBy((u * 1.4f).dp),
+        // One height for every card, room for two lines of name, so the symbols and bands line up across a grid.
+        Modifier.fillMaxWidth().height((u * 25f).dp).background(deep).padding(horizontal = (u * 3.4f).dp, vertical = (u * 2.6f).dp),
     ) {
         Text(
             card?.name ?: "Unknown card", color = Color.White, fontSize = (u * 5.4f).sp, lineHeight = (u * 6.4f).sp,
             maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge,
         )
+        Spacer(Modifier.weight(1f))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             // Colour in words as well as on the face, so colour is never the only signal (UX rule I4).
             val kind = listOfNotNull(
@@ -254,12 +255,12 @@ private fun PlaceholderBand(card: Card?, max: Boolean, deep: Color, u: Float) {
                 card?.type?.label?.let { if (card.colors.isEmpty()) it else it.lowercase() },
             ).joinToString(" ")
             val small = MaterialTheme.typography.labelMedium
-            Text(kind, color = PlaceholderQuiet, fontSize = (u * 3.8f).sp, lineHeight = (u * 4.8f).sp, maxLines = 1,
+            Text(kind, color = PlaceholderQuiet, fontSize = (u * 4.2f).sp, lineHeight = (u * 5f).sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, style = small, modifier = Modifier.weight(1f, fill = true))
-            if (max) Text("Max", color = MaxInk, fontSize = (u * 3.8f).sp, lineHeight = (u * 4.8f).sp, style = small,
+            if (max) Text("Max", color = MaxInk, fontSize = (u * 4.2f).sp, lineHeight = (u * 5f).sp, style = small,
                 modifier = Modifier.padding(start = (u * 1.6f).dp))
             if (card?.ap != null || card?.hp != null) Text(
-                "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.4f).sp, lineHeight = (u * 4.8f).sp,
+                "${card.ap ?: "–"} / ${card.hp ?: "–"}", color = Color.White, fontSize = (u * 4.6f).sp, lineHeight = (u * 5f).sp,
                 maxLines = 1, style = small.merge(TabularNumbers), modifier = Modifier.padding(start = (u * 2f).dp),
             )
         }

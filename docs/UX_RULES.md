@@ -120,7 +120,9 @@ Lock On follows the philosophy of Nintendo's recent menus (Switch 2 era) inside 
   - **Card colours** are for card identity: cost orbs, the card faces and a deck tile's colour tint. They never colour chrome.
   - **Violet** is the logo's alone (V9), so it never reads as a button.
   - A full deck that needs review holds its gauge in slate rather than gold.
-- **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). Without artwork it also shows its colour band, level and type initial. With artwork, the image sits over that placeholder, so a slow or broken link never leaves a blank.
+- **V4. Card faces carry identity at a glance.** A tile always shows its cost (top-left). With artwork, the image sits over the drawn face, so a slow or broken link never leaves a blank.
+  - A card without artwork gets a drawn face laid out like a printed card: the card's colour, a corner tab with the cost and the level under it, the type's line symbol where the art would be, and a deep band along the bottom with the name on up to two lines, the colour and type in words (*Blue unit*) and AP / HP. Words only ever sit on the deep tone, never on the bright face, so they read on every colour. The band is one height on every card, so symbols and bands line up across a grid.
+  - Small faces drop what they can't hold: below 96 dp only the colour, the cost and the symbol; below 48 dp only the colour and the symbol.
 - **V4a. Cards are never cropped where they are the subject.**
   - Grid tiles, the test hand, card details and printings show the whole card at its real 63:88 shape, with high-quality filtering. Cost and AP/HP are never covered.
   - The test hand's fan is the one place cards overlap, because a held hand reads as a hand. Each card's cost stays in view, the card under the pointer comes to the front, and a tap opens any card whole.
