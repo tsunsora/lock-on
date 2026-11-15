@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.11.29 (2026-11-15)
+
+Lock On opens sooner: the launch screen goes as soon as the app is ready, with a shorter, simpler animation.
+
+- **Starting up:** the launch screen no longer stays up for a set time. It fades out as soon as your decks and screens are ready.
+- **Launch screen:** a ring round the logo fills and locks on in gold in about a second. The radar sweep, the hunting seeker and the Searching, Tracking and Locked words are gone.
+
 ## 26.11.28 (2026-11-15)
 
 The test hand is held in a fan again, and the deck list and Analysis look as calm as the rest of the app.
