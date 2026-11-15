@@ -577,7 +577,7 @@ fun CardDetailContent(
                     Modifier.fillMaxWidth().pressScale(press).pointerHoverIcon(PointerIcon.Hand)
                         .clickable(press, indication = null, onClickLabel = "View larger") { inspecting = true },
                     animationSpec = motion(), label = "printing",
-                ) { CardImage(card, Modifier.fillMaxWidth(), printingId = it) }
+                ) { CardImage(card, Modifier.fillMaxWidth(), printingId = it, shadow = false) }
             }
         }
         if (inspecting) CardInspectDialog(card, shown, onDismiss = { inspecting = false })
