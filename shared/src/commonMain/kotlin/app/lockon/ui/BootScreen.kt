@@ -93,14 +93,14 @@ class BootClock {
      */
     @Volatile var handedOver: Boolean = false
     /** How far the hunt has got, from 0 to [HOLD_AT]: it plays once, then holds the lock until the boot screen goes. */
-    val stage: Float get() = minOf(played / LOOP_MS, HOLD_AT)
+    val stage: Float get() = minOf(played / HUNT_MS, HOLD_AT)
     /** Where the radar sweep is in its loop, from 0 to 1; it keeps turning while the lock holds. */
-    val loop: Float get() = played / LOOP_MS % 1f
+    val loop: Float get() = played / SWEEP_MS % 1f
     /** True once the first lock has landed, so the boot screen may go. */
-    val locked: Boolean get() = played >= LOOP_MS * (LOCK_AT + 0.04f)
+    val locked: Boolean get() = played >= HUNT_MS * (LOCK_AT + 0.04f)
 
     /** Jumps to just past the first lock, for tests whose frames come in steps too big for this clock to keep up with. */
-    fun skipToLock() { played = LOOP_MS * (LOCK_AT + 0.04f) }
+    fun skipToLock() { played = HUNT_MS * (LOCK_AT + 0.04f) }
 }
 
 /**
@@ -323,9 +323,12 @@ private val BootLookTwilight = BootLook(
 
 /**
  * One pass: hunt, close in, lock at [LOCK_AT] and hold from [HOLD_AT] until the boot screen goes, so it
- * fades out locked on rather than hunting again. The boot screen stays until the lock has landed.
+ * fades out locked on rather than hunting again. The lock lands about a second in; should the app be
+ * ready sooner, the seeker jumps to it.
  */
-private const val LOOP_MS = 3_400f
+private const val HUNT_MS = 1_800f
+/** One turn of the radar sweep, which keeps its calm pace however short the hunt. */
+private const val SWEEP_MS = 3_400f
 private const val LOCK_AT = 0.52f
 private const val HOLD_AT = 0.8f
 /** The most of the loop one frame moves on, about two frames at 60 Hz, and how fast the clock makes up time lost to slow frames. */
