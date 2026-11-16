@@ -360,6 +360,9 @@ fun CardTile(
     }
 }
 
+/** Whether a card with [count] copies can take another under its copy [limit]; null is no limit. */
+internal fun hasRoom(count: Int, limit: Int?): Boolean = limit == null || count < limit
+
 /**
  * The colour of a card's count: teal while it is in the deck (UX rule V3), quiet at 0, and red past the
  * limit, where the problem bar names the card and the limit (I3).
@@ -374,8 +377,8 @@ internal fun countInk(count: Int, limit: Int?): Color = when {
 
 /**
  * − count + under a card, the same in the deck and in Add cards on every device (UX rule K3): one plate
- * the height of a control holding one centred number in [countInk]. + is always teal and never dims, and
- * − keeps full ink at 0 (S4). [target] is the buttons' hit size on phones (R1), which reaches past the plate.
+ * the height of a control holding one centred number in [countInk]. + is teal, dimming only at the copy
+ * limit, and − keeps full ink at 0 (S4). [target] is the buttons' hit size on phones (R1), which reaches past the plate.
  */
 @Composable
 private fun CardCountBar(count: Int, name: String, limit: Int?, target: Dp, onMinus: () -> Unit, onPlus: () -> Unit) {
@@ -392,7 +395,7 @@ private fun CardCountBar(count: Int, name: String, limit: Int?, target: Dp, onMi
             }
         }
         Box(Modifier.align(Alignment.CenterEnd)) {
-            TileButton("+", "Add one $name", target = hit) {
+            TileButton("+", "Add one $name", enabled = hasRoom(count, limit), target = hit) {
                 haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus()
             }
         }
@@ -403,6 +406,7 @@ private fun CardCountBar(count: Int, name: String, limit: Int?, target: Dp, onMi
  * A plate's − or +: a drawn glyph, teal for + and full ink for −, in a 32 dp face that takes the neutral
  * wash on hover and press, with a hit area of [target] (48 dp on phones, the control height on desktop).
  * A − at 0 has nothing to remove, so it ignores taps but keeps its ink: the quiet 0 beside it says why.
+ * A + at the copy limit ignores taps and dims, so the card visibly can't take another (UX rule S4).
  */
 @Composable
 private fun TileButton(symbol: String, description: String, enabled: Boolean = true, target: Dp = 48.dp, onClick: () -> Unit) {
@@ -418,7 +422,7 @@ private fun TileButton(symbol: String, description: String, enabled: Boolean = t
         contentAlignment = Alignment.Center,
     ) {
         val wash = if (hovered || pressed) neutralWash(hovered, pressed) else Color.Transparent
-        val ink = if (symbol == "+") Accent else scheme.onSurface
+        val ink = if (symbol == "+") (if (enabled) Accent else Accent.copy(alpha = 0.38f)) else scheme.onSurface
         val glyph = rememberVectorPainter(if (symbol == "+") LineIcons.Plus else LineIcons.Minus)
         // Everything is drawn here, so a plate's two buttons ease their colours with no state of their own
         // at rest. The glyph is drawn too, so it sits in the exact middle of its button; a font's − and + don't.
@@ -931,7 +935,7 @@ private val EffectMarker = Regex("【[^】]*】|<[^>]*>")
 
 /**
  * − count + for deck strips, list rows and the details dialog: 48 dp targets and one rolling number in
- * [countInk], teal in the deck, quiet at 0 and red past [limit]. + never dims (UX rule S4).
+ * [countInk], teal in the deck, quiet at 0 and red past [limit]. + rests, dimmed, at [limit] (UX rule S4).
  */
 @Composable
 fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () -> Unit, limit: Int? = null) {
@@ -941,7 +945,7 @@ fun PlateStepper(quantity: Int, name: String, onMinus: () -> Unit, onPlus: () ->
         Box(Modifier.widthIn(min = 30.dp), contentAlignment = Alignment.Center) {
             RollingNumber(quantity, MaterialTheme.typography.titleMedium.merge(TabularNumbers), countInk(quantity, limit), Modifier.bumpOnIncrease(quantity))
         }
-        TileButton("+", "Add one $name") { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
+        TileButton("+", "Add one $name", enabled = hasRoom(quantity, limit)) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPlus() }
     }
 }
 
