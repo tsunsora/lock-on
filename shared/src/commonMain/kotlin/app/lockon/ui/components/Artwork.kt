@@ -6,6 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -14,10 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import app.lockon.model.Printing
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
 import coil3.memory.MemoryCache
 import app.lockon.data.ArtworkStore
 import coil3.Uri
@@ -99,15 +104,37 @@ fun CardArtwork(
     val timers = LocalArtworkTimers.current
     if (!loaded) After(timers, url, PLACEHOLDER_DELAY_MS) { slow = true }
     else if (slow && !covered) After(timers, url, CROSSFADE_MS + 50L) { covered = true }
-    Box(modifier) {
+    // An image is decoded at the size it first lays out at, and keeps that decode when the card grows,
+    // as it does when the interface size goes up, so it would be stretched and its printed text go soft.
+    // Once a new size has held for a moment the image loads again at that size, showing the old decode
+    // until the new one is in.
+    val decode = remember(url) { ArtworkDecode() }
+    var resized by remember(url) { mutableStateOf<IntSize?>(null) }
+    var redraws by remember(url) { mutableIntStateOf(0) }
+    resized?.let { size ->
+        LaunchedEffect(size) {
+            delay(RESIZE_SETTLE_MS)
+            decode.size = size
+            resized = null
+            redraws++
+        }
+    }
+    Box(modifier.onSizeChanged { size ->
+        when (decode.size) {
+            IntSize.Zero -> decode.size = size
+            size -> resized = null
+            else -> resized = size
+        }
+    }) {
         if (url == null || failed || (slow && !covered)) fallback()
-        if (url != null && !failed) {
+        if (url != null && !failed) key(redraws) {
+            val context = LocalPlatformContext.current
             AsyncImage(
-                model = url,
+                model = if (redraws == 0) url else remember { ImageRequest.Builder(context).data(url).placeholderMemoryCacheKey(decode.key).build() },
                 contentDescription = contentDescription,
                 contentScale = contentScale,
                 alignment = alignment,
-                onSuccess = { loaded = true },
+                onSuccess = { loaded = true; decode.key = it.result.memoryCacheKey },
                 onError = { failed = true },
                 // Images are decoded at the size they're shown, so smooth filtering with mipmaps is
                 // enough; High (bicubic) costs more on every frame and looks the same here.
@@ -116,6 +143,15 @@ fun CardArtwork(
             )
         }
     }
+}
+
+/** How long a card keeps a new size before its image loads again at that size. */
+private const val RESIZE_SETTLE_MS = 150L
+
+/** The size a card's image was decoded for, and the decode's key in the memory cache. */
+private class ArtworkDecode {
+    var size = IntSize.Zero
+    var key: MemoryCache.Key? = null
 }
 
 /** Runs [then] in [millis], unless this leaves the screen or [key] changes first. */
