@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.32 (2026-11-16)
+
+A new app icon and launch screen that match Lock On's Material colours.
+
+- **App icon:** the white Lock On mark on teal, replacing the violet tile, on Android, Windows and macOS. On Android 13 and later it still follows your wallpaper when themed icons are on.
+- **Launch screen:** the new icon on the app's own background, so opening Lock On fades straight into the app without a violet flash. On Android 12 and later the system's splash takes your Material You background colour.
+- **Logo in the header:** the same teal tile and white mark as the icon.
+
 ## 26.11.31 (2026-11-15)
 
 Material You colours now look like real Material You, with a Pure black option, and a deck turning legal is marked by a quiet light on its Legal tag.

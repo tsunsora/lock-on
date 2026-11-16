@@ -1,6 +1,6 @@
 """Draws the Lock On app icon for desktop packaging as a flat tile: the Lock On mark (a bold ring
-with four studs and a center dot) in white, on one flat violet tile. No gradient, glow or shading
-(UX rule V7), to match the Android launcher icon and the in-app logo tile.
+with four studs and a center dot) in white, on one flat teal tile. No gradient, glow or shading
+(UX rule V7), to match the Android launcher icon, the launch screen and the in-app logo tile.
 
 Uses the same 108-unit geometry as LockOnMark in the shared UI and the Android launcher icon.
 Run from the repo root:  python scripts/make_icons.py
@@ -10,8 +10,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-# The same violet as ic_launcher_background and LogoTileDay.
-TILE = (138, 94, 225)  # #8A5EE1
+# The same teal and white as ic_launcher_background / ic_launcher_foreground and AppIconTile / AppIconMark.
+TILE = (8, 117, 129)  # #087581
 MARK = (255, 255, 255, 255)
 ARMS = [((54, 18), (54, 29)), ((54, 79), (54, 90)), ((18, 54), (29, 54)), ((79, 54), (90, 54))]
 

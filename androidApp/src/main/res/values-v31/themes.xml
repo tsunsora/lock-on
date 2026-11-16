@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 12+ shows the Lock On icon on the system splash screen, held up until the app has built its screens (MainActivity). -->
+    <!-- Android 12+ shows the Lock On icon on the system splash screen, held up until the app has built its screens (MainActivity).
+         Its ground is the system's own Material You neutral, as the app's ground is by default (values-v31/colors.xml). -->
     <style name="Theme.LockOn" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowSplashScreenBackground">@color/background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
     </style>
