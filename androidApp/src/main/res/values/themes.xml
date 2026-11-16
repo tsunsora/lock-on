@@ -7,5 +7,5 @@
     </style>
     <!-- The app's own ground by day, so the window hands over to the app without a flash; values-night has the twilight one. -->
     <color name="background">#DFE7EE</color>
-    <color name="ic_launcher_background">#087581</color>
+    <color name="ic_launcher_background">#2F5FD0</color>
 </resources>
