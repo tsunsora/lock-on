@@ -305,7 +305,7 @@ fun CardSearchPanel(
             leading?.invoke(this)
             ViewToggle(grid, { grid = it })
         }
-        // On phones the search and its chips sit on one solid panel, so only cards lie on the sky (UX rule V3).
+        // On phones the search and its chips sit straight on the sky, in line with the cards (UX rule V3).
         HeaderPlate(!wide) {
             // Two rows instead of a field and wrapped chips: the search with its count and view
             // controls, then colours as orbs and types as chips (UX rules N4, S5). On phones the view
@@ -375,7 +375,7 @@ fun CardSearchPanel(
             // Phones: in a deck, where + goes and Deck colors, with colours and types in Filters; in Cards,
             // colours and types themselves, scrolling sideways with a fade at the edge.
             else if (deckColors != null) Row(
-                Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
             ) {
                 leading?.invoke(this)
                 Spacer(Modifier.weight(1f))
@@ -726,13 +726,13 @@ private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - valu
 /** A small picture for a card type on its filter chip. */
 private fun CardType.chipIcon(): androidx.compose.ui.graphics.vector.ImageVector = LineIcons.forType(this)
 
-/** On phones, the card list's controls on one solid panel over the sky (UX rules N4, V3); elsewhere they sit as they are. */
+/**
+ * On phones, the card list's controls as two rows over the sky, each control on its own solid fill,
+ * lined up with the cards' 12 dp edges (UX rules N4, V3). A panel behind them only added a frame
+ * around controls that are solid already, wider than the cards beneath it. Elsewhere they sit as they are.
+ */
 @Composable
 private fun ColumnScope.HeaderPlate(on: Boolean, content: @Composable ColumnScope.() -> Unit) {
     if (!on) content()
-    else Column(
-        Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp).clip(LockOnShapes.tile)
-            .background(app.lockon.ui.components.glassColors().strong).padding(bottom = 8.dp),
-        content = content,
-    )
+    else Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
 }

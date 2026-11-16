@@ -507,7 +507,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
             BoxWithConstraints(modifier) {
                 @Composable
                 fun AddTo(tabs: Modifier) {
-                    PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = if (wide) listOf(Glyphs.Rows, Glyphs.SideCard) else null, flush = true)
+                    PillTabs(listOf("Deck", "Side"), if (addToSide.value) 1 else 0, { addToSide.value = it == 1 }, tabs, soft = true, icons = if (wide) listOf(Glyphs.Rows, Glyphs.SideCard) else null, flush = true, bare = !wide)
                 }
                 // A wide card list fits the switch in the search row, so the cards get a row's height back (UX
                 // rule N4, space goes to cards). Below this width the search would lose its placeholder to the
