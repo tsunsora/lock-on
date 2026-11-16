@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.11.31 (2026-11-15)
+
+Material You colours now look like real Material You, with a Pure black option, and a deck turning legal is marked by a quiet light on its Legal tag.
+
+- **Material You colours:** Lock On builds a full Material 3 scheme from your accent colour, and on Android 12 and later it uses the system's own, so it matches your quick settings and other apps. A new **Color style** setting (Tonal spot, Neutral, Vibrant or Expressive) appears while they're on.
+- **Pure black:** a black background for the dark theme, under Settings › Appearance. It works with Material You colours and with Twilight. Both new settings sync between devices.
+- **Copy limits:** the main deck stops at each card's limit (4, or fewer for a restricted card). The + buttons dim at the limit, and dragging a card in or To deck stop there too. Decks already over a limit are left as they are, pasted lists still arrive exactly as written, and the side deck has no limit.
+- **A deck turning legal:** instead of a glint across the whole banner, the tag fades from Draft to Legal, its check draws in and it glows gold for about half a second. It plays only when the deck changes, not when you open a deck that's already legal.
+- **Launch screen:** on Android 12 and later, the system's splash (the logo on a plain background) stays up until Lock On is ready, then fades into the app. On the computer and older Android phones the launch screen looks the same, and it follows your accent colour.
+
 ## 26.11.30 (2026-11-15)
 
 Lock On takes its colours from your system, and cards without artwork look like real cards.
