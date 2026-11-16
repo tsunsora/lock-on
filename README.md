@@ -84,8 +84,8 @@ Phones and computers on the same Wi-Fi find each other. Make one device match th
 </td>
 <td valign="top">
 
-### 🎨 A bright game look
-Frosted glass over a sky backdrop, card-strip deck lists, copy pips and gauges. Light **Sky** and dark **Twilight** themes, and motion that follows your reduced-motion setting.
+### 🎨 A calm look that lets the cards lead
+Light **Sky** and dark navy **Twilight** themes, with an optional pure black background and Material You colors that follow your system's accent color. Motion follows your reduced-motion setting.
 
 </td>
 </tr>
@@ -101,7 +101,7 @@ New versions download in the background and install with a restart or a tap.
 
 <table>
 <tr>
-<td align="center"><img src="docs/screenshots/phone-decks.png" width="200" alt="Deck library on a phone, with folders and deck boxes"><br><sub><b>Your decks</b></sub></td>
+<td align="center"><img src="docs/screenshots/phone-decks.png" width="200" alt="Deck library on a phone, with a folder menu and each deck's cover, state and size"><br><sub><b>Your decks</b></sub></td>
 <td align="center"><img src="docs/screenshots/phone-editor.png" width="200" alt="Deck editor on a phone"><br><sub><b>Deck editor</b></sub></td>
 <td align="center"><img src="docs/screenshots/phone-analysis.png" width="200" alt="Deck analysis with level and cost curves"><br><sub><b>Analysis</b></sub></td>
 <td align="center"><img src="docs/screenshots/phone-test.png" width="200" alt="Test hand with five cards and six shields"><br><sub><b>Test hands</b></sub></td>
