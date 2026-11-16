@@ -1340,7 +1340,7 @@ fun softThumb(): Color = LocalTones.current.softThumb
 /** The chosen option's text on a [softThumb]. */
 @Composable
 @ReadOnlyComposable
-fun softThumbInk(): Color = MaterialTheme.colorScheme.primary
+fun softThumbInk(): Color = LocalTones.current.softThumbInk ?: MaterialTheme.colorScheme.primary
 
 /** One choice among a few on a soft track; the chosen one is a white thumb with teal text. */
 @Composable

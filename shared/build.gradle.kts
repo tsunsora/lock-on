@@ -64,6 +64,9 @@ kotlin {
             implementation("org.jetbrains.compose.ui:ui:$composeVersion")
             implementation("org.jetbrains.compose.components:components-resources:$composeVersion")
             implementation("org.jetbrains.compose.material3:material3:1.9.0")
+            // Material You colours (UX rule V3a): Material's tonal palettes and dynamic schemes, MaterialKolor's
+            // Kotlin port of Material Color Utilities (MIT and Apache 2.0, licenses/MaterialKolor-MIT.txt).
+            implementation("com.materialkolor:material-color-utilities:4.1.1")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             api("androidx.room:room-runtime:$roomVersion")

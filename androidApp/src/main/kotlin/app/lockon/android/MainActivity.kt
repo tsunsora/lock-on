@@ -34,7 +34,7 @@ import android.provider.Settings
 import app.lockon.ui.LaunchSplash
 import app.lockon.ui.LockOnApp
 import app.lockon.ui.theme.LockOnTheme
-import app.lockon.ui.theme.themeSeed
+import app.lockon.ui.theme.themeLook
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.CompletableDeferred
@@ -145,7 +145,7 @@ class MainActivity : ComponentActivity() {
                 val density = Density(base.density * (choice?.size?.value?.scale ?: 1f), base.fontScale)
                 CompositionLocalProvider(LocalDensity provides density) {
                     // Material You colours unless Settings turned them off (UX rule V3a); the accent is read in onCreate.
-                    LockOnTheme(dark = dark, seed = themeSeed(choice)) { LaunchSplash() }
+                    LockOnTheme(dark, themeLook(choice)) { LaunchSplash() }
                 }
             } else {
                 BackHandler(enabled = state.canGoBack) { state.goBack() }
@@ -200,13 +200,25 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The wallpaper's accent for Material You colours (UX rule V3a), on Android 12 and later; older
-     * versions have none, and Lock On's own Sky and Twilight show. Read on every start, since the
-     * wallpaper may have changed while Lock On was away.
+     * The wallpaper's colours for Material You colours (UX rule V3a), on Android 12 and later: its accent,
+     * the system's own light and dark Material You schemes, and on Android 14 and later the contrast
+     * setting. Older versions have none, and Lock On's own Sky and Twilight show. Read on every start,
+     * since the wallpaper or the contrast may have changed while Lock On was away.
      */
     private fun readSystemAccent() {
-        app.lockon.ui.theme.SystemAccent.color.value =
-            if (android.os.Build.VERSION.SDK_INT >= 31) Color(getColor(android.R.color.system_accent1_500)) else null
+        val accent = app.lockon.ui.theme.SystemAccent
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            accent.schemes.value = app.lockon.ui.theme.SystemSchemes(
+                androidx.compose.material3.dynamicLightColorScheme(this),
+                androidx.compose.material3.dynamicDarkColorScheme(this),
+            )
+            accent.color.value = Color(getColor(android.R.color.system_accent1_500))
+        } else {
+            accent.schemes.value = null
+            accent.color.value = null
+        }
+        accent.contrast.value =
+            if (android.os.Build.VERSION.SDK_INT >= 34) getSystemService(android.app.UiModeManager::class.java).contrast else 0f
     }
 
     override fun onStop() {

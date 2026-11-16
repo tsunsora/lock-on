@@ -1,21 +1,29 @@
 package app.lockon
 
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import app.lockon.ui.theme.Oklch
 import app.lockon.ui.theme.contrast
-import app.lockon.ui.theme.systemColorScheme
+import app.lockon.data.ColorStyle
+import app.lockon.ui.theme.DarkColors
+import app.lockon.ui.theme.LightColors
+import app.lockon.ui.theme.materialTones
+import app.lockon.ui.theme.materialYouScheme
+import app.lockon.ui.theme.pureBlack
 import app.lockon.ui.theme.towardSeed
 import app.lockon.ui.theme.usableSeed
 import kotlin.math.PI
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** Material You colours keep Sky and Twilight's contrast and quiet whatever the accent (UX rules V3, V3a, V6). */
+/** Material You colours stay readable whatever the accent and style, and keep their fixed meanings (UX rules V3, V3a, V6). */
 class SystemColorsTest {
+    private val darkScheme = DarkColors
+    private val lightScheme = LightColors
     private val seeds = (0 until 24).flatMap { step ->
         val h = (step * 15) * PI.toFloat() / 180f
         listOf(Oklch(0.6f, 0.15f, h).toColor(), Oklch(0.8f, 0.17f, h).toColor(), Oklch(0.4f, 0.08f, h).toColor())
@@ -23,27 +31,55 @@ class SystemColorsTest {
 
     @Test
     fun textAndActionsStayReadable() {
-        for (seed in seeds) for (dark in listOf(false, true)) {
-            val (c, t) = systemColorScheme(seed, dark, if (dark) darkColorScheme() else lightColorScheme())
-            val where = "seed=${seed.value.toString(16)} dark=$dark"
+        for (style in ColorStyle.entries) for (seed in seeds) for (dark in listOf(false, true)) for (black in listOf(false, true)) {
+            if (black && !dark) continue
+            val c = materialYouScheme(seed, dark, style).let { if (black) it.pureBlack() else it }
+            val t = materialTones(c, dark)
+            val where = "style=$style seed=${seed.value.toString(16)} dark=$dark black=$black"
             assertTrue(contrast(c.primary, c.onPrimary) >= 4.5f, "$where: action label ${contrast(c.primary, c.onPrimary)}")
             assertTrue(contrast(c.onSurface, c.background) >= 4.5f, "$where: text on the ground")
-            assertTrue(contrast(c.onSurfaceVariant, c.surface) >= 4.5f, "$where: secondary text on a panel")
+            assertTrue(contrast(c.onSurfaceVariant, c.surface) >= 4.5f, "$where: secondary text on the ground")
+            assertTrue(contrast(c.onSurfaceVariant, t.panelFill.compositeOver(c.background)) >= 4.5f, "$where: secondary text on a panel")
             assertTrue(contrast(t.mutedInk, t.panelStrong) >= 4.5f, "$where: quiet text on the raised step ${contrast(t.mutedInk, t.panelStrong)}")
-            assertTrue(contrast(c.primary, t.panelFill.compositeOver(c.background)) >= 3f, "$where: teal-role control on a panel")
+            assertTrue(contrast(c.primary, t.panelFill.compositeOver(c.background)) >= 3f, "$where: action colour on a panel")
+            val ink = t.softThumbInk ?: c.primary
+            assertTrue(contrast(ink, t.softThumb) >= 4.5f, "$where: chosen option on its thumb ${contrast(ink, t.softThumb)}")
             assertTrue(contrast(c.onPrimaryContainer, c.primaryContainer) >= 4.5f, "$where: container text")
+            assertTrue(contrast(c.onSecondaryContainer, c.secondaryContainer) >= 4.5f, "$where: chip text")
         }
     }
 
+    /** Tonal spot, the default, keeps the sky quiet under the cards (UX rules V3, V3a). */
     @Test
-    fun theGroundStaysQuiet() {
-        for (seed in seeds) for (dark in listOf(false, true)) {
-            val (c, t) = systemColorScheme(seed, dark, if (dark) darkColorScheme() else lightColorScheme())
-            val cap = if (dark) 0.03f else 0.015f
+    fun theDefaultGroundStaysQuiet() {
+        for (style in listOf(ColorStyle.TONAL_SPOT, ColorStyle.NEUTRAL)) for (seed in seeds) for (dark in listOf(false, true)) {
+            val c = materialYouScheme(seed, dark, style)
+            val t = materialTones(c, dark)
             for (tone in t.sky + listOf(c.background, c.surface)) {
-                assertTrue(Oklch.of(tone).c <= cap, "seed=${seed.value.toString(16)} dark=$dark: ${Oklch.of(tone).c} over $cap")
+                assertTrue(Oklch.of(tone).c <= 0.035f, "style=$style seed=${seed.value.toString(16)} dark=$dark: ${Oklch.of(tone).c}")
             }
         }
+    }
+
+    /** Celebration gold means the same with any accent. */
+    @Test
+    fun goldStaysGold() {
+        for (seed in seeds) for (dark in listOf(false, true)) {
+            val own = if (dark) darkScheme else lightScheme
+            assertEquals(own.tertiary, materialYouScheme(seed, dark).tertiary)
+        }
+    }
+
+    /** The system's own scheme is used as it is, unless it is unreadable or another style is chosen. */
+    @Test
+    fun systemSchemeWinsWhenReadable() {
+        val seed = Color(0xFF0078D4)
+        val system = materialYouScheme(Color(0xFF62BA46), dark = true)
+        assertEquals(system.primary, materialYouScheme(seed, true, system = system).primary)
+        assertNotEquals(system.primary, materialYouScheme(seed, true, ColorStyle.VIBRANT, system = system).primary)
+        val stale = system.copy(onSurface = system.surface)
+        assertEquals(materialYouScheme(seed, true).primary, materialYouScheme(seed, true, system = stale).primary)
+        assertEquals(materialYouScheme(seed, true).primary, materialYouScheme(seed, true, system = lightColorScheme()).primary)
     }
 
     @Test
