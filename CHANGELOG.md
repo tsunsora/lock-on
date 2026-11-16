@@ -1,25 +1,16 @@
 # Changelog
 
-## 26.11.36 (2026-11-16)
+## 26.11.34 (2026-11-15)
 
-Picking a card from the test hand's fan is easier: the card you point at or touch rises out of the fan, and you can slide along the fan to find the one you want.
-
-- **With a mouse:** the card under the pointer rises, grows a little and comes to the front, and its neighbours lean away. Sweeping across the fan moves one card at a time, without the wrong card jumping forward. Click opens it.
-- **On a phone:** press a card to raise it above your finger, slide sideways to move along the fan, and let go to open the raised card. Dragging up or down still scrolls.
-- **With a keyboard:** Tab raises each card in turn, and Enter opens it.
-
-## 26.11.35 (2026-11-16)
-
-Card details in the deck editor no longer repeat the deck and side deck − / + that sit under every card.
-
-- **Card details:** the Main deck and Side deck counts are gone. Add and remove copies with − / + in the card list (Deck / Side picks where they go) or in the deck list. **Move 1 to side deck**, **Move 1 to deck** and **Use as deck cover** stay.
-- **Picking art:** tap a printing in card details to choose the art, even before the card is in the deck. The next copy you add with + or by dragging comes in as that art, and for a card already in the deck the pick changes its deck and side deck copies.
-
-## 26.11.34 (2026-11-16)
-
-A blue app icon, so Lock On no longer looks like LocalSend on your home screen.
+A cobalt blue app icon, an easier fanned test hand, art you can pick before adding a card, and sharp card art after changing the interface size.
 
 - **App icon:** the white Lock On mark is now on cobalt blue instead of teal, on Android, Windows and macOS. The launch screen and the logo in the header match.
+- **Card details:** the Main deck and Side deck counts are gone. Add and remove copies with − / + in the card list (Deck / Side picks where they go) or in the deck list. **Move 1 to side deck**, **Move 1 to deck** and **Use as deck cover** stay.
+- **Picking art:** tap a printing in card details to choose the art, even before the card is in the deck. The next copy you add with + or by dragging comes in as that art, and for a card already in the deck the pick changes its deck and side deck copies.
+- **Test hand with a mouse:** the card under the pointer rises, grows a little and comes to the front, and its neighbours lean away. Sweeping across the fan moves one card at a time, without the wrong card jumping forward. Click opens it.
+- **Test hand on a phone:** press a card to raise it above your finger, slide sideways to move along the fan, and let go to open the raised card. Dragging up or down still scrolls.
+- **Test hand with a keyboard:** Tab raises each card in turn, and Enter opens it.
+- **Card art after resizing:** after you change Interface size while Lock On is open, card art and the text on cards load again at the new size, so they stay sharp instead of looking stretched.
 
 ## 26.11.33 (2026-11-15)
 
