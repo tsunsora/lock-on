@@ -17,14 +17,7 @@ No account, no cloud server, no ads.
 [![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.10-4285f4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/compose-multiplatform/)
 [![Last commit](https://img.shields.io/github/last-commit/tsunsora/lock-on?style=flat-square&label=Last%20commit)](https://github.com/tsunsora/lock-on/commits/main)
 
-**[Download](#-install)** · **[Features](#-features)** · **[Screenshots](#-screenshots)** · **[Guide](#-everyday-use)** · **[Changelog](CHANGELOG.md)** · **[Report an issue](https://github.com/tsunsora/lock-on/issues)**
-
-<br>
-
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/desktop-editor-light.png">
-  <img src="docs/screenshots/desktop-editor-dark.png" width="900" alt="The Lock On deck editor on Windows, with the card list on the left and the deck on the right">
-</picture>
+**[Download](#-install)** · **[Features](#-features)** · **[Guide](#-everyday-use)** · **[Changelog](CHANGELOG.md)** · **[Report an issue](https://github.com/tsunsora/lock-on/issues)**
 
 </div>
 
@@ -92,34 +85,6 @@ Light **Sky** and dark navy **Twilight** themes, with an optional pure black bac
 </table>
 
 New versions download in the background and install with a restart or a tap.
-
----
-
-## 📸 Screenshots
-
-<div align="center">
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/phone-decks.png" width="200" alt="Deck library on a phone, with a folder menu and each deck's cover, state and size"><br><sub><b>Your decks</b></sub></td>
-<td align="center"><img src="docs/screenshots/phone-editor.png" width="200" alt="Deck editor on a phone"><br><sub><b>Deck editor</b></sub></td>
-<td align="center"><img src="docs/screenshots/phone-analysis.png" width="200" alt="Deck analysis with level and cost curves"><br><sub><b>Analysis</b></sub></td>
-<td align="center"><img src="docs/screenshots/phone-test.png" width="200" alt="Test hand with five cards and six shields"><br><sub><b>Test hands</b></sub></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/phone-matches.png" width="200" alt="Match log with win rate and results by opponent"><br><sub><b>Match log</b></sub></td>
-<td align="center"><img src="docs/screenshots/phone-sync.png" width="200" alt="Sync screen listing paired and nearby devices"><br><sub><b>Device sync</b></sub></td>
-<td align="center"><img src="docs/screenshots/phone-export.png" width="200" alt="Exporting a deck as an image with a QR code"><br><sub><b>Deck image export</b></sub></td>
-<td align="center"><img src="docs/screenshots/phone-test-light.png" width="200" alt="Test hand in the light Sky theme"><br><sub><b>Sky theme</b></sub></td>
-</tr>
-</table>
-
-<img src="docs/screenshots/desktop-cards.png" width="800" alt="Card browser on Windows with a card's details open beside the list">
-<br><sub><b>Browse every card and printing on the desktop</b></sub>
-
-</div>
-
-<sub>Screenshots use Lock On's built-in sample cards. Real card images are downloaded on each device and aren't part of this repository.</sub>
 
 ---
 
@@ -300,7 +265,7 @@ To test sync against yourself, run a second desktop profile with its own data fo
 ./gradlew :desktopApp:run -Plockon.dataDir=/path/to/profile
 ```
 
-Tests cover the construction rules, deck-list parsing, the revision graph, end-to-end sync between two databases, pairing and sync through the real HTTP routes, and the updater. [RELEASING.md](RELEASING.md) covers versioning, Android signing, publishing a release, and the checklist for real devices. The README's pictures live in [`docs/screenshots/`](docs/screenshots/) and come from the `previews` renders.
+Tests cover the construction rules, deck-list parsing, the revision graph, end-to-end sync between two databases, pairing and sync through the real HTTP routes, and the updater. [RELEASING.md](RELEASING.md) covers versioning, Android signing, publishing a release, and the checklist for real devices.
 
 <details>
 <summary><b>🗺️ Project guide</b></summary>
@@ -312,7 +277,7 @@ Tests cover the construction rules, deck-list parsing, the revision graph, end-t
 | [`shared/`](shared/) | Kotlin Multiplatform for Android and desktop: models, rules, Room database, sync engine, updater, and every Compose screen |
 | [`androidApp/`](androidApp/) | Android entry point, QR scanner, certificate-pinned sync client, Keystore-encrypted token storage, and update installer |
 | [`desktopApp/`](desktopApp/) | Desktop entry point, HTTPS sync server, TLS identity, pairing confirmation, and update installer |
-| [`docs/`](docs/) | [Architecture](docs/ARCHITECTURE.md), [UX map](docs/UX_MAP.md), [UX rules](docs/UX_RULES.md), the [catalog format](docs/CATALOG_FORMAT.md) and README screenshots |
+| [`docs/`](docs/) | [Architecture](docs/ARCHITECTURE.md), [UX map](docs/UX_MAP.md), [UX rules](docs/UX_RULES.md) and the [catalog format](docs/CATALOG_FORMAT.md) |
 | [`scripts/`](scripts/) | Catalog converter, icon and GIF helpers |
 | [`licenses/`](licenses/) | Bundled font and icon notices |
 
