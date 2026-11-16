@@ -323,9 +323,17 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
     // The side deck has no limit. A deck already over one keeps its copies until they're taken out.
     fun limitIn(card: GameCard, section: DeckSection) = if (section == DeckSection.SIDE) null else copyLimit(card, rulesNow.value)
 
+    // Art picked in card details for a card not in the deck yet: its first copy, from +, a drop or
+    // the side deck, comes in as that printing. Kept for this deck while the editor is open.
+    var pickedArt by remember(deckId) { mutableStateOf(mapOf<String, String>()) }
+
     fun change(card: GameCard, delta: Int, section: DeckSection = DeckSection.playedIn(card)) {
         val current = draft ?: return
-        draft = current.adjusted(card.cardNumber, section, delta, limitIn(card, section))
+        val next = current.adjusted(card.cardNumber, section, delta, limitIn(card, section))
+        val art = pickedArt[card.cardNumber]
+        draft = if (art != null && current.quantityOf(card.cardNumber, section) == 0 && next.quantityOf(card.cardNumber, section) > 0) {
+            next.withQuantity(card.cardNumber, section, next.quantityOf(card.cardNumber, section), art)
+        } else next
     }
 
     fun move(card: GameCard, toSide: Boolean) {
@@ -707,42 +715,24 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         val side = deck.quantityOf(card.cardNumber, DeckSection.SIDE)
         val cardPrintings = printings[card.cardNumber].orEmpty()
         val inDeck = deck.quantityOf(card.cardNumber, section)
-        // Once the card is in the deck, the printings in the details choose which one the deck uses.
-        val choosing = cardPrintings.size > 1 && inDeck > 0
+        // Copies are added and taken out with − / + in the card list and the deck list, not here. The
+        // printings choose the art the deck uses: for copies already in, in the deck and the side deck,
+        // and otherwise for the first copy added.
+        val inSections = listOf(section, DeckSection.SIDE).filter { deck.quantityOf(card.cardNumber, it) > 0 }
         CardDetailDialog(
             card, cardPrintings, onDismiss = { detail = null },
-            chosenPrinting = deck.entries.firstOrNull { it.cardNumber == card.cardNumber && it.section == section }?.printingId,
-            onChoosePrinting = if (choosing) { id -> draft = deck.withQuantity(card.cardNumber, section, inDeck, id) } else null,
+            chosenPrinting = pickedArt[card.cardNumber].takeIf { inSections.isEmpty() }
+                ?: deck.entries.firstOrNull { it.cardNumber == card.cardNumber && it.section in inSections }?.printingId,
+            onChoosePrinting = if (cardPrintings.size > 1) { id ->
+                pickedArt = pickedArt + (card.cardNumber to id)
+                draft = inSections.fold(deck) { d, s -> d.withQuantity(card.cardNumber, s, d.quantityOf(card.cardNumber, s), id) }
+            } else null,
         ) {
             BoxWithConstraints {
-                // Phones: the deck and side deck steppers share one row under small labels, and the
-                // buttons say less, so the panel takes half the height of a row per control.
+                // Phones: the buttons say less.
                 val narrow = maxWidth < 280.dp
-                // Desktop's dialog: both steppers on one row, each beside its name.
                 val sideBySide = maxWidth >= 440.dp
-                val deckStepper: @Composable () -> Unit = {
-                    PlateStepper(inDeck, "copy", onMinus = { change(card, -1) }, onPlus = { change(card, 1) }, limit = copyLimit(card, ruleset))
-                }
-                // The side deck sits beside the deck; moving keeps the total and never checks rules (UX rule S4).
-                val sideStepper: @Composable () -> Unit = {
-                    PlateStepper(side, "side deck copy", onMinus = { change(card, -1, DeckSection.SIDE) }, onPlus = { change(card, 1, DeckSection.SIDE) })
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(if (narrow) 2.dp else if (sideBySide) 0.dp else 8.dp)) {
-                    if (narrow) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            DetailActionCell(section.label, Modifier.weight(1f), deckStepper)
-                            DetailActionCell("Side deck", Modifier.weight(1f), sideStepper)
-                        }
-                    } else if (sideBySide) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            DetailActionRow(section.label, deckStepper, Modifier.weight(1f))
-                            // The last + reaches the panel's right edge; its target runs on into the margin.
-                            DetailActionRow("Side deck", sideStepper, Modifier.weight(1f).offset(x = 8.dp))
-                        }
-                    } else {
-                        DetailActionRow(section.label, deckStepper)
-                        DetailActionRow("Side deck", sideStepper)
-                    }
+                Column {
                     // The library shows the deck by this card instead of its highest-level Unit.
                     val canCover = inDeck > 0 || deck.coverCard == card.cardNumber
                     Reveal(side > 0 || inDeck > 0 || canCover) {
@@ -1021,25 +1011,6 @@ private fun FitTags(card: GameCard, quantity: Int, side: Int, addingToSide: Bool
             3 -> Badge("Off-color", c.surfaceVariant, c.onSurfaceVariant)
             else -> Badge("Side $side", CardTagFill, CardTagInk, outline = CardTagLine)
         }
-    }
-}
-
-/** One labelled line in the card details' "In this deck" panel: the label left, its control right. */
-@Composable
-private fun DetailActionRow(label: String, control: @Composable () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(end = 12.dp))
-        control()
-    }
-}
-
-/** [DetailActionRow] for phones: the label sits over its control, so two fit side by side. */
-@Composable
-private fun DetailActionCell(label: String, modifier: Modifier, control: @Composable () -> Unit) {
-    Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1, modifier = Modifier.padding(start = 8.dp))
-        control()
     }
 }
 
