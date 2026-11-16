@@ -48,24 +48,49 @@ object SystemAccent {
 class SystemSchemes(val light: ColorScheme, val dark: ColorScheme)
 
 /**
- * What the app is coloured from: the accent to build Material You colours from (null for Sky and
- * Twilight's own), how to build them, and whether the dark theme's ground is pure black.
+ * What the app is coloured from: the accent to build Material colours from (null for Sky and
+ * Twilight's own), how to build them, and whether the dark theme's ground is pure black. A [custom]
+ * seed is the theme colour picked in Settings, not the system's accent.
  */
 @Immutable
-data class ThemeLook(val seed: Color? = null, val style: ColorStyle = ColorStyle.TONAL_SPOT, val pureBlack: Boolean = false)
+data class ThemeLook(
+    val seed: Color? = null,
+    val style: ColorStyle = ColorStyle.TONAL_SPOT,
+    val pureBlack: Boolean = false,
+    val custom: Boolean = false,
+)
 
 /**
  * The [ThemeLook] Settings ask for: the system's accent when Material You colours are on (they are
- * unless turned off) and the system has a colourful one, the colour style, and pure black.
+ * unless turned off) and the system has a colourful one, otherwise the theme colour picked in Settings,
+ * if any; then the colour style, and pure black.
  */
 @Composable
 fun themeLook(settings: SettingsRepository?): ThemeLook {
     val accent by SystemAccent.color.collectAsState()
     val on = settings?.systemColors?.collectAsState()?.value ?: true
+    val custom = settings?.themeColor?.collectAsState()?.value
     val style = settings?.colorStyle?.collectAsState()?.value ?: ColorStyle.TONAL_SPOT
     val black = settings?.pureBlack?.collectAsState()?.value ?: false
-    return ThemeLook(if (on) accent?.takeIf { usableSeed(it) } else null, style, black)
+    val system = if (on) accent?.takeIf { usableSeed(it) } else null
+    return ThemeLook(system ?: custom?.let(::themeColor), style, black, custom = system == null && custom != null)
 }
+
+/** An opaque colour from 0xRRGGBB. */
+fun themeColor(rgb: Int): Color = Color(0xFF000000.toInt() or rgb)
+
+/**
+ * Ready-made theme colours for Settings › Appearance › Theme color, beside Lock On's own: Material's
+ * baseline purple and a few of its sample seeds, each far enough apart in hue to look different.
+ */
+val ThemeColorPresets: List<Pair<String, Int>> = listOf(
+    "Purple" to 0x6750A4,
+    "Blue" to 0x0061A4,
+    "Green" to 0x386A20,
+    "Rose" to 0x8C4A60,
+    "Red" to 0x9C4146,
+    "Gold" to 0x765A00,
+)
 
 /** An accent too grey to make a teal-like action colour from (macOS's graphite, a grey Windows accent) is passed over. */
 fun usableSeed(seed: Color): Boolean = Oklch.of(seed).c >= MinSeedChroma

@@ -383,6 +383,33 @@ class ScreenshotTest {
     }
 
     /**
+     * Theme colours (UX rule V3a) with Material You colours off: Lock On's own, two of the ready-made ones
+     * and one typed as hex, each in Settings and the editor. Then a theme colour on a computer whose system
+     * has no accent, where it shows with Material You colours left on.
+     */
+    @Test fun renderThemeColors() {
+        val rest = androidx.compose.ui.geometry.Offset(5f, 700f)
+        shoot("tmp-tc-first", 600, 1260) { select(Tab.SETTINGS) }
+        try {
+            runBlocking { container.settings.setSystemColors(false) }
+            for ((name, rgb) in listOf("own" to null, "purple" to 0x6750A4, "gold" to 0x765A00, "hex" to 0xE0457B)) {
+                runBlocking { container.settings.setThemeColor(rgb) }
+                for (dark in listOf(true, false)) {
+                    val t = if (dark) "dark" else "light"
+                    shoot("tc-$name-phone-settings-$t", 600, 1500, dark = dark) { booted = true; select(Tab.SETTINGS) }
+                    shoot("tc-$name-editor-$t", 1980, 1290, dark = dark, hover = rest) { booted = true; open(Screen.DeckEditor(deckId)) }
+                }
+            }
+            runBlocking { container.settings.setThemeColor(0x6750A4) }
+            shoot("tc-purple-desktop-settings-dark", 1980, 1290, hover = rest) { booted = true; select(Tab.SETTINGS) }
+            runBlocking { container.settings.setSystemColors(true) }
+            shoot("tc-noaccent-phone-settings-dark", 600, 1500) { booted = true; select(Tab.SETTINGS) }
+        } finally {
+            runBlocking { container.settings.setSystemColors(true); container.settings.setThemeColor(null) }
+        }
+    }
+
+    /**
      * The phone editor's Add cards page in Material You colours, so the floating bar stays apart from the
      * card steppers under it and the search row sits light over the cards in every scheme.
      */
