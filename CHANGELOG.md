@@ -4,9 +4,9 @@
 
 A new app icon and launch screen that match Lock On's Material colours.
 
-- **App icon:** the Lock On mark in teal on deep navy, replacing the violet tile, on Android, Windows and macOS. On Android 13 and later it still follows your wallpaper when themed icons are on.
+- **App icon:** the white Lock On mark on teal, replacing the violet tile, on Android, Windows and macOS. On Android 13 and later it still follows your wallpaper when themed icons are on.
 - **Launch screen:** the new icon on the app's own background, so opening Lock On fades straight into the app without a violet flash. On Android 12 and later the system's splash takes your Material You background colour.
-- **Logo in the header:** the same navy tile and teal mark as the icon.
+- **Logo in the header:** the same teal tile and white mark as the icon.
 
 ## 26.11.31 (2026-11-15)
 

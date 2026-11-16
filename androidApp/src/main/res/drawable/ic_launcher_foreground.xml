@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Lock On mark, flat: a bold teal ring (the twilight action colour) with four studs and a center dot. Same 108-unit geometry as
+<!-- The Lock On mark, flat: a bold white ring with four studs and a center dot. Same 108-unit geometry as
      LockOnMark in the shared UI and the desktop icon, scaled to stay inside the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -12,13 +12,13 @@
         android:pivotX="54"
         android:pivotY="54">
         <path
-            android:strokeColor="#FF5EE0E6"
+            android:strokeColor="#FFFFFFFF"
             android:strokeWidth="12"
             android:strokeLineCap="round"
             android:fillColor="#00000000"
             android:pathData="M54,29a25,25 0 1,1 0,50a25,25 0 1,1 0,-50zM54,18L54,29M54,79L54,90M18,54L29,54M79,54L90,54" />
         <path
-            android:fillColor="#FF5EE0E6"
+            android:fillColor="#FFFFFFFF"
             android:pathData="M54,44a10,10 0 1,1 0,20a10,10 0 1,1 0,-20z" />
     </group>
 </vector>

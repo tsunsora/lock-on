@@ -749,20 +749,13 @@ private fun PlayerCard(back: String?, onBack: () -> Unit, style: HeaderStyle, br
 
 private val NamePlate = RoundedCornerShape(18.dp)
 
-/**
- * The logo tile: the app icon's own deep navy with its teal mark, fixed whatever the accent (UX rule V7).
- * At twilight the navy would sink into the ground, so the tile is the raised surface step instead.
- */
-@Composable
-private fun logoTile(twilight: Boolean): Color = if (twilight) MaterialTheme.colorScheme.surfaceContainerHighest else AppIconTile
-
 /** The Lock On mark on its rounded tile, in the theme's colours. */
 @Composable
 internal fun BrandTile(size: Dp) {
-    val twilight = isTwilight()
     val shape = RoundedCornerShape(size * 0.3f)
     Box(
-        Modifier.size(size).clip(shape).background(logoTile(twilight)),
+        // The app icon's teal and white, whatever the accent (UX rule V7).
+        Modifier.size(size).clip(shape).background(AppIconTile),
         contentAlignment = Alignment.Center,
     ) { LockOnMark(size = size * 0.6f, reticleColor = AppIconMark) }
 }
@@ -770,14 +763,12 @@ internal fun BrandTile(size: Dp) {
 /** The logo tile in the header. As [turn] goes to 1 the mark spins away and a back arrow spins in where it was. */
 @Composable
 private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Boolean, size: Dp, brand: Boolean) {
-    val twilight = isTwilight()
     val desktop = app.lockon.ui.components.desktopControls
     val plain by animateColorAsState(
         if (desktop) app.lockon.ui.components.neutralFill(hovered, pressed) else glassColors().strong,
         motion(Motion.SHORT), label = "back-fill",
     )
     val ink = androidx.compose.ui.graphics.lerp(AppIconMark, MaterialTheme.colorScheme.onSurface, turn)
-    val tile = logoTile(twilight)
     val shape = RoundedCornerShape(if (size < 44.dp) 12.dp else 14.dp)
     Box(
         Modifier.size(size).shadow(4.dp, shape, ambientColor = glassColors().shade, spotColor = glassColors().shade)
@@ -785,7 +776,7 @@ private fun LevelBadge(turn: Float, ring: Color, hovered: Boolean, pressed: Bool
             // Going back, the flat tile turns to a plain button. Each layer goes once the other has fully
             // taken over: a tile left under the fill would tint the fill's anti-aliased corners.
             .then(if (turn > 0f || !brand) Modifier.background(plain) else Modifier)
-            .then(if (turn < 1f && brand) Modifier.background(tile.copy(alpha = 1f - turn)) else Modifier)
+            .then(if (turn < 1f && brand) Modifier.background(AppIconTile.copy(alpha = 1f - turn)) else Modifier)
             // The logo is flat, with no rim; only a state's ring outlines it.
             .then(if (ring == Color.Transparent) Modifier else Modifier.border(1.5.dp, ring, shape)),
         contentAlignment = Alignment.Center,
