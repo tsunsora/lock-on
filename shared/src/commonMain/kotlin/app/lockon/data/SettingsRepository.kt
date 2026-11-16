@@ -18,6 +18,13 @@ enum class ColorStyle(val label: String) {
     TONAL_SPOT("Tonal spot"), NEUTRAL("Neutral"), VIBRANT("Vibrant"), EXPRESSIVE("Expressive")
 }
 
+/** [rgb] as six hex digits, such as "6750A4". */
+fun hexRgb(rgb: Int): String = (rgb and 0xFFFFFF).toString(16).padStart(6, '0').uppercase()
+
+/** A colour written as six hex digits, with or without a leading #, as 0xRRGGBB; null for anything else. */
+fun parseHexRgb(text: String?): Int? = text?.trim()?.removePrefix("#")
+    ?.takeIf { it.length == 6 && it.all { c -> c.isDigit() || c.lowercaseChar() in 'a'..'f' } }?.toInt(16)
+
 /** Animations as the system asks, always reduced, or always full. */
 enum class MotionChoice(val label: String) { SYSTEM("System"), REDUCED("Reduced"), FULL("Full") }
 
@@ -70,6 +77,7 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _systemColors = MutableStateFlow(true)
     private val _colorStyle = MutableStateFlow(ColorStyle.TONAL_SPOT)
     private val _pureBlack = MutableStateFlow(false)
+    private val _themeColor = MutableStateFlow<Int?>(null)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -98,6 +106,11 @@ class SettingsRepository(private val meta: MetaDao) {
     val colorStyle: StateFlow<ColorStyle> = _colorStyle.asStateFlow()
     /** Whether the dark theme's ground is pure black, for OLED screens. Off unless turned on. */
     val pureBlack: StateFlow<Boolean> = _pureBlack.asStateFlow()
+    /**
+     * The colour, as 0xRRGGBB, that Material colours are built from when the system's accent isn't in use
+     * (Material You colours off, or none on this device); null for Sky and Twilight's own.
+     */
+    val themeColor: StateFlow<Int?> = _themeColor.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -114,6 +127,7 @@ class SettingsRepository(private val meta: MetaDao) {
         _systemColors.value = meta.get(KEY_SYSTEM_COLORS) != "false"
         _colorStyle.value = enumOr(meta.get(KEY_COLOR_STYLE), ColorStyle.TONAL_SPOT)
         _pureBlack.value = meta.get(KEY_PURE_BLACK) == "true"
+        _themeColor.value = parseHexRgb(meta.get(KEY_THEME_COLOR))
         _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')
             .mapNotNull { name -> EditorMoreItem.entries.firstOrNull { it.name == name } }.toSet()
             .takeIf { it.size < EditorMoreItem.entries.size }.orEmpty()
@@ -150,6 +164,12 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setSystemColors(on: Boolean) { _systemColors.value = on; meta.put(MetaEntity(KEY_SYSTEM_COLORS, on.toString())) }
     suspend fun setColorStyle(style: ColorStyle) { _colorStyle.value = style; meta.put(MetaEntity(KEY_COLOR_STYLE, style.name)) }
     suspend fun setPureBlack(on: Boolean) { _pureBlack.value = on; meta.put(MetaEntity(KEY_PURE_BLACK, on.toString())) }
+    /** Null goes back to Sky and Twilight's own colours. */
+    suspend fun setThemeColor(rgb: Int?) {
+        val color = rgb?.and(0xFFFFFF)
+        _themeColor.value = color
+        meta.put(MetaEntity(KEY_THEME_COLOR, color?.let(::hexRgb).orEmpty()))
+    }
     suspend fun setAutoDeckColors(on: Boolean) { _autoDeckColors.value = on; meta.put(MetaEntity(KEY_AUTO_DECK_COLORS, on.toString())) }
 
     /** The preferences a device takes on when it's made to match this one. Where Lock On was left and the welcome tour stay per device. */
@@ -158,6 +178,7 @@ class SettingsRepository(private val meta: MetaDao) {
         KEY_SYSTEM_COLORS to _systemColors.value.toString(),
         KEY_COLOR_STYLE to _colorStyle.value.name,
         KEY_PURE_BLACK to _pureBlack.value.toString(),
+        KEY_THEME_COLOR to _themeColor.value?.let(::hexRgb).orEmpty(),
         KEY_MOTION to _motion.value.name,
         KEY_START to _start.value.name,
         KEY_SIZE to _size.value.name,
@@ -172,6 +193,7 @@ class SettingsRepository(private val meta: MetaDao) {
         values[KEY_SYSTEM_COLORS]?.toBooleanStrictOrNull()?.let { setSystemColors(it) }
         values[KEY_COLOR_STYLE]?.let { setColorStyle(enumOr(it, _colorStyle.value)) }
         values[KEY_PURE_BLACK]?.toBooleanStrictOrNull()?.let { setPureBlack(it) }
+        values[KEY_THEME_COLOR]?.let { setThemeColor(parseHexRgb(it)) }
         values[KEY_MOTION]?.let { setMotion(enumOr(it, _motion.value)) }
         values[KEY_START]?.let { setStart(enumOr(it, _start.value)) }
         values[KEY_SIZE]?.let { setSize(enumOr(it, _size.value)) }
@@ -201,5 +223,6 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_SYSTEM_COLORS = "settings.systemColors"
         const val KEY_COLOR_STYLE = "settings.colorStyle"
         const val KEY_PURE_BLACK = "settings.pureBlack"
+        const val KEY_THEME_COLOR = "settings.themeColor"
     }
 }

@@ -195,9 +195,10 @@ private fun lockOnTypography(): Typography {
 }
 
 /**
- * Lock On's theme: Sky by day and Twilight in the dark, or with a [seed] from the system's accent,
- * Material You colours built from it in Material's own way, in [style] (UX rule V3a, [materialYouScheme]).
- * [pureBlack] turns the dark theme's ground black.
+ * Lock On's theme: Sky by day and Twilight in the dark, or with a [seed] (the system's accent or a
+ * theme colour from Settings, already checked by [themeLook]), Material colours built from it in Material's own way, in [style] (UX rule V3a, [materialYouScheme]).
+ * [pureBlack] turns the dark theme's ground black. A [custom] seed, picked in Settings rather than the
+ * system's, never takes the system's own scheme.
  */
 @Composable
 fun LockOnTheme(
@@ -205,13 +206,14 @@ fun LockOnTheme(
     seed: Color? = null,
     style: ColorStyle = ColorStyle.TONAL_SPOT,
     pureBlack: Boolean = false,
+    custom: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val system by SystemAccent.schemes.collectAsState()
     val systemContrast by SystemAccent.contrast.collectAsState()
-    val usable = seed?.takeIf { usableSeed(it) }
-    val (colors, tones) = remember(dark, usable, style, pureBlack, system, systemContrast) {
-        val built = usable?.let { materialYouScheme(it, dark, style, systemContrast, system?.let { s -> if (dark) s.dark else s.light }) }
+    val (colors, tones) = remember(dark, seed, style, pureBlack, custom, system, systemContrast) {
+        val own = if (custom) null else system?.let { s -> if (dark) s.dark else s.light }
+        val built = seed?.let { materialYouScheme(it, dark, style, systemContrast, own) }
         val scheme = (built ?: if (dark) DarkColors else LightColors).let { if (dark && pureBlack) it.pureBlack() else it }
         val tones = if (built != null) materialTones(scheme, dark) else if (dark) TwilightTones else DayTones
         scheme to if (dark && pureBlack) tones.copy(sky = List(3) { Color.Black }) else tones
@@ -222,7 +224,7 @@ fun LockOnTheme(
         // is a teal wash with teal handles, as the cursor is teal; scroll bars (ScrollBars.jvm.kt) use the ink and teal.
         CompositionLocalProvider(
             LocalTones provides tones,
-            LocalThemeSeed provides usable,
+            LocalThemeSeed provides seed,
             LocalIndication provides PressWash(colors.onSurface, colors.primary),
             LocalRippleConfiguration provides null,
             LocalTextSelectionColors provides TextSelectionColors(handleColor = colors.primary, backgroundColor = colors.primary.copy(alpha = if (dark) 0.34f else 0.24f)),
@@ -234,7 +236,7 @@ fun LockOnTheme(
 /** Lock On's theme in the colours a [look] asks for (UX rule V3a). */
 @Composable
 fun LockOnTheme(dark: Boolean, look: ThemeLook, content: @Composable () -> Unit) =
-    LockOnTheme(dark, look.seed, look.style, look.pureBlack, content)
+    LockOnTheme(dark, look.seed, look.style, look.pureBlack, look.custom, content)
 
 /** Accent for a card color, readable on both themes as a badge background with [onCardColor] text. */
 fun cardColor(color: CardColor?): Color = when (color) {

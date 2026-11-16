@@ -88,6 +88,18 @@ import app.lockon.ui.components.glass
 import app.lockon.ui.theme.LockOnShapes
 import app.lockon.ui.update.AppUpdateSection
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.lockon.data.hexRgb
+import app.lockon.data.parseHexRgb
+import app.lockon.ui.components.PillTextField
 
 /** One group of settings. */
 private class SettingsSection(val title: String, val content: @Composable ColumnScope.() -> Unit)
@@ -106,6 +118,7 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val systemColors by settings.systemColors.collectAsState()
     val colorStyle by settings.colorStyle.collectAsState()
     val pureBlack by settings.pureBlack.collectAsState()
+    val themeColor by settings.themeColor.collectAsState()
     val accent by app.lockon.ui.theme.SystemAccent.color.collectAsState()
     val size by settings.size.collectAsState()
     val motion by settings.motion.collectAsState()
@@ -157,18 +170,21 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                 SettingRow("Theme", wideControl = true) {
                     Segmented(ThemeChoice.entries, theme, { it.label }) { scope.launch { settings.setTheme(it) } }
                 }
-                // Says where the colours come from, or why Lock On's own show while it's on (UX rule V3a).
+                // Says where the colours come from, or why the theme colour shows while it's on (UX rule V3a).
                 val usable = accent?.let { app.lockon.ui.theme.usableSeed(it) } == true
+                val accentShown = systemColors && usable
                 Toggle(
                     "Material You colors", systemColors,
                     detail = when {
                         !systemColors -> null
                         usable -> app.lockon.platform.systemColorsSource
-                        accent != null -> "Your accent color is gray, so Lock On's own colors show"
-                        else -> "Not available on this device, so Lock On's own colors show"
+                        accent != null -> "Your accent color is gray, so your theme color shows"
+                        else -> "Not available on this device, so your theme color shows"
                     },
                 ) { scope.launch { settings.setSystemColors(it) } }
-                if (systemColors && usable) SettingRow("Color style") {
+                // Without the system's accent, a colour of your own to build the palette from (UX rule V3a).
+                if (!accentShown) ThemeColorSetting(themeColor, colorStyle) { scope.launch { settings.setThemeColor(it) } }
+                if (accentShown || themeColor != null) SettingRow("Color style") {
                     MenuChip(selected = false, label = { Text(colorStyle.label) }) { close ->
                         ColorStyle.entries.forEach { style ->
                             GameMenuItem(style.label, selected = style == colorStyle, onClick = {
@@ -395,6 +411,67 @@ private fun MoreMenuChoice(hidden: Set<EditorMoreItem>, onChange: (EditorMoreIte
                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Theme color (UX rule V3a): Lock On's own Sky and Twilight, a few ready-made colours, or any colour
+ * typed as hex, which Material colours are built from. Each swatch shows the scheme it makes in the
+ * current theme and [style]: primary over secondary and the primary container. The swatches share one
+ * row across the panel's width, with the field under them at the same width.
+ */
+@Composable
+private fun ThemeColorSetting(selected: Int?, style: ColorStyle, onSelect: (Int?) -> Unit) {
+    SettingRow("Theme color", stacked = true) {
+        val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+        val presets = app.lockon.ui.theme.ThemeColorPresets
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val count = presets.size + 1
+            val gap = 8.dp
+            val size = ((maxWidth - gap * (count - 1)) / count).coerceIn(32.dp, 48.dp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                ThemeSwatch("Lock On", null, selected == null, dark, style, size) { onSelect(null) }
+                presets.forEach { (name, rgb) -> ThemeSwatch(name, rgb, selected == rgb, dark, style, size) { onSelect(rgb) } }
+            }
+        }
+        // What's typed stays as typed; a colour picked another way replaces it.
+        var hex by remember { mutableStateOf(selected?.let { "#" + hexRgb(it) }.orEmpty()) }
+        LaunchedEffect(selected) {
+            if (parseHexRgb(hex) != selected) hex = selected?.let { "#" + hexRgb(it) }.orEmpty()
+        }
+        PillTextField(
+            hex,
+            { input ->
+                val text = input.filter { it == '#' || it.isDigit() || it.lowercaseChar() in 'a'..'f' }.take(7).uppercase()
+                hex = text
+                parseHexRgb(text)?.let { if (it != selected) onSelect(it) }
+            },
+            placeholder = "Or a hex color, like #2E86C1",
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** One theme colour as a round swatch of the scheme it makes, ringed in the action colour when chosen. */
+@Composable
+private fun ThemeSwatch(name: String, rgb: Int?, selected: Boolean, dark: Boolean, style: ColorStyle, size: Dp, onClick: () -> Unit) {
+    val scheme = remember(rgb, dark, style) {
+        rgb?.let { app.lockon.ui.theme.materialYouScheme(app.lockon.ui.theme.themeColor(it), dark, style) }
+            ?: if (dark) app.lockon.ui.theme.DarkColors else app.lockon.ui.theme.LightColors
+    }
+    val ring by animateColorAsState(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, motion(app.lockon.ui.components.Motion.SHORT), label = "swatch-ring")
+    Box(
+        Modifier.size(size).clip(CircleShape)
+            .border(if (selected) 2.5.dp else 1.dp, ring, CircleShape)
+            .selectable(selected, role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = name }
+            .padding(if (selected) 6.dp else 4.dp),
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawArc(scheme.primary, 180f, 180f, useCenter = true)
+            drawArc(scheme.secondary, 90f, 90f, useCenter = true)
+            drawArc(scheme.primaryContainer, 0f, 90f, useCenter = true)
         }
     }
 }

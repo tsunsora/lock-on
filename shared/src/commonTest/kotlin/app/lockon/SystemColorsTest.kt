@@ -12,6 +12,10 @@ import app.lockon.ui.theme.materialTones
 import app.lockon.ui.theme.materialYouScheme
 import app.lockon.ui.theme.pureBlack
 import app.lockon.ui.theme.usableSeed
+import app.lockon.ui.theme.ThemeColorPresets
+import app.lockon.ui.theme.themeColor
+import app.lockon.data.hexRgb
+import app.lockon.data.parseHexRgb
 import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,7 +30,18 @@ class SystemColorsTest {
     private val seeds = (0 until 24).flatMap { step ->
         val h = (step * 15) * PI.toFloat() / 180f
         listOf(Oklch(0.6f, 0.15f, h).toColor(), Oklch(0.8f, 0.17f, h).toColor(), Oklch(0.4f, 0.08f, h).toColor())
-    } + listOf(Color(0xFF0078D4), Color(0xFFFFC600), Color(0xFF62BA46), Color(0xFFF74F9E))
+    } + listOf(Color(0xFF0078D4), Color(0xFFFFC600), Color(0xFF62BA46), Color(0xFFF74F9E)) +
+        // The ready-made theme colours, and a grey one typed in, which Settings takes though an accent that grey is passed over.
+        ThemeColorPresets.map { themeColor(it.second) } + listOf(Color(0xFF808080), Color.Black, Color.White)
+
+    /** A theme colour is kept as six hex digits, typed with or without a #. */
+    @Test
+    fun themeColorsReadAsHex() {
+        assertEquals(0x6750A4, parseHexRgb("#6750a4"))
+        assertEquals(0x6750A4, parseHexRgb("6750A4"))
+        assertEquals("0061A4", hexRgb(0x0061A4))
+        for (bad in listOf(null, "", "#6750A", "6750A4F", "#GG50A4")) assertEquals(null, parseHexRgb(bad), "$bad")
+    }
 
     @Test
     fun textAndActionsStayReadable() {
