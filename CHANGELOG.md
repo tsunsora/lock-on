@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.11.33 (2026-11-15)
+
+Pick a theme color of your own, and Lock On builds its whole palette from it.
+
+- **Theme color:** under Settings › Appearance, choose Lock On's own Sky and Twilight (the default), one of six presets (purple, blue, green, rose, red and gold), or type any color as a hex code. Each swatch shows the colours it makes.
+- **When it's used:** whenever your system's accent colour isn't in use, so with Material You colours off, or on a system with no accent. Color style and Pure black work with it too, and it syncs between devices like your other settings.
+
 ## 26.11.32 (2026-11-15)
 
 A new teal app icon and launch screen that match Lock On's Material colours, and on phones the bottom bar stands apart from the cards and the deck editor's search row is lighter.
