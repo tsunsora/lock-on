@@ -46,7 +46,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Names used around the app for the outline icons. */
@@ -102,10 +101,10 @@ fun LegalStamp(legal: Boolean, modifier: Modifier = Modifier) {
         last = legal
         if (!became || reduce) { warmth.snapTo(0f); check.snapTo(1f); return@LaunchedEffect }
         check.snapTo(0f)
-        launch { delay(Motion.SHORT.toLong()); check.animateTo(1f, tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) }
+        // The waits sit inside the animations, so everything runs on the frame clock.
+        launch { check.animateTo(1f, tween(Motion.LONG, delayMillis = Motion.SHORT, easing = Motion.emphasizedDecelerate)) }
         warmth.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate))
-        delay(Motion.SIGNATURE.toLong())
-        warmth.animateTo(0f, tween(Motion.SIGNATURE, easing = Motion.emphasized))
+        warmth.animateTo(0f, tween(Motion.SIGNATURE, delayMillis = Motion.SIGNATURE, easing = Motion.emphasized))
     }
     // The gold that carries text on each theme, the same as the full gauge's number.
     val gold = if (isTwilight()) Gold else MaterialTheme.colorScheme.tertiary
