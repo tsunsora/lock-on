@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.11.35 (2026-11-16)
+
+Card details in the deck editor no longer repeat the deck and side deck − / + that sit under every card.
+
+- **Card details:** the Main deck and Side deck counts are gone. Add and remove copies with − / + in the card list (Deck / Side picks where they go) or in the deck list. **Move 1 to side deck**, **Move 1 to deck** and **Use as deck cover** stay.
+- **Picking art:** tap a printing in card details to choose the art, even before the card is in the deck. The next copy you add with + or by dragging comes in as that art, and for a card already in the deck the pick changes its deck and side deck copies.
+
 ## 26.11.34 (2026-11-16)
 
 A blue app icon, so Lock On no longer looks like LocalSend on your home screen.

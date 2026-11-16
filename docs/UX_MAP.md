@@ -70,7 +70,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
   2. **Deck:** grouped by type (Units, Pilots, Commands, then Bases), each with a HUD header and count, sorted by level and then cost, with − / + on every row.
      - On phones a fixed bar above the list holds the level curve (opens Analysis), a chip per section with its count that jumps to it, **List / Cards**, and the first legality problem. An empty deck offers **Add cards**.
      - The **Side deck** comes after the deck, never counted toward size, colors or legality. Each row has **To deck** (moves one copy in) and − / +.
-     - Card details have a side deck − / +, and **Move 1 to side deck** or **Move 1 to deck**, depending on where the card already is.
+     - Card details have no − / +: copies come and go with − / + in the card list and the deck list. They offer **Move 1 to side deck** or **Move 1 to deck**, depending on where the card already is, and the printings pick the art the deck uses, or the art the next copy added comes in as when the card isn't in the deck yet.
      - In the card list, a card with side deck copies is tagged **Side n**.
      - Card details also offer **Use as deck cover**.
      - Notes go at the end.
