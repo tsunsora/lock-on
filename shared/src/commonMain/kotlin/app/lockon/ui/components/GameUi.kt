@@ -1565,14 +1565,22 @@ fun PillNavBar(
         w.animateTo(target.second, glideSpec(false))
     }
     val sliding = labels && placed
+    // Floating over the cards at night, a shadow is lost on the dark ground and the bar's panel step is the
+    // one the card steppers wear, so it melted into them. There it takes a low surface step under one
+    // hairline instead, and stands apart from the steppers in every scheme, pure black included.
+    val night = stacked && isTwilight()
     Row(
         modifier
-            .graphicsLayer { this.shape = shape; shadowElevation = 16.dp.toPx(); ambientShadowColor = Color.Black.copy(alpha = 0.15f); spotShadowColor = Color.Black.copy(alpha = 0.15f) }
+            .then(
+                if (night) Modifier
+                else Modifier.graphicsLayer { this.shape = shape; shadowElevation = 16.dp.toPx(); ambientShadowColor = Color.Black.copy(alpha = 0.15f); spotShadowColor = Color.Black.copy(alpha = 0.15f) },
+            )
             .clip(shape)
             // Up top on wide windows it sits over the sky alone, so it is barely there. Floating at the
             // bottom on phones, cards scroll under it with no backdrop blur, so it keeps more body.
-            // Elevation is said once: it floats, so it has a shadow and no border (UX rule V1).
-            .background(glassColors().strong)
+            // Elevation is said once (UX rule V1): a shadow by day, a hairline at night.
+            .background(if (night) scheme.surfaceContainerLow else glassColors().strong)
+            .then(if (night) Modifier.border(1.dp, scheme.outlineVariant, shape) else Modifier)
             .height(height)
             .padding(horizontal = if (height < PillNavHeight || stacked) 4.dp else 8.dp, vertical = 4.dp)
             .drawBehind {

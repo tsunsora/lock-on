@@ -382,6 +382,38 @@ class ScreenshotTest {
         }
     }
 
+    /**
+     * The phone editor's Add cards page in Material You colours, so the floating bar stays apart from the
+     * card steppers under it and the search row sits light over the cards in every scheme.
+     */
+    @Test fun renderMaterialYouPhoneEditor() {
+        val seeds = listOf("blue" to androidx.compose.ui.graphics.Color(0xFF0078D4), "pink" to androidx.compose.ui.graphics.Color(0xFFD0507A),
+            "green" to androidx.compose.ui.graphics.Color(0xFF4E9A4F), "yellow" to androidx.compose.ui.graphics.Color(0xFFE0B000))
+        shoot("tmp-my-phone-first", 600, 1260) { open(Screen.DeckEditor(deckId, startTab = 1)) }
+        try {
+            for ((name, seed) in listOf("own" to null) + seeds) {
+                app.lockon.ui.theme.SystemAccent.color.value = seed
+                for (dark in listOf(true, false)) {
+                    val t = if (dark) "dark" else "light"
+                    shoot("my-$name-phone-add-$t", 600, 1260, dark = dark) { booted = true; open(Screen.DeckEditor(deckId, startTab = 1)) }
+                }
+            }
+            app.lockon.ui.theme.SystemAccent.color.value = seeds[0].second
+            for (style in app.lockon.data.ColorStyle.entries - app.lockon.data.ColorStyle.TONAL_SPOT) {
+                runBlocking { container.settings.setColorStyle(style) }
+                shoot("my-blue-${style.name.lowercase()}-phone-add-dark", 600, 1260) { booted = true; open(Screen.DeckEditor(deckId, startTab = 1)) }
+            }
+            runBlocking { container.settings.setColorStyle(app.lockon.data.ColorStyle.TONAL_SPOT); container.settings.setPureBlack(true) }
+            shoot("my-blue-black-phone-add-dark", 600, 1260) { booted = true; open(Screen.DeckEditor(deckId, startTab = 1)) }
+        } finally {
+            app.lockon.ui.theme.SystemAccent.color.value = null
+            runBlocking {
+                container.settings.setColorStyle(app.lockon.data.ColorStyle.TONAL_SPOT)
+                container.settings.setPureBlack(false)
+            }
+        }
+    }
+
     /** The phone deck editor, with a throwaway first shot since the first can catch the boot cover. */
     @Test fun renderPhoneEditor() {
         shoot("tmp-phone-first", 600, 1260) { open(Screen.DeckEditor(deckId)) }
