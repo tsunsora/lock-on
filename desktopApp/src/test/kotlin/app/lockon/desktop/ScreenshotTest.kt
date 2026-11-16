@@ -2,7 +2,6 @@ package app.lockon.desktop
 import androidx.compose.runtime.Composable
 import app.lockon.sync.RevisionDto
 import androidx.compose.foundation.background
-import app.lockon.ui.components.shineSweep
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -1067,42 +1066,6 @@ class ScreenshotTest {
             // The first card in the deck panel's grid, then a card in the middle of the card list.
             restOn("desktop-hover-preview-deck", 1318f, 770f)
             restOn("desktop-hover-preview-list", 757f, 600f)
-        }
-    }
-
-    /**
-     * The Lock On moment on a banner-sized plate: the deck turns legal, and a frame is caught while
-     * the light band crosses the plate and the brackets close on the reticle.
-     */
-    @Test fun renderLockSweep() {
-        val locked = androidx.compose.runtime.mutableStateOf(false)
-        ImageComposeScene(1200, 240, Density(1.5f)) {
-            app.lockon.ui.theme.LockOnTheme(dark = true) {
-                app.lockon.ui.components.SkyBackground(androidx.compose.ui.Modifier.fillMaxSize()) {
-                    androidx.compose.foundation.layout.Row(
-                        androidx.compose.ui.Modifier.fillMaxSize()
-                            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerLow)
-                            .then(androidx.compose.ui.Modifier.shineSweep(locked.value))
-                            .padding(24.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    ) {
-                        app.lockon.ui.components.LockIndicator(locked.value, size = 80.dp)
-                        androidx.compose.material3.Text(if (locked.value) "LOCKED ON" else "NOT READY",
-                            style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
-                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
-                            modifier = androidx.compose.ui.Modifier.padding(start = 16.dp))
-                    }
-                }
-            }
-        }.use { scene ->
-            var time = 0L
-            fun frames(n: Int) = repeat(n) { Thread.sleep(30); time += 16_000_000L; scene.render(time) }
-            frames(10)
-            locked.value = true
-            frames(18)
-            File(out, "desktop-lock-sweep.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
-            frames(60)
-            File(out, "desktop-lock-sweep-end.png").writeBytes(scene.render(time).encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
     }
 

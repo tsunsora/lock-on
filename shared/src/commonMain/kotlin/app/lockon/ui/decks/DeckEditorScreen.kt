@@ -35,7 +35,7 @@ import app.lockon.ui.components.ProgressGauge
 import app.lockon.ui.components.GameMenu
 import app.lockon.ui.components.GameMenuDivider
 import app.lockon.ui.components.GameMenuItem
-import app.lockon.ui.components.StateTag
+import app.lockon.ui.components.LegalStamp
 import app.lockon.ui.components.ViewToggle
 import app.lockon.ui.components.Glyphs
 import androidx.compose.runtime.CompositionLocalProvider
@@ -54,7 +54,6 @@ import app.lockon.ui.components.glassColors
 import app.lockon.ui.components.Motion
 import app.lockon.ui.components.PillChip
 import app.lockon.ui.components.motion
-import app.lockon.ui.components.shineSweep
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -90,6 +89,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -370,7 +370,7 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
         // Header: a hero banner with the cover art behind it. Who the deck is sits on the left, its
         // health is grouped on the right (UX rule I2).
         val cover = remember(deck, cards) { deckCover(deck, cards) }
-        DeckBanner(cover, wide, legality.isLegal) {
+        DeckBanner(cover, wide) {
             // On wide windows the whole header sits in the band between the floating navigation
             // plates, so the editor spends no extra row on it (UX rule N5).
             BoxWithConstraints(Modifier.fillMaxWidth().clearOfNav()) {
@@ -411,8 +411,9 @@ fun DeckEditorScreen(container: AppContainer, state: AppState, files: FileBridge
                         val c = MaterialTheme.colorScheme
                         FadeSwap(deckColors) { ColorPips(it, size = 22.dp) }
                         // The state alone; Analysis has the rest.
-                        // The stamp turns over with the Lock On moment instead of swapping under it.
-                        Crossfade(legality.isLegal, animationSpec = motion(), label = "legality") { legal -> StateTag(legal) }
+                        // The tag turns over and lights for the Lock On moment; keyed by deck, so opening
+                        // another deck never plays it.
+                        key(deckId) { LegalStamp(legality.isLegal) }
                         DeckProblemLine(
                             if ((if (wide) deckTab else phoneTab) == 0 && deck.entries.isNotEmpty()) legality.errors else emptyList(),
                             onOpenAnalysis = { if (wide) deckTab = 1 else phoneTab = 2 }, Modifier.weight(1f),
@@ -1071,7 +1072,7 @@ private fun copyLimit(card: GameCard, ruleset: Ruleset): Int? =
 
 /** The editor's hero banner: the deck's cover art fades in behind the header from the right. */
 @Composable
-private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, content: @Composable () -> Unit) {
+private fun DeckBanner(cover: DeckCover?, wide: Boolean, content: @Composable () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val art = cover?.let { LocalArtwork.current.urlFor(it.card.cardNumber, it.printingId) }
     val color = cardColor(cover?.card?.colors?.firstOrNull())
@@ -1083,7 +1084,7 @@ private fun DeckBanner(cover: DeckCover?, wide: Boolean, locked: Boolean, conten
     // On phones it reaches up under the status bar; only the header clears it.
     // By day a phone's header is a flat white surface, so the full deck's gold count (#9A6200) reads on white (UX rule V3).
     val surface = if (!wide && !app.lockon.ui.components.isTwilight()) Modifier.background(Color.White) else Modifier
-    Box(Modifier.fillMaxWidth().then(surface).clipToBounds().shineSweep(locked)) {
+    Box(Modifier.fillMaxWidth().then(surface).clipToBounds()) {
         Column(Modifier.windowInsetsPadding(ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top))) { content() }
     }
 }
