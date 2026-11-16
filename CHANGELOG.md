@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.11.34 (2026-11-16)
+
+A blue app icon, so Lock On no longer looks like LocalSend on your home screen.
+
+- **App icon:** the white Lock On mark is now on cobalt blue instead of teal, on Android, Windows and macOS. The launch screen and the logo in the header match.
+
 ## 26.11.33 (2026-11-15)
 
 Pick a theme color of your own, and Lock On builds its whole palette from it.

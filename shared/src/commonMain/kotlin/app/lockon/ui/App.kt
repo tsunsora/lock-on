@@ -754,7 +754,7 @@ private val NamePlate = RoundedCornerShape(18.dp)
 internal fun BrandTile(size: Dp) {
     val shape = RoundedCornerShape(size * 0.3f)
     Box(
-        // The app icon's teal and white, whatever the accent (UX rule V7).
+        // The app icon's cobalt blue and white, whatever the accent (UX rule V7).
         Modifier.size(size).clip(shape).background(AppIconTile),
         contentAlignment = Alignment.Center,
     ) { LockOnMark(size = size * 0.6f, reticleColor = AppIconMark) }

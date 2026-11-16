@@ -21,7 +21,7 @@ import app.lockon.ui.theme.LocalTones
 
 /**
  * The launch screen, drawn the way Android's own splash screen draws Lock On: the app icon, its white
- * mark on a teal disc, centred on the app's own ground, and nothing else. It covers the app while
+ * mark on a cobalt blue disc, centred on the app's own ground, and nothing else. It covers the app while
  * the screens underneath fill in, then fades. Nothing in it moves, so the frames the screens building
  * underneath hold up never show. On Android 12 and later the system's own splash usually stays up
  * instead (MainActivity), and this shows only where there is none.
@@ -51,7 +51,7 @@ fun LaunchSplash(modifier: Modifier = Modifier, trailing: (@Composable () -> Uni
 @Composable
 fun launchSplashColor(): Color = LocalTones.current.sky[1]
 
-/** The app icon's tile: Sky's teal, in either theme, as in the launcher (ic_launcher_background). */
-internal val AppIconTile = Color(0xFF087581)
+/** The app icon's tile: one cobalt blue, in either theme, as in the launcher (ic_launcher_background). */
+internal val AppIconTile = Color(0xFF2F5FD0)
 /** The mark on the app icon: white (ic_launcher_foreground). */
 internal val AppIconMark = Color.White
