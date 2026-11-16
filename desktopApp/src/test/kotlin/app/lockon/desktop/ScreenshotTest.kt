@@ -168,7 +168,7 @@ class ScreenshotTest {
         val state = AppState(CoroutineScope(Dispatchers.Default)).apply(setup)
         ImageComposeScene(width, height, Density(1.5f)) {
             androidx.compose.foundation.layout.Column {
-                if (titleBar) app.lockon.ui.theme.LockOnTheme(dark, app.lockon.ui.theme.themeSeed(container.settings)) {
+                if (titleBar) app.lockon.ui.theme.LockOnTheme(dark, app.lockon.ui.theme.themeLook(container.settings)) {
                     TitleBar(maximized = false, background = androidx.compose.material3.MaterialTheme.colorScheme.background, onMinimize = {}, onToggleMaximize = {}, onClose = {})
                 }
                 LockOnApp(container, state, controller, files, artworkDir = File("build/artwork-cache").absolutePath, dark = dark, titleBar = !brand)
@@ -338,7 +338,8 @@ class ScreenshotTest {
 
     /**
      * Material You colours (UX rule V3a) from a few accents: Windows' default blue, a pink wallpaper, a green
-     * one and a yellow one, which tests the action colour's contrast. Each next to Sky and Twilight's own.
+     * one and a yellow one, which tests the action colour's contrast. Each next to Sky and Twilight's own,
+     * then the blue in Material's other colour styles and on a pure black ground.
      */
     @Test fun renderMaterialYou() {
         val seeds = listOf("blue" to androidx.compose.ui.graphics.Color(0xFF0078D4), "pink" to androidx.compose.ui.graphics.Color(0xFFD0507A),
@@ -355,13 +356,30 @@ class ScreenshotTest {
                     shoot("my-$name-phone-settings-$t", 600, 1260, dark = dark) { booted = true; select(Tab.SETTINGS) }
                 }
             }
+            // Material's other colour styles, and the dark theme's pure black ground.
+            app.lockon.ui.theme.SystemAccent.color.value = seeds[0].second
+            for (style in app.lockon.data.ColorStyle.entries - app.lockon.data.ColorStyle.TONAL_SPOT) {
+                runBlocking { container.settings.setColorStyle(style) }
+                for (dark in listOf(true, false)) {
+                    val t = if (dark) "dark" else "light"
+                    shoot("my-blue-${style.name.lowercase()}-editor-$t", 1980, 1290, dark = dark, hover = rest) { booted = true; open(Screen.DeckEditor(deckId)) }
+                }
+            }
+            runBlocking { container.settings.setColorStyle(app.lockon.data.ColorStyle.TONAL_SPOT); container.settings.setPureBlack(true) }
+            shoot("my-blue-black-editor-dark", 1980, 1290, hover = rest) { booted = true; open(Screen.DeckEditor(deckId)) }
+            shoot("my-blue-black-phone-library-dark", 600, 1260) { booted = true; select(Tab.DECKS) }
+            runBlocking { container.settings.setPureBlack(false) }
             // Turned off in Settings, the accent is passed over.
             app.lockon.ui.theme.SystemAccent.color.value = seeds[1].second
             runBlocking { container.settings.setSystemColors(false) }
             shoot("my-off-phone-settings-dark", 600, 1260) { booted = true; select(Tab.SETTINGS) }
         } finally {
             app.lockon.ui.theme.SystemAccent.color.value = null
-            runBlocking { container.settings.setSystemColors(true) }
+            runBlocking {
+                container.settings.setSystemColors(true)
+                container.settings.setColorStyle(app.lockon.data.ColorStyle.TONAL_SPOT)
+                container.settings.setPureBlack(false)
+            }
         }
     }
 

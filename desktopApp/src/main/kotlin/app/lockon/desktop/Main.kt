@@ -139,7 +139,7 @@ fun main() {
                         // A strip of its own above the app, as other Windows apps have, rather than
                         // buttons floating among the app's own (UX rule N5).
                         if (ownTitleBar) {
-                            app.lockon.ui.theme.LockOnTheme(appBackground?.let { it.luminance() < 0.5f } ?: bootDark(container), app.lockon.ui.theme.themeSeed(container.settings)) {
+                            app.lockon.ui.theme.LockOnTheme(appBackground?.let { it.luminance() < 0.5f } ?: bootDark(container), app.lockon.ui.theme.themeLook(container.settings)) {
                                 // While the launch screen is up the bar takes its colour, and turns to the app's as it fades.
                                 val bar by androidx.compose.animation.animateColorAsState(
                                     if (state.booted) appBackground ?: MaterialTheme.colorScheme.background else app.lockon.ui.launchSplashColor(),

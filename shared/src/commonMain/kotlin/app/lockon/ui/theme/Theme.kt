@@ -17,7 +17,10 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import app.lockon.data.ColorStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -36,7 +39,7 @@ import org.jetbrains.compose.resources.Font
  * state. Secondary is sky blue, for information and charts. Tertiary is soft gold, for celebration:
  * a legal deck, a full gauge, the Lock On moment.
  */
-private val LightColors = lightColorScheme(
+internal val LightColors = lightColorScheme(
     primary = Color(0xFF087581),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFC6F1F3),
@@ -67,7 +70,7 @@ private val LightColors = lightColorScheme(
     onErrorContainer = Color(0xFF5A0011),
 )
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = Color(0xFF5EE0E6),
     onPrimary = Color(0xFF00323A),
     primaryContainer = Color(0xFF0F4E57),
@@ -193,13 +196,25 @@ private fun lockOnTypography(): Typography {
 
 /**
  * Lock On's theme: Sky by day and Twilight in the dark, or with a [seed] from the system's accent,
- * Material You colours made from it in the same recipe (UX rule V3a, [systemColorScheme]).
+ * Material You colours built from it in Material's own way, in [style] (UX rule V3a, [materialYouScheme]).
+ * [pureBlack] turns the dark theme's ground black.
  */
 @Composable
-fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), seed: Color? = null, content: @Composable () -> Unit) {
-    val (colors, tones) = remember(dark, seed) {
-        val base = if (dark) DarkColors else LightColors
-        if (seed != null && usableSeed(seed)) systemColorScheme(seed, dark, base) else base to (if (dark) TwilightTones else DayTones)
+fun LockOnTheme(
+    dark: Boolean = isSystemInDarkTheme(),
+    seed: Color? = null,
+    style: ColorStyle = ColorStyle.TONAL_SPOT,
+    pureBlack: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val system by SystemAccent.schemes.collectAsState()
+    val systemContrast by SystemAccent.contrast.collectAsState()
+    val usable = seed?.takeIf { usableSeed(it) }
+    val (colors, tones) = remember(dark, usable, style, pureBlack, system, systemContrast) {
+        val built = usable?.let { materialYouScheme(it, dark, style, systemContrast, system?.let { s -> if (dark) s.dark else s.light }) }
+        val scheme = (built ?: if (dark) DarkColors else LightColors).let { if (dark && pureBlack) it.pureBlack() else it }
+        val tones = if (built != null) materialTones(scheme, dark) else if (dark) TwilightTones else DayTones
+        scheme to if (dark && pureBlack) tones.copy(sky = List(3) { Color.Black }) else tones
     }
     MaterialTheme(colorScheme = colors, shapes = MaterialShapes, typography = lockOnTypography()) {
         // Every plain clickable answers with the flat wash (UX rule V5), and Material's own controls show no ripple.
@@ -207,7 +222,7 @@ fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), seed: Color? = null, cont
         // is a teal wash with teal handles, as the cursor is teal; scroll bars (ScrollBars.jvm.kt) use the ink and teal.
         CompositionLocalProvider(
             LocalTones provides tones,
-            LocalThemeSeed provides seed?.takeIf { usableSeed(it) },
+            LocalThemeSeed provides usable,
             LocalIndication provides PressWash(colors.onSurface, colors.primary),
             LocalRippleConfiguration provides null,
             LocalTextSelectionColors provides TextSelectionColors(handleColor = colors.primary, backgroundColor = colors.primary.copy(alpha = if (dark) 0.34f else 0.24f)),
@@ -215,6 +230,11 @@ fun LockOnTheme(dark: Boolean = isSystemInDarkTheme(), seed: Color? = null, cont
         )
     }
 }
+
+/** Lock On's theme in the colours a [look] asks for (UX rule V3a). */
+@Composable
+fun LockOnTheme(dark: Boolean, look: ThemeLook, content: @Composable () -> Unit) =
+    LockOnTheme(dark, look.seed, look.style, look.pureBlack, content)
 
 /** Accent for a card color, readable on both themes as a badge background with [onCardColor] text. */
 fun cardColor(color: CardColor?): Color = when (color) {

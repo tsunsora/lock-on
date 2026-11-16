@@ -10,6 +10,14 @@ import kotlinx.coroutines.flow.asStateFlow
 /** Light, dark, or whatever the system uses. */
 enum class ThemeChoice(val label: String) { SYSTEM("System"), LIGHT("Sky"), DARK("Twilight") }
 
+/**
+ * How Material You colours are built from the system's accent (UX rule V3a), after Material's own
+ * scheme styles. [TONAL_SPOT] is the system's own, a calm accent with quiet tinted surfaces.
+ */
+enum class ColorStyle(val label: String) {
+    TONAL_SPOT("Tonal spot"), NEUTRAL("Neutral"), VIBRANT("Vibrant"), EXPRESSIVE("Expressive")
+}
+
 /** Animations as the system asks, always reduced, or always full. */
 enum class MotionChoice(val label: String) { SYSTEM("System"), REDUCED("Reduced"), FULL("Full") }
 
@@ -60,6 +68,8 @@ class SettingsRepository(private val meta: MetaDao) {
     private val _cardSort = MutableStateFlow(CardSort.NUMBER)
     private val _deckAsCards = MutableStateFlow(true)
     private val _systemColors = MutableStateFlow(true)
+    private val _colorStyle = MutableStateFlow(ColorStyle.TONAL_SPOT)
+    private val _pureBlack = MutableStateFlow(false)
 
     val theme: StateFlow<ThemeChoice> = _theme.asStateFlow()
     val motion: StateFlow<MotionChoice> = _motion.asStateFlow()
@@ -84,6 +94,10 @@ class SettingsRepository(private val meta: MetaDao) {
     val deckAsCards: StateFlow<Boolean> = _deckAsCards.asStateFlow()
     /** Whether the palette comes from the system's accent (Material You colours) where it has one. On unless turned off. */
     val systemColors: StateFlow<Boolean> = _systemColors.asStateFlow()
+    /** How Material You colours are built from the accent. */
+    val colorStyle: StateFlow<ColorStyle> = _colorStyle.asStateFlow()
+    /** Whether the dark theme's ground is pure black, for OLED screens. Off unless turned on. */
+    val pureBlack: StateFlow<Boolean> = _pureBlack.asStateFlow()
 
     suspend fun load() {
         _theme.value = enumOr(meta.get(KEY_THEME), ThemeChoice.SYSTEM)
@@ -98,6 +112,8 @@ class SettingsRepository(private val meta: MetaDao) {
         _cardSort.value = enumOr(meta.get(KEY_CARD_SORT), CardSort.NUMBER)
         _deckAsCards.value = meta.get(KEY_DECK_AS_CARDS) != "false"
         _systemColors.value = meta.get(KEY_SYSTEM_COLORS) != "false"
+        _colorStyle.value = enumOr(meta.get(KEY_COLOR_STYLE), ColorStyle.TONAL_SPOT)
+        _pureBlack.value = meta.get(KEY_PURE_BLACK) == "true"
         _moreHidden.value = meta.get(KEY_MORE_HIDDEN).orEmpty().split(',')
             .mapNotNull { name -> EditorMoreItem.entries.firstOrNull { it.name == name } }.toSet()
             .takeIf { it.size < EditorMoreItem.entries.size }.orEmpty()
@@ -132,12 +148,16 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun setDeckAsCards(on: Boolean) { _deckAsCards.value = on; meta.put(MetaEntity(KEY_DECK_AS_CARDS, on.toString())) }
     suspend fun setCardSort(sort: CardSort) { _cardSort.value = sort; meta.put(MetaEntity(KEY_CARD_SORT, sort.name)) }
     suspend fun setSystemColors(on: Boolean) { _systemColors.value = on; meta.put(MetaEntity(KEY_SYSTEM_COLORS, on.toString())) }
+    suspend fun setColorStyle(style: ColorStyle) { _colorStyle.value = style; meta.put(MetaEntity(KEY_COLOR_STYLE, style.name)) }
+    suspend fun setPureBlack(on: Boolean) { _pureBlack.value = on; meta.put(MetaEntity(KEY_PURE_BLACK, on.toString())) }
     suspend fun setAutoDeckColors(on: Boolean) { _autoDeckColors.value = on; meta.put(MetaEntity(KEY_AUTO_DECK_COLORS, on.toString())) }
 
     /** The preferences a device takes on when it's made to match this one. Where Lock On was left and the welcome tour stay per device. */
     fun synced(): Map<String, String> = mapOf(
         KEY_THEME to _theme.value.name,
         KEY_SYSTEM_COLORS to _systemColors.value.toString(),
+        KEY_COLOR_STYLE to _colorStyle.value.name,
+        KEY_PURE_BLACK to _pureBlack.value.toString(),
         KEY_MOTION to _motion.value.name,
         KEY_START to _start.value.name,
         KEY_SIZE to _size.value.name,
@@ -150,6 +170,8 @@ class SettingsRepository(private val meta: MetaDao) {
     suspend fun applySynced(values: Map<String, String>) {
         values[KEY_THEME]?.let { setTheme(enumOr(it, _theme.value)) }
         values[KEY_SYSTEM_COLORS]?.toBooleanStrictOrNull()?.let { setSystemColors(it) }
+        values[KEY_COLOR_STYLE]?.let { setColorStyle(enumOr(it, _colorStyle.value)) }
+        values[KEY_PURE_BLACK]?.toBooleanStrictOrNull()?.let { setPureBlack(it) }
         values[KEY_MOTION]?.let { setMotion(enumOr(it, _motion.value)) }
         values[KEY_START]?.let { setStart(enumOr(it, _start.value)) }
         values[KEY_SIZE]?.let { setSize(enumOr(it, _size.value)) }
@@ -177,5 +199,7 @@ class SettingsRepository(private val meta: MetaDao) {
         const val KEY_CARD_SORT = "settings.cardSort"
         const val KEY_DECK_AS_CARDS = "settings.deckAsCards"
         const val KEY_SYSTEM_COLORS = "settings.systemColors"
+        const val KEY_COLOR_STYLE = "settings.colorStyle"
+        const val KEY_PURE_BLACK = "settings.pureBlack"
     }
 }

@@ -7,8 +7,20 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import app.lockon.data.ColorStyle
 import app.lockon.data.SettingsRepository
+import com.materialkolor.dynamiccolor.ColorSpec
+import com.materialkolor.hct.Hct
+import com.materialkolor.scheme.DynamicScheme
+import com.materialkolor.scheme.SchemeExpressive
+import com.materialkolor.scheme.SchemeNeutral
+import com.materialkolor.scheme.SchemeTonalSpot
+import com.materialkolor.scheme.SchemeVibrant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -19,23 +31,41 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * The system's accent colour, for Material You colours (UX rule V3a): the wallpaper's on Android 12 and
- * later, the accent colour on Windows, macOS and GNOME. Each platform sets it at launch and when it may
- * have changed; null where the system has none, and Lock On's own Sky and Twilight show instead.
+ * The system's colours, for Material You colours (UX rule V3a): its accent (the wallpaper's on Android 12
+ * and later, the accent colour on Windows, macOS and GNOME) and, where the system builds them itself,
+ * its own Material You schemes. Each platform sets them at launch and when they may have changed.
  */
 object SystemAccent {
+    /** The accent, or null where the system has none and Lock On's own Sky and Twilight show. */
     val color = MutableStateFlow<Color?>(null)
+    /** The system's own light and dark Material You schemes (Android 12 and later), or null to build them from [color]. */
+    val schemes = MutableStateFlow<SystemSchemes?>(null)
+    /** The system's contrast setting, from -1 to 1 (Android 14 and later); 0 elsewhere. */
+    val contrast = MutableStateFlow(0f)
 }
 
+/** The system's own Material You schemes, as the rest of the system shows them. */
+@Immutable
+class SystemSchemes(val light: ColorScheme, val dark: ColorScheme)
+
 /**
- * The seed to colour the app from: the system's accent when Settings' Material You colours are on (they
- * are unless turned off) and the system has a colourful one, otherwise null for Lock On's own palette.
+ * What the app is coloured from: the accent to build Material You colours from (null for Sky and
+ * Twilight's own), how to build them, and whether the dark theme's ground is pure black.
+ */
+@Immutable
+data class ThemeLook(val seed: Color? = null, val style: ColorStyle = ColorStyle.TONAL_SPOT, val pureBlack: Boolean = false)
+
+/**
+ * The [ThemeLook] Settings ask for: the system's accent when Material You colours are on (they are
+ * unless turned off) and the system has a colourful one, the colour style, and pure black.
  */
 @Composable
-fun themeSeed(settings: SettingsRepository?): Color? {
+fun themeLook(settings: SettingsRepository?): ThemeLook {
     val accent by SystemAccent.color.collectAsState()
     val on = settings?.systemColors?.collectAsState()?.value ?: true
-    return if (on) accent?.takeIf { usableSeed(it) } else null
+    val style = settings?.colorStyle?.collectAsState()?.value ?: ColorStyle.TONAL_SPOT
+    val black = settings?.pureBlack?.collectAsState()?.value ?: false
+    return ThemeLook(if (on) accent?.takeIf { usableSeed(it) } else null, style, black)
 }
 
 /** An accent too grey to make a teal-like action colour from (macOS's graphite, a grey Windows accent) is passed over. */
@@ -86,79 +116,113 @@ internal val TwilightTones = LockOnTones(
 val LocalTones = staticCompositionLocalOf { DayTones }
 
 /**
- * Material You colours from a system accent (UX rule V3a). The seed gives the hue of the whole palette
- * and the strength of the action colour; everything else keeps Sky and Twilight's recipe, so contrast
- * and quiet hold whatever the wallpaper:
- * - the neutrals sit at Sky and Twilight's own lightness steps, tinted toward the seed's hue within V3's
- *   chroma caps (0.03 at twilight, 0.015 by day), so the sky stays quiet under the cards;
- * - primary, the action and selection colour, takes the seed's hue at a lightness that keeps its label
- *   at 4.5:1 or more;
- * - information blue, celebration gold, the error red and the card colours keep their meanings and stay
- *   as they are.
+ * Material You colours (UX rule V3a), built as Material 3 builds them: tonal palettes from the [seed]
+ * in Material's 2025 colour spec, giving every role, from primary, secondary and their containers to the
+ * whole ladder of surface containers. With [ColorStyle.TONAL_SPOT] and the [system]'s own scheme at
+ * hand, that one is used, so Lock On matches the rest of the system; it falls back to the built one if
+ * the system's fails a contrast check. Celebration gold (tertiary) keeps its meaning and stays put.
  */
-fun systemColorScheme(seed: Color, dark: Boolean, base: ColorScheme): Pair<ColorScheme, LockOnTones> {
-    val s = Oklch.of(seed)
-    val h = s.h
-    // Strong enough to read as an action colour, never louder than a card face.
-    val pc = s.c.coerceIn(0.08f, 0.14f)
-    fun tone(l: Float, c: Float) = Oklch(l, c, h).toColor()
-    val warmth = warmth(h)
-    fun neutral(l: Float, c: Float) = tone(l, c * warmth)
-    return if (dark) {
-        val onPrimary = tone(0.27f, pc * 0.5f)
-        val primary = readable(h, pc, from = 0.82f, step = 0.01f, against = onPrimary)
-        val background = neutral(0.235f, 0.024f)
-        val surface = neutral(0.27f, 0.024f)
-        val highest = neutral(0.315f, 0.024f)
-        val onSurface = neutral(0.96f, 0.008f)
-        val outline = tone(0.74f, 0.03f)
-        base.copy(
-            primary = primary, onPrimary = onPrimary,
-            primaryContainer = tone(0.38f, pc * 0.6f), onPrimaryContainer = tone(0.93f, 0.045f),
-            background = background, onBackground = onSurface,
-            surface = surface, onSurface = onSurface,
-            surfaceVariant = neutral(0.355f, 0.024f), onSurfaceVariant = tone(0.80f, 0.028f),
-            surfaceContainerLowest = neutral(0.215f, 0.022f), surfaceContainerLow = neutral(0.25f, 0.024f),
-            surfaceContainer = surface, surfaceContainerHigh = surface, surfaceContainerHighest = highest,
-            outline = outline, outlineVariant = neutral(0.355f, 0.024f),
-            inversePrimary = tone(0.5f, pc), surfaceTint = primary,
-        ) to LockOnTones(
-            sky = listOf(neutral(0.25f, 0.024f), background, neutral(0.215f, 0.022f)),
-            panelFill = surface.copy(alpha = 0.96f),
-            panelStrong = highest,
-            line = neutral(0.93f, 0.02f).copy(alpha = 0.1f),
-            shade = neutral(0.12f, 0.02f),
-            mutedInk = outline,
-            softThumb = tone(0.40f, 0.045f),
-            track = onSurface.copy(alpha = 0.12f),
-        )
-    } else {
-        val primary = readable(h, pc, from = 0.52f, step = -0.01f, against = Color.White)
-        val ink = tone(0.27f, 0.04f)
-        val surface = neutral(0.985f, 0.005f)
-        base.copy(
-            primary = primary, onPrimary = Color.White,
-            primaryContainer = tone(0.93f, 0.045f), onPrimaryContainer = tone(0.30f, pc * 0.6f),
-            background = neutral(0.953f, 0.012f), onBackground = ink,
-            surface = surface, onSurface = ink,
-            surfaceVariant = neutral(0.935f, 0.01f), onSurfaceVariant = tone(0.46f, 0.04f),
-            surfaceContainerLowest = Color.White, surfaceContainerLow = neutral(0.978f, 0.007f),
-            surfaceContainer = neutral(0.962f, 0.009f), surfaceContainerHigh = neutral(0.945f, 0.01f),
-            surfaceContainerHighest = neutral(0.92f, 0.012f),
-            outline = tone(0.63f, 0.04f), outlineVariant = neutral(0.87f, 0.012f),
-            inversePrimary = tone(0.82f, pc), surfaceTint = primary,
-        ) to LockOnTones(
-            sky = listOf(neutral(0.905f, 0.012f), neutral(0.927f, 0.012f), neutral(0.948f, 0.011f)),
-            panelFill = Color.White.copy(alpha = 0.96f),
-            panelStrong = Color.White,
-            line = ink.copy(alpha = 0.1f),
-            shade = ink.copy(alpha = 0.5f),
-            mutedInk = tone(0.52f, 0.04f),
-            softThumb = Color.White,
-            track = neutral(0.895f, 0.02f),
-        )
-    }
+fun materialYouScheme(
+    seed: Color,
+    dark: Boolean,
+    style: ColorStyle = ColorStyle.TONAL_SPOT,
+    contrast: Float = 0f,
+    system: ColorScheme? = null,
+): ColorScheme {
+    val scheme = system?.takeIf { style == ColorStyle.TONAL_SPOT && legible(it, dark) } ?: builtScheme(seed, dark, style, contrast)
+    val own = if (dark) DarkColors else LightColors
+    return scheme.copy(
+        tertiary = own.tertiary, onTertiary = own.onTertiary,
+        tertiaryContainer = own.tertiaryContainer, onTertiaryContainer = own.onTertiaryContainer,
+    )
 }
+
+/** Material's dynamic scheme for [seed] in [style], as a Compose [ColorScheme]. */
+internal fun builtScheme(seed: Color, dark: Boolean, style: ColorStyle, contrast: Float): ColorScheme {
+    val source = Hct.fromInt(seed.toArgb())
+    val level = contrast.toDouble().coerceIn(-1.0, 1.0)
+    val spec = ColorSpec.SpecVersion.SPEC_2025
+    val platform = DynamicScheme.Platform.PHONE
+    val d = when (style) {
+        ColorStyle.TONAL_SPOT -> SchemeTonalSpot(source, dark, level, spec, platform)
+        ColorStyle.NEUTRAL -> SchemeNeutral(source, dark, level, spec, platform)
+        ColorStyle.VIBRANT -> SchemeVibrant(source, dark, level, spec, platform)
+        ColorStyle.EXPRESSIVE -> SchemeExpressive(source, dark, level, spec, platform)
+    }
+    fun c(argb: Int) = Color(argb)
+    val base = if (dark) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = c(d.primary), onPrimary = c(d.onPrimary),
+        primaryContainer = c(d.primaryContainer), onPrimaryContainer = c(d.onPrimaryContainer),
+        inversePrimary = c(d.inversePrimary),
+        secondary = c(d.secondary), onSecondary = c(d.onSecondary),
+        secondaryContainer = c(d.secondaryContainer), onSecondaryContainer = c(d.onSecondaryContainer),
+        tertiary = c(d.tertiary), onTertiary = c(d.onTertiary),
+        tertiaryContainer = c(d.tertiaryContainer), onTertiaryContainer = c(d.onTertiaryContainer),
+        background = c(d.background), onBackground = c(d.onBackground),
+        surface = c(d.surface), onSurface = c(d.onSurface),
+        surfaceVariant = c(d.surfaceVariant), onSurfaceVariant = c(d.onSurfaceVariant),
+        surfaceTint = c(d.surfaceTint),
+        inverseSurface = c(d.inverseSurface), inverseOnSurface = c(d.inverseOnSurface),
+        error = c(d.error), onError = c(d.onError),
+        errorContainer = c(d.errorContainer), onErrorContainer = c(d.onErrorContainer),
+        outline = c(d.outline), outlineVariant = c(d.outlineVariant),
+        scrim = c(d.scrim),
+        surfaceBright = c(d.surfaceBright), surfaceDim = c(d.surfaceDim),
+        surfaceContainer = c(d.surfaceContainer), surfaceContainerHigh = c(d.surfaceContainerHigh),
+        surfaceContainerHighest = c(d.surfaceContainerHighest), surfaceContainerLow = c(d.surfaceContainerLow),
+        surfaceContainerLowest = c(d.surfaceContainerLowest),
+    )
+}
+
+/**
+ * Whether a system's scheme is what it says: dark where asked, with text and action labels at 4.5:1.
+ * Some makers' system roles are stale or half filled in.
+ */
+internal fun legible(c: ColorScheme, dark: Boolean): Boolean =
+    (c.surface.luminance() < 0.5f) == dark && c.surface.alpha == 1f && c.primary.alpha == 1f &&
+        contrast(c.onSurface, c.surface) >= 4.5f && contrast(c.onBackground, c.background) >= 4.5f &&
+        contrast(c.onPrimary, c.primary) >= 4.5f && contrast(c.onSurfaceVariant, c.surfaceContainerHighest) >= 4.5f &&
+        contrast(c.onSecondaryContainer, c.secondaryContainer) >= 4.5f
+
+/**
+ * Lock On's own tones from a Material scheme (UX rule V3a), so the sky, panels and controls sit on
+ * Material's surface ladder: at twilight the sky runs through the lowest steps and panels take the high
+ * one; by day the sky takes the high steps under white panels. A chosen option's thumb is the
+ * secondary container, as in Material's segmented buttons.
+ */
+fun materialTones(c: ColorScheme, dark: Boolean): LockOnTones {
+    val strong = if (dark) c.surfaceContainerHighest else c.surfaceContainerLowest
+    return LockOnTones(
+        sky = if (dark) listOf(c.surfaceContainerLow, c.surface, c.surfaceContainerLowest)
+        else listOf(c.surfaceContainerHighest, c.surfaceContainerHigh, c.surfaceContainer),
+        panelFill = (if (dark) c.surfaceContainerHigh else c.surfaceContainerLowest).copy(alpha = 0.96f),
+        panelStrong = strong,
+        line = c.onSurface.copy(alpha = 0.1f),
+        shade = if (dark) Color.Black else c.onSurface.copy(alpha = 0.5f),
+        mutedInk = quietInk(c, strong),
+        softThumb = c.secondaryContainer,
+        track = if (dark) c.onSurface.copy(alpha = 0.12f) else c.surfaceContainerHighest,
+    )
+}
+
+/** Quiet text: from the outline toward [ColorScheme.onSurfaceVariant] until it reads at 4.5:1 on [on]. */
+private fun quietInk(c: ColorScheme, on: Color): Color {
+    for (step in 0..10) {
+        val ink = lerp(c.outline, c.onSurfaceVariant, step / 10f)
+        if (contrast(ink, on) >= 4.5f) return ink
+    }
+    return c.onSurfaceVariant
+}
+
+/**
+ * The dark theme's ground in pure black (UX rule V3a), for OLED screens: the background, surface and
+ * lower surface steps go black, while panels keep their raised steps so they still stand off the ground.
+ */
+fun ColorScheme.pureBlack(): ColorScheme = copy(
+    background = Color.Black, surface = Color.Black, surfaceDim = Color.Black,
+    surfaceContainerLowest = Color.Black, surfaceContainerLow = Color.Black,
+)
 
 /**
  * Reds, pinks, oranges and yellows read as far more colourful than blues at the same chroma, and a maroon
@@ -181,20 +245,6 @@ fun towardSeed(color: Color, seed: Color): Color {
     val h = Oklch.of(seed).h
     val c = Oklch.of(color)
     return Oklch(c.l, c.c * warmth(h), h).toColor().copy(alpha = color.alpha)
-}
-
-/**
- * The seed's hue at lightness [from], stepped by [step] until text in [against] on it clears 4.5:1, so
- * a pale yellow or a deep blue accent gives a button whose label still reads.
- */
-private fun readable(h: Float, c: Float, from: Float, step: Float, against: Color): Color {
-    var l = from
-    var color = Oklch(l, c, h).toColor()
-    while (contrast(color, against) < 4.5f && l in 0.2f..0.98f) {
-        l += step
-        color = Oklch(l, c, h).toColor()
-    }
-    return color
 }
 
 /** WCAG contrast between two opaque colours. */

@@ -59,6 +59,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.lockon.AppContainer
+import app.lockon.data.ColorStyle
 import app.lockon.data.EditorBarOrder
 import app.lockon.data.EditorMoreItem
 import app.lockon.data.InterfaceSize
@@ -103,6 +104,8 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
     val scope = rememberCoroutineScope()
     val theme by settings.theme.collectAsState()
     val systemColors by settings.systemColors.collectAsState()
+    val colorStyle by settings.colorStyle.collectAsState()
+    val pureBlack by settings.pureBlack.collectAsState()
     val accent by app.lockon.ui.theme.SystemAccent.color.collectAsState()
     val size by settings.size.collectAsState()
     val motion by settings.motion.collectAsState()
@@ -165,6 +168,18 @@ fun SettingsScreen(container: AppContainer, state: AppState, files: FileBridge) 
                         else -> "Not available on this device, so Lock On's own colors show"
                     },
                 ) { scope.launch { settings.setSystemColors(it) } }
+                if (systemColors && usable) SettingRow("Color style") {
+                    MenuChip(selected = false, label = { Text(colorStyle.label) }) { close ->
+                        ColorStyle.entries.forEach { style ->
+                            GameMenuItem(style.label, selected = style == colorStyle, onClick = {
+                                close(); scope.launch { settings.setColorStyle(style) }
+                            })
+                        }
+                    }
+                }
+                if (theme != ThemeChoice.LIGHT) Toggle("Pure black", pureBlack, detail = "Black background in the dark theme") {
+                    scope.launch { settings.setPureBlack(it) }
+                }
                 SettingRow("Interface size", wideControl = true) {
                     Segmented(InterfaceSize.entries, size, { it.label }) { scope.launch { settings.setSize(it) } }
                 }
