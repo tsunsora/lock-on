@@ -5,8 +5,7 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
-    <!-- The launch screen's sky, so the system splash hands over to it without a flash; values-night has the twilight one. -->
-    <color name="background">#D5C9F9</color>
-    <color name="ic_launcher_background">#8A5EE1</color>
-    <color name="accent">#FFC34D</color>
+    <!-- The app's own ground by day, so the window hands over to the app without a flash; values-night has the twilight one. -->
+    <color name="background">#DFE7EE</color>
+    <color name="ic_launcher_background">#1A1F2D</color>
 </resources>

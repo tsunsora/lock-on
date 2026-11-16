@@ -11,7 +11,6 @@ import app.lockon.ui.theme.LightColors
 import app.lockon.ui.theme.materialTones
 import app.lockon.ui.theme.materialYouScheme
 import app.lockon.ui.theme.pureBlack
-import app.lockon.ui.theme.towardSeed
 import app.lockon.ui.theme.usableSeed
 import kotlin.math.PI
 import kotlin.test.Test
@@ -94,20 +93,6 @@ class SystemColorsTest {
         for (seed in seeds) {
             val back = Oklch.of(seed).toColor()
             assertTrue(kotlin.math.abs(back.red - seed.red) < 0.01f && kotlin.math.abs(back.green - seed.green) < 0.01f && kotlin.math.abs(back.blue - seed.blue) < 0.01f)
-        }
-    }
-
-    /** The launch screen leans toward the accent at its own lightness, and without one is exactly as it was. */
-    @Test
-    fun launchScreenKeepsItsLightness() {
-        for (twilight in listOf(false, true)) {
-            val own = app.lockon.ui.components.skyStops(twilight, boot = true)
-            assertTrue(app.lockon.ui.components.bootSkyStops(twilight, null) == own)
-            for (seed in seeds) for (stop in own) {
-                val turned = towardSeed(stop, seed)
-                assertTrue(kotlin.math.abs(Oklch.of(turned).l - Oklch.of(stop).l) < 0.01f, "$stop toward $seed")
-                assertTrue(Oklch.of(turned).c <= Oklch.of(stop).c + 0.005f, "$stop toward $seed")
-            }
         }
     }
 }

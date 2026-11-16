@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher icon's flat tile: one violet, no gradient or shading (UX rule V7). Matches the
-     desktop icon drawn by scripts/make_icons.py and the in-app logo tile. -->
+<!-- The launcher icon's flat tile: the twilight ground's deep navy, no gradient or shading (UX rule V7).
+     Matches the desktop icon drawn by scripts/make_icons.py. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#FF8A5EE1"
+        android:fillColor="#FF1A1F2D"
         android:pathData="M0,0h108v108h-108z" />
 </vector>
