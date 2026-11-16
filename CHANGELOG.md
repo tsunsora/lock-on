@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.11.36 (2026-11-16)
+
+Picking a card from the test hand's fan is easier: the card you point at or touch rises out of the fan, and you can slide along the fan to find the one you want.
+
+- **With a mouse:** the card under the pointer rises, grows a little and comes to the front, and its neighbours lean away. Sweeping across the fan moves one card at a time, without the wrong card jumping forward. Click opens it.
+- **On a phone:** press a card to raise it above your finger, slide sideways to move along the fan, and let go to open the raised card. Dragging up or down still scrolls.
+- **With a keyboard:** Tab raises each card in turn, and Enter opens it.
+
 ## 26.11.35 (2026-11-16)
 
 Card details in the deck editor no longer repeat the deck and side deck − / + that sit under every card.

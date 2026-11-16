@@ -80,7 +80,7 @@ Rectangles are screens. Hexagons are sheets or dialogs that sit over the current
      - **Level** and **Cost** curves
      - one bar split by type with a legend, and one split by color
   4. **Test (sample hand):**
-     - Shuffle and draw 5, held in a fan, with cards left and the turn above it. The card under the pointer comes to the front.
+     - Shuffle and draw 5, held in a fan, with cards left and the turn above it. The card under the pointer or finger rises out of the fan; a finger can slide along the fan, and letting go opens the raised card.
      - **Redraw** follows the official rule, once.
      - 6 shields wait face down; **Reveal** turns them over.
      - **Draw** adds one card per turn; the first draw keeps the hand and sets the shields.
