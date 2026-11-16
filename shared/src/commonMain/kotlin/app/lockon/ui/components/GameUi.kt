@@ -88,7 +88,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -101,7 +100,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -945,39 +943,6 @@ fun darken(color: Color, amount: Float) = Color(
 @Composable
 fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxWidth().glass(LockOnShapes.tile), content = content)
-}
-
-/**
- * The Lock On moment: when [locked] turns true, a soft glint crosses the content like light on a
- * new card and the rim warms to gold, then fades. It plays only on the change, never when a legal
- * deck opens (UX rule V5).
- */
-fun Modifier.shineSweep(locked: Boolean, shape: Shape = RectangleShape): Modifier = composed {
-    val reduce = LocalReduceMotion.current
-    val sweep = remember { Animatable(1f) }
-    var last by remember { mutableStateOf(locked) }
-    LaunchedEffect(locked) {
-        if (locked && !last && !reduce) {
-            sweep.snapTo(0f)
-            sweep.animateTo(1f, tween(Motion.SIGNATURE * 2, easing = Motion.emphasized))
-        }
-        last = locked
-    }
-    drawWithContent {
-        drawContent()
-        val p = sweep.value
-        if (p < 1f) {
-            val x = -size.width * 0.3f + size.width * 1.6f * p
-            val band = size.width * 0.16f
-            drawRect(
-                Brush.linearGradient(
-                    listOf(Color.White.copy(alpha = 0f), Color.White.copy(alpha = 0.22f), Gold.copy(alpha = 0.1f), Gold.copy(alpha = 0f)),
-                    start = Offset(x - band, 0f), end = Offset(x + band, size.height * 0.5f),
-                ),
-            )
-            drawOutline(shape.createOutline(size, layoutDirection, this), Gold.copy(alpha = (1f - p) * 0.5f), style = Stroke(1.5.dp.toPx()))
-        }
-    }
 }
 
 /**

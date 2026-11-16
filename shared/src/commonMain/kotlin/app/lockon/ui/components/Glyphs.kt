@@ -29,6 +29,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.LockOnShapes
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Names used around the app for the outline icons. */
 object Glyphs {
@@ -49,7 +63,7 @@ object Glyphs {
 
 /** A deck's state as an outlined tag: Legal with a check, Needs review in red with a warning, Draft plain. */
 @Composable
-fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modifier, label: String? = null, icon: Boolean = true) {
+fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modifier, label: String? = null, icon: Boolean = true, checkShown: () -> Float = { 1f }) {
     val scheme = MaterialTheme.colorScheme
     val ink = if (review) scheme.error else scheme.onSurface
     val shape = RoundedCornerShape(8.dp)
@@ -58,8 +72,49 @@ fun StateTag(legal: Boolean, review: Boolean = false, modifier: Modifier = Modif
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (icon && review) Icon(LineIcons.Info, contentDescription = null, Modifier.size(14.dp), tint = ink)
-        else if (icon && legal && !review) Icon(LineIcons.Check, contentDescription = null, Modifier.size(14.dp), tint = ink)
+        else if (icon && legal && !review) Icon(LineIcons.Check, contentDescription = null, tint = ink,
+            // The check can draw itself in from the left, read while drawing so it costs no recomposition.
+            modifier = Modifier.size(14.dp).drawWithContent { clipRect(right = size.width * checkShown()) { this@drawWithContent.drawContent() } })
         Text(label ?: if (review) "Needs review" else if (legal) "Legal" else "Draft", style = MaterialTheme.typography.labelMedium, color = ink, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * The deck editor's state tag, and the Lock On moment (UX rule V5). When [legal] turns true the tag
+ * turns over to Legal, its check draws in, and its edge and fill warm to gold for a moment, then
+ * settle back to the quiet tag. Only this small tag lights, beside the gauge that has just turned
+ * gold, so the change is clear without anything sweeping across the screen. It plays only on the
+ * change, never when a legal deck opens; with reduced motion the tag simply changes.
+ */
+@Composable
+fun LegalStamp(legal: Boolean, modifier: Modifier = Modifier) {
+    val reduce = LocalReduceMotion.current
+    val warmth = remember { Animatable(0f) }
+    val check = remember { Animatable(1f) }
+    var last by remember { mutableStateOf(legal) }
+    LaunchedEffect(legal) {
+        val became = legal && !last
+        last = legal
+        if (!became || reduce) { warmth.snapTo(0f); check.snapTo(1f); return@LaunchedEffect }
+        check.snapTo(0f)
+        launch { delay(Motion.SHORT.toLong()); check.animateTo(1f, tween(Motion.LONG, easing = Motion.emphasizedDecelerate)) }
+        warmth.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.emphasizedDecelerate))
+        delay(Motion.SIGNATURE.toLong())
+        warmth.animateTo(0f, tween(Motion.SIGNATURE, easing = Motion.emphasized))
+    }
+    // The gold that carries text on each theme, the same as the full gauge's number.
+    val gold = if (isTwilight()) Gold else MaterialTheme.colorScheme.tertiary
+    val shape = RoundedCornerShape(8.dp)
+    Crossfade(legal, modifier.drawWithContent {
+        val w = warmth.value
+        if (w > 0f) {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            drawOutline(outline, gold.copy(alpha = 0.16f * w))
+            drawContent()
+            drawOutline(outline, gold.copy(alpha = w), style = Stroke(1.5.dp.toPx()))
+        } else drawContent()
+    }, animationSpec = motion(), label = "legality") { now ->
+        StateTag(now, checkShown = { check.value })
     }
 }
 
