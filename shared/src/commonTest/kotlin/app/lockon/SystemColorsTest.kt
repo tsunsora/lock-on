@@ -42,7 +42,8 @@ class SystemColorsTest {
             assertTrue(contrast(c.onSurfaceVariant, t.panelFill.compositeOver(c.background)) >= 4.5f, "$where: secondary text on a panel")
             assertTrue(contrast(t.mutedInk, t.panelStrong) >= 4.5f, "$where: quiet text on the raised step ${contrast(t.mutedInk, t.panelStrong)}")
             assertTrue(contrast(c.primary, t.panelFill.compositeOver(c.background)) >= 3f, "$where: action colour on a panel")
-            assertTrue(contrast(c.primary, t.softThumb) >= 4.5f, "$where: chosen option on its thumb ${contrast(c.primary, t.softThumb)}")
+            val ink = t.softThumbInk ?: c.primary
+            assertTrue(contrast(ink, t.softThumb) >= 4.5f, "$where: chosen option on its thumb ${contrast(ink, t.softThumb)}")
             assertTrue(contrast(c.onPrimaryContainer, c.primaryContainer) >= 4.5f, "$where: container text")
             assertTrue(contrast(c.onSecondaryContainer, c.secondaryContainer) >= 4.5f, "$where: chip text")
         }

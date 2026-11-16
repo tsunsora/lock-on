@@ -88,6 +88,8 @@ data class LockOnTones(
     val mutedInk: Color,
     val softThumb: Color,
     val track: Color,
+    /** The chosen option's text on [softThumb]; null for the action colour. */
+    val softThumbInk: Color? = null,
 )
 
 internal val DayTones = LockOnTones(
@@ -189,7 +191,7 @@ internal fun legible(c: ColorScheme, dark: Boolean): Boolean =
  * Lock On's own tones from a Material scheme (UX rule V3a), so the sky, panels and controls sit on
  * Material's surface ladder: at twilight the sky runs through the lowest steps and panels take the high
  * one; by day the sky takes the high steps under white panels. A chosen option's thumb is the
- * secondary container, as in Material's segmented buttons.
+ * secondary container with its own text colour, as in Material's segmented buttons.
  */
 fun materialTones(c: ColorScheme, dark: Boolean): LockOnTones {
     val strong = if (dark) c.surfaceContainerHighest else c.surfaceContainerLowest
@@ -203,6 +205,7 @@ fun materialTones(c: ColorScheme, dark: Boolean): LockOnTones {
         mutedInk = quietInk(c, strong),
         softThumb = c.secondaryContainer,
         track = if (dark) c.onSurface.copy(alpha = 0.12f) else c.surfaceContainerHighest,
+        softThumbInk = c.onSecondaryContainer,
     )
 }
 
