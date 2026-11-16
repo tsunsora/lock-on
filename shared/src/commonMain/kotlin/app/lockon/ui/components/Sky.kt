@@ -12,17 +12,12 @@ import androidx.compose.ui.graphics.Color
 internal val DaySky = app.lockon.ui.theme.DayTones.sky
 internal val TwilightSky = app.lockon.ui.theme.TwilightTones.sky
 
-// The launch screen's sky: the app's own, leaning violet, so it fades into the app as a slight turn of hue.
-internal val DayBootSky = listOf(Color(0xFFC9B9F7), Color(0xFFD5C9F9), Color(0xFFE1D9FB))
-internal val TwilightBootSky = listOf(Color(0xFF181546), Color(0xFF1C1850), Color(0xFF221D5A))
-
 /**
  * The sky's gradient as opaque 0xAARRGGBB pixels, row by row: the theme's three tones from top to
- * bottom and nothing else. No glow, beam or shape sits in it (UX rule V7). With [boot] it paints the
- * launch screen's sky.
+ * bottom and nothing else. No glow, beam or shape sits in it (UX rule V7).
  */
-internal fun paintSky(width: Int, height: Int, twilight: Boolean, boot: Boolean = false): IntArray =
-    paintSky(width, height, skyStops(twilight, boot))
+internal fun paintSky(width: Int, height: Int, twilight: Boolean): IntArray =
+    paintSky(width, height, skyStops(twilight))
 
 /** The sky's gradient through any three [stops], top to bottom, such as a Material You sky's (UX rule V3a). */
 internal fun paintSky(width: Int, height: Int, stops: List<Color>): IntArray {
@@ -44,12 +39,7 @@ internal fun paintSky(width: Int, height: Int, stops: List<Color>): IntArray {
 }
 
 /** The top, middle and bottom of a sky. */
-internal fun skyStops(twilight: Boolean, boot: Boolean): List<Color> =
-    if (boot) (if (twilight) TwilightBootSky else DayBootSky) else if (twilight) TwilightSky else DaySky
-
-/** The launch screen's sky, turned to the [seed]'s hue with Material You colours (UX rule V3a). */
-internal fun bootSkyStops(twilight: Boolean, seed: Color?): List<Color> =
-    skyStops(twilight, true).let { stops -> if (seed == null) stops else stops.map { app.lockon.ui.theme.towardSeed(it, seed) } }
+internal fun skyStops(twilight: Boolean): List<Color> = if (twilight) TwilightSky else DaySky
 
 /** The quadratic through [a] at 0, [b] at ½ and [c] at 1. */
 private fun through(a: Float, b: Float, c: Float, t: Float): Float =

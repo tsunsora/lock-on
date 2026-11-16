@@ -1,11 +1,19 @@
 # Changelog
 
-## 26.11.32 (2026-11-16)
+## 26.11.33 (2026-11-16)
 
 On phones, the bottom bar stands apart from the cards under it, and the search row in the deck editor is lighter.
 
 - **Bottom bar at night:** in the dark theme the floating bar sits on a darker step with a thin outline, so it no longer blends into the cards' − and + buttons scrolling under it, whatever your colours.
 - **Search and filters:** the panel behind the search, Filters, Deck / Side and Deck colors is gone. They sit straight over the cards and line up with the cards' edges on both sides.
+
+## 26.11.32 (2026-11-16)
+
+A new app icon and launch screen that match Lock On's Material colours.
+
+- **App icon:** the white Lock On mark on teal, replacing the violet tile, on Android, Windows and macOS. On Android 13 and later it still follows your wallpaper when themed icons are on.
+- **Launch screen:** the new icon on the app's own background, so opening Lock On fades straight into the app without a violet flash. On Android 12 and later the system's splash takes your Material You background colour.
+- **Logo in the header:** the same teal tile and white mark as the icon.
 
 ## 26.11.31 (2026-11-15)
 

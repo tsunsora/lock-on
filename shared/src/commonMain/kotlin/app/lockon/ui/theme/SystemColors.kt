@@ -22,7 +22,6 @@ import com.materialkolor.scheme.SchemeNeutral
 import com.materialkolor.scheme.SchemeTonalSpot
 import com.materialkolor.scheme.SchemeVibrant
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cbrt
 import kotlin.math.cos
@@ -227,28 +226,8 @@ fun ColorScheme.pureBlack(): ColorScheme = copy(
     surfaceContainerLowest = Color.Black, surfaceContainerLow = Color.Black,
 )
 
-/**
- * Reds, pinks, oranges and yellows read as far more colourful than blues at the same chroma, and a maroon
- * or olive sky stops being quiet, so warm hues [h] (OKLCH radians) tint at a little over half as much.
- */
-private fun warmth(h: Float): Float {
-    val degrees = ((h * 180f / PI.toFloat()) + 360f) % 360f
-    return if (degrees < 125f || degrees > 330f) 0.55f else 1f
-}
-
 /** The seed [LockOnTheme] made the app's colours from, or null when Sky and Twilight's own colours show. */
 val LocalThemeSeed = staticCompositionLocalOf<Color?> { null }
-
-/**
- * One of the launch screen's own colours with Material You colours (UX rule V3a): [color] keeps its
- * lightness and its chroma (less for a warm seed, as the neutrals do) and takes the [seed]'s hue, so the
- * launch screen leans toward the accent as much as Sky and Twilight's leans toward violet.
- */
-fun towardSeed(color: Color, seed: Color): Color {
-    val h = Oklch.of(seed).h
-    val c = Oklch.of(color)
-    return Oklch(c.l, c.c * warmth(h), h).toColor().copy(alpha = color.alpha)
-}
 
 /** WCAG contrast between two opaque colours. */
 fun contrast(a: Color, b: Color): Float {
