@@ -29,7 +29,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.lockon.ui.theme.LockOnShapes
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.LaunchedEffect
@@ -105,7 +110,9 @@ fun LegalStamp(legal: Boolean, modifier: Modifier = Modifier) {
     // The gold that carries text on each theme, the same as the full gauge's number.
     val gold = if (isTwilight()) Gold else MaterialTheme.colorScheme.tertiary
     val shape = RoundedCornerShape(8.dp)
-    Crossfade(legal, modifier.drawWithContent {
+    // Fades through rather than across, so Draft and Legal never show on top of each other, while
+    // the tag's shape grows to fit the new word.
+    AnimatedContent(legal, modifier.drawWithContent {
         val w = warmth.value
         if (w > 0f) {
             val outline = shape.createOutline(size, layoutDirection, this)
@@ -113,7 +120,11 @@ fun LegalStamp(legal: Boolean, modifier: Modifier = Modifier) {
             drawContent()
             drawOutline(outline, gold.copy(alpha = w), style = Stroke(1.5.dp.toPx()))
         } else drawContent()
-    }, animationSpec = motion(), label = "legality") { now ->
+    }, transitionSpec = {
+        if (reduce) fadeIn(snap()) togetherWith fadeOut(snap()) using SizeTransform(clip = false) { _, _ -> snap() }
+        else fadeIn(tween(Motion.MEDIUM, Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) using
+            SizeTransform(clip = false) { _, _ -> tween(Motion.LONG, easing = Motion.emphasized) }
+    }, label = "legality") { now ->
         StateTag(now, checkShown = { check.value })
     }
 }
